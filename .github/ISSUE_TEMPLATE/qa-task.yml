@@ -1,0 +1,27 @@
+name: QA Task
+description: e2e test authoring task, created during In Preparation
+title: "[QA] "
+labels: ["type:qa-task", "agent:qa"]
+body:
+  - type: input
+    id: parent-story
+    attributes:
+      label: Parent User Story
+      description: Issue number (e.g. #124)
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria Under Test
+    validations:
+      required: true
+  - type: textarea
+    id: edge-cases
+    attributes:
+      label: Edge Cases Identified
+  - type: input
+    id: test-file
+    attributes:
+      label: Test File Path
+      description: Filled by QA once written, e.g. e2e/checkout.spec.ts

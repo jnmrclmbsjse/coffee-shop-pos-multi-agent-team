@@ -1,0 +1,34 @@
+name: Dev Task
+description: Tech-Lead-authored implementation task, created during In Preparation
+title: "[DEV] "
+labels: ["type:dev-task", "agent:dev"]
+body:
+  - type: input
+    id: parent-story
+    attributes:
+      label: Parent User Story
+      description: Issue number (e.g. #124)
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Pulled from the parent story
+    validations:
+      required: true
+  - type: textarea
+    id: technical-notes
+    attributes:
+      label: Technical Notes (Tech Lead)
+      description: Implementation approach, files/modules likely touched, constraints
+  - type: input
+    id: dependencies
+    attributes:
+      label: Blocked By
+      description: Issue numbers this task depends on, if any
+  - type: input
+    id: pr
+    attributes:
+      label: Pull Request
+      description: Filled by Dev once opened — "Closes #<this issue>"

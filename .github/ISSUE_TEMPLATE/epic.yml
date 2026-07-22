@@ -1,0 +1,23 @@
+name: Epic
+description: A feature/initiative containing multiple stories
+title: "[EPIC] "
+labels: ["type:epic", "agent:po"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+    validations:
+      required: true
+  - type: dropdown
+    id: moscow
+    attributes:
+      label: MoSCoW Priority
+      options: ["Must", "Should", "Could", "Won't"]
+    validations:
+      required: true
+  - type: textarea
+    id: stories
+    attributes:
+      label: Stories
+      description: Linked story issue numbers (rolls up automatically if using native sub-issues on an org repo; otherwise maintain as a checklist here)

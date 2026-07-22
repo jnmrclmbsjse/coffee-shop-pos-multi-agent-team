@@ -1,0 +1,8 @@
+{
+  "_comment": "Maps each bot GitHub username to path prefixes it's allowed to touch in a PR. Any role with an entry here is restricted to exactly those prefixes. Any role NOT listed is unrestricted (e.g. bot-dev — full codebase access is intentional, the real gate for Dev is branch protection blocking direct pushes, not path restriction).",
+
+  "bot-uiux": ["docs/design/"],
+
+  "bot-qa": ["e2e/"],
+  "_qa_note": "Confirmed by ADR 0001: Playwright e2e tests live at repo-root e2e/."
+}

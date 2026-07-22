@@ -1,0 +1,28 @@
+name: Path Restriction Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Job name MUST match the required_status_checks context set in
+# scripts/setup/02-branch-protection.sh (default: "path-restriction-check")
+jobs:
+  path-restriction-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check changed paths against role allow-list
+        run: |
+          python3 scripts/ci/check_path_restrictions.py \
+            "${{ github.event.pull_request.user.login }}" \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}"

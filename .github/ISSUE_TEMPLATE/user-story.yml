@@ -1,0 +1,45 @@
+name: User Story
+description: PO-authored story, converged during In Preparation
+title: "[STORY] "
+labels: ["type:story", "agent:po"]
+body:
+  - type: input
+    id: parent-epic
+    attributes:
+      label: Parent Epic
+      description: Issue number of the parent Epic (e.g. #12)
+    validations:
+      required: true
+  - type: textarea
+    id: story
+    attributes:
+      label: Story
+      description: As a / I want / So that
+      placeholder: |
+        As a ...
+        I want ...
+        So that ...
+    validations:
+      required: true
+  - type: dropdown
+    id: moscow
+    attributes:
+      label: MoSCoW Priority
+      options: ["Must", "Should", "Could", "Won't"]
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Filled during In Preparation, jointly by PO and QA (testability pass)
+  - type: textarea
+    id: breakdown
+    attributes:
+      label: Task Breakdown (Tech Lead)
+      description: Linked Design/Dev/QA task issue numbers and dependencies — filled during In Preparation
+  - type: textarea
+    id: design-ref
+    attributes:
+      label: Design Reference (UI/UX)
+      description: Link to mockup / design tokens used — filled during In Preparation

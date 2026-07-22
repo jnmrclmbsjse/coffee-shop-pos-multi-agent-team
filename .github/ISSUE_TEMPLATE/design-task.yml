@@ -1,0 +1,26 @@
+name: Design Task
+description: UI/UX task, created during In Preparation
+title: "[DESIGN] "
+labels: ["type:design-task", "agent:design"]
+body:
+  - type: input
+    id: parent-story
+    attributes:
+      label: Parent User Story
+      description: Issue number (e.g. #124)
+    validations:
+      required: true
+  - type: textarea
+    id: screens
+    attributes:
+      label: Screens Needed
+  - type: textarea
+    id: tokens
+    attributes:
+      label: Design Tokens Needed
+      description: New or modified tokens this task requires, if any
+  - type: input
+    id: output-link
+    attributes:
+      label: Output Link
+      description: Filled by UI/UX once produced — Claude Design link / docs/design/mockups/ path
