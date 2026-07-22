@@ -1,2 +1,22 @@
-# IDE
-.idea
+# Dependencies and generated output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+playwright-report/
+test-results/
+apps/api/src/generated/prisma/
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# IDE and operating system
+.idea/
+.DS_Store
+*.swp
+
+# Logs
+*.log
+pnpm-debug.log*
