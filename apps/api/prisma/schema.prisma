@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StockCountPhase {
+  OPEN
+  CLOSE
+}
+
+enum SaleKind {
+  PURCHASE
+  VOID
+}
+
+model Location {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String
+  createdAt   DateTime     @default(now()) @map("created_at")
+  stockCounts StockCount[]
+  sales       Sale[]
+
+  @@map("locations")
+}
+
+model Product {
+  id        String           @id @default(uuid()) @db.Uuid
+  sku       String           @unique
+  name      String
+  category  String
+  active    Boolean          @default(true)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  variants  ProductVariant[]
+
+  @@map("products")
+}
+
+model ProductVariant {
+  id         String     @id @default(uuid()) @db.Uuid
+  productId  String     @map("product_id") @db.Uuid
+  name       String
+  priceCents Int        @map("price_cents")
+  active     Boolean    @default(true)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  saleLines  SaleLine[]
+
+  @@unique([productId, name])
+  @@map("product_variants")
+}
+
+model InventoryItem {
+  id              String           @id @default(uuid()) @db.Uuid
+  sku             String           @unique
+  name            String
+  unit            String
+  active          Boolean          @default(true)
+  stockCountLines StockCountLine[]
+
+  @@map("inventory_items")
+}
+
+// Append-only: corrections are additional StockCount records linked with
+// correctsStockCountId. Application code must not update or delete records.
+model StockCount {
+  id                   String           @id @default(uuid()) @db.Uuid
+  locationId           String?          @map("location_id") @db.Uuid
+  businessDate         DateTime         @map("business_date") @db.Date
+  phase                StockCountPhase
+  recordedAt           DateTime         @default(now()) @map("recorded_at")
+  recordedBy           String           @map("recorded_by")
+  correctsStockCountId String?          @map("corrects_stock_count_id") @db.Uuid
+  location             Location?        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  corrects             StockCount?      @relation("StockCountCorrections", fields: [correctsStockCountId], references: [id], onDelete: Restrict)
+  corrections          StockCount[]     @relation("StockCountCorrections")
+  lines                StockCountLine[]
+
+  @@index([locationId, businessDate, phase])
+  @@map("stock_counts")
+}
+
+model StockCountLine {
+  id              String        @id @default(uuid()) @db.Uuid
+  stockCountId    String        @map("stock_count_id") @db.Uuid
+  inventoryItemId String        @map("inventory_item_id") @db.Uuid
+  quantity        Int
+  stockCount      StockCount    @relation(fields: [stockCountId], references: [id], onDelete: Restrict)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([stockCountId, inventoryItemId])
+  @@map("stock_count_lines")
+}
+
+// Append-only and idempotent: clientGeneratedId is supplied by the register
+// and is globally unique. Voids are new records linked through correctsSaleId;
+// application code must not update or delete an existing sale.
+model Sale {
+  id                String     @id @default(uuid()) @db.Uuid
+  clientGeneratedId String     @unique @map("client_generated_id") @db.Uuid
+  locationId        String?    @map("location_id") @db.Uuid
+  kind              SaleKind   @default(PURCHASE)
+  correctsSaleId    String?    @map("corrects_sale_id") @db.Uuid
+  subtotalCents     Int        @map("subtotal_cents")
+  taxCents          Int        @map("tax_cents")
+  totalCents        Int        @map("total_cents")
+  recordedAt        DateTime   @default(now()) @map("recorded_at")
+  location          Location?  @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  corrects          Sale?      @relation("SaleCorrections", fields: [correctsSaleId], references: [id], onDelete: Restrict)
+  corrections       Sale[]     @relation("SaleCorrections")
+  lines             SaleLine[]
+
+  @@index([locationId, recordedAt])
+  @@map("sales")
+}
+
+model SaleLine {
+  id                  String         @id @default(uuid()) @db.Uuid
+  saleId              String         @map("sale_id") @db.Uuid
+  productVariantId    String         @map("product_variant_id") @db.Uuid
+  quantity            Int
+  unitPriceCents      Int            @map("unit_price_cents")
+  lineTotalCents      Int            @map("line_total_cents")
+  productNameSnapshot String         @map("product_name_snapshot")
+  variantNameSnapshot String         @map("variant_name_snapshot")
+  sale                Sale           @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  productVariant      ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+
+  @@map("sale_lines")
+}

@@ -1,0 +1,28 @@
+{
+  "name": "coffee-shop-pos",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.28.1",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "pnpm --recursive --sort run build",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "db:generate": "pnpm --filter @coffee-shop/api db:generate",
+    "db:migrate": "pnpm --filter @coffee-shop/api db:migrate",
+    "dev": "pnpm --parallel --filter @coffee-shop/api --filter @coffee-shop/web run dev",
+    "e2e": "playwright test",
+    "lint": "eslint .",
+    "test": "pnpm --recursive --if-present run test",
+    "typecheck": "pnpm --recursive --if-present run typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@playwright/test": "^1.61.1",
+    "eslint": "^9.39.2",
+    "globals": "^16.5.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.56.1"
+  }
+}
