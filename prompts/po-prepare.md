@@ -31,8 +31,52 @@ If `feasibility:done` marker absent:
   breakdown + marker to the issue).
 - Wait for it. Then re-read the issue and confirm the `feasibility:done` marker
   is present.
-- If the sub-agent failed (no marker, or error marker present): ABORT per rule B
-  — relabel {{ISSUE}} `agent:human`, comment what failed, stop. Do not proceed.
+- If Tech Lead returned `FEASIBILITY BLOCKED — clarification`, run the
+  CLARIFICATION LOOP below (max 3 resolution attempts, then escalate).
+- If it failed any OTHER way (tool error, crash, error marker): ABORT per rule B
+  — relabel {{ISSUE}} `agent:human`, comment what failed, stop.
+
+### Clarification loop (max 3 attempts, then escalate)
+
+Tech Lead posts a structured question:
+<!-- OD-PREPARE:clarify -->
+QUESTION: … / WHY IT BLOCKS: … / CANDIDATE ANSWERS: …
+
+For attempt N (1..3):
+
+a. Read the question. Try to answer it from YOUR PERMITTED SOURCES ONLY:
+- `docs/adr/**`
+- `DISCOVERY.md` and the discovery findings file
+- existing GitHub issues (prior stories and their accepted criteria)
+
+b. THE CITATION RULE — this is the whole point of the loop, do not weaken it:
+You may resolve ONLY if you can point to a specific source that answers the
+question: a named ADR, a section of DISCOVERY.md, or a specific prior issue.
+Quote or reference it explicitly in your amendment.
+
+If no source answers it, you MUST NOT invent an answer, and you MUST NOT
+pick the "most reasonable" candidate. A question with no source is a
+BUSINESS DECISION and belongs to the human. Escalate immediately (step d) —
+do not burn the remaining attempts guessing.
+
+DESCRIPTIVE vs NORMATIVE: discovery sources describe what the app CURRENTLY
+DOES. That is valid evidence for "what is the existing behaviour?" It is NOT
+an answer to "what SHOULD the behaviour be?" Never settle a should-question
+by citing current implementation — that is the system justifying itself.
+
+c. If you can cite a source: EDIT THE STORY BODY so the ambiguity is gone
+(amend the story and/or acceptance criteria — do not just reply in a
+comment; the body is the spec). Comment what you changed and which source
+you used. Remove the `needs-clarification` label. Re-invoke Tech Lead
+(step 1). If Tech Lead blocks again with a NEW question, increment N and
+repeat. If it blocks with the SAME question, your amendment did not land —
+escalate rather than retrying.
+
+d. Escalate (no source found, or N would exceed 3): relabel {{ISSUE}}
+`agent:human`, keep `needs-clarification`, and comment a concise summary —
+the open question, the sources you checked, and why none answered it. This
+is a SUCCESSFUL outcome of the loop, not a failure: an unanswerable question
+reaching a human is the loop working correctly. Stop.
 
 ## Step 2 — Testability loop (QA sub-agent, decision A — QA-only re-runs)
 
