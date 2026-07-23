@@ -1,0 +1,1244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>UCM Coffee Studio · Staff sign-in</title>
+  <style>
+    :root {
+      --background: oklch(98% 0.005 250);
+      --surface: oklch(100% 0 0);
+      --foreground: oklch(22% 0.02 240);
+      --muted: oklch(50% 0.018 240);
+      --border: oklch(90% 0.008 240);
+      --accent: oklch(58% 0.16 145);
+      --accent-hover: oklch(52% 0.16 145);
+      --accent-pressed: oklch(46% 0.14 145);
+      --danger: oklch(48% 0.18 28);
+      --danger-surface: oklch(97% 0.018 28);
+      --focus: oklch(43% 0.14 145);
+      --ink-soft: oklch(36% 0.018 240);
+      --surface-subtle: oklch(96.5% 0.007 240);
+      --border-strong: oklch(76% 0.012 240);
+      --success-surface: oklch(96% 0.025 145);
+      --disabled: oklch(91% 0.008 240);
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --s1: 4px;
+      --s2: 8px;
+      --s3: 12px;
+      --s4: 16px;
+      --s5: 20px;
+      --s6: 24px;
+      --s8: 32px;
+      --s10: 40px;
+      --s12: 48px;
+      --r-sm: 6px;
+      --r-lg: 10px;
+      --shadow-control: 0 2px 5px oklch(22% 0.02 240 / 0.13);
+      --ease: cubic-bezier(.22, 1, .36, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; min-height: 100%; }
+
+    body {
+      min-width: 320px;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input { font: inherit; }
+
+    button, input, [tabindex] { -webkit-tap-highlight-color: transparent; }
+
+    button {
+      color: inherit;
+      cursor: pointer;
+    }
+
+    button:disabled { cursor: not-allowed; }
+
+    :focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    .app {
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: 64px minmax(0, 1fr);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s4);
+      min-width: 0;
+      padding: 0 var(--s6);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      min-width: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      flex: 0 0 auto;
+      border-radius: var(--r-sm);
+      background: var(--foreground);
+      color: var(--surface);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .brand-text {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-name {
+      overflow: hidden;
+      color: var(--foreground);
+      font-size: 15px;
+      font-weight: 750;
+      line-height: 1.2;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .brand-context {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .notes-button,
+    .icon-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--s2);
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0 var(--s3);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-sm);
+      background: var(--surface);
+      box-shadow: var(--shadow-control);
+      font-size: 14px;
+      font-weight: 700;
+      transition: background-color 180ms var(--ease), border-color 180ms var(--ease), transform 180ms var(--ease);
+    }
+
+    .notes-button:hover,
+    .icon-button:hover { background: var(--surface-subtle); border-color: var(--foreground); }
+    .notes-button:active,
+    .icon-button:active { transform: translateY(1px); box-shadow: none; }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      padding: var(--s6);
+    }
+
+    .auth-surface {
+      width: min(100%, 760px);
+      max-height: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      box-shadow: 0 2px 5px oklch(22% 0.02 240 / .08);
+    }
+
+    .view {
+      display: none;
+      min-width: 0;
+      padding: var(--s8);
+      animation: view-in 200ms var(--ease);
+    }
+
+    .view.is-active { display: block; }
+
+    @keyframes view-in {
+      from { opacity: .75; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .view-header { margin-bottom: var(--s6); }
+
+    .view-header h1,
+    .view-header h2 {
+      margin: 0;
+      color: var(--foreground);
+      font-size: 24px;
+      font-weight: 750;
+      letter-spacing: -.02em;
+      line-height: 1.2;
+      text-wrap: balance;
+    }
+
+    .view-header p {
+      max-width: 58ch;
+      margin: var(--s2) 0 0;
+      color: var(--ink-soft);
+      font-size: 15px;
+      font-weight: 500;
+      text-wrap: pretty;
+    }
+
+    .staff-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--s3);
+    }
+
+    .staff-tile {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      min-height: 72px;
+      min-width: 0;
+      padding: var(--s3);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-lg);
+      background: var(--surface);
+      text-align: left;
+      transition: background-color 180ms var(--ease), border-color 180ms var(--ease), transform 180ms var(--ease);
+    }
+
+    .staff-tile:hover { background: var(--surface-subtle); border-color: var(--foreground); }
+    .staff-tile:active { transform: translateY(1px); }
+
+    .avatar {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      color: var(--ink-soft);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .staff-tile span { min-width: 0; }
+
+    .staff-tile strong,
+    .identity-copy strong {
+      display: block;
+      overflow: hidden;
+      font-size: 16px;
+      font-weight: 750;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .staff-tile small,
+    .identity-copy small {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .alternate-path {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s4);
+      margin-top: var(--s6);
+      padding-top: var(--s5);
+      border-top: 1px solid var(--border);
+    }
+
+    .alternate-path p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .text-button {
+      min-height: 44px;
+      flex: 0 0 auto;
+      padding: 0 var(--s3);
+      border: 1px solid transparent;
+      border-radius: var(--r-sm);
+      background: transparent;
+      color: var(--focus);
+      font-size: 14px;
+      font-weight: 750;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .text-button:hover { background: var(--surface-subtle); }
+    .text-button:disabled { color: var(--muted); text-decoration: none; background: transparent; }
+
+    .pin-layout {
+      display: grid;
+      grid-template-columns: minmax(190px, .8fr) minmax(300px, 1.2fr);
+      gap: var(--s8);
+      align-items: start;
+    }
+
+    .identity-panel {
+      min-width: 0;
+      padding-right: var(--s8);
+      border-right: 1px solid var(--border);
+    }
+
+    .identity-row {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      min-width: 0;
+      margin-bottom: var(--s5);
+    }
+
+    .identity-row .avatar {
+      border-color: var(--accent);
+      background: var(--success-surface);
+      color: var(--focus);
+    }
+
+    .identity-copy { min-width: 0; }
+
+    .identity-prompt {
+      margin: 0 0 var(--s5);
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .pin-progress {
+      display: grid;
+      grid-template-columns: repeat(4, 44px);
+      gap: var(--s2);
+      margin-bottom: var(--s4);
+    }
+
+    .pin-cell {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 48px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-sm);
+      background: var(--surface);
+      color: var(--foreground);
+      font-size: 22px;
+      line-height: 1;
+      transition: border-color 180ms var(--ease), background-color 180ms var(--ease);
+    }
+
+    .pin-cell.is-filled {
+      border-color: var(--accent);
+      background: var(--success-surface);
+    }
+
+    .pin-cell.is-filled::after { content: "•"; }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(72px, 1fr));
+      gap: var(--s2);
+    }
+
+    .key {
+      min-height: 54px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-sm);
+      background: var(--surface);
+      box-shadow: var(--shadow-control);
+      font-size: 18px;
+      font-weight: 750;
+      transition: background-color 160ms var(--ease), border-color 160ms var(--ease), transform 160ms var(--ease);
+    }
+
+    .key:hover { border-color: var(--foreground); background: var(--surface-subtle); }
+    .key:active { transform: translateY(1px); box-shadow: none; }
+    .key.key-secondary { font-size: 14px; font-weight: 700; }
+    .key:disabled { color: var(--border-strong); background: var(--surface-subtle); box-shadow: none; }
+
+    .pin-submit { margin-top: var(--s3); }
+
+    .primary-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--s2);
+      min-height: 48px;
+      width: 100%;
+      padding: 0 var(--s4);
+      border: 0;
+      border-radius: var(--r-sm);
+      background: var(--accent);
+      color: var(--surface);
+      box-shadow: 0 2px 5px oklch(46% .14 145 / .25);
+      font-size: 15px;
+      font-weight: 750;
+      transition: background-color 180ms var(--ease), transform 180ms var(--ease), box-shadow 180ms var(--ease);
+    }
+
+    .primary-button:hover:not(:disabled) { background: var(--accent-hover); }
+    .primary-button:active:not(:disabled) { background: var(--accent-pressed); transform: translateY(1px); box-shadow: none; }
+    .primary-button:disabled { background: var(--disabled); color: var(--muted); box-shadow: none; }
+
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 700ms linear infinite;
+    }
+
+    .is-loading .spinner { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status {
+      display: none;
+      margin: 0 0 var(--s4);
+      padding: var(--s3) var(--s4);
+      border: 1px solid var(--danger);
+      border-radius: var(--r-sm);
+      background: var(--danger-surface);
+      color: var(--danger);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .status.is-visible { display: block; }
+
+    .empty-state {
+      padding: var(--s8) var(--s6);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--r-lg);
+      background: var(--surface-subtle);
+      text-align: center;
+    }
+
+    .empty-symbol {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      margin: 0 auto var(--s3);
+      border: 1px solid var(--border-strong);
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--ink-soft);
+    }
+
+    .empty-state h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 750;
+    }
+
+    .empty-state p {
+      max-width: 48ch;
+      margin: var(--s2) auto var(--s5);
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .empty-state .primary-button { width: auto; min-width: 210px; }
+
+    .password-form { max-width: 480px; margin: 0 auto; }
+
+    .field { margin-bottom: var(--s4); }
+
+    .field label {
+      display: block;
+      margin-bottom: var(--s2);
+      color: var(--foreground);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .field input {
+      width: 100%;
+      height: 48px;
+      padding: 0 var(--s3);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-sm);
+      background: var(--surface);
+      color: var(--foreground);
+      font-size: 16px;
+      transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+    }
+
+    .field input:hover { border-color: var(--foreground); }
+    .field input:focus { outline: 0; border-color: var(--focus); box-shadow: 0 0 0 3px oklch(43% .14 145 / .2); }
+    .field input:disabled { background: var(--surface-subtle); color: var(--muted); }
+
+    .form-actions {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s3);
+      margin-top: var(--s5);
+    }
+
+    .form-actions .text-button { align-self: center; }
+
+    .success-view {
+      min-height: 360px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
+    .success-mark {
+      display: grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      margin: 0 auto var(--s4);
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--surface);
+      animation: confirm 220ms var(--ease);
+    }
+
+    @keyframes confirm {
+      from { opacity: .6; transform: scale(.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .success-view h1 { margin: 0; font-size: 24px; letter-spacing: -.02em; }
+    .success-view p { margin: var(--s2) 0 0; color: var(--ink-soft); font-weight: 600; }
+
+    .screen-reader-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      background: oklch(22% .02 240 / .38);
+    }
+
+    .drawer-backdrop.is-open { display: block; }
+
+    .notes-drawer {
+      position: fixed;
+      z-index: 30;
+      inset: 0 0 0 auto;
+      width: min(460px, 92vw);
+      overflow-y: auto;
+      background: var(--surface);
+      box-shadow: -4px 0 5px oklch(22% .02 240 / .12);
+      transform: translateX(100%);
+      transition: transform 220ms var(--ease);
+    }
+
+    .notes-drawer.is-open { transform: translateX(0); }
+
+    .drawer-header {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s4);
+      min-height: 64px;
+      padding: 0 var(--s5);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .drawer-header h2 { margin: 0; font-size: 18px; }
+
+    .drawer-body { padding: var(--s5); }
+
+    .notes-section + .notes-section {
+      margin-top: var(--s6);
+      padding-top: var(--s6);
+      border-top: 1px solid var(--border);
+    }
+
+    .notes-section h3 {
+      margin: 0 0 var(--s3);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .notes-section p,
+    .notes-section li {
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .notes-section p { margin: 0; }
+    .notes-section ul { margin: 0; padding-left: var(--s5); }
+    .notes-section li + li { margin-top: var(--s2); }
+
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--s2);
+    }
+
+    .scenario-button {
+      min-height: 44px;
+      padding: var(--s2) var(--s3);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-sm);
+      background: var(--surface);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .scenario-button:hover { background: var(--surface-subtle); border-color: var(--foreground); }
+
+    .copy-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: var(--s3);
+    }
+
+    .copy-table th,
+    .copy-table td {
+      padding: var(--s2) 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--ink-soft);
+      font-size: 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .copy-table th { width: 86px; color: var(--foreground); }
+
+    @media (max-width: 680px) {
+      .app { grid-template-rows: 60px minmax(0, 1fr); }
+      .topbar { padding: 0 var(--s4); }
+      .notes-button span { display: none; }
+      .workspace { place-items: start center; padding: var(--s3); }
+      .view { padding: var(--s5); }
+      .staff-grid { grid-template-columns: 1fr; }
+      .alternate-path { align-items: flex-start; flex-direction: column; gap: var(--s2); }
+      .pin-layout { grid-template-columns: 1fr; gap: var(--s5); }
+      .identity-panel { padding: 0 0 var(--s5); border-right: 0; border-bottom: 1px solid var(--border); }
+      .identity-prompt { margin-bottom: var(--s3); }
+      .pin-progress { margin-bottom: 0; }
+      .keypad { grid-template-columns: repeat(3, minmax(64px, 1fr)); }
+      .key { min-height: 52px; }
+    }
+
+    @media (min-width: 681px) and (orientation: portrait) {
+      .auth-surface { width: min(100%, 640px); }
+      .pin-layout { grid-template-columns: 1fr; gap: var(--s5); }
+      .identity-panel {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: var(--s5);
+        align-items: end;
+        padding: 0 0 var(--s5);
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .identity-row { margin-bottom: var(--s2); }
+      .identity-prompt { margin: 0; }
+      .pin-progress { margin: 0; }
+      .key { min-height: 58px; }
+    }
+
+    @media (max-height: 760px) and (min-width: 681px) {
+      .workspace { padding: var(--s3) var(--s6); }
+      .view { padding: var(--s5) var(--s8); }
+      .view-header { margin-bottom: var(--s4); }
+      .key { min-height: 50px; }
+      .pin-submit { margin-top: var(--s2); }
+      .identity-prompt { margin-bottom: var(--s4); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" data-od-id="staff-sign-in-app">
+    <header class="topbar" data-od-id="application-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">UCM</div>
+        <div class="brand-text">
+          <span class="brand-name">UCM Coffee Studio</span>
+          <span class="brand-context">Staff sign-in</span>
+        </div>
+      </div>
+      <button class="notes-button" id="open-notes" type="button" aria-controls="design-notes" aria-expanded="false" data-od-id="open-design-notes">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M4 5h16M4 12h16M4 19h10"/>
+        </svg>
+        <span>Design notes</span>
+      </button>
+    </header>
+
+    <main class="workspace" data-od-id="sign-in-workspace">
+      <section class="auth-surface" aria-label="Staff sign-in">
+        <div class="view is-active" id="picker-view" data-view="picker" data-od-id="remembered-staff-picker">
+          <header class="view-header">
+            <h1>Who’s signing in?</h1>
+            <p>Choose your name to use your staff PIN.</p>
+          </header>
+          <div class="staff-grid" id="staff-grid">
+            <button class="staff-tile" type="button" data-staff="Maya Santos" data-role="Barista" data-initials="MS" data-od-id="staff-maya-santos">
+              <span class="avatar" aria-hidden="true">MS</span><span><strong>Maya Santos</strong><small>Barista</small></span>
+            </button>
+            <button class="staff-tile" type="button" data-staff="Jordan Lee" data-role="Shift lead" data-initials="JL" data-od-id="staff-jordan-lee">
+              <span class="avatar" aria-hidden="true">JL</span><span><strong>Jordan Lee</strong><small>Shift lead</small></span>
+            </button>
+            <button class="staff-tile" type="button" data-staff="Noah Cruz" data-role="Barista" data-initials="NC" data-od-id="staff-noah-cruz">
+              <span class="avatar" aria-hidden="true">NC</span><span><strong>Noah Cruz</strong><small>Barista</small></span>
+            </button>
+            <button class="staff-tile" type="button" data-staff="Ari Flores" data-role="Cashier" data-initials="AF" data-od-id="staff-ari-flores">
+              <span class="avatar" aria-hidden="true">AF</span><span><strong>Ari Flores</strong><small>Cashier</small></span>
+            </button>
+          </div>
+          <div class="alternate-path">
+            <p>Not listed, or signing in on this device for the first time?</p>
+            <button class="text-button" type="button" data-action="show-password">Use Username and Password</button>
+          </div>
+        </div>
+
+        <div class="view" id="pin-view" data-view="pin" data-od-id="pin-entry">
+          <div class="pin-layout">
+            <section class="identity-panel" aria-labelledby="selected-name">
+              <div>
+                <div class="identity-row">
+                  <div class="avatar" id="selected-avatar" aria-hidden="true">MS</div>
+                  <div class="identity-copy">
+                    <strong id="selected-name">Maya Santos</strong>
+                    <small id="selected-role">Barista</small>
+                  </div>
+                </div>
+                <p class="identity-prompt">Enter your 4-digit staff PIN.</p>
+              </div>
+              <div>
+                <div class="pin-progress" id="pin-progress" aria-hidden="true">
+                  <span class="pin-cell"></span><span class="pin-cell"></span><span class="pin-cell"></span><span class="pin-cell"></span>
+                </div>
+                <span class="screen-reader-only" id="pin-progress-text">0 of 4 PIN digits entered.</span>
+              </div>
+              <button class="text-button" type="button" data-action="choose-staff">Choose another staff member</button>
+            </section>
+
+            <section aria-label="PIN keypad">
+              <div class="status" id="pin-status" role="status" aria-live="polite"></div>
+              <div class="keypad" data-od-id="pin-keypad">
+                <button class="key" type="button" data-digit="1" aria-label="1">1</button>
+                <button class="key" type="button" data-digit="2" aria-label="2">2</button>
+                <button class="key" type="button" data-digit="3" aria-label="3">3</button>
+                <button class="key" type="button" data-digit="4" aria-label="4">4</button>
+                <button class="key" type="button" data-digit="5" aria-label="5">5</button>
+                <button class="key" type="button" data-digit="6" aria-label="6">6</button>
+                <button class="key" type="button" data-digit="7" aria-label="7">7</button>
+                <button class="key" type="button" data-digit="8" aria-label="8">8</button>
+                <button class="key" type="button" data-digit="9" aria-label="9">9</button>
+                <button class="key key-secondary" id="clear-pin" type="button" disabled>Clear</button>
+                <button class="key" type="button" data-digit="0" aria-label="0">0</button>
+                <button class="key key-secondary" id="backspace-pin" type="button" aria-label="Backspace, correct last digit" disabled>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M20 5H9l-5 7 5 7h11a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/><path d="m12 9 6 6m0-6-6 6"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="pin-submit">
+                <button class="primary-button" id="pin-submit" type="button" disabled data-od-id="pin-sign-in">
+                  <span class="spinner" aria-hidden="true"></span><span class="button-label">Sign in</span>
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="view" id="empty-view" data-view="empty" data-od-id="empty-remembered-staff">
+          <header class="view-header">
+            <h1>Who’s signing in?</h1>
+            <p>Choose your name to use your staff PIN.</p>
+          </header>
+          <div class="empty-state">
+            <div class="empty-symbol" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m3-3h-6"/>
+              </svg>
+            </div>
+            <h2>No staff remembered on this device</h2>
+            <p>Sign in with your Username and Password. A successful sign-in will add you to this device for faster PIN access next time.</p>
+            <button class="primary-button" type="button" data-action="show-password">Use Username and Password</button>
+          </div>
+        </div>
+
+        <div class="view" id="password-view" data-view="password" data-od-id="username-password-sign-in">
+          <form class="password-form" id="password-form" novalidate>
+            <header class="view-header">
+              <h1>Sign in with your account</h1>
+              <p>Use your staff account. Administrator credentials are not accepted here.</p>
+            </header>
+            <div class="status" id="password-status" role="status" aria-live="polite"></div>
+            <div class="field">
+              <label for="username">Username</label>
+              <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+            </div>
+            <div class="field">
+              <label for="password">Password</label>
+              <input id="password" name="password" type="password" autocomplete="current-password" required>
+            </div>
+            <div class="form-actions">
+              <button class="primary-button" id="password-submit" type="submit">
+                <span class="spinner" aria-hidden="true"></span><span class="button-label">Sign in</span>
+              </button>
+              <button class="text-button" type="button" data-action="show-picker">Back to remembered staff</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="view" id="success-view" data-view="success" data-od-id="sign-in-success">
+          <div class="success-view" role="status" aria-live="polite">
+            <div>
+              <div class="success-mark" aria-hidden="true">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="m5 12 4 4L19 6"/>
+                </svg>
+              </div>
+              <h1>Signed in</h1>
+              <p>Opening Point of Sale…</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
+  <aside class="notes-drawer" id="design-notes" aria-labelledby="notes-title" aria-hidden="true" data-od-id="design-notes">
+    <header class="drawer-header">
+      <h2 id="notes-title">Design notes</h2>
+      <button class="icon-button" id="close-notes" type="button" aria-label="Close design notes">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </header>
+    <div class="drawer-body">
+      <section class="notes-section">
+        <h3>Exercise prototype states</h3>
+        <div class="scenario-grid">
+          <button class="scenario-button" type="button" data-scenario="picker">Initial picker</button>
+          <button class="scenario-button" type="button" data-scenario="pin">Selected staff + PIN</button>
+          <button class="scenario-button" type="button" data-scenario="empty">Empty remembered list</button>
+          <button class="scenario-button" type="button" data-scenario="password">Username + Password</button>
+          <button class="scenario-button" type="button" data-scenario="loading">Loading / locked</button>
+          <button class="scenario-button" type="button" data-scenario="failure">Generic failure</button>
+          <button class="scenario-button" type="button" data-scenario="throttle">Five-failure throttle</button>
+          <button class="scenario-button" type="button" data-scenario="success">Point of Sale transition</button>
+        </div>
+      </section>
+
+      <section class="notes-section">
+        <h3>Interaction contract</h3>
+        <ul>
+          <li>Remembered staff select a display-name tile, then enter exactly four digits. Sign in stays disabled until all four cells are filled.</li>
+          <li>Backspace removes one digit. Clear removes all digits. Their availability follows the current PIN length.</li>
+          <li>Prototype PIN <strong>1234</strong> succeeds. Other complete PINs use the generic failure. Username <strong>admin</strong> is also rejected generically.</li>
+          <li>A completed Username and Password sign-in remembers the staff member on this browser/device. Use username <strong>fail</strong> to exercise failure.</li>
+          <li>Submitting locks every credential control to prevent double-submit.</li>
+        </ul>
+      </section>
+
+      <section class="notes-section">
+        <h3>Responsive and touch behavior</h3>
+        <ul>
+          <li>At 1024×768, identity and keypad sit side by side. At 768×1024, identity condenses above the keypad.</li>
+          <li>Every digit, Clear, Backspace, staff tile, text action, and submit control is at least 44×44 CSS px. Fields are exactly 48px tall.</li>
+          <li>At both acceptance tablet sizes, the full PIN keypad and submit button remain visible without page scrolling. Mobile uses a single-column staff list and stacked PIN layout.</li>
+        </ul>
+      </section>
+
+      <section class="notes-section">
+        <h3>Accessibility</h3>
+        <ul>
+          <li>Semantic sections and form labels, visible focus rings, high-contrast tokens, icon-only aria labels, and polite aria-live messaging.</li>
+          <li>The masked PIN exposes a text equivalent such as “2 of 4 PIN digits entered.”</li>
+          <li>Number keys also work from the physical keyboard. Backspace, Delete, and Enter mirror their visible controls.</li>
+          <li>Reduced-motion preferences shorten all feedback to an effectively instant state change.</li>
+        </ul>
+      </section>
+
+      <section class="notes-section">
+        <h3>Security and QA copy</h3>
+        <p>Failures never distinguish wrong, unassigned, deactivated, administrator, or nonexistent credentials.</p>
+        <table class="copy-table">
+          <tr><th>Failure</th><td>Sign-in failed. Check your details and try again.</td></tr>
+          <tr><th>Throttle</th><td>Too many sign-in attempts. Another attempt is available in 30 seconds.</td></tr>
+          <tr><th>Success</th><td>Signed in · Opening Point of Sale…</td></tr>
+        </table>
+      </section>
+    </div>
+  </aside>
+
+  <script>
+    (() => {
+      const FAILURE_COPY = "Sign-in failed. Check your details and try again.";
+      const THROTTLE_COPY = "Too many sign-in attempts. Another attempt is available in 30 seconds.";
+      const views = [...document.querySelectorAll("[data-view]")];
+      const pinCells = [...document.querySelectorAll(".pin-cell")];
+      const digitButtons = [...document.querySelectorAll("[data-digit]")];
+      const pinSubmit = document.getElementById("pin-submit");
+      const clearPin = document.getElementById("clear-pin");
+      const backspacePin = document.getElementById("backspace-pin");
+      const pinStatus = document.getElementById("pin-status");
+      const passwordStatus = document.getElementById("password-status");
+      const passwordForm = document.getElementById("password-form");
+      const passwordSubmit = document.getElementById("password-submit");
+      const username = document.getElementById("username");
+      const password = document.getElementById("password");
+      const notes = document.getElementById("design-notes");
+      const backdrop = document.getElementById("drawer-backdrop");
+      const openNotesButton = document.getElementById("open-notes");
+      const closeNotesButton = document.getElementById("close-notes");
+      let activeView = "picker";
+      let pin = "";
+      let selectedStaff = { name: "Maya Santos", role: "Barista", initials: "MS" };
+      let failureCount = 0;
+      let isSubmitting = false;
+      let throttleTimer = null;
+      let lastFocused = null;
+
+      function showView(name, focus = true) {
+        activeView = name;
+        views.forEach(view => view.classList.toggle("is-active", view.dataset.view === name));
+        if (focus) {
+          requestAnimationFrame(() => {
+            const target = document.querySelector(`[data-view="${name}"] button:not(:disabled), [data-view="${name}"] input:not(:disabled)`);
+            target?.focus();
+          });
+        }
+      }
+
+      function setStatus(element, message = "") {
+        element.textContent = message;
+        element.classList.toggle("is-visible", Boolean(message));
+      }
+
+      function updatePin() {
+        pinCells.forEach((cell, index) => cell.classList.toggle("is-filled", index < pin.length));
+        document.getElementById("pin-progress-text").textContent = `${pin.length} of 4 PIN digits entered.`;
+        pinSubmit.disabled = pin.length !== 4 || isSubmitting;
+        clearPin.disabled = pin.length === 0 || isSubmitting;
+        backspacePin.disabled = pin.length === 0 || isSubmitting;
+        digitButtons.forEach(button => button.disabled = pin.length === 4 || isSubmitting);
+      }
+
+      function setSelectedStaff(staff) {
+        selectedStaff = staff;
+        document.getElementById("selected-name").textContent = staff.name;
+        document.getElementById("selected-role").textContent = staff.role;
+        document.getElementById("selected-avatar").textContent = staff.initials;
+      }
+
+      function hydrateRememberedStaff() {
+        const remembered = localStorage.getItem("ucm-remembered-staff");
+        const firstTile = document.querySelector(".staff-tile");
+        if (!remembered || !firstTile) return;
+        const initials = remembered.split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase()).join("") || "ST";
+        firstTile.dataset.staff = remembered;
+        firstTile.dataset.role = "Remembered on this device";
+        firstTile.dataset.initials = initials;
+        firstTile.querySelector(".avatar").textContent = initials;
+        firstTile.querySelector("strong").textContent = remembered;
+        firstTile.querySelector("small").textContent = "Remembered on this device";
+      }
+
+      function resetPinState() {
+        pin = "";
+        isSubmitting = false;
+        pinSubmit.classList.remove("is-loading");
+        pinSubmit.removeAttribute("aria-busy");
+        pinSubmit.querySelector(".button-label").textContent = "Sign in";
+        document.querySelector('[data-action="choose-staff"]').disabled = false;
+        setStatus(pinStatus);
+        updatePin();
+      }
+
+      function setCredentialLock(locked) {
+        isSubmitting = locked;
+        username.disabled = locked;
+        password.disabled = locked;
+        passwordSubmit.disabled = locked;
+        document.querySelectorAll('[data-action="show-picker"]').forEach(button => button.disabled = locked);
+        passwordSubmit.classList.toggle("is-loading", locked);
+        passwordSubmit.toggleAttribute("aria-busy", locked);
+        passwordSubmit.querySelector(".button-label").textContent = locked ? "Signing in…" : "Sign in";
+      }
+
+      function throttle(viewName) {
+        clearTimeout(throttleTimer);
+        const status = viewName === "pin" ? pinStatus : passwordStatus;
+        setStatus(status, THROTTLE_COPY);
+        if (viewName === "pin") {
+          isSubmitting = true;
+          document.querySelector('[data-action="choose-staff"]').disabled = true;
+          updatePin();
+          pinSubmit.disabled = true;
+        } else {
+          setCredentialLock(true);
+        }
+        throttleTimer = setTimeout(() => {
+          failureCount = 0;
+          setStatus(status);
+          if (viewName === "pin") {
+            isSubmitting = false;
+            pin = "";
+            document.querySelector('[data-action="choose-staff"]').disabled = false;
+            updatePin();
+          } else {
+            setCredentialLock(false);
+          }
+        }, 30000);
+      }
+
+      function recordFailure(viewName) {
+        failureCount += 1;
+        if (failureCount >= 5) {
+          throttle(viewName);
+          return;
+        }
+        setStatus(viewName === "pin" ? pinStatus : passwordStatus, FAILURE_COPY);
+      }
+
+      function showSuccess() {
+        failureCount = 0;
+        showView("success", false);
+      }
+
+      function submitPin() {
+        if (pin.length !== 4 || isSubmitting) return;
+        isSubmitting = true;
+        pinSubmit.classList.add("is-loading");
+        pinSubmit.setAttribute("aria-busy", "true");
+        pinSubmit.querySelector(".button-label").textContent = "Signing in…";
+        updatePin();
+        setStatus(pinStatus);
+        window.setTimeout(() => {
+          if (pin === "1234") {
+            showSuccess();
+          } else {
+            isSubmitting = false;
+            pinSubmit.classList.remove("is-loading");
+            pinSubmit.removeAttribute("aria-busy");
+            pinSubmit.querySelector(".button-label").textContent = "Sign in";
+            pin = "";
+            updatePin();
+            recordFailure("pin");
+          }
+        }, 650);
+      }
+
+      hydrateRememberedStaff();
+
+      document.querySelectorAll(".staff-tile").forEach(tile => {
+        tile.addEventListener("click", () => {
+          setSelectedStaff({ name: tile.dataset.staff, role: tile.dataset.role, initials: tile.dataset.initials });
+          resetPinState();
+          showView("pin");
+        });
+      });
+
+      digitButtons.forEach(button => {
+        button.addEventListener("click", () => {
+          if (pin.length < 4 && !isSubmitting) {
+            pin += button.dataset.digit;
+            setStatus(pinStatus);
+            updatePin();
+          }
+        });
+      });
+
+      backspacePin.addEventListener("click", () => {
+        pin = pin.slice(0, -1);
+        setStatus(pinStatus);
+        updatePin();
+      });
+
+      clearPin.addEventListener("click", () => {
+        pin = "";
+        setStatus(pinStatus);
+        updatePin();
+      });
+
+      pinSubmit.addEventListener("click", submitPin);
+
+      document.querySelectorAll('[data-action="choose-staff"], [data-action="show-picker"]').forEach(button => {
+        button.addEventListener("click", () => {
+          resetPinState();
+          setCredentialLock(false);
+          setStatus(passwordStatus);
+          showView("picker");
+        });
+      });
+
+      document.querySelectorAll('[data-action="show-password"]').forEach(button => {
+        button.addEventListener("click", () => {
+          setStatus(passwordStatus);
+          setCredentialLock(false);
+          showView("password");
+        });
+      });
+
+      passwordForm.addEventListener("submit", event => {
+        event.preventDefault();
+        if (isSubmitting) return;
+        if (!username.value || !password.value) {
+          recordFailure("password");
+          return;
+        }
+        setStatus(passwordStatus);
+        setCredentialLock(true);
+        window.setTimeout(() => {
+          if (username.value.toLowerCase() === "fail" || username.value.toLowerCase() === "admin") {
+            setCredentialLock(false);
+            recordFailure("password");
+          } else {
+            const remembered = username.value.trim();
+            if (remembered) {
+              localStorage.setItem("ucm-remembered-staff", remembered);
+            }
+            showSuccess();
+          }
+        }, 650);
+      });
+
+      document.addEventListener("keydown", event => {
+        if (activeView !== "pin" || isSubmitting || notes.classList.contains("is-open")) return;
+        if (/^\d$/.test(event.key) && pin.length < 4) {
+          pin += event.key;
+          setStatus(pinStatus);
+          updatePin();
+        } else if (event.key === "Backspace") {
+          pin = pin.slice(0, -1);
+          updatePin();
+        } else if (event.key === "Delete") {
+          pin = "";
+          updatePin();
+        } else if (event.key === "Enter" && pin.length === 4) {
+          submitPin();
+        }
+      });
+
+      function openNotes() {
+        lastFocused = document.activeElement;
+        notes.classList.add("is-open");
+        backdrop.classList.add("is-open");
+        notes.setAttribute("aria-hidden", "false");
+        openNotesButton.setAttribute("aria-expanded", "true");
+        document.body.style.overflow = "hidden";
+        closeNotesButton.focus();
+      }
+
+      function closeNotes() {
+        notes.classList.remove("is-open");
+        backdrop.classList.remove("is-open");
+        notes.setAttribute("aria-hidden", "true");
+        openNotesButton.setAttribute("aria-expanded", "false");
+        document.body.style.overflow = "";
+        lastFocused?.focus();
+      }
+
+      openNotesButton.addEventListener("click", openNotes);
+      closeNotesButton.addEventListener("click", closeNotes);
+      backdrop.addEventListener("click", closeNotes);
+
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && notes.classList.contains("is-open")) closeNotes();
+        if (event.key === "Tab" && notes.classList.contains("is-open")) {
+          const focusable = [...notes.querySelectorAll("button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex='-1'])")];
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
+      });
+
+      document.querySelectorAll("[data-scenario]").forEach(button => {
+        button.addEventListener("click", () => {
+          clearTimeout(throttleTimer);
+          const scenario = button.dataset.scenario;
+          resetPinState();
+          setCredentialLock(false);
+          setStatus(passwordStatus);
+          if (scenario === "pin") {
+            setSelectedStaff(selectedStaff);
+            showView("pin", false);
+          } else if (scenario === "loading") {
+            showView("pin", false);
+            pin = "1234";
+            isSubmitting = true;
+            pinSubmit.classList.add("is-loading");
+            pinSubmit.setAttribute("aria-busy", "true");
+            pinSubmit.querySelector(".button-label").textContent = "Signing in…";
+            updatePin();
+          } else if (scenario === "failure") {
+            showView("pin", false);
+            setStatus(pinStatus, FAILURE_COPY);
+          } else if (scenario === "throttle") {
+            showView("pin", false);
+            failureCount = 5;
+            throttle("pin");
+          } else {
+            showView(scenario, false);
+          }
+          closeNotes();
+        });
+      });
+
+      updatePin();
+    })();
+  </script>
+</body>
+</html>
