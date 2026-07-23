@@ -1,5 +1,7 @@
 # Coffee Shop POS
 
+Identity check.
+
 Internal point-of-sale, catalog, and manual inventory-counting system for a
 coffee shop. Architecture decisions are recorded in
 [`docs/adr/0001-initial-stack.md`](docs/adr/0001-initial-stack.md).
