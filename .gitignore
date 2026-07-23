@@ -6,6 +6,7 @@ coverage/
 playwright-report/
 test-results/
 apps/api/src/generated/prisma/
+.poll-state/
 
 # Local configuration
 .env
@@ -20,3 +21,4 @@ apps/api/src/generated/prisma/
 # Logs
 *.log
 pnpm-debug.log*
+logs/
