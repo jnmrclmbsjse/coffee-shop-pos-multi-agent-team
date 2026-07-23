@@ -37,7 +37,23 @@ tokens into the project token file — this is the one write-scope UI/UX has).
 If Open Design errors mid-generation (not a daemon-down case): fail clean per
 rule B — error comment, return `DESIGN ERROR — <reason>`, stop.
 
-## Step 3 — Self-report (required)
+## Step 3 — Commit the design output (required)
+
+The files you just generated exist only in the working tree until you commit
+them. Design output that is never committed is lost the moment this session
+ends, and the reference you write on the issue will point at nothing.
+
+- Create a branch, stage ONLY your `docs/design/` changes, commit, and push.
+- Open a PR titled e.g. "design: <screen> for #{{ISSUE}}", body referencing the
+  story and the Design Task.
+- Enable auto-merge so it lands without blocking anyone:
+  `gh pr merge --auto --squash <pr-number>`
+- Do NOT approve or manually merge it yourself.
+- If the PR cannot be opened (push rejected, permissions, auto-merge disabled on
+  the repo), do NOT silently continue — report it per rule B and include it in
+  your return status. Opening the PR is a precondition for reporting success.
+
+## Step 4 — Self-report (required)
 
 On success:
 
@@ -58,9 +74,10 @@ On success:
       Task up later, so leaving it open would be phantom work on the board.
 
 3. Then comment on issue #{{ISSUE}}:
-    - The design reference + a one-line description of what was produced.
+    - The design reference, the design PR link, and a one-line description of
+      what was produced.
     - The marker: `<!-- OD-PREPARE:design:done sha={{PROMPT_SHA}} -->`
-    - Return: `DESIGN OK — <path>`.
+    - Return: `DESIGN OK — <path>, PR #<n>`.
 
 Note: because you are a real agent (Codex/Claude Code) driving Open Design, you
 self-report exactly like the other sub-agents. There is no separate scribe.
