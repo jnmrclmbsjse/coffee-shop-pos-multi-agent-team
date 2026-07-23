@@ -86,8 +86,6 @@ rate_record() { date +%s >> "$RATE_LOG"; }
 should_stop() {
   if [[ -f "$STOP_FILE" ]]; then
     echo "!! kill switch ($STOP_FILE) present — stopping."
-    rm $STOP_FILE
-    echo "Removed $STOP_FILE"
     return 0
   fi
   local elapsed_h=$(( ( $(date +%s) - SESSION_START ) / 3600 ))
@@ -98,11 +96,58 @@ should_stop() {
   return 1
 }
 
+# ---------- failure classification ----------
+# ENVIRONMENTAL: permissions, missing config, API rejections. Retrying cannot
+#   help — and worse, an agent that hits a permission wall may hunt for other
+#   credentials on the machine and route AROUND the boundary (observed once
+#   already). These queue immediately, never retry.
+# LOGIC: tests failed, review rejected, build broken. One retry with the failure
+#   reason injected as an issue comment, then queue.
+# Unrecognised failures default to ENVIRONMENTAL — the safer bias: a needless
+# queue entry costs you one glance; a needless retry costs tokens and may
+# trigger the route-around behaviour above.
+classify_failure() {
+  local log="$1"
+  if grep -qiE 'not accessible|permission|unauthoriz|forbidden|\b40[13]\b|authentication|denied|not allowed for this repository|GraphQL: Resource|command not found|no such file|rate limit|could not resolve host|label .* not found|reserved value' "$log" 2>/dev/null; then
+    echo environmental; return
+  fi
+  if grep -qiE 'test.*fail|failing test|assertion|build failed|compilation error|type error|lint error|changes requested' "$log" 2>/dev/null; then
+    echo logic; return
+  fi
+  echo environmental
+}
+
+# ---------- morning queue: one digest issue per day ----------
+queue_issue_number() {
+  local title="Escalations — $(date +%Y-%m-%d)" num
+  num="$(gh issue list --state open --label escalation-digest --limit 20 \
+        --json number,title -q "[.[] | select(.title==\"$title\") | .number] | first" 2>/dev/null)"
+  if [[ -z "$num" || "$num" == "null" ]]; then
+    gh label create escalation-digest --color ededed \
+      --description "Daily digest of overnight escalations" --force >/dev/null 2>&1
+    num="$(gh issue create --title "$title" --label escalation-digest \
+      --body "Escalations for $(date +%Y-%m-%d). Each entry links the issue and its log." \
+      2>/dev/null | grep -oE '[0-9]+$')"
+  fi
+  echo "$num"
+}
+
+queue_escalation() {
+  local issue="$1" why="$2" log="$3" kind="$4" digest
+  digest="$(queue_issue_number)"
+  [[ -z "$digest" ]] && { echo "    !! could not create/find digest issue"; return; }
+  gh issue comment "$digest" --body "**#${issue}** — \`${kind}\`
+${why}
+Log: \`${log}\`" >/dev/null 2>&1
+  echo "    → queued on digest #$digest"
+}
+
 escalate() {
-  local issue="$1" why="$2"
+  local issue="$1" why="$2" log="${3:-}" kind="${4:-unclassified}"
   echo "    !! escalating #$issue — $why"
   gh issue edit "$issue" --add-label agent:human >/dev/null 2>&1
-  gh issue comment "$issue" --body "Poller escalation: $why. Needs a human." >/dev/null 2>&1
+  gh issue comment "$issue" --body "Poller escalation (\`$kind\`): $why. Needs a human." >/dev/null 2>&1
+  [[ -n "$log" ]] && queue_escalation "$issue" "$why" "$log" "$kind"
   rm -f "$STATE_DIR/attempts-$issue"
 }
 
@@ -134,12 +179,29 @@ dispatch() {
     rm -f "$STATE_DIR/attempts-$issue"
   elif (( rc == 124 )); then
     echo "    ✗ #$issue TIMED OUT after ${DISPATCH_TIMEOUT}s"
-    escalate "$issue" "agent run exceeded ${DISPATCH_TIMEOUT}s (log: $log)"
+    escalate "$issue" "agent run exceeded ${DISPATCH_TIMEOUT}s" "$log" "timeout"
   else
-    _bump "attempts-$issue"
-    local n; n="$(attempts_of "$issue")"
-    echo "    ✗ #$issue failed (attempt $n/$MAX_ATTEMPTS) — see $log"
-    (( n >= MAX_ATTEMPTS )) && escalate "$issue" "dispatch failed $n times (log: $log)"
+    local kind; kind="$(classify_failure "$log")"
+    if [[ "$kind" == "environmental" ]]; then
+      echo "    ✗ #$issue failed (environmental) — not retrying"
+      escalate "$issue" "environmental failure — retrying cannot fix this" "$log" "environmental"
+    else
+      _bump "attempts-$issue"
+      local n; n="$(attempts_of "$issue")"
+      echo "    ✗ #$issue failed (logic, attempt $n/$MAX_ATTEMPTS) — see $log"
+      if (( n >= MAX_ATTEMPTS )); then
+        escalate "$issue" "failed $n times after retry" "$log" "logic"
+      else
+        # feed the failure back so the retry has context (agents read issue comments)
+        gh issue comment "$issue" --body "Automated retry context — the previous run failed. Last 25 lines:
+
+\`\`\`
+$(tail -25 "$log" 2>/dev/null)
+\`\`\`
+Address this specifically rather than repeating the same approach." >/dev/null 2>&1
+        echo "    ↻ failure context posted to #$issue; will retry next cycle"
+      fi
+    fi
   fi
 }
 
