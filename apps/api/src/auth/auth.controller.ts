@@ -2,9 +2,13 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Post,
+  Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
+import { Role } from '@coffee-shop/shared';
 import type { LoginRequest, LoginResponse } from '@coffee-shop/shared';
 import type { Response } from 'express';
 import {
@@ -14,6 +18,10 @@ import {
   USERNAME_REQUIRED_MESSAGE,
 } from './auth.constants';
 import { AuthService } from './auth.service';
+import type { AuthenticatedRequest } from './auth.types';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { Roles } from './roles.decorator';
+import { RolesGuard } from './roles.guard';
 
 type SameSite = 'lax' | 'none' | 'strict';
 
@@ -36,6 +44,13 @@ function cookieIsSecure(sameSite: SameSite): boolean {
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Get('session')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  session(@Req() request: AuthenticatedRequest): LoginResponse {
+    return { user: request.user! };
+  }
 
   @Post('login')
   async login(

@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { Role } from '@coffee-shop/shared';
 import type { Response } from 'express';
 import {
   AUTH_COOKIE_MAX_AGE_MS,
@@ -30,6 +31,25 @@ describe('AuthController', () => {
     cookie.mockClear();
     delete process.env.AUTH_COOKIE_SECURE;
     delete process.env.AUTH_COOKIE_SAME_SITE;
+  });
+
+  it('returns the authenticated administrator from the verified session', () => {
+    expect(
+      controller.session({
+        headers: {},
+        user: {
+          id: 'user-id',
+          username: 'admin',
+          role: Role.ADMIN,
+        },
+      }),
+    ).toEqual({
+      user: {
+        id: 'user-id',
+        username: 'admin',
+        role: Role.ADMIN,
+      },
+    });
   });
 
   it('sets a persistent httpOnly secure cookie after login', async () => {
