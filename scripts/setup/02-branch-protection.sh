@@ -1,32 +1,50 @@
 #!/usr/bin/env bash
-# Sets branch protection on the default branch:
-#  - no direct pushes (PR required) — this is what enforces Dev's
-#    "no direct push to default" restriction at the platform level
-#  - 1 required approving review (Tech Lead's PAT is the one with approve rights)
-#  - author cannot approve their own PR
-#  - required status check placeholder for the path-restriction CI job (§ path-restriction)
+# Sets branch protection on the default branch.
 #
-# Usage: ./02-branch-protection.sh <owner/repo> <branch> [required-check-name]
+#  - no direct pushes (PR required) — enforces "Dev never pushes to default"
+#    at the platform level rather than by prompt trust
+#  - required status check: the path-restriction CI job
+#  - required_approving_review_count = 0 by default, so auto-merge works on
+#    green CI without an approval deadlock (you have one machine account; you
+#    cannot approve your own PRs). Raise to 1 once per-role GitHub App
+#    identities exist.
+#
+# Usage: ./02-branch-protection.sh <owner/repo> <branch> [required-check-name] [review-count]
 set -euo pipefail
-REPO="${1:?Usage: 02-branch-protection.sh <owner/repo> <branch> [required-check-name]}"
-BRANCH="${2:?Provide the default branch name, e.g. main}"
+REPO="${1:?Usage: 02-branch-protection.sh <owner/repo> <branch> [check-name] [review-count]}"
+BRANCH="${2:?Provide the default branch name, e.g. master}"
 CHECK_NAME="${3:-path-restriction-check}"
+REVIEWS="${4:-0}"
 
-gh api \
-  --method PUT \
-  -H "Accept: application/vnd.github+json" \
-  "repos/${REPO}/branches/${BRANCH}/protection" \
-  -f "required_status_checks[strict]=true" \
-  -f "required_status_checks[contexts][]=${CHECK_NAME}" \
-  -F "enforce_admins=true" \
-  -f "required_pull_request_reviews[required_approving_review_count]=1" \
-  -F "required_pull_request_reviews[dismiss_stale_reviews]=true" \
-  -F "required_pull_request_reviews[require_code_owner_reviews]=false" \
-  -F "restrictions=null" \
-  -F "allow_force_pushes=false" \
-  -F "allow_deletions=false"
+# NOTE: this endpoint needs a real JSON body — `gh api -f` stringifies values
+# ("true" instead of true, "0" instead of 0) and 422s on the nested objects.
+jq -n \
+  --arg check "$CHECK_NAME" \
+  --argjson reviews "$REVIEWS" '
+{
+  required_status_checks: { strict: true, contexts: [$check] },
+  enforce_admins: true,
+  required_pull_request_reviews: {
+    required_approving_review_count: $reviews,
+    dismiss_stale_reviews: true,
+    require_code_owner_reviews: false
+  },
+  restrictions: null,
+  allow_force_pushes: false,
+  allow_deletions: false
+}' | gh api --method PUT \
+      -H "Accept: application/vnd.github+json" \
+      "repos/${REPO}/branches/${BRANCH}/protection" \
+      --input -
 
+echo
 echo "Branch protection applied to ${REPO}@${BRANCH}."
-echo "NOTE: '${CHECK_NAME}' must exist as an actual CI job before this becomes effective —"
-echo "GitHub will otherwise show the check as pending forever and block all merges."
-echo "Verify with: gh api repos/${REPO}/branches/${BRANCH}/protection"
+echo "  required check : ${CHECK_NAME}"
+echo "  required reviews: ${REVIEWS}"
+echo
+echo "WARNING: '${CHECK_NAME}' must exist and actually run on PRs, or every merge"
+echo "will block on a check that never reports. Verify first:"
+echo "  gh run list --workflow=path-restriction.yml --limit 5"
+echo
+echo "Verify protection with:"
+echo "  gh api repos/${REPO}/branches/${BRANCH}/protection"
