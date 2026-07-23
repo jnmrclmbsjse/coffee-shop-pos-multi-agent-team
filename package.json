@@ -11,6 +11,7 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "pnpm --filter @coffee-shop/api db:generate",
     "db:migrate": "pnpm --filter @coffee-shop/api db:migrate",
+    "db:seed": "pnpm --filter @coffee-shop/api db:seed",
     "dev": "pnpm --parallel --filter @coffee-shop/api --filter @coffee-shop/web run dev",
     "e2e": "playwright test",
     "lint": "eslint .",
