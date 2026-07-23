@@ -32,3 +32,5 @@ pnpm dev
 Run the repository checks with `pnpm check`. Playwright browsers can be
 installed with `pnpm exec playwright install`, then the future E2E suite can be
 run with `pnpm e2e`.
+
+Identity verification is performed through the pull request workflow.
