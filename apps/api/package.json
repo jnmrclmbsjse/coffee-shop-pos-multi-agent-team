@@ -3,14 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "build": "pnpm --filter @coffee-shop/shared build && nest build",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
     "dev": "nest start --watch",
     "start": "node dist/main.js",
-    "test": "jest --runInBand",
-    "typecheck": "tsc --noEmit"
+    "test": "pnpm --filter @coffee-shop/shared build && jest --runInBand",
+    "typecheck": "pnpm --filter @coffee-shop/shared build && tsc --noEmit"
   },
   "dependencies": {
     "@coffee-shop/shared": "workspace:*",
