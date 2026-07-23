@@ -4,6 +4,9 @@
 #  - no direct pushes (PR required) — enforces "Dev never pushes to default"
 #    at the platform level rather than by prompt trust
 #  - required status check: the path-restriction CI job
+#    strict=false deliberately: with several PRs landing, `strict: true` makes
+#    every branch stale the moment another merges ("not up to date with base"),
+#    forcing a rebase round-trip per PR. Unworkable for an autonomous pipeline.
 #  - required_approving_review_count = 0 by default, so auto-merge works on
 #    green CI without an approval deadlock (you have one machine account; you
 #    cannot approve your own PRs). Raise to 1 once per-role GitHub App
@@ -22,7 +25,7 @@ jq -n \
   --arg check "$CHECK_NAME" \
   --argjson reviews "$REVIEWS" '
 {
-  required_status_checks: { strict: true, contexts: [$check] },
+  required_status_checks: { strict: false, contexts: [$check] },
   enforce_admins: true,
   required_pull_request_reviews: {
     required_approving_review_count: $reviews,
