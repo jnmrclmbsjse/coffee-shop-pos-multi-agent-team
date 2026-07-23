@@ -10,6 +10,8 @@
 #   - advances the story's QA Task to `Ready for QA` ONLY when ALL dev tasks for
 #     the parent story are closed (e2e needs the whole feature, not one slice)
 set -euo pipefail
+source "$(dirname "$0")/_common.sh"
+as_human
 PR="${1:?Usage: merge-and-advance.sh <pr-number> <dev-task-issue-number>}"
 TASK="${2:?Provide the dev task issue number}"
 

@@ -4,6 +4,7 @@
 # For a long requirement, put it in a file and pass: "$(cat req.txt)"
 set -euo pipefail
 source "$(dirname "$0")/_common.sh"
+as_human
 REQUIREMENT="${1:?Usage: po-intake.sh \"<requirement text>\"}"
 
 sha="$(prompt_sha)"
