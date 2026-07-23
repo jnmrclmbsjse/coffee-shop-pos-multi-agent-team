@@ -1,7 +1,13 @@
 name: Bug
 description: Filed by QA when a story fails acceptance testing
 title: "[BUG] "
-labels: ["type:bug", "agent:dev"]
+# NOTE: this template deliberately applies NO `agent:*` routing label.
+# Routing labels are what the poller dispatches on — applying one at
+# creation makes an issue eligible for pickup before its gating
+# conditions are met (e.g. a QA task picked up before its dev tasks
+# merged, or a blocked dev task dispatched early). Agents/scripts apply
+# `agent:*` deliberately when the work is actually ready.
+labels: ["type:bug"]
 body:
   - type: input
     id: parent-story

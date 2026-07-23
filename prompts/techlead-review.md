@@ -11,14 +11,19 @@ See CLAUDE.md for identity/boundaries. ONE review pass only (see below).
    (money in cents, append-only, location_id, idempotent writes); test coverage
    present and meaningful; no scope creep; no changes outside appropriate paths.
 3. Reach a verdict:
-   - APPROVE: leave inline comments if helpful, `gh pr review --approve`.
-     Then relabel {{ISSUE}} `agent:qa`... NO — do NOT relabel to qa on approve.
-     On approve, LEAVE the issue as-is at `Ready for Review`: the HUMAN merges,
-     and the merge (via merge-and-advance) is what moves it to Ready for QA.
-     Just approve and comment "approved, ready for human merge".
-   - REQUEST CHANGES: `gh pr review --request-changes` with SPECIFIC, actionable
-     inline comments. Set status `Changes Requested`, relabel {{ISSUE}}
-     `agent:dev` (remove `agent:tech-lead`).
+    - APPROVE: leave inline comments if helpful, `gh pr review --approve`.
+      Then you MUST clear your own routing label, or the poller will re-dispatch
+      this review every cycle forever:
+      `gh issue edit {{ISSUE}} --remove-label agent:tech-lead --add-label agent:human`
+      Leave Status at `Ready for Review`. `agent:human` here means "waiting on the
+      human to merge" — merge-and-advance is what moves it onward. Comment
+      "approved, awaiting merge".
+      (If self-approval is rejected because the PR is authored by the same
+      account running this review, say so plainly in your comment and still
+      apply the label change above — the label + status carry the verdict.)
+    - REQUEST CHANGES: `gh pr review --request-changes` with SPECIFIC, actionable
+      inline comments. Set status `Changes Requested`, relabel {{ISSUE}}
+      `agent:dev` (remove `agent:tech-lead`).
 
 ## One-pass rule (important)
 
