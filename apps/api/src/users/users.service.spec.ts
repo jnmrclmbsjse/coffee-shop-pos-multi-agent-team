@@ -20,4 +20,18 @@ describe('UsersService', () => {
       },
     });
   });
+
+  it('looks up a staff account by its exact identifier', async () => {
+    const findUnique = jest.fn().mockResolvedValue(null);
+    const prisma = {
+      user: { findUnique },
+    } as unknown as PrismaService;
+    const service = new UsersService(prisma);
+
+    await service.findById('staff-id');
+
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: 'staff-id' },
+    });
+  });
 });

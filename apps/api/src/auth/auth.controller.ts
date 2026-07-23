@@ -9,11 +9,18 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@coffee-shop/shared';
-import type { LoginRequest, LoginResponse } from '@coffee-shop/shared';
+import type {
+  LoginRequest,
+  LoginResponse,
+  StaffLoginResponse,
+  StaffPasswordLoginRequest,
+  StaffPinLoginRequest,
+} from '@coffee-shop/shared';
 import type { Response } from 'express';
 import {
   AUTH_COOKIE_MAX_AGE_MS,
   AUTH_COOKIE_NAME,
+  DEVICE_ID_REQUIRED_MESSAGE,
   PASSWORD_REQUIRED_MESSAGE,
   USERNAME_REQUIRED_MESSAGE,
 } from './auth.constants';
@@ -47,7 +54,7 @@ export class AuthController {
 
   @Get('session')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.STAFF)
   session(@Req() request: AuthenticatedRequest): LoginResponse {
     return { user: request.user! };
   }
@@ -65,15 +72,57 @@ export class AuthController {
     }
 
     const result = await this.authService.login(body.username, body.password);
+    this.setSessionCookie(response, result.token);
+
+    return result.response;
+  }
+
+  @Post('staff/login')
+  async staffPasswordLogin(
+    @Body() body: Partial<StaffPasswordLoginRequest> | null | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StaffLoginResponse> {
+    const deviceId = this.requireDeviceId(body?.deviceId);
+    const result = await this.authService.staffPasswordLogin(
+      typeof body?.username === 'string' ? body.username : '',
+      typeof body?.password === 'string' ? body.password : '',
+      deviceId,
+    );
+    this.setSessionCookie(response, result.token);
+    return result.response;
+  }
+
+  @Post('staff/pin')
+  async staffPinLogin(
+    @Body() body: Partial<StaffPinLoginRequest> | null | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StaffLoginResponse> {
+    const deviceId = this.requireDeviceId(body?.deviceId);
+    const result = await this.authService.staffPinLogin(
+      typeof body?.staffId === 'string' ? body.staffId : '',
+      typeof body?.pin === 'string' ? body.pin : '',
+      deviceId,
+    );
+    this.setSessionCookie(response, result.token);
+    return result.response;
+  }
+
+  private requireDeviceId(deviceId: unknown): string {
+    if (typeof deviceId !== 'string' || deviceId.trim().length === 0) {
+      throw new BadRequestException(DEVICE_ID_REQUIRED_MESSAGE);
+    }
+
+    return deviceId;
+  }
+
+  private setSessionCookie(response: Response, token: string): void {
     const sameSite = cookieSameSite();
-    response.cookie(AUTH_COOKIE_NAME, result.token, {
+    response.cookie(AUTH_COOKIE_NAME, token, {
       httpOnly: true,
       secure: cookieIsSecure(sameSite),
       sameSite,
       maxAge: AUTH_COOKIE_MAX_AGE_MS,
       path: '/',
     });
-
-    return result.response;
   }
 }
