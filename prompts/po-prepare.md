@@ -39,24 +39,24 @@ If `feasibility:done` marker absent:
 If `testability:done` marker absent, run this loop (max 4 QA runs total: 1
 initial + up to 3 revisions):
 
-  Attempt N (N starts at 1):
-  a. Spawn QA via CLAUDE_EXEC with prompts/qa-testability.md (ISSUE, PROMPT_SHA).
-     Pass the feasibility breakdown as context. QA reviews acceptance criteria
-     for testability, clarity, edge cases.
-  b. QA self-reports its verdict to the issue: either PASS (writes
-     `testability:done` marker) or GAPS (writes a comment listing specific
-     problems, NO done marker).
-  c. Re-read the issue.
-     - If `testability:done` present → exit loop, continue to Step 3.
-     - If GAPS and N < 4 → YOU (as PO) revise the acceptance criteria on the
-       issue to address QA's specific points, increment N, repeat from (a).
-       Re-run QA ONLY. Do NOT re-run design (design hasn't run yet — it runs in
-       Step 3 against final criteria) and do NOT re-run feasibility.
-     - If GAPS and N == 4 → ABORT per rule B: relabel `agent:human`, comment
-       that testability could not converge after 4 attempts with QA's latest
-       gaps, stop.
-  d. If the QA sub-agent itself errored (tool failure, not a GAPS verdict):
-     ABORT per rule B immediately — do not count it as a revision attempt.
+Attempt N (N starts at 1):
+a. Spawn QA via CLAUDE_EXEC with prompts/qa-testability.md (ISSUE, PROMPT_SHA).
+Pass the feasibility breakdown as context. QA reviews acceptance criteria
+for testability, clarity, edge cases.
+b. QA self-reports its verdict to the issue: either PASS (writes
+`testability:done` marker) or GAPS (writes a comment listing specific
+problems, NO done marker).
+c. Re-read the issue.
+- If `testability:done` present → exit loop, continue to Step 3.
+- If GAPS and N < 4 → YOU (as PO) revise the acceptance criteria on the
+issue to address QA's specific points, increment N, repeat from (a).
+Re-run QA ONLY. Do NOT re-run design (design hasn't run yet — it runs in
+Step 3 against final criteria) and do NOT re-run feasibility.
+- If GAPS and N == 4 → ABORT per rule B: relabel `agent:human`, comment
+that testability could not converge after 4 attempts with QA's latest
+gaps, stop.
+d. If the QA sub-agent itself errored (tool failure, not a GAPS verdict):
+ABORT per rule B immediately — do not count it as a revision attempt.
 
 Note: when you revise criteria, make genuinely better criteria addressing QA's
 points — not a reshuffle. If you cannot, the loop will correctly hit the ceiling
@@ -70,10 +70,10 @@ against QA-blessed acceptance criteria, not a draft.
 If `design:done` marker absent:
 - Spawn the design engine via CODEX_EXEC with prompts/uiux-mockup.md (ISSUE,
   PROMPT_SHA). That sub-agent:
-  - verifies the Open Design daemon is up first, and if not, fails clean per
-    rule B (the daemon guard lives inside that prompt, not here),
-  - generates the design via Open Design, writes files to docs/design/,
-  - self-reports: writes the design reference + `design:done` marker to the issue.
+    - verifies the Open Design daemon is up first, and if not, fails clean per
+      rule B (the daemon guard lives inside that prompt, not here),
+    - generates the design via Open Design, writes files to docs/design/,
+    - self-reports: writes the design reference + `design:done` marker to the issue.
 - Wait. Re-read the issue, confirm `design:done` present.
 - If failed/absent: ABORT per rule B — relabel `agent:human`, comment, stop.
 
@@ -88,9 +88,20 @@ Only reached if all three markers are now present
 acceptance criteria present.
 
 - Verify all three markers once more (defensive).
-- Flip status In Preparation → Ready for Dev, and relabel the DEV TASK issues
-  `agent:dev` (the dev tasks Tech Lead created — not the story itself).
-  Use `gh` / the GitHub MCP for the Projects v2 status change.
+- TASKS CARRY REAL STATUS. For each DEV TASK issue Tech Lead created:
+    - set its Projects v2 Status to `Ready for Dev`, AND
+    - ensure it is labeled `agent:dev`.
+      This is what the Dev poller watches — a dev task left in Backlog will never
+      be picked up, even if the story says Ready for Dev.
+      EXCEPTION: a dev task that is blocked-by another open task should be left in
+      `Backlog` (not `Ready for Dev`) and NOT labeled `agent:dev` — it becomes ready
+      only once its blocker closes. Only unblocked dev tasks go to Ready for Dev.
+- Set the QA TASK issue's Status to `Backlog` (not Ready for QA). It becomes
+  ready only after ALL dev tasks for this story are merged — merge-and-advance
+  handles that transition, not you.
+- Set the STORY's Status to `Ready for Dev` as a human-readable rollup. Note the
+  story rollup is not actively maintained after this point; task status is the
+  source of truth.
 - Post a summary comment on the story: which steps ran vs were skipped as
   already-done, how many testability attempts, final status.
 

@@ -22,15 +22,34 @@ prompts/_conventions.md for markers, self-reporting, and failure posture.
    - Dev Task(s) — from the dev-task template, acceptance criteria pulled from
      the story, your technical notes, labeled `type:dev-task`.
    - QA Task — from the qa-task template, labeled `type:qa-task`.
-   - (Design Task issue is optional bookkeeping; the actual design is produced
-     by the design sub-agent later. Create one only if useful for tracking.)
-   Set blocked-by dependencies between tasks where sequential.
+   - Design Task — from the design-task template, labeled `type:design-task`.
+     REQUIRED, not optional: web tasks reference it as a blocker, and the design
+     sub-agent later attaches its output to it.
+     Set blocked-by dependencies between tasks where sequential, using GitHub's
+     native blocked-by relationships.
+
+   IMPORTANT — no placeholder references. After creating the issues you know
+   their real numbers. Write REAL numbers (e.g. "Blocked by #5, #7") into every
+   task body's "Blocked By" / "Depends on" text. Never leave literal placeholders
+   like `#DEV1` or `#DESIGN` in a body. If you must draft text before numbers
+   exist, go back and edit the body once they do.
 
 ## Self-report (required)
 
-On success, write to issue #{{ISSUE}}:
-- A comment summarizing the component mapping + linked task issue numbers.
-- The completion marker: `<!-- OD-PREPARE:feasibility:done sha={{PROMPT_SHA}} -->`
+On success:
+
+1. EDIT THE STORY BODY of issue #{{ISSUE}} (`gh issue edit {{ISSUE}} --body ...`).
+   Replace the placeholder text under the "Task Breakdown (Tech Lead)" section
+   ("_Not started — populated during In Preparation._") with the real content:
+   the component mapping summary and the linked task issue numbers.
+   Preserve all other sections of the body unchanged — read the current body
+   first, modify only that section, and write the whole body back.
+   A story body that still says "Not started" after you ran is a defect: the
+   board must not contradict itself.
+
+2. Then comment on issue #{{ISSUE}}:
+   - A short summary of what you created.
+   - The completion marker: `<!-- OD-PREPARE:feasibility:done sha={{PROMPT_SHA}} -->`
 
 Then return a one-line status to your caller: `FEASIBILITY OK — tasks: #a #b ...`
 or, if you stopped for clarification/feasibility: `FEASIBILITY BLOCKED — <reason>`.

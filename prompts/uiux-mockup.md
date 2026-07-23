@@ -39,11 +39,28 @@ rule B — error comment, return `DESIGN ERROR — <reason>`, stop.
 
 ## Step 3 — Self-report (required)
 
-On success, write to issue #{{ISSUE}}:
-- A comment with the design reference: the path(s) under docs/design/ and any
-  live Open Design URL, plus a one-line description of what was produced.
-- The marker: `<!-- OD-PREPARE:design:done sha={{PROMPT_SHA}} -->`
-- Return: `DESIGN OK — <path>`.
+On success:
+
+1. EDIT THE STORY BODY of issue #{{ISSUE}} (`gh issue edit {{ISSUE}} --body ...`).
+   Replace the placeholder under "Design Reference (UI/UX)"
+   ("_Not started — populated during In Preparation._") with the real design
+   reference: path(s) under docs/design/ and any live Open Design URL.
+   Read the current body first, change only that section, write the whole body
+   back — preserve everything else. A story body still reading "Not started"
+   after you ran is a defect.
+
+2. Complete the Design Task issue Tech Lead created (find it via the story's
+   linked tasks / `type:design-task` label referencing this story):
+    - attach the same design reference to its body,
+    - set its Projects v2 Status to `Done`,
+    - CLOSE the issue (`gh issue close <n>`), and remove its `agent:design` label.
+      The design work finishes inside this run — no agent ever picks the Design
+      Task up later, so leaving it open would be phantom work on the board.
+
+3. Then comment on issue #{{ISSUE}}:
+    - The design reference + a one-line description of what was produced.
+    - The marker: `<!-- OD-PREPARE:design:done sha={{PROMPT_SHA}} -->`
+    - Return: `DESIGN OK — <path>`.
 
 Note: because you are a real agent (Codex/Claude Code) driving Open Design, you
 self-report exactly like the other sub-agents. There is no separate scribe.
