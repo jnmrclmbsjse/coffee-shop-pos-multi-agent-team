@@ -1,8 +1,24 @@
 {
-  "_comment": "Maps each bot GitHub username to path prefixes it's allowed to touch in a PR. Any role with an entry here is restricted to exactly those prefixes. Any role NOT listed is unrestricted (e.g. bot-dev — full codebase access is intentional, the real gate for Dev is branch protection blocking direct pushes, not path restriction).",
+  "_comment": "Maps a PR author's GitHub username to the path prefixes they may touch. An author WITHOUT an entry here is unrestricted. Enforced by .github/workflows/path-restriction.yml on every PR.",
 
-  "bot-uiux": ["docs/design/"],
+  "_current_limitation": "Only two real identities exist today: jnmrclmbsjse (human — runs PO, Tech Lead, QA, UI/UX) and jnmrclmbsjse-dev-bot (Dev agent). Because one account serves several roles, the per-role rows from the least-privilege table (QA -> e2e/ only, UI/UX -> docs/design/ only) CANNOT be enforced by author: restricting jnmrclmbsjse to e2e/ would break its Tech Lead and PO work. Those rows remain policy-only, living in CLAUDE.md/AGENTS.md, until per-role GitHub App identities exist. Only the Dev boundary below is actually enforced.",
 
-  "bot-qa": ["e2e/"],
-  "_qa_note": "Confirmed by ADR 0001: Playwright e2e tests live at repo-root e2e/."
+  "jnmrclmbsjse-dev-bot": [
+    "apps/",
+    "packages/",
+    "e2e/",
+    "prisma/",
+    "scripts/",
+    "prompts/",
+    ".github/",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "turbo.json",
+    "tsconfig.json",
+    ".gitignore",
+    "README.md"
+  ],
+
+  "_dev_bot_rationale": "Dev gets broad codebase write but is explicitly BLOCKED from docs/design/ (UI/UX owns design tokens and mockups) and docs/adr/ (Tech Lead owns architecture decisions). Dev consumes both read-only per AGENTS.md; this check makes that boundary real rather than prompt-trust. If a legitimate Dev PR is blocked by this list, add the missing path here rather than removing the restriction."
 }
