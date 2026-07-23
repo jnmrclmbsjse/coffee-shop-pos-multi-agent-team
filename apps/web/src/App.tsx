@@ -9,8 +9,10 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom';
+import { Role } from '@coffee-shop/shared';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { login } from './auth/api';
+import { StaffSignInPage } from './StaffSignIn';
 
 const DEFAULT_ADMIN_PATH = '/dashboard';
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
@@ -73,7 +75,13 @@ function SessionLoading() {
   );
 }
 
-function ProtectedRoute() {
+function ProtectedRoute({
+  role,
+  signInPath,
+}: {
+  role: Role;
+  signInPath: string;
+}) {
   const auth = useAuth();
   const location = useLocation();
 
@@ -81,12 +89,21 @@ function ProtectedRoute() {
     return <SessionLoading />;
   }
 
+  if (auth.status === 'authenticated' && auth.user?.role !== role) {
+    return (
+      <Navigate
+        replace
+        to={auth.user?.role === Role.STAFF ? '/pos' : DEFAULT_ADMIN_PATH}
+      />
+    );
+  }
+
   if (auth.status === 'signedOut') {
     const returnTo = requestedPath(location.pathname, location.search);
     return (
       <Navigate
         replace
-        to={`/sign-in?returnTo=${encodeURIComponent(returnTo)}`}
+        to={`${signInPath}?returnTo=${encodeURIComponent(returnTo)}`}
       />
     );
   }
@@ -111,10 +128,13 @@ function SignInPage() {
   const formAlertRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (auth.status === 'authenticated') {
+    if (
+      auth.status === 'authenticated' &&
+      auth.user?.role === Role.ADMIN
+    ) {
       navigate(returnTo, { replace: true });
     }
-  }, [auth.status, navigate, returnTo]);
+  }, [auth.status, auth.user?.role, navigate, returnTo]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -335,12 +355,49 @@ function AdminPage({ title }: { title: string }) {
   );
 }
 
+function PointOfSalePage() {
+  const auth = useAuth();
+
+  useEffect(() => {
+    document.title = 'Point of Sale · UCM Coffee Studio';
+  }, []);
+
+  return (
+    <div className="pos-shell">
+      <header className="staff-topbar">
+        <div className="staff-brand">
+          <span className="staff-brand-mark" aria-hidden="true">
+            UCM
+          </span>
+          <span>
+            <strong>UCM Coffee Studio</strong>
+            <small>Point of Sale</small>
+          </span>
+        </div>
+        <span className="pos-staff-name">
+          Signed in as {auth.user?.displayName ?? auth.user?.username}
+        </span>
+      </header>
+      <main className="pos-landing">
+        <p className="eyebrow">Point of Sale</p>
+        <h1>Ready for the next order.</h1>
+        <p>The sales workspace is ready for its upcoming workflow.</p>
+      </main>
+    </div>
+  );
+}
+
 export function AppRoutes() {
   return (
     <AuthProvider>
       <Routes>
         <Route path="/sign-in" element={<SignInPage />} />
-        <Route element={<ProtectedRoute />}>
+        <Route path="/staff/sign-in" element={<StaffSignInPage />} />
+        <Route
+          element={
+            <ProtectedRoute role={Role.ADMIN} signInPath="/sign-in" />
+          }
+        >
           <Route element={<AdminLayout />}>
             <Route
               path="/dashboard"
@@ -356,6 +413,16 @@ export function AppRoutes() {
               element={<AdminPage title="Administrator workspace" />}
             />
           </Route>
+        </Route>
+        <Route
+          element={
+            <ProtectedRoute
+              role={Role.STAFF}
+              signInPath="/staff/sign-in"
+            />
+          }
+        >
+          <Route path="/pos" element={<PointOfSalePage />} />
         </Route>
         <Route path="/" element={<Navigate replace to={DEFAULT_ADMIN_PATH} />} />
       </Routes>
