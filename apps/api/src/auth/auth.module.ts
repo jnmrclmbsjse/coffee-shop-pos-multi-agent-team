@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { AuthService } from './auth.service';
+import { AuthAttemptThrottleService } from './auth-attempt-throttle.service';
 import { UsersModule } from '../users/users.module';
 
 function jwtSecret(config: ConfigService): string {
@@ -29,7 +30,12 @@ function jwtSecret(config: ConfigService): string {
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, RolesGuard],
+  providers: [
+    AuthService,
+    AuthAttemptThrottleService,
+    JwtAuthGuard,
+    RolesGuard,
+  ],
   exports: [JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}

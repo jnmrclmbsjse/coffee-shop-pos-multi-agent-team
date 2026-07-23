@@ -25,7 +25,10 @@ enum Role {
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   username     String   @unique
+  displayName  String   @map("display_name")
   passwordHash String   @map("password_hash")
+  pinHash      String?  @map("pin_hash")
+  isActive     Boolean  @default(true) @map("is_active")
   role         Role
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")

@@ -39,6 +39,30 @@ describe('JwtAuthGuard', () => {
     });
   });
 
+  it('preserves the staff display name from a valid session token', async () => {
+    const verifyAsync = jest.fn().mockResolvedValue({
+      sub: 'staff-id',
+      username: 'staff',
+      displayName: 'Casey Barista',
+      role: Role.STAFF,
+    });
+    const guard = new JwtAuthGuard({
+      verifyAsync,
+    } as unknown as JwtService);
+    const request: AuthenticatedRequest = {
+      headers: { cookie: `${AUTH_COOKIE_NAME}=staff-token` },
+    };
+
+    await guard.canActivate(contextFor(request));
+
+    expect(request.user).toEqual({
+      id: 'staff-id',
+      username: 'staff',
+      displayName: 'Casey Barista',
+      role: Role.STAFF,
+    });
+  });
+
   it.each([
     [{ headers: {} }, undefined],
     [
