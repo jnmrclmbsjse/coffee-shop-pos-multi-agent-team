@@ -25,8 +25,15 @@ prompts/_conventions.md for markers, self-reporting, and failure posture.
    - Design Task — from the design-task template, labeled `type:design-task`.
      REQUIRED, not optional: web tasks reference it as a blocker, and the design
      sub-agent later attaches its output to it.
-     Set blocked-by dependencies between tasks where sequential, using GitHub's
-     native blocked-by relationships.
+     Set blocked-by dependencies between tasks where sequential. Do BOTH of these
+     — they are different mechanisms and only one of them gates automation:
+     (i)  the native GitHub blocked-by relationship (for humans reading the board), AND
+     (ii) the `blocked` LABEL on the blocked task (this is what the poller
+     actually filters on — a task with a native blocker but no `blocked`
+     label WILL be dispatched to Dev prematurely).
+     Also record the blocker in the task body's "Blocked By" field as
+     `Blocked By: #<n>` — merge-and-advance parses that text to know what to
+     unblock when the blocker closes.
 
    IMPORTANT — no placeholder references. After creating the issues you know
    their real numbers. Write REAL numbers (e.g. "Blocked by #5, #7") into every
