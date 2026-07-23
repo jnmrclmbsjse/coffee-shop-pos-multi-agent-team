@@ -12,9 +12,20 @@ prompts/_conventions.md for markers, self-reporting, and failure posture.
    job (see ADR 0001 and CLAUDE.md for the stack and bounded contexts).
 3. If the mapping is genuinely ambiguous (could reasonably map more than one way,
    or PO's intent is unclear): do NOT guess. Relabel {{ISSUE}}
-   `needs-clarification`, comment the specific question for PO, write an ERROR
-   marker (see _conventions.md), and stop. This is a clean failure, not an abort
-   of the whole system — po-prepare will surface it.
+   `needs-clarification` and post a STRUCTURED question comment so PO can act
+   on it mechanically:
+
+       <!-- OD-PREPARE:clarify -->
+       QUESTION: <one specific answerable question>
+       WHY IT BLOCKS: <what you cannot decide without it>
+       CANDIDATE ANSWERS: <the 2-3 interpretations you were choosing between>
+
+   One question per comment. Ask the narrowest question that unblocks you — not
+   a general request for more detail. Then return
+   `FEASIBILITY BLOCKED — clarification` and stop. Do not write a `:done` marker.
+
+   PO will attempt to answer from its permitted sources and re-invoke you. If
+   you are re-invoked and the story now answers the question, proceed normally.
 4. Check technical feasibility against the stack and v1 non-goals (ADR 0001).
    If the story implies a non-goal (offline, hardware, BOM depletion, etc.),
    flag it for scoping rather than breaking it down.
@@ -22,21 +33,21 @@ prompts/_conventions.md for markers, self-reporting, and failure posture.
    of the story (see step 6 — do not treat the body's "Parent User Story" text
    field as sufficient; that field is for humans, the native relationship is
    what gives the story its progress rollup and hierarchy view):
-    - Dev Task(s) — from the dev-task template, acceptance criteria pulled from
-      the story, your technical notes, labeled `type:dev-task`.
-    - QA Task — from the qa-task template, labeled `type:qa-task`.
-    - Design Task — from the design-task template, labeled `type:design-task`.
-      REQUIRED, not optional: web tasks reference it as a blocker, and the design
-      sub-agent later attaches its output to it.
-      Set blocked-by dependencies between tasks where sequential. Do BOTH of these
-      — they are different mechanisms and only one of them gates automation:
-      (i)  the native GitHub blocked-by relationship (for humans reading the board), AND
-      (ii) the `blocked` LABEL on the blocked task (this is what the poller
-      actually filters on — a task with a native blocker but no `blocked`
-      label WILL be dispatched to Dev prematurely).
-      Also record the blocker in the task body's "Blocked By" field as
-      `Blocked By: #<n>` — merge-and-advance parses that text to know what to
-      unblock when the blocker closes.
+   - Dev Task(s) — from the dev-task template, acceptance criteria pulled from
+     the story, your technical notes, labeled `type:dev-task`.
+   - QA Task — from the qa-task template, labeled `type:qa-task`.
+   - Design Task — from the design-task template, labeled `type:design-task`.
+     REQUIRED, not optional: web tasks reference it as a blocker, and the design
+     sub-agent later attaches its output to it.
+     Set blocked-by dependencies between tasks where sequential. Do BOTH of these
+     — they are different mechanisms and only one of them gates automation:
+     (i)  the native GitHub blocked-by relationship (for humans reading the board), AND
+     (ii) the `blocked` LABEL on the blocked task (this is what the poller
+     actually filters on — a task with a native blocker but no `blocked`
+     label WILL be dispatched to Dev prematurely).
+     Also record the blocker in the task body's "Blocked By" field as
+     `Blocked By: #<n>` — merge-and-advance parses that text to know what to
+     unblock when the blocker closes.
 
 6. ATTACH EACH TASK AS A NATIVE SUB-ISSUE of story #{{ISSUE}}. Filling the
    "Parent User Story" text field is NOT enough — that is prose, not a
@@ -78,8 +89,8 @@ On success:
    board must not contradict itself.
 
 2. Then comment on issue #{{ISSUE}}:
-    - A short summary of what you created.
-    - The completion marker: `<!-- OD-PREPARE:feasibility:done sha={{PROMPT_SHA}} -->`
+   - A short summary of what you created.
+   - The completion marker: `<!-- OD-PREPARE:feasibility:done sha={{PROMPT_SHA}} -->`
 
 Then return a one-line status to your caller: `FEASIBILITY OK — tasks: #a #b ...`
 or, if you stopped for clarification/feasibility: `FEASIBILITY BLOCKED — <reason>`.
