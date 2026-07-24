@@ -4,15 +4,40 @@ export interface Product {
   id: string;
   sku: string;
   name: string;
-  category: string;
+  categoryId: string;
+  category: CatalogCategory;
+  active: boolean;
+  available: boolean;
   variants: ProductVariant[];
+}
+
+export interface CatalogCategory {
+  id: string;
+  name: string;
+  sortWeight: number;
+  active: boolean;
+}
+
+export interface CatalogCategorySummary extends CatalogCategory {
+  productCount: number;
 }
 
 export interface ProductVariant {
   id: string;
   name: string;
   priceCents: MoneyCents;
+  sortWeight: number;
+  active: boolean;
+  cupInventoryItemId: string | null;
+  lidInventoryItemId: string | null;
 }
+
+export interface InventoryItemOption {
+  id: string;
+  name: string;
+}
+
+export type ProductListSort = 'category' | 'name' | 'active';
 
 export type StockCountPhase = 'open' | 'close';
 
