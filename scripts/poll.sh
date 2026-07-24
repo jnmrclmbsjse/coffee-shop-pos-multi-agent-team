@@ -41,9 +41,9 @@ TIMEOUT_BIN=""
 command -v timeout  >/dev/null 2>&1 && TIMEOUT_BIN="timeout"
 [[ -z "$TIMEOUT_BIN" ]] && command -v gtimeout >/dev/null 2>&1 && TIMEOUT_BIN="gtimeout"
 
-label_for()  { case "$1" in dev) echo agent:dev;; qa) echo agent:qa;; tech-lead) echo agent:tech-lead;; esac; }
-script_for() { case "$1" in dev) echo scripts/dev-pickup.sh;; qa) echo scripts/qa-test.sh;; tech-lead) echo scripts/techlead-review.sh;; prepare) echo scripts/po-prepare.sh;; esac; }
-single_for() { case "$1" in dev|qa|prepare) echo 1;; tech-lead) echo 0;; esac; }
+label_for()  { case "$1" in dev) echo agent:dev;; qa) echo agent:qa;; tech-lead) echo agent:tech-lead;; po) echo agent:po;; esac; }
+script_for() { case "$1" in dev) echo scripts/dev-pickup.sh;; qa) echo scripts/qa-test.sh;; tech-lead) echo scripts/techlead-review.sh;; prepare) echo scripts/po-prepare.sh;; po) echo scripts/po-clarify.sh;; esac; }
+single_for() { case "$1" in dev|qa|prepare) echo 1;; tech-lead|po) echo 0;; esac; }
 
 # ---------- atomic lock ----------
 acquire_lock() {
@@ -382,6 +382,10 @@ poll_discovery() {
   (( rc == 0 )) && echo "    ✓ discovery completed" || echo "    ✗ discovery failed (rc=$rc) — see $log"
 }
 
+# NOTE: poll_role's filter excludes only `blocked` and `agent:human`. Issues in
+# the `po` lane always carry `needs-clarification` as well — that is deliberate
+# and must NOT be filtered out here, or clarification questions would never be
+# answered.
 poll_role() {
   local role="$1" label candidates single
   label="$(label_for "$role")"
