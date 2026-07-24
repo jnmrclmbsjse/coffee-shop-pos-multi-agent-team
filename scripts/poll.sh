@@ -26,6 +26,7 @@ MAX_DISPATCHES="${MAX_DISPATCHES:-6}"
 DISPATCH_TIMEOUT="${DISPATCH_TIMEOUT:-1800}"
 MAX_SESSION_HOURS="${MAX_SESSION_HOURS:-8}"
 MAX_PER_HOUR="${MAX_PER_HOUR:-20}"
+DISCOVERY_COOLDOWN="${DISCOVERY_COOLDOWN:-14400}"   # 4h between discovery runs
 DRY_RUN="${DRY_RUN:-0}"
 
 LOG_DIR="logs"; STATE_DIR=".poll-state"; STOP_FILE=".poll-stop"
@@ -205,6 +206,70 @@ Address this specifically rather than repeating the same approach." >/dev/null 2
   fi
 }
 
+# ---------- discovery lane ----------
+# Fires only when the team has genuinely run out of work.
+# PREDICATE (adjust if this doesn't match your intent): no open dev/qa/bug
+# tasks, and no story mid-flight (labeled agent:* or still In Preparation).
+# Epics are excluded deliberately — they are permanent containers that never
+# close, so counting them would mean the backlog is never "empty".
+# Design tasks are excluded too: they are created and closed inside po-prepare
+# and never sit waiting for pickup.
+backlog_empty() {
+  local tasks stories
+  tasks="$(gh issue list --state open --limit 100 --json number,labels \
+    -q '[ .[] | select( (.labels|map(.name)) as $l
+            | ($l|index("type:dev-task")) or ($l|index("type:qa-task")) or ($l|index("type:bug")) )
+          ] | length' 2>/dev/null)"
+  [[ "${tasks:-0}" != "0" ]] && return 1
+
+  stories="$(gh issue list --state open --limit 100 --label type:story --json number,labels \
+    -q '[ .[] | select( (.labels|map(.name)) as $l
+            | ($l|map(startswith("agent:"))|any) or ($l|index("needs-clarification")) )
+          ] | length' 2>/dev/null)"
+  [[ "${stories:-0}" != "0" ]] && return 1
+
+  # UNPREPARED STORIES also count as backlog. Since story templates no longer
+  # apply an agent:* label, a story created by po-intake but never po-prepare'd
+  # is indistinguishable by labels from a finished one. Without this check,
+  # discovery would keep filing new stories on top of unstarted ones.
+  # A converged story carries the feasibility:done marker in its comments.
+  local s
+  for s in $(gh issue list --state open --limit 100 --label type:story \
+             --json number -q '.[].number' 2>/dev/null); do
+    if ! gh issue view "$s" --json comments \
+         -q '[.comments[].body] | join(" ")' 2>/dev/null \
+         | grep -q 'OD-PREPARE:feasibility:done'; then
+      return 1        # at least one story still needs preparing
+    fi
+  done
+  return 0
+}
+
+poll_discovery() {
+  local last now
+  last="$(_get discovery-last)"
+  now=$(date +%s)
+  if (( now - last < DISCOVERY_COOLDOWN )); then return 0; fi
+  if ! backlog_empty; then return 0; fi
+
+  echo "  [discovery] backlog empty — exploring v1"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo "    [dry-run] would run: scripts/discovery.sh"
+    return 0                      # do NOT consume the cooldown on a dry run
+  fi
+  echo "$now" > "$STATE_DIR/discovery-last"
+  local ts log; ts="$(date +%Y%m%d-%H%M%S)"; log="$LOG_DIR/discovery-${ts}.log"
+  echo "    → scripts/discovery.sh  (log: $log)"
+  if [[ -n "$TIMEOUT_BIN" && "$DISPATCH_TIMEOUT" != "0" ]]; then
+    "$TIMEOUT_BIN" "$DISPATCH_TIMEOUT" scripts/discovery.sh >"$log" 2>&1
+  else
+    scripts/discovery.sh >"$log" 2>&1
+  fi
+  local rc=$?
+  (( rc == 0 )) && echo "    ✓ discovery completed" || echo "    ✗ discovery failed (rc=$rc) — see $log"
+}
+
 poll_role() {
   local role="$1" label candidates single
   label="$(label_for "$role")"
@@ -252,6 +317,7 @@ echo "poll.sh watching: ${ROLES[*]}"
 echo "  interval=${POLL_INTERVAL}s  attempts=${MAX_ATTEMPTS}  max-dispatches/issue=${MAX_DISPATCHES}"
 echo "  dispatch-timeout=${DISPATCH_TIMEOUT}s  session=${MAX_SESSION_HOURS}h  rate=${MAX_PER_HOUR}/hr"
 echo "  dry-run=${DRY_RUN}  timeout-bin=${TIMEOUT_BIN:-none (no per-run timeout!)}"
+echo "  discovery-cooldown=$(( DISCOVERY_COOLDOWN / 3600 ))h (only when backlog empty)"
 echo "  logs → $LOG_DIR/   state → $STATE_DIR/   kill switch → touch $STOP_FILE"
 echo
 
@@ -260,7 +326,7 @@ while true; do
   echo "[$(date +%H:%M:%S)] polling…"
   for role in "${ROLES[@]}"; do
     should_stop && cleanup
-    poll_role "$role"
+    if [[ "$role" == "discovery" ]]; then poll_discovery; else poll_role "$role"; fi
   done
   sleep "$POLL_INTERVAL"
 done
