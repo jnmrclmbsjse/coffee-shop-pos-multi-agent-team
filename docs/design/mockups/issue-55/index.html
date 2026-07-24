@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="UCM Coffee Studio inventory category, stock item, and par level administration prototype for GitHub issue 55.">
+  <title>Inventory | UCM Coffee Studio</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="responsive.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to inventory content</a>
+
+  <div class="app-shell">
+    <aside class="app-rail" aria-label="Primary navigation" data-od-id="app-navigation">
+      <a class="brand-mark" href="#main-content" aria-label="UCM Coffee Studio home">
+        <span aria-hidden="true">UC</span>
+      </a>
+      <nav class="rail-nav">
+        <button class="rail-link" type="button" title="Register">
+          <span class="rail-symbol" aria-hidden="true">R</span>
+          <span>Register</span>
+        </button>
+        <button class="rail-link" type="button" title="Catalog">
+          <span class="rail-symbol" aria-hidden="true">C</span>
+          <span>Catalog</span>
+        </button>
+        <button class="rail-link is-current" type="button" aria-current="page" title="Inventory">
+          <span class="rail-symbol" aria-hidden="true">I</span>
+          <span>Inventory</span>
+        </button>
+        <button class="rail-link" type="button" title="Reports">
+          <span class="rail-symbol" aria-hidden="true">P</span>
+          <span>Reports</span>
+        </button>
+      </nav>
+      <button class="rail-link rail-account" type="button" title="Admin account">
+        <span class="avatar" aria-hidden="true">AA</span>
+        <span>Admin</span>
+      </button>
+    </aside>
+
+    <header class="mobile-topbar">
+      <a class="brand-mark" href="#main-content" aria-label="UCM Coffee Studio home"><span aria-hidden="true">UC</span></a>
+      <div>
+        <strong>UCM Coffee Studio</strong>
+        <span>Back office</span>
+      </div>
+      <button class="icon-button" type="button" aria-label="Open account menu">AA</button>
+    </header>
+
+    <main class="workspace" id="main-content" tabindex="-1" data-od-id="inventory-workspace">
+      <div class="workspace-inner">
+        <header class="page-heading" data-od-id="inventory-heading">
+          <div>
+            <p class="breadcrumb">Back office / Inventory</p>
+            <h1>Inventory</h1>
+            <p>Configure the stock records used by UCM Coffee Studio. This page does not show live on-hand quantities.</p>
+          </div>
+          <span class="environment-label"><span aria-hidden="true">●</span> UCM Main</span>
+        </header>
+
+        <div class="primary-tabs" role="tablist" aria-label="Inventory sections" data-od-id="inventory-tabs">
+          <button id="stock-tab" class="tab-button is-selected" type="button" role="tab" aria-selected="true" aria-controls="stock-panel" data-tab="stock">
+            Stock items <span class="tab-count" id="stock-tab-count">6</span>
+          </button>
+          <button id="categories-tab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="categories-panel" data-tab="categories" tabindex="-1">
+            Categories <span class="tab-count" id="category-tab-count">5</span>
+          </button>
+        </div>
+
+        <section id="stock-panel" class="tab-panel" role="tabpanel" aria-labelledby="stock-tab" data-od-id="stock-items-view">
+          <div class="section-heading">
+            <div>
+              <h2 data-od-id="stock-items-heading">Stock items</h2>
+              <p>Manage item identity, counting rules, and day-specific par levels.</p>
+            </div>
+            <button class="button button-primary" id="add-item-button" type="button" data-od-id="add-stock-item">
+              <span aria-hidden="true">＋</span> Add stock item
+            </button>
+          </div>
+
+          <section class="filter-surface" aria-labelledby="filter-heading" data-od-id="stock-filters">
+            <div class="filter-topline">
+              <div class="search-field">
+                <label for="search-items" id="filter-heading">Search stock items</label>
+                <div class="input-with-icon">
+                  <span aria-hidden="true">⌕</span>
+                  <input id="search-items" type="search" placeholder="Search by item name" autocomplete="off">
+                </div>
+              </div>
+              <button class="button button-secondary filters-disclosure" id="filters-disclosure" type="button" aria-expanded="false" aria-controls="filter-fields">
+                Filters <span id="filter-active-count" class="count-bubble" hidden>0</span>
+              </button>
+              <button class="button button-quiet clear-filters" id="clear-filters" type="button" disabled>Clear filters</button>
+            </div>
+            <div class="filter-fields" id="filter-fields">
+              <label>Category
+                <select id="category-filter">
+                  <option value="">All categories</option>
+                </select>
+              </label>
+              <label>Count method
+                <select id="method-filter">
+                  <option value="">Any method</option>
+                  <option value="Quantity">Quantity</option>
+                  <option value="Level">Level</option>
+                </select>
+              </label>
+              <label>Reconciled
+                <select id="reconciled-filter">
+                  <option value="">Any state</option>
+                  <option value="true">Reconciled</option>
+                  <option value="false">Not reconciled</option>
+                </select>
+              </label>
+              <label>Critical
+                <select id="critical-filter">
+                  <option value="">Any state</option>
+                  <option value="true">Critical</option>
+                  <option value="false">Not critical</option>
+                </select>
+              </label>
+              <label>Active status
+                <select id="active-filter">
+                  <option value="">Any status</option>
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </label>
+            </div>
+            <div class="active-filter-summary" id="active-filter-summary" aria-live="polite" hidden>
+              <span aria-hidden="true">∩</span>
+              <span id="filter-summary-text">Filters combine with AND logic.</span>
+            </div>
+          </section>
+
+          <div class="list-meta">
+            <p id="result-count" aria-live="polite">6 stock items</p>
+            <p>Saved configuration, not live stock</p>
+          </div>
+
+          <div class="data-surface" id="stock-data-surface" data-od-id="stock-items-table">
+            <div class="table-scroll">
+              <table class="data-table">
+                <caption class="sr-only">Configured stock items and inventory rules</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Unit / size</th>
+                    <th scope="col">Count method</th>
+                    <th scope="col">Critical</th>
+                    <th scope="col">Reconciled</th>
+                    <th scope="col">Active</th>
+                    <th scope="col"><span class="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody id="stock-table-body"></tbody>
+              </table>
+            </div>
+            <div class="mobile-record-list" id="stock-mobile-list"></div>
+            <div class="empty-state" id="stock-empty-state" hidden data-od-id="empty-filtered-state">
+              <span class="empty-symbol" aria-hidden="true">⌕</span>
+              <h3>No stock items match these filters</h3>
+              <p>Remove one or more filters or change the search term. Your saved stock items are unchanged.</p>
+              <button class="button button-secondary" id="empty-clear-filters" type="button">Clear all filters</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="categories-panel" class="tab-panel" role="tabpanel" aria-labelledby="categories-tab" hidden data-od-id="categories-view">
+          <div class="section-heading">
+            <div>
+              <h2 data-od-id="categories-heading">Stock categories</h2>
+              <p>Organize stock items and control their saved display order.</p>
+            </div>
+            <button class="button button-primary" id="add-category-button" type="button" data-od-id="add-category">
+              <span aria-hidden="true">＋</span> Add category
+            </button>
+          </div>
+
+          <div class="inline-notice notice-info" id="category-order-message" role="status">
+            <span class="notice-symbol" aria-hidden="true">i</span>
+            <div>
+              <strong>Order uses saved sort weight</strong>
+              <p>Lower numbers appear first. Edit a weight or use the move controls.</p>
+            </div>
+          </div>
+
+          <div class="data-surface" data-od-id="categories-table">
+            <div class="table-scroll">
+              <table class="data-table categories-table">
+                <caption class="sr-only">Stock category order, status, and stock item counts</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Category</th>
+                    <th scope="col">Sort weight</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Stock items</th>
+                    <th scope="col">Move</th>
+                    <th scope="col"><span class="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody id="category-table-body"></tbody>
+              </table>
+            </div>
+            <div class="mobile-record-list" id="category-mobile-list"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <nav class="mobile-bottom-nav" aria-label="Mobile primary navigation">
+      <button type="button"><span aria-hidden="true">R</span>Register</button>
+      <button type="button"><span aria-hidden="true">C</span>Catalog</button>
+      <button class="is-current" type="button" aria-current="page"><span aria-hidden="true">I</span>Inventory</button>
+      <button type="button"><span aria-hidden="true">P</span>Reports</button>
+    </nav>
+  </div>
+
+  <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+
+  <aside class="editor-drawer" id="item-drawer" aria-labelledby="item-drawer-title" aria-hidden="true" inert data-od-id="stock-item-editor">
+    <form id="item-form" novalidate>
+      <header class="drawer-header">
+        <div>
+          <p class="drawer-context">Stock item</p>
+          <h2 id="item-drawer-title">Edit stock item</h2>
+          <p id="item-saved-caption">Saved configuration</p>
+        </div>
+        <button class="icon-button drawer-close" type="button" aria-label="Close stock item editor">×</button>
+      </header>
+
+      <div class="drawer-body">
+        <div id="item-form-summary" class="inline-notice notice-error" role="alert" tabindex="-1" hidden>
+          <span class="notice-symbol" aria-hidden="true">!</span>
+          <div>
+            <strong>Stock item was not saved</strong>
+            <p>Review the highlighted fields. Saved values were not changed.</p>
+            <ul id="item-form-summary-list"></ul>
+          </div>
+        </div>
+
+        <div id="server-rejected-state" class="inline-notice notice-error" role="alert" tabindex="-1" hidden data-od-id="reconciled-level-error">
+          <span class="notice-symbol" aria-hidden="true">!</span>
+          <div>
+            <strong>Server rejected Reconciled with Level</strong>
+            <p>Reconciled Cup/Lid items must use Quantity. Saved values were not changed.</p>
+            <button class="text-button" id="dismiss-server-error" type="button">Dismiss example</button>
+          </div>
+        </div>
+
+        <section class="form-section" aria-labelledby="details-heading">
+          <div class="form-section-heading">
+            <h3 id="details-heading">Item details</h3>
+            <p>Identity and counting behavior used by inventory setup.</p>
+          </div>
+          <div class="field-grid two-column">
+            <label class="field">Name <span aria-hidden="true">*</span>
+              <input id="item-name" name="name" type="text" required autocomplete="off">
+              <span class="field-error" id="item-name-error"></span>
+            </label>
+            <label class="field">Category <span aria-hidden="true">*</span>
+              <select id="item-category" name="category" required></select>
+              <span class="field-error" id="item-category-error"></span>
+            </label>
+            <label class="field">Unit
+              <input id="item-unit" name="unit" list="unit-options" value="pcs" autocomplete="off">
+              <datalist id="unit-options">
+                <option value="pcs"></option>
+                <option value="ml"></option>
+                <option value="bottle"></option>
+                <option value="carton"></option>
+              </datalist>
+            </label>
+            <label class="field">Size <span class="optional">(optional)</span>
+              <input id="item-size" name="size" type="text" placeholder="Example: 16oz" autocomplete="off">
+            </label>
+          </div>
+
+          <fieldset class="field-group">
+            <legend>Count method</legend>
+            <div class="segmented-control">
+              <label>
+                <input id="method-quantity" type="radio" name="count-method" value="Quantity">
+                <span>Quantity</span>
+              </label>
+              <label>
+                <input id="method-level" type="radio" name="count-method" value="Level">
+                <span>Level</span>
+              </label>
+            </div>
+            <p class="field-help" id="count-method-help">Quantity records whole units. Level records an approximate amount.</p>
+          </fieldset>
+
+          <div class="switch-list">
+            <label class="switch-row">
+              <span>
+                <strong>Critical item</strong>
+                <small>Flag this item for heightened attention in supported workflows.</small>
+              </span>
+              <input id="item-critical" type="checkbox" role="switch">
+              <span class="switch-control" aria-hidden="true"></span>
+            </label>
+            <label class="switch-row">
+              <span>
+                <strong>Reconciled (cup/lid)</strong>
+                <small>Link this item to catalog cup or lid usage.</small>
+              </span>
+              <input id="item-reconciled" type="checkbox" role="switch">
+              <span class="switch-control" aria-hidden="true"></span>
+            </label>
+            <label class="switch-row">
+              <span>
+                <strong>Active</strong>
+                <small>Inactive items remain saved but are unavailable for new configuration.</small>
+              </span>
+              <input id="item-active" type="checkbox" role="switch">
+              <span class="switch-control" aria-hidden="true"></span>
+            </label>
+          </div>
+          <button class="text-button" id="show-server-error" type="button">Show rejected saved example</button>
+        </section>
+
+        <section class="form-section" aria-labelledby="par-levels-heading" data-od-id="par-levels-section">
+          <div class="form-section-heading">
+            <h3 id="par-levels-heading">Par levels</h3>
+            <p>Normal and Peak days are independent. Enter whole units only.</p>
+          </div>
+          <div class="rule-line" aria-label="Validation rule">
+            <span>Urgent</span><span aria-hidden="true">≤</span><span>Low</span><span aria-hidden="true">≤</span><span>Par</span>
+          </div>
+          <div class="par-grid">
+            <fieldset class="par-group">
+              <legend>Normal day</legend>
+              <p>Typical weekday target</p>
+              <div class="par-fields">
+                <label class="field">Par <span aria-hidden="true">*</span>
+                  <input id="normal-par" inputmode="numeric" type="number" min="0" step="1" required aria-describedby="normal-par-error">
+                  <span class="field-error" id="normal-par-error"></span>
+                </label>
+                <label class="field">Low <span class="optional">(optional)</span>
+                  <input id="normal-low" inputmode="numeric" type="number" min="0" step="1" aria-describedby="normal-low-error">
+                  <span class="field-error" id="normal-low-error"></span>
+                </label>
+                <label class="field">Urgent <span class="optional">(optional)</span>
+                  <input id="normal-urgent" inputmode="numeric" type="number" min="0" step="1" aria-describedby="normal-urgent-error">
+                  <span class="field-error" id="normal-urgent-error"></span>
+                </label>
+              </div>
+            </fieldset>
+            <fieldset class="par-group">
+              <legend>Peak day</legend>
+              <p>Weekend or event target</p>
+              <div class="par-fields">
+                <label class="field">Par <span aria-hidden="true">*</span>
+                  <input id="peak-par" inputmode="numeric" type="number" min="0" step="1" required aria-describedby="peak-par-error">
+                  <span class="field-error" id="peak-par-error"></span>
+                </label>
+                <label class="field">Low <span class="optional">(optional)</span>
+                  <input id="peak-low" inputmode="numeric" type="number" min="0" step="1" aria-describedby="peak-low-error">
+                  <span class="field-error" id="peak-low-error"></span>
+                </label>
+                <label class="field">Urgent <span class="optional">(optional)</span>
+                  <input id="peak-urgent" inputmode="numeric" type="number" min="0" step="1" aria-describedby="peak-urgent-error">
+                  <span class="field-error" id="peak-urgent-error"></span>
+                </label>
+              </div>
+            </fieldset>
+          </div>
+          <button class="text-button" id="load-invalid-par" type="button">Load validation example</button>
+        </section>
+
+        <section class="danger-zone" aria-labelledby="delete-item-heading">
+          <div>
+            <h3 id="delete-item-heading">Delete stock item</h3>
+            <p>Items referenced as a Cup or Lid by a catalog product size cannot be deleted.</p>
+          </div>
+          <button class="button button-danger" id="delete-item-button" type="button">Delete item</button>
+        </section>
+        <div id="item-delete-outcome" class="inline-notice" role="status" hidden></div>
+      </div>
+
+      <footer class="drawer-footer">
+        <button class="button button-secondary drawer-close" type="button">Cancel</button>
+        <button class="button button-primary" type="submit">Save stock item</button>
+      </footer>
+    </form>
+  </aside>
+
+  <aside class="editor-drawer" id="category-drawer" aria-labelledby="category-drawer-title" aria-hidden="true" inert data-od-id="category-editor">
+    <form id="category-form" novalidate>
+      <header class="drawer-header">
+        <div>
+          <p class="drawer-context">Stock category</p>
+          <h2 id="category-drawer-title">Edit category</h2>
+          <p>Categories group stock item records.</p>
+        </div>
+        <button class="icon-button drawer-close" type="button" aria-label="Close category editor">×</button>
+      </header>
+      <div class="drawer-body">
+        <div id="category-form-summary" class="inline-notice notice-error" role="alert" hidden>
+          <span class="notice-symbol" aria-hidden="true">!</span>
+          <div>
+            <strong>Category was not saved</strong>
+            <p>Enter a name and a non-negative whole sort weight.</p>
+          </div>
+        </div>
+        <section class="form-section">
+          <div class="field-grid">
+            <label class="field">Name <span aria-hidden="true">*</span>
+              <input id="category-name" type="text" required autocomplete="off">
+              <span class="field-error" id="category-name-error"></span>
+            </label>
+            <label class="field">Sort weight <span aria-hidden="true">*</span>
+              <input id="category-weight" type="number" min="0" step="1" required inputmode="numeric">
+              <span class="field-help">Lower numbers appear first.</span>
+              <span class="field-error" id="category-weight-error"></span>
+            </label>
+          </div>
+          <label class="switch-row">
+            <span>
+              <strong>Active</strong>
+              <small>Inactive categories remain attached to existing stock items.</small>
+            </span>
+            <input id="category-active" type="checkbox" role="switch">
+            <span class="switch-control" aria-hidden="true"></span>
+          </label>
+        </section>
+        <section class="danger-zone" aria-labelledby="delete-category-heading">
+          <div>
+            <h3 id="delete-category-heading">Delete category</h3>
+            <p>Only categories with no stock items can be deleted.</p>
+          </div>
+          <button class="button button-danger" id="delete-category-button" type="button">Delete category</button>
+        </section>
+        <div id="category-delete-outcome" class="inline-notice" role="status" hidden></div>
+      </div>
+      <footer class="drawer-footer">
+        <button class="button button-secondary drawer-close" type="button">Cancel</button>
+        <button class="button button-primary" type="submit">Save category</button>
+      </footer>
+    </form>
+  </aside>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script src="app.js"></script>
+</body>
+</html>
