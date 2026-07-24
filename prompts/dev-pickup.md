@@ -11,8 +11,25 @@ implementing GitHub issue #{{ISSUE}} (a Dev Task, or a Bug that blocks a story).
    blocked and return; do not implement.
 3. If this is a re-run after `Changes Requested` or `QA Rejected`: read the Tech
    Lead review comments / the linked Bug, and address those SPECIFIC points. Do
-   not re-architect or expand scope. If a requested change seems to require
-   scope expansion, relabel `needs-clarification` and stop rather than guessing.
+   not re-architect or expand scope.
+
+3b. IF YOU HIT AN AMBIGUITY you cannot resolve from the issue, its parent story,
+CLAUDE.md/AGENTS.md, or `docs/adr/**` — for example the task requires
+behaviour the approved API or an ADR does not permit — do NOT guess and do
+NOT widen scope to make it work. Hand it to PO:
+
+a. Post a structured question:
+
+        <!-- OD-PREPARE:clarify -->
+        QUESTION: <one specific answerable question>
+        WHY IT BLOCKS: <what you cannot build without it>
+        CANDIDATE ANSWERS: <the 2-3 resolutions you were choosing between>
+
+b. `gh issue edit <n> --add-label agent:po --add-label needs-clarification --remove-label agent:dev`
+c. Make NO application-code changes and open NO PR. Stop.
+
+The `po` poller lane will pick this up; PO answers from a citable source or
+escalates to a human. You will be re-labeled `agent:dev` when it is resolved.
 4. Implement against the stack and conventions (CLAUDE.md/AGENTS.md, ADR 0001):
    TypeScript, money in integer cents, append-only where specified, nullable
    location_id, idempotent sale writes. Write unit tests.
