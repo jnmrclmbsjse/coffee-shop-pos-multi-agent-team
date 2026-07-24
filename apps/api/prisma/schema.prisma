@@ -47,38 +47,63 @@ model Location {
 }
 
 model Product {
-  id        String           @id @default(uuid()) @db.Uuid
-  sku       String           @unique
-  name      String
-  category  String
-  active    Boolean          @default(true)
-  createdAt DateTime         @default(now()) @map("created_at")
-  updatedAt DateTime         @updatedAt @map("updated_at")
-  variants  ProductVariant[]
+  id         String           @id @default(uuid()) @db.Uuid
+  sku        String           @unique
+  name       String
+  categoryId String           @map("category_id") @db.Uuid
+  active     Boolean          @default(true)
+  available  Boolean          @default(true)
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+  category   Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  variants   ProductVariant[]
 
+  @@index([categoryId])
   @@map("products")
 }
 
-model ProductVariant {
-  id         String     @id @default(uuid()) @db.Uuid
-  productId  String     @map("product_id") @db.Uuid
+model Category {
+  id         String    @id @default(uuid()) @db.Uuid
   name       String
-  priceCents Int        @map("price_cents")
-  active     Boolean    @default(true)
-  product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
-  saleLines  SaleLine[]
+  sortWeight Int       @map("sort_weight")
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  products   Product[]
+
+  @@index([sortWeight])
+  @@map("categories")
+}
+
+model ProductVariant {
+  id                 String         @id @default(uuid()) @db.Uuid
+  productId          String         @map("product_id") @db.Uuid
+  name               String
+  priceCents         Int            @map("price_cents")
+  sortWeight         Int            @map("sort_weight")
+  active             Boolean        @default(true)
+  cupInventoryItemId String?        @map("cup_inventory_item_id") @db.Uuid
+  lidInventoryItemId String?        @map("lid_inventory_item_id") @db.Uuid
+  product            Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  cupInventoryItem   InventoryItem? @relation("VariantCupInventoryItem", fields: [cupInventoryItemId], references: [id], onDelete: Restrict)
+  lidInventoryItem   InventoryItem? @relation("VariantLidInventoryItem", fields: [lidInventoryItemId], references: [id], onDelete: Restrict)
+  saleLines          SaleLine[]
 
   @@unique([productId, name])
+  @@index([cupInventoryItemId])
+  @@index([lidInventoryItemId])
   @@map("product_variants")
 }
 
 model InventoryItem {
-  id              String           @id @default(uuid()) @db.Uuid
-  sku             String           @unique
-  name            String
-  unit            String
-  active          Boolean          @default(true)
-  stockCountLines StockCountLine[]
+  id                 String           @id @default(uuid()) @db.Uuid
+  sku                String           @unique
+  name               String
+  unit               String
+  active             Boolean          @default(true)
+  stockCountLines    StockCountLine[]
+  cupProductVariants ProductVariant[] @relation("VariantCupInventoryItem")
+  lidProductVariants ProductVariant[] @relation("VariantLidInventoryItem")
 
   @@map("inventory_items")
 }
