@@ -90,8 +90,20 @@ Print: the area explored, how many findings recorded, how many open questions
 raised, which requirements were sent to po-intake (with issue numbers), and
 what remains unexplored. Include sha={{PROMPT_SHA}}.
 
+## Working artifacts (screenshots, traces)
+
+If you capture screenshots or Playwright traces, write them to
+`docs/discovery-artifacts/` — NEVER to the repository root. That directory is
+gitignored: these are evidence you looked at, not deliverables. The findings
+file is the deliverable, and it must stand on its own in prose without
+depending on an image to be understood.
+
+Do not commit artifacts. Do not reference them by path in the findings file
+(the path will not exist for anyone else) — describe what you observed instead.
+
 ## Boundaries
 
-Write access: `docs/discovery-findings.md` ONLY. No application code, no design
+Write access: `docs/discovery-findings.md` and `docs/discovery-artifacts/`
+ONLY. No application code, no design
 docs, no ADRs. You may create stories only indirectly, via po-intake. You do not
 label, move, or close issues. You never mutate v1.

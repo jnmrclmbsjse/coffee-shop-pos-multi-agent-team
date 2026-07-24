@@ -3,10 +3,7 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
-playwright-report/
-test-results/
 apps/api/src/generated/prisma/
-.poll-state/
 
 # Local configuration
 .env
@@ -21,4 +18,25 @@ apps/api/src/generated/prisma/
 # Logs
 *.log
 pnpm-debug.log*
+
+# Claude
+.claude
+
+# Poller runtime
 logs/
+.poll-state/
+.poll-stop
+
+# Playwright browser profile / cache from the discovery agent
+.playwright/
+.playwright-mcp/
+playwright-report/
+test-results/
+
+# Discovery working artifacts (screenshots etc). These are evidence the agent
+# looked at, not deliverables — the findings file is the deliverable. If a
+# screenshot is genuinely worth keeping, move it out deliberately.
+artifacts/
+docs/discovery-artifacts/
+*.png
+!docs/design/**/*.png
