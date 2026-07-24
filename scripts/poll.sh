@@ -206,6 +206,73 @@ Address this specifically rather than repeating the same approach." >/dev/null 2
   fi
 }
 
+# ---------- ADR lane ----------
+# Stories blocked on an ADR carry `blocked-on-adr` and a marker:
+#   <!-- OD-PREPARE:adr-pr:<n> -->
+# The PR's own state is the trigger; there is no event mechanism locally.
+poll_adr() {
+  local stories story pr state merged decision last_commit last_review
+  stories="$(gh issue list --state open --label blocked-on-adr --limit 50 \
+             --json number -q '.[].number' 2>/dev/null)"
+  [[ -z "$stories" ]] && return 0
+
+  while read -r story; do
+    [[ -z "$story" ]] && continue
+    pr="$(gh issue view "$story" --json comments \
+          -q '[.comments[].body] | join(" ")' 2>/dev/null \
+          | grep -oE 'OD-PREPARE:adr-pr:[0-9]+' | tail -1 | grep -oE '[0-9]+$')"
+    if [[ -z "$pr" ]]; then
+      echo "  [adr] #$story is blocked-on-adr but has no adr-pr marker"
+      escalate "$story" "blocked-on-adr with no ADR PR marker — cannot track" "" "adr"
+      gh issue edit "$story" --remove-label blocked-on-adr >/dev/null 2>&1
+      continue
+    fi
+
+    state="$(gh pr view "$pr" --json state -q .state 2>/dev/null)"
+    merged="$(gh pr view "$pr" --json mergedAt -q .mergedAt 2>/dev/null)"
+
+    if [[ -n "$merged" && "$merged" != "null" ]]; then
+      echo "  [adr] ADR PR #$pr merged — unblocking story #$story"
+      [[ "$DRY_RUN" == "1" ]] && { echo "    [dry-run] would re-run po-prepare $story"; continue; }
+      gh issue edit "$story" --remove-label blocked-on-adr >/dev/null 2>&1
+      local ts log; ts="$(date +%Y%m%d-%H%M%S)"; log="$LOG_DIR/po-prepare-${story}-${ts}.log"
+      echo "    → scripts/po-prepare.sh $story  (log: $log)"
+      scripts/po-prepare.sh "$story" >"$log" 2>&1 \
+        && echo "    ✓ po-prepare resumed" || echo "    ✗ po-prepare failed — see $log"
+      continue
+    fi
+
+    if [[ "$state" == "CLOSED" ]]; then
+      echo "  [adr] ADR PR #$pr closed unmerged — story #$story needs a human"
+      gh issue edit "$story" --remove-label blocked-on-adr >/dev/null 2>&1
+      escalate "$story" "ADR PR #$pr was closed without merging — architecture direction rejected" "" "adr"
+      continue
+    fi
+
+    decision="$(gh pr view "$pr" --json reviewDecision -q .reviewDecision 2>/dev/null)"
+    if [[ "$decision" == "CHANGES_REQUESTED" ]]; then
+      # FRESHNESS: reviewDecision stays CHANGES_REQUESTED until the human reviews
+      # again, so without this we would re-dispatch a revision every cycle.
+      # Only act if the last review is NEWER than the last commit — i.e. Tech
+      # Lead has not already responded.
+      last_commit="$(gh pr view "$pr" --json commits -q '.commits | last | .committedDate' 2>/dev/null)"
+      last_review="$(gh pr view "$pr" --json reviews -q '[.reviews[] | .submittedAt] | last' 2>/dev/null)"
+      if [[ -n "$last_review" && "$last_review" > "$last_commit" ]]; then
+        echo "  [adr] changes requested on PR #$pr — dispatching revision"
+        [[ "$DRY_RUN" == "1" ]] && { echo "    [dry-run] would run: scripts/techlead-adr-revise.sh $story"; continue; }
+        local ts2 log2; ts2="$(date +%Y%m%d-%H%M%S)"; log2="$LOG_DIR/adr-revise-${story}-${ts2}.log"
+        echo "    → scripts/techlead-adr-revise.sh $story  (log: $log2)"
+        scripts/techlead-adr-revise.sh "$story" >"$log2" 2>&1 \
+          && echo "    ✓ revision pushed" || echo "    ✗ revision failed — see $log2"
+      else
+        echo "  [adr] PR #$pr revised already — waiting on human re-review"
+      fi
+    else
+      echo "  [adr] PR #$pr awaiting human review"
+    fi
+  done <<< "$stories"
+}
+
 # ---------- discovery lane ----------
 # Fires only when the team has genuinely run out of work.
 # PREDICATE (adjust if this doesn't match your intent): no open dev/qa/bug
@@ -326,7 +393,11 @@ while true; do
   echo "[$(date +%H:%M:%S)] polling…"
   for role in "${ROLES[@]}"; do
     should_stop && cleanup
-    if [[ "$role" == "discovery" ]]; then poll_discovery; else poll_role "$role"; fi
+    case "$role" in
+      discovery) poll_discovery ;;
+      adr)       poll_adr ;;
+      *)         poll_role "$role" ;;
+    esac
   done
   sleep "$POLL_INTERVAL"
 done

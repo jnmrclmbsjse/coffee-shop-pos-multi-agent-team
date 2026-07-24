@@ -31,6 +31,10 @@ If `feasibility:done` marker absent:
   breakdown + marker to the issue).
 - Wait for it. Then re-read the issue and confirm the `feasibility:done` marker
   is present.
+- If Tech Lead returned `FEASIBILITY BLOCKED — adr #<n>`: STOP cleanly. Do not
+  escalate to `agent:human` and do not treat this as an error. The story now
+  carries `blocked-on-adr` and an `adr-pr` marker; the orchestrator watches the
+  ADR PR and will re-run po-prepare once it merges. Report this outcome and exit.
 - If Tech Lead returned `FEASIBILITY BLOCKED — clarification`, run the
   CLARIFICATION LOOP below (max 3 resolution attempts, then escalate).
 - If it failed any OTHER way (tool error, crash, error marker): ABORT per rule B

@@ -26,6 +26,37 @@ prompts/_conventions.md for markers, self-reporting, and failure posture.
 
    PO will attempt to answer from its permitted sources and re-invoke you. If
    you are re-invoked and the story now answers the question, proceed normally.
+   3b. INVARIANT CHECK — does this story ESTABLISH or CHANGE an invariant in a
+   high-risk area? The four areas are: authentication/authorization, money,
+   data deletion, and credentials/secrets.
+
+   Establishes/changes (ADR required):
+   - new or changed auth mechanism, session model, role or permission rule
+   - new or changed money arithmetic, rounding, currency or tax handling
+   - new deletion/retention behaviour
+   - new secret handling or storage
+     Merely USES an existing invariant (no ADR, proceed normally):
+   - a screen that requires being logged in
+   - a report that reads existing money data
+   - CRUD on a non-sensitive entity behind existing auth
+
+   If it ESTABLISHES or CHANGES one:
+   a. Check `docs/adr/` first. If a MERGED ADR already covers this decision,
+   proceed normally — do NOT draft a duplicate. (This is what makes a
+   po-prepare re-run after ADR merge continue instead of looping.)
+   b. Otherwise draft the ADR (next number in sequence, same structure as
+   ADR 0001: Context / Decision / Consequences / Revisit triggers). State the
+   decision you propose, not a menu of options.
+   c. Commit it on a branch, open a PR titled "docs(adr): NNNN <decision>",
+   referencing story #{{ISSUE}}. Do NOT enable auto-merge — a human must
+   review this one.
+   d. On the story, post:
+   <!-- OD-PREPARE:adr-pr:<pr-number> -->
+   and add the label `blocked-on-adr`. Do NOT add `agent:human` — the
+   orchestrator watches `blocked-on-adr` and will act on the PR's state.
+   e. Return `FEASIBILITY BLOCKED — adr #<pr-number>` and stop. Do not write a
+   `:done` marker.
+
 4. Check technical feasibility against the stack and v1 non-goals (ADR 0001).
    If the story implies a non-goal (offline, hardware, BOM depletion, etc.),
    flag it for scoping rather than breaking it down.
