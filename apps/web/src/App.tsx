@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   BrowserRouter,
   Navigate,
+  NavLink,
   Outlet,
   Route,
   Routes,
@@ -13,6 +14,10 @@ import { Role } from '@coffee-shop/shared';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { login } from './auth/api';
 import { StaffSignInPage } from './StaffSignIn';
+import { CategoriesPage } from './catalog/CategoriesPage';
+import { ProductEditorPage } from './catalog/ProductEditorPage';
+import { ProductsPage } from './catalog/ProductsPage';
+import { Icon } from './catalog/components';
 
 const DEFAULT_ADMIN_PATH = '/dashboard';
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
@@ -46,6 +51,8 @@ function destinationName(path: string): string {
   const [pathname = ''] = path.split('?');
   const names: Record<string, string> = {
     '/dashboard': 'Dashboard',
+    '/catalog/categories': 'Categories',
+    '/catalog/products': 'Products',
     '/inventory': 'Inventory',
     '/reports': 'Reports',
   };
@@ -333,14 +340,56 @@ function AdminLayout() {
   const auth = useAuth();
 
   return (
-    <div className="admin-shell">
-      <header className="site-header">
+    <div className="admin-shell catalog-admin-shell">
+      <aside className="admin-sidebar">
         <Brand />
-        <span className="access-label">
-          Signed in as {auth.user?.username}
-        </span>
-      </header>
-      <Outlet />
+        <nav aria-label="Administrator navigation">
+          <span className="admin-nav-label">Workspace</span>
+          <NavLink to="/dashboard">
+            <Icon name="grid" />
+            Dashboard
+          </NavLink>
+          <span className="admin-nav-label">Catalog</span>
+          <NavLink to="/catalog/categories">
+            <Icon name="grid" />
+            Categories
+          </NavLink>
+          <NavLink to="/catalog/products">
+            <Icon name="box" />
+            Products
+          </NavLink>
+          <span className="admin-nav-label">Operations</span>
+          <NavLink to="/inventory">
+            <Icon name="box" />
+            Inventory
+          </NavLink>
+          <NavLink to="/reports">
+            <Icon name="grid" />
+            Reports
+          </NavLink>
+        </nav>
+        <div className="admin-sidebar-user">
+          <span aria-hidden="true">
+            {(auth.user?.username ?? 'A').slice(0, 1).toUpperCase()}
+          </span>
+          <div>
+            <strong>{auth.user?.username}</strong>
+            <small>Administrator</small>
+          </div>
+        </div>
+      </aside>
+      <div className="admin-workspace">
+        <header className="admin-topbar">
+          <div>
+            <strong>UCM Coffee Studio</strong>
+            <span>Back office</span>
+          </div>
+          <span className="access-label">
+            Signed in as {auth.user?.username}
+          </span>
+        </header>
+        <Outlet />
+      </div>
     </div>
   );
 }
@@ -406,6 +455,19 @@ export function AppRoutes() {
             <Route
               path="/inventory"
               element={<AdminPage title="Inventory" />}
+            />
+            <Route
+              path="/catalog/categories"
+              element={<CategoriesPage />}
+            />
+            <Route path="/catalog/products" element={<ProductsPage />} />
+            <Route
+              path="/catalog/products/new"
+              element={<ProductEditorPage />}
+            />
+            <Route
+              path="/catalog/products/:id/edit"
+              element={<ProductEditorPage />}
             />
             <Route path="/reports" element={<AdminPage title="Reports" />} />
             <Route
