@@ -42,8 +42,8 @@ command -v timeout  >/dev/null 2>&1 && TIMEOUT_BIN="timeout"
 [[ -z "$TIMEOUT_BIN" ]] && command -v gtimeout >/dev/null 2>&1 && TIMEOUT_BIN="gtimeout"
 
 label_for()  { case "$1" in dev) echo agent:dev;; qa) echo agent:qa;; tech-lead) echo agent:tech-lead;; esac; }
-script_for() { case "$1" in dev) echo scripts/dev-pickup.sh;; qa) echo scripts/qa-test.sh;; tech-lead) echo scripts/techlead-review.sh;; esac; }
-single_for() { case "$1" in dev|qa) echo 1;; tech-lead) echo 0;; esac; }
+script_for() { case "$1" in dev) echo scripts/dev-pickup.sh;; qa) echo scripts/qa-test.sh;; tech-lead) echo scripts/techlead-review.sh;; prepare) echo scripts/po-prepare.sh;; esac; }
+single_for() { case "$1" in dev|qa|prepare) echo 1;; tech-lead) echo 0;; esac; }
 
 # ---------- atomic lock ----------
 acquire_lock() {
@@ -204,6 +204,51 @@ Address this specifically rather than repeating the same approach." >/dev/null 2
       fi
     fi
   fi
+}
+
+# ---------- prepare lane ----------
+# Bridges intake -> convergence. Without this, a story created by po-intake (or
+# by the discovery agent calling it) sits forever: no agent:* label means no
+# other lane claims it, and backlog_empty() correctly reports "not empty", so
+# discovery stops too. The pipeline deadlocks at exactly this seam.
+story_prepared() {
+  gh issue view "$1" --json comments -q '[.comments[].body] | join(" ")' 2>/dev/null \
+    | grep -q 'OD-PREPARE:feasibility:done'
+}
+
+poll_prepare() {
+  local candidates story
+  # open stories that are not already escalated, ADR-blocked, or mid-clarification
+  candidates="$(gh issue list --state open --label type:story --limit 50 \
+      --json number,labels \
+      -q '[ .[] | select( (.labels|map(.name)) as $l
+              | ($l|index("agent:human")|not)
+              and ($l|index("blocked-on-adr")|not)
+              and ($l|index("needs-clarification")|not) )
+            | .number ] | .[]' 2>/dev/null)"
+  [[ -z "$candidates" ]] && return 0
+
+  while read -r story; do
+    [[ -z "$story" ]] && continue
+    story_prepared "$story" && continue          # already converged
+    (( $(attempts_of "$story") >= MAX_ATTEMPTS )) && continue
+    if (( $(dispatches_of "$story") >= MAX_DISPATCHES )); then
+      escalate "$story" "prepared $(dispatches_of "$story") times without converging — likely a loop" "" "prepare"
+      rm -f "$STATE_DIR/dispatches-$story"
+      continue
+    fi
+    rate_ok || { echo "  [prepare] rate limit reached — pausing"; return 0; }
+
+    # single-instance: po-prepare spawns sub-agents and is expensive
+    if acquire_lock prepare; then
+      echo "  [prepare] claimed story #$story"
+      dispatch prepare "$story"
+      release_lock prepare
+      return 0
+    else
+      echo "  [prepare] busy — #$story waits"; return 0
+    fi
+  done <<< "$candidates"
 }
 
 # ---------- ADR lane ----------
@@ -396,6 +441,7 @@ while true; do
     case "$role" in
       discovery) poll_discovery ;;
       adr)       poll_adr ;;
+      prepare)   poll_prepare ;;
       *)         poll_role "$role" ;;
     esac
   done
