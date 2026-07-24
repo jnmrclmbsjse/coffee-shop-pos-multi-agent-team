@@ -1,0 +1,944 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UCM Coffee Studio · Catalog & POS reference</title>
+  <style>
+    :root {
+      --bg: oklch(98% 0.005 250);
+      --surface: oklch(100% 0 0);
+      --fg: oklch(22% 0.02 240);
+      --muted: oklch(50% 0.018 240);
+      --border: oklch(90% 0.008 240);
+      --accent: oklch(58% 0.16 145);
+      --accent-hover: oklch(52% 0.16 145);
+      --accent-pressed: oklch(46% 0.14 145);
+      --focus: oklch(43% 0.14 145);
+      --danger: oklch(48% 0.18 28);
+      --danger-surface: oklch(97% 0.018 28);
+      --soft: oklch(96.5% 0.007 240);
+      --border-strong: oklch(76% 0.012 240);
+      --warning: oklch(48% 0.11 70);
+      --warning-surface: oklch(97% 0.025 82);
+      --info: oklch(42% 0.1 250);
+      --info-surface: oklch(97% 0.018 250);
+      --shadow-control: 0 3px 0 oklch(43% 0.14 145);
+      --z-sticky: 20;
+      --z-toast: 50;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); color: var(--fg); }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--fg);
+      font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select { font: inherit; }
+    button, a, input, select, [tabindex] { -webkit-tap-highlight-color: transparent; }
+    button { color: inherit; }
+    svg { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 4px; font-size: 26px; line-height: 1.18; letter-spacing: -0.025em; }
+    h2 { margin-bottom: 16px; font-size: 18px; line-height: 1.25; }
+    h3 { margin-bottom: 8px; font-size: 15px; line-height: 1.3; }
+    .muted { color: var(--muted); }
+    .caption { font-size: 12px; color: var(--muted); }
+    .mono { font-variant-numeric: tabular-nums; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+    .app-shell { min-height: 100vh; display: grid; grid-template-columns: 228px minmax(0, 1fr); }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; padding: 20px 12px;
+      display: flex; flex-direction: column; gap: 24px;
+      background: var(--surface); border-right: 1px solid var(--border);
+      z-index: var(--z-sticky);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; border-bottom: 1px solid var(--border); }
+    .brand-mark {
+      width: 36px; height: 36px; display: grid; place-items: center;
+      border-radius: 10px; background: var(--fg); color: white; font-weight: 760; letter-spacing: -0.03em;
+    }
+    .brand-name { font-weight: 720; line-height: 1.15; }
+    .brand-sub { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .nav-group { display: grid; gap: 4px; }
+    .nav-label { padding: 8px 10px 4px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    .nav-button {
+      min-height: 44px; width: 100%; padding: 0 10px; display: flex; align-items: center; gap: 10px;
+      border: 0; border-radius: 6px; background: transparent; cursor: pointer; text-align: left; font-weight: 600;
+      transition: background 160ms ease-out, color 160ms ease-out;
+    }
+    .nav-button:hover { background: var(--soft); }
+    .nav-button[aria-current="page"] { background: color-mix(in oklch, var(--accent) 12%, white); color: var(--accent-pressed); }
+    .nav-button[aria-current="page"] svg { stroke-width: 2.2; }
+    .sidebar-foot { margin-top: auto; padding: 12px 8px 0; border-top: 1px solid var(--border); }
+    .location { display: flex; gap: 10px; align-items: center; }
+    .location-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 16%, white); }
+
+    main { min-width: 0; }
+    .topbar {
+      min-height: 64px; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      background: color-mix(in oklch, var(--bg) 92%, transparent); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: calc(var(--z-sticky) - 1);
+    }
+    .crumbs { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+    .crumbs strong { color: var(--fg); }
+    .top-actions { display: flex; gap: 8px; align-items: center; }
+    .sync-status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .sync-status svg { width: 15px; height: 15px; color: var(--accent-pressed); }
+    .content { width: min(100%, 1440px); margin: 0 auto; padding: 28px 32px 48px; }
+    .view { display: none; }
+    .view.is-active { display: block; animation: view-in 180ms ease-out; }
+    @keyframes view-in { from { opacity: .65; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+    .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+    .page-head p { margin: 0; color: var(--muted); max-width: 68ch; }
+    .head-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .button {
+      min-height: 44px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: var(--surface); cursor: pointer; font-weight: 690; text-decoration: none;
+      transition: background 160ms ease-out, border-color 160ms ease-out, transform 80ms ease-out;
+    }
+    .button:hover { background: var(--soft); border-color: var(--muted); }
+    .button:active { transform: translateY(1px); }
+    .button.primary { border-color: var(--accent); background: var(--accent); color: white; box-shadow: var(--shadow-control); }
+    .button.primary:hover { border-color: var(--accent-hover); background: var(--accent-hover); }
+    .button.primary:active { background: var(--accent-pressed); box-shadow: 0 1px 0 var(--accent-pressed); }
+    .button.danger { border-color: color-mix(in oklch, var(--danger) 38%, white); color: var(--danger); background: var(--danger-surface); }
+    .button.ghost { border-color: transparent; background: transparent; }
+    .button.ghost:hover { background: var(--soft); }
+    .button.small { min-height: 36px; padding: 0 10px; font-size: 13px; }
+    .button:disabled { cursor: not-allowed; opacity: .48; transform: none; box-shadow: none; }
+    .icon-button { width: 44px; padding: 0; }
+
+    .notice {
+      margin-bottom: 16px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px;
+      border: 1px solid color-mix(in oklch, var(--info) 24%, white); border-radius: 6px; background: var(--info-surface); color: var(--info);
+    }
+    .notice.success { background: color-mix(in oklch, var(--accent) 8%, white); border-color: color-mix(in oklch, var(--accent) 28%, white); color: var(--accent-pressed); }
+    .notice.warning { background: var(--warning-surface); border-color: color-mix(in oklch, var(--warning) 28%, white); color: var(--warning); }
+    .notice.danger { background: var(--danger-surface); border-color: color-mix(in oklch, var(--danger) 28%, white); color: var(--danger); }
+    .notice strong { display: block; margin-bottom: 2px; }
+    .notice p { margin: 0; }
+    .notice.is-hidden { display: none; }
+
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: clip; }
+    .panel-head { min-height: 56px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border); }
+    .panel-head h2 { margin: 0; }
+    .panel-body { padding: 20px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { height: 44px; padding: 0 14px; background: var(--soft); color: var(--muted); font-size: 12px; font-weight: 720; white-space: nowrap; }
+    td { min-height: 60px; padding: 12px 14px; border-top: 1px solid var(--border); vertical-align: middle; }
+    tbody tr:first-child td { border-top: 0; }
+    tbody tr { transition: background 140ms ease-out; }
+    tbody tr:hover { background: color-mix(in oklch, var(--soft) 55%, white); }
+    tbody tr.is-dragging { opacity: .5; background: var(--soft); }
+    .cell-main { font-weight: 680; }
+    .cell-sub { margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .drag-handle {
+      width: 44px; height: 44px; padding: 0; display: inline-grid; place-items: center;
+      border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: grab;
+    }
+    .drag-handle:hover { background: var(--soft); color: var(--fg); }
+    .drag-handle:active { cursor: grabbing; }
+    .drag-handle svg { width: 20px; height: 20px; }
+    .weight { min-width: 38px; display: inline-block; padding: 4px 7px; border-radius: 6px; background: var(--soft); text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .badge { min-height: 26px; width: fit-content; padding: 3px 8px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 720; white-space: nowrap; }
+    .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .badge.active, .badge.available { color: var(--accent-pressed); background: color-mix(in oklch, var(--accent) 11%, white); }
+    .badge.inactive { color: var(--muted); background: var(--soft); }
+    .badge.sold-out { color: var(--danger); background: var(--danger-surface); }
+    .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+
+    .inline-form {
+      display: none; margin-bottom: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+    }
+    .inline-form.is-open { display: block; }
+    .inline-form-grid { display: grid; grid-template-columns: minmax(180px, 1fr) 180px auto; gap: 12px; align-items: start; }
+    label, .label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 690; }
+    .required::after { content: " *"; color: var(--danger); }
+    input, select {
+      width: 100%; height: 48px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 6px;
+      background: var(--surface); color: var(--fg); transition: border-color 140ms ease-out, box-shadow 140ms ease-out;
+    }
+    input:hover, select:hover { border-color: var(--muted); }
+    input:focus, select:focus { outline: 2px solid var(--focus); outline-offset: 2px; border-color: var(--focus); }
+    [aria-invalid="true"] { border-color: var(--danger); background: var(--danger-surface); }
+    .field-error { margin-top: 6px; color: var(--danger); font-size: 12px; font-weight: 620; }
+    .field-help { margin-top: 6px; color: var(--muted); font-size: 12px; }
+    .form-actions { padding-top: 25px; display: flex; gap: 8px; }
+
+    .filter-bar { padding: 14px 16px; display: grid; grid-template-columns: minmax(240px, 1.6fr) repeat(3, minmax(150px, .7fr)); gap: 10px; border-bottom: 1px solid var(--border); }
+    .search-field { position: relative; }
+    .search-field svg { position: absolute; left: 12px; top: 15px; color: var(--muted); pointer-events: none; }
+    .search-field input { padding-left: 40px; }
+    .results-meta { padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+    .availability-control { display: flex; align-items: center; gap: 10px; }
+    .switch {
+      width: 46px; height: 26px; padding: 2px; border: 1px solid var(--border-strong); border-radius: 999px;
+      background: var(--soft); cursor: pointer; transition: background 160ms ease-out, border-color 160ms ease-out;
+    }
+    .switch::after { content: ""; display: block; width: 20px; height: 20px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 4px oklch(22% 0.02 240 / .24); transition: transform 180ms cubic-bezier(.16,1,.3,1); }
+    .switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+    .switch[aria-checked="true"]::after { transform: translateX(20px); }
+    .switch-label { min-width: 72px; font-size: 12px; font-weight: 680; }
+    .switch-label.sold { color: var(--danger); }
+    .empty-state { display: none; padding: 48px 20px; text-align: center; }
+    .empty-state.is-visible { display: block; }
+
+    .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+    .form-section { padding: 20px; border-bottom: 1px solid var(--border); }
+    .form-section:last-child { border-bottom: 0; }
+    .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .section-head h2 { margin-bottom: 3px; }
+    .section-head p { margin: 0; color: var(--muted); }
+    .field-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; }
+    .state-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .state-box { min-height: 78px; padding: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--soft); }
+    .state-box p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .size-list { display: grid; gap: 12px; }
+    .size-row {
+      padding: 14px; display: grid; grid-template-columns: 44px minmax(120px, .8fr) minmax(120px, .7fr) minmax(160px, 1fr) minmax(160px, 1fr) auto; gap: 10px; align-items: start;
+      border: 1px solid var(--border); border-radius: 6px; background: var(--surface);
+    }
+    .size-row.has-error { border-color: color-mix(in oklch, var(--danger) 52%, white); background: var(--danger-surface); }
+    .size-row .drag-handle { margin-top: 25px; }
+    .size-row .remove-size { margin-top: 25px; }
+    .price-input { position: relative; }
+    .price-input::before { content: "₱"; position: absolute; left: 12px; top: 14px; color: var(--muted); z-index: 1; }
+    .price-input input { padding-left: 30px; font-variant-numeric: tabular-nums; }
+    .validation-summary { margin: 0 20px 20px; }
+    .side-panel { position: sticky; top: 84px; }
+    .summary-list { margin: 0; display: grid; }
+    .summary-list div { padding: 12px 0; display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border); }
+    .summary-list div:last-child { border-bottom: 0; }
+    .summary-list dt { color: var(--muted); }
+    .summary-list dd { margin: 0; font-weight: 680; text-align: right; }
+    .save-panel { padding: 16px; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+
+    .pos-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+    .category-tabs { display: flex; gap: 6px; padding: 4px 0 16px; overflow-x: auto; }
+    .category-tab {
+      min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); cursor: pointer; white-space: nowrap; font-weight: 650;
+    }
+    .category-tab[aria-selected="true"] { border-color: var(--fg); background: var(--fg); color: white; }
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+    .menu-item {
+      min-height: 148px; padding: 16px; display: flex; flex-direction: column; align-items: stretch; text-align: left;
+      border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer;
+      transition: border-color 160ms ease-out, box-shadow 160ms ease-out, transform 80ms ease-out;
+    }
+    .menu-item:hover { border-color: var(--border-strong); box-shadow: 0 4px 8px oklch(22% 0.02 240 / .07); }
+    .menu-item:active { transform: translateY(1px); }
+    .menu-item[aria-disabled="true"] { cursor: not-allowed; background: var(--soft); box-shadow: none; }
+    .menu-item[aria-disabled="true"] .menu-name { color: var(--muted); }
+    .menu-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .menu-name { margin-top: 18px; font-size: 16px; font-weight: 730; }
+    .menu-price { margin-top: auto; padding-top: 12px; font-size: 15px; font-weight: 720; font-variant-numeric: tabular-nums; }
+    .menu-unavailable { margin-top: 6px; color: var(--danger); font-size: 12px; font-weight: 650; }
+    .order-panel { position: sticky; top: 84px; }
+    .order-empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+    .order-empty svg { width: 28px; height: 28px; margin-bottom: 8px; }
+    .order-lines { display: grid; }
+    .order-line { padding: 12px 16px; display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border); }
+    .order-total { padding: 16px; display: flex; justify-content: space-between; font-size: 16px; font-weight: 760; border-top: 1px solid var(--border); }
+    .staff-availability { margin-top: 16px; }
+    .staff-list { display: grid; }
+    .staff-row { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); }
+    .staff-row:first-child { border-top: 0; }
+
+    .toast {
+      position: fixed; right: 24px; bottom: 24px; z-index: var(--z-toast); max-width: min(380px, calc(100vw - 32px));
+      padding: 14px 16px; display: flex; gap: 10px; align-items: flex-start;
+      border-radius: 10px; background: var(--fg); color: white; box-shadow: 0 6px 8px oklch(22% 0.02 240 / .2);
+      opacity: 0; transform: translateY(12px); pointer-events: none; transition: opacity 180ms ease-out, transform 180ms ease-out;
+    }
+    .toast.is-visible { opacity: 1; transform: none; }
+    .toast[data-tone="danger"] { background: var(--danger); }
+    .toast strong { display: block; margin-bottom: 2px; }
+    .toast p { margin: 0; font-size: 12px; opacity: .88; }
+
+    @media (max-width: 1100px) {
+      .filter-bar { grid-template-columns: 1fr 1fr; }
+      .size-row { grid-template-columns: 44px 1fr 1fr auto; }
+      .size-row .stock-field { grid-column: span 2; }
+      .editor-layout, .pos-layout { grid-template-columns: minmax(0, 1fr); }
+      .side-panel, .order-panel { position: static; }
+    }
+    @media (max-width: 760px) {
+      .app-shell { display: block; padding-bottom: 68px; }
+      .sidebar { position: fixed; inset: auto 0 0 0; height: 68px; padding: 6px 8px; display: block; border: 0; border-top: 1px solid var(--border); }
+      .brand, .nav-label, .sidebar-foot { display: none; }
+      .nav-group { height: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+      .nav-button { min-width: 0; height: 56px; padding: 4px 2px; flex-direction: column; justify-content: center; gap: 2px; font-size: 10px; text-align: center; }
+      .nav-button svg { width: 19px; height: 19px; }
+      .topbar { min-height: 56px; padding: 0 16px; }
+      .crumbs span, .sync-status span { display: none; }
+      .content { padding: 20px 16px 32px; }
+      .page-head { display: block; margin-bottom: 20px; }
+      .page-head h1 { font-size: 23px; }
+      .head-actions { margin-top: 16px; justify-content: flex-start; }
+      .head-actions .button { flex: 1; }
+      .panel { overflow: visible; }
+      .panel-head { align-items: flex-start; }
+      .inline-form-grid, .filter-bar, .field-grid, .state-grid { grid-template-columns: 1fr; }
+      .form-actions { padding-top: 0; }
+      .table-wrap { overflow: visible; }
+      table, thead, tbody, tr, th, td { display: block; }
+      thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+      tbody tr { padding: 14px 16px; display: grid; grid-template-columns: 44px 1fr auto; gap: 8px 12px; border-top: 1px solid var(--border); }
+      tbody tr:first-child { border-top: 0; }
+      td { min-height: 0; padding: 0; border: 0; }
+      td::before { content: attr(data-label); display: block; margin-bottom: 2px; color: var(--muted); font-size: 11px; font-weight: 680; }
+      td[data-label="Order"] { grid-row: span 2; }
+      td[data-label="Name"], td[data-label="Product"] { grid-column: 2 / 4; }
+      td[data-label="Actions"] { grid-column: 3; grid-row: 3; align-self: end; }
+      td[data-label="Availability"] { grid-column: 1 / 3; }
+      .row-actions { justify-content: flex-end; }
+      .size-row { grid-template-columns: 44px 1fr auto; }
+      .size-row .drag-handle { grid-row: 1 / 3; }
+      .size-row .field { grid-column: 2 / 4; }
+      .size-row .stock-field { grid-column: 2 / 4; }
+      .size-row .remove-size { grid-column: 3; grid-row: 1; margin-top: 25px; }
+      .menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .menu-item { min-height: 156px; }
+      .toast { right: 16px; bottom: 84px; }
+    }
+    @media (max-width: 430px) {
+      .top-actions .button span { display: none; }
+      .panel-body { padding: 16px; }
+      .menu-grid { grid-template-columns: 1fr; }
+      .results-meta { align-items: flex-start; flex-direction: column; }
+      .button.small.edit-product span, .button.small.edit-category span { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" class="sr-only">
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+    <symbol id="i-cup" viewBox="0 0 24 24"><path d="M5 8h12v7a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5Z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 4v1M12 4v1M16 4v1"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="m4 7 8-4 8 4-8 4Z"/><path d="m4 7 8 4 8-4v10l-8 4-8-4Z"/><path d="M12 11v10"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r=".8" fill="currentColor"/><circle cx="15" cy="6" r=".8" fill="currentColor"/><circle cx="9" cy="12" r=".8" fill="currentColor"/><circle cx="15" cy="12" r=".8" fill="currentColor"/><circle cx="9" cy="18" r=".8" fill="currentColor"/><circle cx="15" cy="18" r=".8" fill="currentColor"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 6v5h-5"/><path d="M18.5 15a7 7 0 1 1 .3-7.4L20 11"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.8 2.2 18a2 2 0 0 0 1.8 3h16a2 2 0 0 0 1.8-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v5M14 11v5"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M3 4h2l2.5 11h11l2-7H6"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <aside class="sidebar" data-od-id="primary-navigation">
+      <div class="brand">
+        <div class="brand-mark">UC</div>
+        <div><div class="brand-name">UCM Coffee Studio</div><div class="brand-sub">Staff operations</div></div>
+      </div>
+      <nav class="nav-group" aria-label="Primary">
+        <div class="nav-label">Catalog</div>
+        <button class="nav-button" data-view="categories" aria-current="page"><svg><use href="#i-grid"/></svg><span>Categories</span></button>
+        <button class="nav-button" data-view="products"><svg><use href="#i-box"/></svg><span>Products</span></button>
+        <button class="nav-button" data-view="editor"><svg><use href="#i-edit"/></svg><span>Product editor</span></button>
+        <div class="nav-label">Service</div>
+        <button class="nav-button" data-view="pos"><svg><use href="#i-cup"/></svg><span>POS menu</span></button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="location"><span class="location-dot"></span><div><strong>Maginhawa</strong><div class="caption">Single active location</div></div></div>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar" data-od-id="top-status-bar">
+        <div class="crumbs"><span>UCM Coffee Studio</span><span>/</span><strong id="current-crumb">Categories</strong></div>
+        <div class="top-actions">
+          <div class="sync-status" title="Changes are persisted in this prototype"><svg><use href="#i-check"/></svg><span>Saved locally</span></div>
+          <button class="button small" id="reload-data"><svg><use href="#i-refresh"/></svg><span>Reload data</span></button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="view is-active" id="view-categories" data-od-id="categories-screen">
+          <div class="page-head">
+            <div><h1 data-od-id="categories-heading">Categories</h1><p>Control how product groups appear in admin and POS. The stored weight is read-only and updates when rows are dragged.</p></div>
+            <div class="head-actions"><button class="button primary" id="open-category-form"><svg><use href="#i-plus"/></svg>Create category</button></div>
+          </div>
+          <div class="notice success" id="category-persisted" data-od-id="category-order-state">
+            <svg><use href="#i-check"/></svg>
+            <div><strong>Order is persisted</strong><p>Drag a handle to reorder. New weights are saved immediately and remain after reload or re-navigation.</p></div>
+          </div>
+          <form class="inline-form" id="category-form" novalidate data-od-id="category-create-form">
+            <div class="inline-form-grid">
+              <div>
+                <label class="required" for="category-name">Category name</label>
+                <input id="category-name" value=" coffee " aria-invalid="true" aria-describedby="category-error">
+                <div class="field-error" id="category-error">“Coffee” already exists. Names ignore spaces around the name and letter case.</div>
+              </div>
+              <div>
+                <label for="category-state">Catalog state</label>
+                <select id="category-state"><option>Active</option><option>Inactive</option></select>
+                <div class="field-help">Inactive categories stay out of the POS.</div>
+              </div>
+              <div class="form-actions"><button class="button primary" type="submit">Save category</button><button class="button" type="button" id="cancel-category">Cancel</button></div>
+            </div>
+          </form>
+          <div class="panel">
+            <div class="panel-head"><h2>All categories</h2><span class="caption" id="category-count">3 categories</span></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th scope="col" style="width:64px">Order</th><th scope="col">Category name</th><th scope="col">Stored weight</th><th scope="col">Status</th><th scope="col">Products</th><th scope="col" style="text-align:right">Actions</th></tr></thead>
+                <tbody id="category-rows"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-products" data-od-id="products-screen">
+          <div class="page-head">
+            <div><h1 data-od-id="products-heading">Products</h1><p>Find products by name, filter the catalog, and change today’s availability without editing the product record.</p></div>
+            <div class="head-actions"><button class="button primary" data-go-editor><svg><use href="#i-plus"/></svg>Create product</button></div>
+          </div>
+          <div class="notice" data-od-id="product-search-rule">
+            <svg><use href="#i-info"/></svg><div><strong>Search scope: product name only</strong><p>Matches are case-insensitive and partial. Category names and size labels are intentionally excluded.</p></div>
+          </div>
+          <div class="panel">
+            <div class="filter-bar">
+              <div class="search-field"><label class="sr-only" for="product-search">Search product name</label><svg><use href="#i-search"/></svg><input id="product-search" type="search" placeholder="Search product name"></div>
+              <div><label class="sr-only" for="product-category-filter">Filter by category</label><select id="product-category-filter"><option value="all">All categories</option><option>Coffee</option><option>Non-Coffee</option><option>Pastries</option></select></div>
+              <div><label class="sr-only" for="product-state-filter">Filter by status</label><select id="product-state-filter"><option value="all">Any status</option><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+              <div><label class="sr-only" for="product-sort">Sort products</label><select id="product-sort"><option value="category">Sort: Category</option><option value="name">Sort: Name</option><option value="active">Sort: Active status</option></select></div>
+            </div>
+            <div class="results-meta"><span id="product-results-count">6 products</span><span>Availability changes are saved immediately</span></div>
+            <div class="table-wrap" id="products-table-wrap">
+              <table>
+                <thead><tr><th scope="col">Category</th><th scope="col">Product name</th><th scope="col">Catalog state</th><th scope="col">Current availability</th><th scope="col" style="text-align:right">Actions</th></tr></thead>
+                <tbody id="product-rows"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="product-empty"><svg><use href="#i-search"/></svg><h3>No product names match</h3><p>Try a different product-name search or clear a filter.</p></div>
+          </div>
+        </section>
+
+        <section class="view" id="view-editor" data-od-id="product-editor-screen">
+          <div class="page-head">
+            <div><h1 data-od-id="editor-heading">Edit Spanish Latte</h1><p>Catalog visibility and service availability are independent. Required fields are validated after trimming spaces.</p></div>
+            <div class="head-actions"><button class="button" data-view-button="products">Cancel</button><button class="button primary" id="save-product-top"><svg><use href="#i-save"/></svg>Save product</button></div>
+          </div>
+          <div class="editor-layout">
+            <form class="panel" id="product-form" novalidate>
+              <div class="form-section">
+                <div class="section-head"><div><h2>Product details</h2><p>Used across back office and POS.</p></div></div>
+                <div class="field-grid">
+                  <div><label class="required" for="edit-category">Category</label><select id="edit-category" required><option>Coffee</option><option>Non-Coffee</option><option>Pastries</option></select></div>
+                  <div><label class="required" for="edit-name">Product name</label><input id="edit-name" value="Spanish Latte" required><div class="field-help">Leading and trailing spaces are removed on save.</div></div>
+                </div>
+                <div class="state-grid">
+                  <div class="state-box"><div><strong>Catalog state</strong><p>Inactive products are hidden from POS.</p></div><button class="switch" type="button" id="editor-active" role="switch" aria-checked="true" aria-label="Catalog active"></button></div>
+                  <div class="state-box"><div><strong>Service availability</strong><p>Sold-out products remain visible but disabled.</p></div><button class="switch" type="button" id="editor-available" role="switch" aria-checked="true" aria-label="Currently available"></button></div>
+                </div>
+              </div>
+              <div class="form-section">
+                <div class="section-head">
+                  <div><h2>Sizes and prices</h2><p>Drag rows to set the authoritative size order.</p></div>
+                  <button class="button small" type="button" id="add-size"><svg><use href="#i-plus"/></svg>Add size</button>
+                </div>
+                <div class="size-list" id="size-list">
+                  <div class="size-row" data-size-id="regular">
+                    <button class="drag-handle" type="button" aria-label="Drag Regular size. Press Space then Arrow keys to reorder"><svg><use href="#i-grip"/></svg></button>
+                    <div class="field"><label class="required">Label</label><input class="size-label" value="Regular" required></div>
+                    <div class="field"><label class="required">Price</label><div class="price-input"><input class="size-price" type="number" min="0" step=".01" value="145.00" required></div></div>
+                    <div class="stock-field"><label>Cup stock item</label><select class="cup-select"><option value="">No mapping</option><option>Hot Cup 12oz</option><option>Cold Cup 16oz</option></select></div>
+                    <div class="stock-field"><label>Lid stock item</label><select class="lid-select"><option value="">No mapping</option><option>Hot Lid 12oz</option><option>Flat Lid 16oz</option></select></div>
+                    <button class="button small danger remove-size" type="button" title="Remove Regular size"><svg><use href="#i-trash"/></svg><span class="sr-only">Remove Regular size</span></button>
+                  </div>
+                  <div class="size-row has-error" data-size-id="large">
+                    <button class="drag-handle" type="button" aria-label="Drag Large size. Press Space then Arrow keys to reorder"><svg><use href="#i-grip"/></svg></button>
+                    <div class="field"><label class="required">Label</label><input class="size-label" value="Large" required></div>
+                    <div class="field"><label class="required">Price</label><div class="price-input"><input class="size-price" type="number" min="0" step=".01" value="" required aria-invalid="true" aria-describedby="large-price-error"></div><div class="field-error" id="large-price-error">Large: enter a price of ₱0.00 or more.</div></div>
+                    <div class="stock-field"><label>Cup stock item</label><select class="cup-select" aria-invalid="true"><option value="" disabled selected>Unknown: CUP-16-LEGACY</option><option value="">No mapping</option><option>Hot Cup 12oz</option><option>Cold Cup 16oz</option></select><div class="field-error">This saved mapping is no longer a current stock-item option. Choose a current cup or No mapping.</div></div>
+                    <div class="stock-field"><label>Lid stock item</label><select class="lid-select"><option value="">No mapping</option><option>Hot Lid 12oz</option><option selected>Flat Lid 16oz</option></select></div>
+                    <button class="button small danger remove-size" type="button" title="Remove Large size" data-sale-referenced="true"><svg><use href="#i-trash"/></svg><span class="sr-only">Remove Large size</span></button>
+                  </div>
+                </div>
+              </div>
+              <div class="notice danger validation-summary" id="product-validation" data-od-id="product-validation-summary" tabindex="-1">
+                <svg><use href="#i-alert"/></svg><div><strong>Product cannot be saved yet</strong><p>Large needs a valid peso price and its stale Cup mapping must be replaced.</p></div>
+              </div>
+            </form>
+            <aside class="panel side-panel" data-od-id="editor-summary">
+              <div class="panel-head"><h2>Record summary</h2></div>
+              <div class="panel-body">
+                <dl class="summary-list">
+                  <div><dt>Category</dt><dd>Coffee</dd></div>
+                  <div><dt>Catalog</dt><dd><span class="badge active">Active</span></dd></div>
+                  <div><dt>Service</dt><dd><span class="badge available">Available</span></dd></div>
+                  <div><dt>Size order</dt><dd id="size-order-summary">Regular, Large</dd></div>
+                </dl>
+              </div>
+              <div class="save-panel"><button class="button primary" id="save-product-side"><svg><use href="#i-save"/></svg>Save product</button><p class="caption">Prices display in pesos. The system implementation stores money as integer cents.</p></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="view-pos" data-od-id="pos-screen">
+          <div class="page-head">
+            <div><h1 data-od-id="pos-heading">New order</h1><p>Maginhawa · Temporarily sold-out products remain visible. Inactive catalog products are not shown at all.</p></div>
+            <div class="head-actions"><button class="button" id="clear-order">Clear order</button></div>
+          </div>
+          <div class="notice warning" data-od-id="cross-surface-note">
+            <svg><use href="#i-refresh"/></svg><div><strong>Cross-surface refresh behavior</strong><p>Saved changes appear when another surface is re-opened or reloaded. Live push between already-open screens is not required.</p></div>
+          </div>
+          <div class="pos-layout">
+            <div>
+              <div class="category-tabs" role="tablist" aria-label="Menu category"><button class="category-tab" role="tab" aria-selected="true" data-menu-category="all">All</button><button class="category-tab" role="tab" aria-selected="false" data-menu-category="Coffee">Coffee</button><button class="category-tab" role="tab" aria-selected="false" data-menu-category="Non-Coffee">Non-Coffee</button><button class="category-tab" role="tab" aria-selected="false" data-menu-category="Pastries">Pastries</button></div>
+              <div class="menu-grid" id="menu-grid"></div>
+            </div>
+            <aside>
+              <div class="panel order-panel" data-od-id="current-order-panel">
+                <div class="panel-head"><h2>Current order</h2><span class="caption" id="order-count">0 items</span></div>
+                <div id="order-content"><div class="order-empty"><svg><use href="#i-cart"/></svg><h3>No items yet</h3><p>Select an available product to add it.</p></div></div>
+              </div>
+              <div class="panel staff-availability" data-od-id="staff-availability-panel">
+                <div class="panel-head"><div><h2>Quick availability</h2><div class="caption">Staff control</div></div></div>
+                <div class="staff-list" id="staff-availability-list"></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"><svg><use href="#i-check"/></svg><div><strong id="toast-title">Saved</strong><p id="toast-copy"></p></div></div>
+
+  <script>
+    const STORAGE_KEY = "ucm-story-40-state-v1";
+    const DEFAULT_STATE = {
+      categories: [
+        { id: "coffee", name: "Coffee", active: true, count: 4 },
+        { id: "non-coffee", name: "Non-Coffee", active: true, count: 1 },
+        { id: "pastries", name: "Pastries", active: false, count: 1 }
+      ],
+      products: [
+        { id: "espresso", category: "Coffee", name: "Espresso", active: true, available: true, price: 95 },
+        { id: "cappuccino", category: "Coffee", name: "Cappuccino", active: true, available: true, price: 125 },
+        { id: "spanish-latte", category: "Coffee", name: "Spanish Latte", active: true, available: true, price: 145 },
+        { id: "cold-brew", category: "Coffee", name: "Cold Brew", active: true, available: false, price: 135 },
+        { id: "matcha-latte", category: "Non-Coffee", name: "Matcha Latte", active: true, available: true, price: 150 },
+        { id: "butter-croissant", category: "Pastries", name: "Butter Croissant", active: false, available: true, price: 110 }
+      ],
+      sizeOrder: ["regular", "large"]
+    };
+    const clone = value => JSON.parse(JSON.stringify(value));
+    let state;
+    try { state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(DEFAULT_STATE); }
+    catch { state = clone(DEFAULT_STATE); }
+    let order = [];
+    let draggedCategoryId = null;
+    let draggedSize = null;
+    let keyboardDrag = null;
+
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+    const icon = id => `<svg aria-hidden="true"><use href="#${id}"></use></svg>`;
+    const peso = value => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(value);
+
+    function persist(message = "Changes saved") {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      $(".sync-status span").textContent = "Saved locally";
+      showToast(message, "Visible after reload or re-navigation.");
+    }
+
+    let toastTimer;
+    function showToast(title, copy = "", tone = "success") {
+      const toast = $("#toast");
+      $("#toast-title").textContent = title;
+      $("#toast-copy").textContent = copy;
+      toast.dataset.tone = tone;
+      toast.querySelector("use").setAttribute("href", tone === "danger" ? "#i-alert" : "#i-check");
+      toast.classList.add("is-visible");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 3600);
+    }
+
+    function showView(viewName) {
+      $$(".view").forEach(view => view.classList.toggle("is-active", view.id === `view-${viewName}`));
+      $$(".nav-button").forEach(button => {
+        if (button.dataset.view === viewName) button.setAttribute("aria-current", "page");
+        else button.removeAttribute("aria-current");
+      });
+      const labels = { categories: "Categories", products: "Products", editor: "Product editor", pos: "POS menu" };
+      $("#current-crumb").textContent = labels[viewName];
+      if (viewName === "pos") { renderMenu(); renderStaffAvailability(); }
+      if (viewName === "products") renderProducts();
+      history.replaceState(null, "", `#${viewName}`);
+      window.scrollTo(0, 0);
+    }
+
+    $$(".nav-button").forEach(button => button.addEventListener("click", () => showView(button.dataset.view)));
+    $$("[data-view-button]").forEach(button => button.addEventListener("click", () => showView(button.dataset.viewButton)));
+    $$("[data-go-editor]").forEach(button => button.addEventListener("click", () => showView("editor")));
+
+    function renderCategories() {
+      $("#category-rows").innerHTML = state.categories.map((category, index) => `
+        <tr data-category-id="${category.id}" data-od-id="category-row-${category.id}">
+          <td data-label="Order"><button class="drag-handle category-grip" type="button" draggable="true" aria-label="Drag ${category.name}. Press Space then Arrow keys to reorder">${icon("i-grip")}</button></td>
+          <td data-label="Name"><div class="cell-main">${category.name}</div><div class="cell-sub">Category ID: ${category.id}</div></td>
+          <td data-label="Stored weight"><span class="weight">${(index + 1) * 10}</span></td>
+          <td data-label="Status"><span class="badge ${category.active ? "active" : "inactive"}">${category.active ? "Active" : "Inactive"}</span></td>
+          <td data-label="Products"><span class="mono">${category.count}</span></td>
+          <td data-label="Actions"><div class="row-actions"><button class="button small ghost edit-category" type="button">${icon("i-edit")}<span>Edit</span></button></div></td>
+        </tr>`).join("");
+      $("#category-count").textContent = `${state.categories.length} categories`;
+      bindCategoryRows();
+    }
+
+    function bindCategoryRows() {
+      $$("#category-rows tr").forEach(row => {
+        const grip = $(".category-grip", row);
+        grip.addEventListener("dragstart", event => { draggedCategoryId = row.dataset.categoryId; row.classList.add("is-dragging"); event.dataTransfer.effectAllowed = "move"; });
+        grip.addEventListener("dragend", () => { row.classList.remove("is-dragging"); draggedCategoryId = null; });
+        row.addEventListener("dragover", event => event.preventDefault());
+        row.addEventListener("drop", event => {
+          event.preventDefault();
+          const targetId = row.dataset.categoryId;
+          if (!draggedCategoryId || draggedCategoryId === targetId) return;
+          const from = state.categories.findIndex(item => item.id === draggedCategoryId);
+          const to = state.categories.findIndex(item => item.id === targetId);
+          const [moved] = state.categories.splice(from, 1);
+          state.categories.splice(to, 0, moved);
+          renderCategories();
+          persist("Category order saved");
+        });
+      });
+      $$(".category-grip").forEach(grip => bindKeyboardDrag(grip, () => state.categories, renderCategories, "Category order saved"));
+      $$(".edit-category").forEach(button => button.addEventListener("click", () => {
+        $("#category-form").classList.add("is-open");
+        $("#category-name").value = button.closest("tr").querySelector(".cell-main").textContent;
+        $("#category-name").setAttribute("aria-invalid", "false");
+        $("#category-error").textContent = "Names are trimmed and must be unique, ignoring letter case.";
+        $("#category-error").className = "field-help";
+        $("#category-name").focus();
+      }));
+    }
+
+    function bindKeyboardDrag(handle, getItems, rerender, savedMessage) {
+      handle.addEventListener("keydown", event => {
+        const row = handle.closest("[data-category-id], [data-size-id]");
+        const id = row.dataset.categoryId || row.dataset.sizeId;
+        if (event.code === "Space") {
+          event.preventDefault();
+          keyboardDrag = keyboardDrag === id ? null : id;
+          handle.setAttribute("aria-pressed", String(keyboardDrag === id));
+          showToast(keyboardDrag ? "Item lifted" : "Item dropped", keyboardDrag ? "Use the Up and Down arrow keys to move it." : "New order is saved.");
+          if (!keyboardDrag) persist(savedMessage);
+        }
+        if (keyboardDrag === id && ["ArrowUp", "ArrowDown"].includes(event.key)) {
+          event.preventDefault();
+          const items = getItems();
+          const index = items.findIndex(item => (item.id || item.dataset?.sizeId) === id);
+          const next = event.key === "ArrowUp" ? index - 1 : index + 1;
+          if (next < 0 || next >= items.length) return;
+          [items[index], items[next]] = [items[next], items[index]];
+          rerender();
+          const newHandle = document.querySelector(`[data-category-id="${id}"] .drag-handle, [data-size-id="${id}"] .drag-handle`);
+          if (newHandle) { newHandle.focus(); newHandle.setAttribute("aria-pressed", "true"); }
+        }
+      });
+    }
+
+    $("#open-category-form").addEventListener("click", () => {
+      $("#category-form").classList.add("is-open");
+      $("#category-name").value = " coffee ";
+      $("#category-name").setAttribute("aria-invalid", "true");
+      $("#category-error").className = "field-error";
+      $("#category-error").textContent = "“Coffee” already exists. Names ignore spaces around the name and letter case.";
+      $("#category-name").focus();
+    });
+    $("#cancel-category").addEventListener("click", () => $("#category-form").classList.remove("is-open"));
+    $("#category-name").addEventListener("input", event => {
+      const normalized = event.target.value.trim().toLocaleLowerCase();
+      const duplicate = state.categories.some(item => item.name.toLocaleLowerCase() === normalized);
+      const missing = !normalized;
+      event.target.setAttribute("aria-invalid", String(duplicate || missing));
+      $("#category-error").className = duplicate || missing ? "field-error" : "field-help";
+      $("#category-error").textContent = missing ? "Enter a category name after trimming spaces." : duplicate ? `“${event.target.value.trim()}” already exists. Names ignore letter case.` : "Name is available.";
+    });
+    $("#category-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const name = $("#category-name").value.trim();
+      if (!name || state.categories.some(item => item.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+        $("#category-name").setAttribute("aria-invalid", "true");
+        $("#category-name").focus();
+        return;
+      }
+      state.categories.push({ id: name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-"), name, active: $("#category-state").value === "Active", count: 0 });
+      $("#category-form").classList.remove("is-open");
+      renderCategories();
+      persist("Category created");
+    });
+
+    function productMatches(product) {
+      const query = $("#product-search").value.trim().toLocaleLowerCase();
+      const category = $("#product-category-filter").value;
+      const active = $("#product-state-filter").value;
+      return product.name.toLocaleLowerCase().includes(query)
+        && (category === "all" || product.category === category)
+        && (active === "all" || String(product.active) === String(active === "active"));
+    }
+
+    function renderProducts() {
+      let products = state.products.filter(productMatches);
+      const sort = $("#product-sort").value;
+      products.sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "active" ? Number(b.active) - Number(a.active) || a.name.localeCompare(b.name) : a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+      $("#product-results-count").textContent = `${products.length} ${products.length === 1 ? "product" : "products"}`;
+      $("#product-empty").classList.toggle("is-visible", products.length === 0);
+      $("#products-table-wrap").style.display = products.length ? "" : "none";
+      $("#product-rows").innerHTML = products.map(product => `
+        <tr data-product-id="${product.id}" data-od-id="product-row-${product.id}">
+          <td data-label="Category">${product.category}</td>
+          <td data-label="Product"><div class="cell-main">${product.name}</div><div class="cell-sub">Name-only search target</div></td>
+          <td data-label="Catalog state"><span class="badge ${product.active ? "active" : "inactive"}">${product.active ? "Active" : "Inactive"}</span></td>
+          <td data-label="Availability"><div class="availability-control"><button class="switch product-availability" type="button" role="switch" aria-checked="${product.available}" aria-label="${product.name} availability"></button><span class="switch-label ${product.available ? "" : "sold"}">${product.available ? "Available" : "Sold out"}</span></div></td>
+          <td data-label="Actions"><div class="row-actions"><button class="button small ghost edit-product" type="button">${icon("i-edit")}<span>Edit</span></button></div></td>
+        </tr>`).join("");
+      $$(".product-availability").forEach(button => button.addEventListener("click", () => {
+        const product = state.products.find(item => item.id === button.closest("tr").dataset.productId);
+        product.available = !product.available;
+        renderProducts();
+        persist(`${product.name} marked ${product.available ? "available" : "sold out"}`);
+      }));
+      $$(".edit-product").forEach(button => button.addEventListener("click", () => showView("editor")));
+    }
+
+    ["product-search", "product-category-filter", "product-state-filter", "product-sort"].forEach(id => $(`#${id}`).addEventListener(id === "product-search" ? "input" : "change", renderProducts));
+
+    function toggleSwitch(button) {
+      button.setAttribute("aria-checked", String(button.getAttribute("aria-checked") !== "true"));
+    }
+    $$("#view-editor .switch").forEach(button => button.addEventListener("click", () => toggleSwitch(button)));
+
+    function renderSizeSummary() {
+      $("#size-order-summary").textContent = $$(".size-row").map(row => $(".size-label", row).value.trim() || "Untitled").join(", ");
+    }
+
+    function updateSizeOrder() {
+      state.sizeOrder = $$(".size-row").map(row => row.dataset.sizeId);
+      renderSizeSummary();
+    }
+
+    function applySizeOrder() {
+      const list = $("#size-list");
+      if (!list || !state.sizeOrder) return;
+      state.sizeOrder.forEach(id => {
+        const row = list.querySelector(`[data-size-id="${id}"]`);
+        if (row) list.append(row);
+      });
+      renderSizeSummary();
+    }
+
+    function bindSizeRow(row) {
+      const grip = $(".drag-handle", row);
+      grip.draggable = true;
+      grip.addEventListener("dragstart", () => { draggedSize = row; row.classList.add("is-dragging"); });
+      grip.addEventListener("dragend", () => { row.classList.remove("is-dragging"); draggedSize = null; });
+      row.addEventListener("dragover", event => event.preventDefault());
+      row.addEventListener("drop", event => {
+        event.preventDefault();
+        if (!draggedSize || draggedSize === row) return;
+        const list = $("#size-list");
+        const rows = $$(".size-row", list);
+        const from = rows.indexOf(draggedSize);
+        const to = rows.indexOf(row);
+        list.insertBefore(draggedSize, to > from ? row.nextSibling : row);
+        updateSizeOrder();
+        persist("Size order saved");
+      });
+      grip.addEventListener("keydown", event => {
+        const id = row.dataset.sizeId;
+        if (event.code === "Space") {
+          event.preventDefault();
+          keyboardDrag = keyboardDrag === id ? null : id;
+          grip.setAttribute("aria-pressed", String(keyboardDrag === id));
+          showToast(keyboardDrag ? "Size lifted" : "Size order saved", keyboardDrag ? "Use the Up and Down arrow keys to move it." : "The new size order persists after reload.");
+          if (!keyboardDrag) { updateSizeOrder(); persist("Size order saved"); }
+        }
+        if (keyboardDrag === id && ["ArrowUp", "ArrowDown"].includes(event.key)) {
+          event.preventDefault();
+          const rows = $$(".size-row");
+          const index = rows.indexOf(row);
+          const next = event.key === "ArrowUp" ? index - 1 : index + 1;
+          if (next < 0 || next >= rows.length) return;
+          const target = rows[next];
+          $("#size-list").insertBefore(row, event.key === "ArrowUp" ? target : target.nextSibling);
+          updateSizeOrder();
+          grip.focus();
+        }
+      });
+      $(".remove-size", row).addEventListener("click", event => {
+        if ($$(".size-row").length === 1) {
+          showToast("Size not removed", "Every product must retain at least one size.", "danger");
+          return;
+        }
+        if (event.currentTarget.dataset.saleReferenced === "true") {
+          showToast("Large size not removed", "This size is referenced by an existing sale and must remain available for historical records.", "danger");
+          return;
+        }
+        row.remove();
+        renderSizeSummary();
+        showToast("Size removed", "The change will persist when the product is saved.");
+      });
+      $(".size-price", row).addEventListener("input", event => {
+        const value = event.target.value;
+        const invalid = value === "" || Number(value) < 0;
+        event.target.setAttribute("aria-invalid", String(invalid));
+        row.classList.toggle("has-error", invalid || $(".cup-select", row).selectedOptions[0]?.disabled);
+        let error = event.target.closest(".field").querySelector(".field-error");
+        if (value === "0") {
+          if (!error) { error = document.createElement("div"); event.target.closest(".field").append(error); }
+          error.className = "field-help";
+          error.textContent = "₱0.00 is accepted.";
+        } else if (!invalid && error) error.remove();
+      });
+      $(".cup-select", row).addEventListener("change", event => {
+        event.target.setAttribute("aria-invalid", "false");
+        event.target.parentElement.querySelector(".field-error")?.remove();
+        row.classList.toggle("has-error", $(".size-price", row).value === "" || Number($(".size-price", row).value) < 0);
+      });
+    }
+    $$(".size-row").forEach(bindSizeRow);
+    $("#add-size").addEventListener("click", () => {
+      const id = `size-${Date.now()}`;
+      const row = document.createElement("div");
+      row.className = "size-row";
+      row.dataset.sizeId = id;
+      row.innerHTML = `
+        <button class="drag-handle" type="button" aria-label="Drag new size. Press Space then Arrow keys to reorder">${icon("i-grip")}</button>
+        <div class="field"><label class="required">Label</label><input class="size-label" placeholder="e.g. Iced 16oz" required></div>
+        <div class="field"><label class="required">Price</label><div class="price-input"><input class="size-price" type="number" min="0" step=".01" value="0" required></div><div class="field-help">₱0.00 is accepted.</div></div>
+        <div class="stock-field"><label>Cup stock item</label><select class="cup-select"><option value="">No mapping</option><option>Hot Cup 12oz</option><option>Cold Cup 16oz</option></select></div>
+        <div class="stock-field"><label>Lid stock item</label><select class="lid-select"><option value="">No mapping</option><option>Hot Lid 12oz</option><option>Flat Lid 16oz</option></select></div>
+        <button class="button small danger remove-size" type="button" title="Remove new size">${icon("i-trash")}<span class="sr-only">Remove new size</span></button>`;
+      $("#size-list").append(row);
+      bindSizeRow(row);
+      $(".size-label", row).focus();
+      updateSizeOrder();
+    });
+
+    function validateProduct() {
+      const name = $("#edit-name").value.trim();
+      const category = $("#edit-category").value;
+      const invalidRows = $$(".size-row").filter(row => {
+        const label = $(".size-label", row).value.trim();
+        const price = $(".size-price", row).value;
+        const staleCup = $(".cup-select", row).selectedOptions[0]?.disabled;
+        const invalid = !label || price === "" || Number(price) < 0 || staleCup;
+        row.classList.toggle("has-error", invalid);
+        return invalid;
+      });
+      $("#edit-name").setAttribute("aria-invalid", String(!name));
+      $("#edit-category").setAttribute("aria-invalid", String(!category));
+      if (!name || !category || invalidRows.length) {
+        $("#product-validation").classList.remove("is-hidden");
+        $("#product-validation p").textContent = !name || !category ? "Choose a category and enter a product name after trimming spaces." : `${invalidRows.length} size row needs attention. Missing or negative prices and stale mappings are not accepted.`;
+        $("#product-validation").focus();
+        showToast("Product not saved", "Review the identified fields and size rows.", "danger");
+        return false;
+      }
+      $("#product-validation").classList.add("is-hidden");
+      const product = state.products.find(item => item.id === "spanish-latte");
+      product.name = name;
+      product.category = category;
+      product.active = $("#editor-active").getAttribute("aria-checked") === "true";
+      product.available = $("#editor-available").getAttribute("aria-checked") === "true";
+      updateSizeOrder();
+      persist(`${name} saved`);
+      return true;
+    }
+    $("#product-form").addEventListener("submit", event => { event.preventDefault(); validateProduct(); });
+    ["save-product-top", "save-product-side"].forEach(id => $(`#${id}`).addEventListener("click", validateProduct));
+
+    function renderMenu() {
+      const selected = $(".category-tab[aria-selected='true']")?.dataset.menuCategory || "all";
+      const products = state.products.filter(product => product.active && (selected === "all" || product.category === selected));
+      $("#menu-grid").innerHTML = products.map(product => `
+        <button class="menu-item" type="button" data-product-id="${product.id}" aria-disabled="${!product.available}" data-od-id="menu-item-${product.id}">
+          <div class="menu-top"><span class="caption">${product.category}</span><span class="badge ${product.available ? "available" : "sold-out"}">${product.available ? "Available" : "Sold out"}</span></div>
+          <div class="menu-name">${product.name}</div>
+          <div class="menu-price">From ${peso(product.price)}</div>
+          ${product.available ? "" : `<div class="menu-unavailable">Unavailable to add</div>`}
+        </button>`).join("");
+      $$(".menu-item").forEach(button => button.addEventListener("click", () => {
+        const product = state.products.find(item => item.id === button.dataset.productId);
+        if (!product.available) {
+          showToast(`${product.name} is sold out`, "It remains visible for staff context but cannot be added.", "danger");
+          return;
+        }
+        order.push(product);
+        renderOrder();
+        showToast(`${product.name} added`, peso(product.price));
+      }));
+    }
+
+    $$(".category-tab").forEach(tab => tab.addEventListener("click", () => {
+      $$(".category-tab").forEach(item => item.setAttribute("aria-selected", String(item === tab)));
+      renderMenu();
+    }));
+
+    function renderOrder() {
+      $("#order-count").textContent = `${order.length} ${order.length === 1 ? "item" : "items"}`;
+      if (!order.length) {
+        $("#order-content").innerHTML = `<div class="order-empty">${icon("i-cart")}<h3>No items yet</h3><p>Select an available product to add it.</p></div>`;
+        return;
+      }
+      $("#order-content").innerHTML = `<div class="order-lines">${order.map((product, index) => `<div class="order-line"><div><strong>${product.name}</strong><div class="caption">Regular</div></div><div class="mono">${peso(product.price)}</div></div>`).join("")}</div><div class="order-total"><span>Total</span><span>${peso(order.reduce((sum, product) => sum + product.price, 0))}</span></div>`;
+    }
+    $("#clear-order").addEventListener("click", () => { order = []; renderOrder(); showToast("Order cleared"); });
+
+    function renderStaffAvailability() {
+      const activeProducts = state.products.filter(product => product.active);
+      $("#staff-availability-list").innerHTML = activeProducts.map(product => `
+        <div class="staff-row"><div><strong>${product.name}</strong><div class="caption">${product.category}</div></div><div class="availability-control"><button class="switch staff-switch" type="button" role="switch" aria-checked="${product.available}" aria-label="${product.name} availability"></button><span class="switch-label ${product.available ? "" : "sold"}">${product.available ? "Available" : "Sold out"}</span></div></div>`).join("");
+      $$(".staff-switch").forEach((button, index) => button.addEventListener("click", () => {
+        const product = activeProducts[index];
+        product.available = !product.available;
+        renderStaffAvailability();
+        renderMenu();
+        persist(`${product.name} marked ${product.available ? "available" : "sold out"}`);
+      }));
+    }
+
+    $("#reload-data").addEventListener("click", () => {
+      try { state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(DEFAULT_STATE); }
+      catch { state = clone(DEFAULT_STATE); }
+      renderCategories();
+      renderProducts();
+      renderMenu();
+      renderStaffAvailability();
+      applySizeOrder();
+      showToast("Saved data reloaded", "Persisted category order and availability are now shown.");
+    });
+
+    renderCategories();
+    renderProducts();
+    renderMenu();
+    renderStaffAvailability();
+    renderOrder();
+    applySizeOrder();
+    const initialView = location.hash.replace("#", "");
+    if (["categories", "products", "editor", "pos"].includes(initialView)) showView(initialView);
+  </script>
+</body>
+</html>
