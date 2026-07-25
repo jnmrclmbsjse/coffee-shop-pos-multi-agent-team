@@ -18,6 +18,8 @@ import { CategoriesPage } from './catalog/CategoriesPage';
 import { ProductEditorPage } from './catalog/ProductEditorPage';
 import { ProductsPage } from './catalog/ProductsPage';
 import { Icon } from './catalog/components';
+import { InventoryItemEditorPage } from './inventory/InventoryItemEditorPage';
+import { InventoryPage } from './inventory/InventoryPage';
 
 const DEFAULT_ADMIN_PATH = '/dashboard';
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
@@ -454,7 +456,15 @@ export function AppRoutes() {
             />
             <Route
               path="/inventory"
-              element={<AdminPage title="Inventory" />}
+              element={<InventoryPage />}
+            />
+            <Route
+              path="/inventory/items/new"
+              element={<InventoryItemEditorPage />}
+            />
+            <Route
+              path="/inventory/items/:id/edit"
+              element={<InventoryItemEditorPage />}
             />
             <Route
               path="/catalog/categories"
