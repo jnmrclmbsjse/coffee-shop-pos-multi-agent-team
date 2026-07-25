@@ -20,6 +20,7 @@ import { ProductsPage } from './catalog/ProductsPage';
 import { Icon } from './catalog/components';
 import { InventoryItemEditorPage } from './inventory/InventoryItemEditorPage';
 import { InventoryPage } from './inventory/InventoryPage';
+import { StaffPage } from './staff/StaffPage';
 
 const DEFAULT_ADMIN_PATH = '/dashboard';
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
@@ -56,6 +57,7 @@ function destinationName(path: string): string {
     '/catalog/categories': 'Categories',
     '/catalog/products': 'Products',
     '/inventory': 'Inventory',
+    '/staff': 'Staff',
     '/reports': 'Reports',
   };
 
@@ -365,6 +367,10 @@ function AdminLayout() {
             <Icon name="box" />
             Inventory
           </NavLink>
+          <NavLink to="/staff">
+            <Icon name="grid" />
+            Staff
+          </NavLink>
           <NavLink to="/reports">
             <Icon name="grid" />
             Reports
@@ -466,6 +472,7 @@ export function AppRoutes() {
               path="/inventory/items/:id/edit"
               element={<InventoryItemEditorPage />}
             />
+            <Route path="/staff" element={<StaffPage />} />
             <Route
               path="/catalog/categories"
               element={<CategoriesPage />}
