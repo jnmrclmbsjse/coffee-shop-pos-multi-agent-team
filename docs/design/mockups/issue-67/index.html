@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Staff | UCM Coffee Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to staff roster</a>
+
+  <aside class="desktop-rail" aria-label="Back office navigation" data-od-id="desktop-navigation">
+    <a class="brand-mark" href="#" aria-label="UCM Coffee Studio home" data-od-id="ucm-brand">
+      <span aria-hidden="true">UC</span>
+    </a>
+    <nav class="rail-nav">
+      <a href="#"><span class="nav-glyph" aria-hidden="true">R</span><span>Register</span></a>
+      <a href="#"><span class="nav-glyph" aria-hidden="true">C</span><span>Catalog</span></a>
+      <a href="#"><span class="nav-glyph" aria-hidden="true">I</span><span>Inventory</span></a>
+      <a class="current" href="#" aria-current="page"><span class="nav-glyph" aria-hidden="true">S</span><span>Staff</span></a>
+      <a href="#"><span class="nav-glyph" aria-hidden="true">Rp</span><span>Reports</span></a>
+    </nav>
+    <button class="admin-account" type="button" aria-label="Open Admin account menu">
+      <span class="admin-avatar" aria-hidden="true">A</span>
+      <span>Admin</span>
+    </button>
+  </aside>
+
+  <header class="mobile-topbar" data-od-id="mobile-topbar">
+    <a class="mobile-brand" href="#" aria-label="UCM Coffee Studio home">
+      <span class="brand-mark compact" aria-hidden="true">UC</span>
+      <span>Back office</span>
+    </a>
+    <button class="mobile-account" type="button" aria-label="Open Admin account menu">Admin</button>
+  </header>
+
+  <main id="main-content" class="workspace" tabindex="-1" data-od-id="staff-screen">
+    <section class="page-header" aria-labelledby="page-title" data-od-id="staff-header">
+      <div>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="#">Back office</a><span aria-hidden="true">/</span><span aria-current="page">Staff</span>
+        </nav>
+        <div class="title-row">
+          <h1 id="page-title" data-od-id="staff-title">Staff</h1>
+          <span class="branch-indicator" data-od-id="branch-indicator">UCM Main</span>
+        </div>
+        <p class="page-description">Manage names used to identify cashiers at the register.</p>
+      </div>
+      <button class="button primary" id="add-staff-button" type="button" data-od-id="add-staff-button">Add staff</button>
+    </section>
+
+    <section class="mockup-controls" aria-labelledby="mockup-controls-title" data-od-id="mockup-state-controls">
+      <div>
+        <strong id="mockup-controls-title">Mockup states</strong>
+        <span>Prototype only</span>
+      </div>
+      <label for="mockup-state">Show state</label>
+      <select id="mockup-state" data-od-id="mockup-state-select">
+        <option value="populated">Populated roster</option>
+        <option value="empty">Empty roster</option>
+        <option value="no-results">No results</option>
+      </select>
+    </section>
+
+    <section class="roster-section" aria-labelledby="roster-heading" data-od-id="roster-workspace">
+      <h2 class="sr-only" id="roster-heading">Staff roster</h2>
+
+      <form class="toolbar" id="roster-toolbar" role="search" data-od-id="roster-toolbar">
+        <div class="field search-field">
+          <label for="staff-search">Search staff</label>
+          <div class="search-wrap">
+            <input id="staff-search" type="search" autocomplete="off" placeholder="Search by name" data-od-id="staff-search">
+            <button class="clear-search" id="clear-search" type="button" hidden>Clear</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="status-filter">Status</label>
+          <select id="status-filter" data-od-id="status-filter">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sort-field">Sort by</label>
+          <select id="sort-field" data-od-id="sort-field">
+            <option value="name">Name</option>
+            <option value="active">Is active</option>
+          </select>
+        </div>
+        <div class="field direction-field">
+          <span class="field-label">Direction</span>
+          <button class="button secondary direction-button" id="sort-direction" type="button" aria-label="Sort ascending" aria-pressed="false" data-od-id="sort-direction">
+            <span id="sort-direction-icon" aria-hidden="true">↑</span>
+            <span id="sort-direction-text">Ascending</span>
+          </button>
+        </div>
+      </form>
+
+      <div class="result-meta" data-od-id="result-meta">
+        <p id="result-count" aria-live="polite" aria-atomic="true"></p>
+        <p id="state-summary"></p>
+      </div>
+
+      <div class="data-surface" id="data-surface" data-od-id="staff-data-surface">
+        <table id="staff-table">
+          <caption>Staff roster with active status and row actions</caption>
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Is active</th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="staff-table-body"></tbody>
+        </table>
+
+        <div class="state-panel" id="empty-state" hidden data-od-id="empty-roster-state">
+          <div class="state-symbol" aria-hidden="true">0</div>
+          <h2>No staff members yet</h2>
+          <p>Add the first staff member so their name is ready for cashier attribution.</p>
+          <button class="button primary" id="empty-add-button" type="button">Add staff</button>
+        </div>
+
+        <div class="state-panel" id="no-results-state" hidden data-od-id="no-results-state">
+          <div class="state-symbol" aria-hidden="true">?</div>
+          <h2>No staff match your search or filter</h2>
+          <p>Clear the search or show all statuses to see more staff members.</p>
+          <div class="state-actions">
+            <button class="button secondary" id="no-results-clear" type="button">Clear search</button>
+            <button class="button secondary" id="no-results-all" type="button">Show all statuses</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="mobile-bottom-nav" aria-label="Back office navigation" data-od-id="mobile-bottom-navigation">
+    <a href="#"><span aria-hidden="true">R</span><span>Register</span></a>
+    <a href="#"><span aria-hidden="true">C</span><span>Catalog</span></a>
+    <a href="#"><span aria-hidden="true">I</span><span>Inventory</span></a>
+    <a class="current" href="#" aria-current="page"><span aria-hidden="true">S</span><span>Staff</span></a>
+    <a href="#"><span aria-hidden="true">Rp</span><span>Reports</span></a>
+  </nav>
+
+  <dialog id="staff-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description" data-od-id="staff-dialog">
+    <form id="staff-form" novalidate>
+      <div class="dialog-header">
+        <div>
+          <h2 id="dialog-title">Add staff</h2>
+          <p id="dialog-description">Names appear in the roster exactly as saved.</p>
+        </div>
+        <button class="button text-button dialog-close" id="dialog-close" type="button">Close</button>
+      </div>
+
+      <div class="dialog-body">
+        <div class="field dialog-field">
+          <label for="staff-name">Name <span aria-hidden="true">*</span></label>
+          <input id="staff-name" name="name" type="text" maxlength="100" autocomplete="off" aria-describedby="name-hint name-error" required data-od-id="staff-name-field">
+          <p class="field-hint" id="name-hint">Use the name staff recognize at the register.</p>
+          <p class="field-error" id="name-error" hidden>Name is required. Enter at least one visible character.</p>
+        </div>
+
+        <fieldset class="status-choice">
+          <legend>Is active</legend>
+          <label class="switch-row" for="staff-active">
+            <span>
+              <strong id="active-choice-label">Active</strong>
+              <span id="active-choice-help">Available for cashier attribution</span>
+            </span>
+            <input id="staff-active" name="active" type="checkbox" role="switch" checked data-od-id="staff-active-field">
+          </label>
+        </fieldset>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="button secondary" id="dialog-cancel" type="button">Cancel</button>
+        <button class="button primary" id="dialog-submit" type="submit" data-od-id="dialog-submit">Add staff</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden data-od-id="status-toast"></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
