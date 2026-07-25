@@ -6,6 +6,7 @@ import { CatalogModule } from './catalog/catalog.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SalesModule } from './sales/sales.module';
+import { StaffModule } from './staff/staff.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SalesModule } from './sales/sales.module';
     CatalogModule,
     InventoryModule,
     SalesModule,
+    StaffModule,
   ],
   controllers: [AppController],
 })

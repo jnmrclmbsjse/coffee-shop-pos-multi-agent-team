@@ -91,6 +91,37 @@ export interface InventoryItemListFilters {
   active?: boolean;
 }
 
+export interface StaffMember {
+  id: string;
+  displayName: string;
+  isActive: boolean;
+  locationId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type StaffMemberListSort = 'name' | 'active';
+
+export type SortDirection = 'asc' | 'desc';
+
+export interface StaffMemberListQuery {
+  search?: string;
+  active?: boolean;
+  sort?: StaffMemberListSort;
+  direction?: SortDirection;
+}
+
+export interface CreateStaffMemberInput {
+  displayName: string;
+  isActive?: boolean;
+  locationId?: string | null;
+}
+
+export interface UpdateStaffMemberInput {
+  displayName?: string;
+  isActive?: boolean;
+}
+
 export type ProductListSort = 'category' | 'name' | 'active';
 
 export type StockCountPhase = 'open' | 'close';
