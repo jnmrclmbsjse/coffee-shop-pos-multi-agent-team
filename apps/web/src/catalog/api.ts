@@ -179,5 +179,5 @@ export function removeSize(productId: string, sizeId: string): Promise<void> {
 }
 
 export function listInventoryItems(): Promise<InventoryItemOption[]> {
-  return request('/inventory/items');
+  return request('/inventory/items/options');
 }
