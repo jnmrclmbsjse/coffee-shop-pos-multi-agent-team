@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="UCM Coffee Studio Admin dashboard and reports design mockup for GitHub story 80.">
+  <title>UCM Coffee Studio Admin</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <div class="app-shell" data-od-id="admin-app-shell">
+    <aside class="sidebar" aria-label="Admin navigation" data-od-id="admin-sidebar">
+      <div class="brand-block" data-od-id="ucm-wordmark">
+        <span class="brand-mark" aria-hidden="true">UCM</span>
+        <span>
+          <strong>UCM Coffee Studio</strong>
+          <small>Admin</small>
+        </span>
+      </div>
+
+      <nav class="primary-nav" aria-label="Primary">
+        <button class="nav-item is-selected" type="button" data-screen-target="dashboard" aria-current="page" data-od-id="nav-dashboard">
+          <span>Dashboard</span>
+          <span class="nav-hint">Trading overview</span>
+        </button>
+        <button class="nav-item" type="button" data-screen-target="reports" data-od-id="nav-reports">
+          <span>Reports</span>
+          <span class="nav-hint">Range and export</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <span>Shop date</span>
+        <strong>July 26, 2026</strong>
+        <small>Asia/Manila</small>
+      </div>
+    </aside>
+
+    <div class="mobile-shell">
+      <header class="mobile-header">
+        <div class="brand-block">
+          <span class="brand-mark" aria-hidden="true">UCM</span>
+          <span>
+            <strong>UCM Coffee Studio</strong>
+            <small>Admin</small>
+          </span>
+        </div>
+        <div class="mobile-date">
+          <span>Shop date</span>
+          <strong>Jul 26</strong>
+        </div>
+      </header>
+      <nav class="mobile-nav" aria-label="Primary mobile">
+        <button class="mobile-nav-item is-selected" type="button" data-screen-target="dashboard" aria-current="page">Dashboard</button>
+        <button class="mobile-nav-item" type="button" data-screen-target="reports">Reports</button>
+      </nav>
+    </div>
+
+    <main id="main-content" class="main-content" tabindex="-1">
+      <section id="dashboard-screen" class="screen is-active" aria-labelledby="dashboard-title" data-screen="dashboard" data-od-id="dashboard-screen">
+        <header class="screen-header">
+          <div>
+            <p class="context-label">Business overview</p>
+            <h1 id="dashboard-title" tabindex="-1" data-od-id="dashboard-heading">Dashboard</h1>
+            <p class="screen-description">Review the latest trading day and recent sales activity.</p>
+          </div>
+          <div class="header-meta" aria-label="Mock data information">
+            <span>Sample data</span>
+            <strong>Updated 9:12 AM</strong>
+          </div>
+        </header>
+
+        <section class="review-utility" aria-labelledby="dashboard-states-title" data-od-id="dashboard-state-switcher">
+          <div class="review-copy">
+            <strong id="dashboard-states-title">Review states</strong>
+            <span>Mockup utility for QA. Not part of production controls.</span>
+          </div>
+          <div class="segmented-control" role="group" aria-label="Dashboard review state">
+            <button type="button" class="segment is-active" data-dashboard-state="current" aria-pressed="true">Current day</button>
+            <button type="button" class="segment" data-dashboard-state="closed" aria-pressed="false">Latest closed</button>
+            <button type="button" class="segment" data-dashboard-state="empty" aria-pressed="false">No data</button>
+          </div>
+        </section>
+
+        <div id="dashboard-content" class="state-content" aria-live="polite"></div>
+      </section>
+
+      <section id="reports-screen" class="screen" aria-labelledby="reports-title" data-screen="reports" data-od-id="reports-screen" hidden>
+        <header class="screen-header">
+          <div>
+            <p class="context-label">Business review</p>
+            <h1 id="reports-title" tabindex="-1" data-od-id="reports-heading">Reports</h1>
+            <p class="screen-description">Reconcile trading days and export the selected range.</p>
+          </div>
+          <div class="header-meta" aria-label="Mock data information">
+            <span>Sample data</span>
+            <strong>Asia/Manila</strong>
+          </div>
+        </header>
+
+        <section class="review-utility" aria-labelledby="report-states-title" data-od-id="report-state-switcher">
+          <div class="review-copy">
+            <strong id="report-states-title">Review states</strong>
+            <span>Mockup utility for QA. Not part of production controls.</span>
+          </div>
+          <div class="segmented-control" role="group" aria-label="Report review state">
+            <button type="button" class="segment is-active" data-report-state="populated" aria-pressed="true">Populated</button>
+            <button type="button" class="segment" data-report-state="invalid" aria-pressed="false">Invalid range</button>
+            <button type="button" class="segment" data-report-state="empty" aria-pressed="false">Empty range</button>
+          </div>
+        </section>
+
+        <section class="filter-panel" aria-labelledby="range-title" data-od-id="report-range-filter">
+          <div class="filter-heading">
+            <div>
+              <h2 id="range-title">Date range</h2>
+              <p>Dates use the shop timezone, Asia/Manila.</p>
+            </div>
+            <p id="range-status" class="range-status" aria-live="polite">Showing Jul 13 to Jul 26, 2026</p>
+          </div>
+
+          <form id="report-form" novalidate>
+            <div class="date-fields">
+              <label class="field">
+                <span>From</span>
+                <input id="from-date" name="from" type="date" value="2026-07-13" aria-describedby="range-error">
+              </label>
+              <label class="field">
+                <span>To</span>
+                <input id="to-date" name="to" type="date" value="2026-07-26" aria-describedby="range-error">
+              </label>
+            </div>
+            <div class="filter-actions">
+              <button id="apply-range" class="button button-primary" type="submit">Apply range</button>
+              <button id="export-csv" class="button button-secondary" type="button">Export CSV</button>
+            </div>
+          </form>
+
+          <div id="range-error" class="inline-error" role="alert" hidden>
+            <strong>Check the date range.</strong>
+            <span>Both dates are required, and From cannot be after To. Last valid results remain on screen.</span>
+          </div>
+
+          <div class="export-note" data-od-id="export-contract-note">
+            <strong id="export-filename">ucm-report-2026-07-13_to_2026-07-26.csv</strong>
+            <span id="export-contract">CSV includes daily reconciliation and cash expenses only. A valid empty range exports the header only.</span>
+          </div>
+        </section>
+
+        <div id="reports-content" class="state-content" aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
