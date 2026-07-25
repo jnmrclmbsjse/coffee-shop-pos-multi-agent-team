@@ -256,3 +256,93 @@ The stock-item **edit** page hosts a **Par levels** table below the main form
   match. This was not exercised in the catalog UI (it is a POS behaviour), but
   the naming is present in seeded data. Should v2 keep the substring-based
   coffee rule (and this naming), or use an explicit per-category flag?
+
+---
+
+## 2026-07-25 — Staff roster (admin back office)
+
+Explored the admin back-office **Staff** resource at `/admin/staff` (the
+create/edit modals and the row delete confirmation), signed in as the
+administrator. Same Filament v5.7.1 admin UI as the Catalog and Inventory
+sections. Exploration was read-only; no records were created, edited, or
+deleted. One empty create form was submitted to observe validation, one edit
+modal was opened, and one delete confirmation was opened and cancelled —
+nothing was saved or confirmed.
+
+### Sidebar navigation
+
+Unlike Catalog and Inventory (which are collapsible sidebar groups with child
+resources), **Staff** is a top-level sidebar link (`/admin/staff`), listed
+alongside **Dashboard** and **Reports** at the top of the sidebar, not under a
+group heading.
+
+### Staff list (`/admin/staff`)
+
+- Columns: **Name**, **Is active**, and an **Actions** column. Name and Is
+  active column headers are sortable buttons.
+- The **Is active** column renders as an inline toggle button showing "Yes" or
+  "No" directly in the row (togglable without opening the record), consistent
+  with the Products list's inline **Available** toggle.
+- The **Actions** column has per-row **Edit** and **Delete** buttons.
+- A **Search** box, a **Filter** control (0 active filters), and a **Column
+  manager** button are present. Pagination offers per-page sizes 5, 10, 25, 50
+  (default 10).
+- The **Filter** panel offers a single filter: **Is active** (options "-",
+  "Yes", "No"), with **Reset** and **Apply filters** controls.
+- Seeded data at time of exploration: 4 staff — "Ana Banana" (Is active **No**),
+  "Ben" (Yes), "Carmen" (Yes), "Rodette Sevilla" (Yes).
+- A **New staff** button opens a create **modal** (not a separate route).
+
+### Staff create modal ("Create Staff")
+
+The create form is a modal with only two fields:
+
+- **Name** — required (marked `*`), free text.
+- **Is active** — a toggle switch, **on by default**.
+
+Buttons: **Create**, **Create & create another**, **Cancel**. There is **no PIN
+field** and no other field (no role, no username, no password) on the create
+modal.
+
+**Validation observed:** Clicking **Create** with the Name field left empty
+leaves the modal open and creates no record (the list still showed "4 results"
+afterward). No inline error-message text was captured in the dialog's rendered
+text at the moment observed, and no server round-trip that created a record
+occurred.
+
+### Staff edit modal ("Edit {name}")
+
+Opening **Edit** on "Ben" showed the same two fields pre-filled: **Name**
+("Ben") and **Is active** (on). Buttons: **Save changes** and **Cancel**. There
+is **no Delete button inside the edit modal** (deletion is only a row action on
+the list) and, again, **no PIN field**.
+
+### Delete confirmation (row action)
+
+The row **Delete** action opens a generic confirmation alertdialog titled
+"Delete {name}" with the body "Are you sure you would like to do this?" and
+**Cancel** / **Delete** buttons. It carries no indication of whether the staff
+member is referenced by any operational record. The confirmation was cancelled;
+no deletion was performed, so whether v1 blocks deletion of a referenced staff
+member server-side was not observed.
+
+### Open questions for the human
+
+- **Where is a staff PIN managed in v1?** DISCOVERY.md states a staff member may
+  have an optional PIN that must be entered before they become the active
+  cashier. The admin back-office **Staff** resource exposes only **Name** and
+  **Is active** on both the create and edit modals — no PIN field anywhere in
+  this resource. I did not explore the POS cashier-selection flow in this run,
+  so I could not observe where (or whether) a PIN is set, changed, or cleared.
+  Should v2's back-office staff management include PIN setup/reset, or is PIN
+  entry/management intended to live only in the POS workspace as v1 appears to
+  arrange it?
+- **Deletion of a referenced staff member.** The staff **Delete** row action
+  presents a plain generic confirmation with no reference guard, mirroring the
+  catalog "product deletion" and inventory "stock-item deletion" open questions.
+  DISCOVERY.md's record-integrity rule says referenced roster records should be
+  deactivated, not deleted (the active cashier attributes each order). I did not
+  confirm the deletion (that would mutate v1), so I could not verify whether v1
+  blocks deletion of a staff member referenced by orders. Should v2 block
+  deletion of referenced staff and require deactivation instead, and should the
+  UI surface that before the confirm rather than presenting a plain "Delete"?
