@@ -3,5 +3,6 @@
 set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 as_human
+require_claude_auth
 ISSUE="${1:?Usage: techlead-review.sh <issue-number>}"
 $CLAUDE_EXEC "$(render techlead-review.md "$ISSUE")"

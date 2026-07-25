@@ -100,7 +100,7 @@ if [[ -z "${QA_TASK:-}" || "$QA_TASK" == "null" ]]; then
 fi
 
 echo "==> All dev tasks closed. Advancing QA task #$QA_TASK"
-gh issue edit "$QA_TASK" --add-label agent:qa >/dev/null
+gh issue edit "$QA_TASK" --remove-label blocked --add-label agent:qa >/dev/null
 set_status "$QA_TASK" "Ready for QA" || true
 echo
 echo "    Next: ./scripts/qa-test.sh $QA_TASK"

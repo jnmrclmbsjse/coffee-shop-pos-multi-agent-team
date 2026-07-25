@@ -32,6 +32,27 @@ prompt_sha() {
   git rev-parse --short HEAD -- "$PROMPTS_DIR" 2>/dev/null || echo "nogit"
 }
 
+# require_claude_auth — fail fast if the headless Claude session can't
+# authenticate. A dead OAuth session makes `claude -p` print generic strings
+# ("Failed to authenticate", "OAuth session expired") that poll.sh's
+# classify_failure() reads as an issue-specific *environmental* failure — so it
+# escalates and stamps `agent:human` on an innocent issue, and the whole board
+# fills with false escalations while the real problem (the machine needs a human
+# to `/login`) goes unnamed. Probe once, cheaply, before the expensive dispatch.
+# On failure we exit 3 — a code OUTSIDE poll.sh's 0/124 handling — and print the
+# AUTH_EXPIRED sentinel; poll.sh treats either signal as a machine-level halt,
+# not a per-issue escalation. Call this right after the as_* identity line in
+# every wrapper that shells out to $CLAUDE_EXEC.
+require_claude_auth() {
+  local out
+  if ! out="$($CLAUDE_EXEC 'Reply with the single word OK and nothing else.' 2>&1)" \
+     || ! printf '%s' "$out" | grep -qi 'ok'; then
+    echo "AUTH_EXPIRED: Claude Code OAuth session is dead — run /login to re-authenticate." >&2
+    printf '  probe output: %s\n' "${out:0:200}" >&2
+    exit 3
+  fi
+}
+
 # render <template-name> <issue-number>  → prints the interpolated prompt
 render() {
   local template="$1" issue="$2" sha
