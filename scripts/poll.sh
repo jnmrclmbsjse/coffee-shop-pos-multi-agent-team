@@ -23,7 +23,7 @@ source "scripts/_common.sh"
 POLL_INTERVAL="${POLL_INTERVAL:-60}"
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-2}"
 MAX_DISPATCHES="${MAX_DISPATCHES:-6}"
-DISPATCH_TIMEOUT="${DISPATCH_TIMEOUT:-1800}"
+DISPATCH_TIMEOUT="${DISPATCH_TIMEOUT:-3600}"
 MAX_SESSION_HOURS="${MAX_SESSION_HOURS:-8}"
 MAX_PER_HOUR="${MAX_PER_HOUR:-20}"
 DISCOVERY_COOLDOWN="${DISCOVERY_COOLDOWN:-14400}"   # 4h between discovery runs
@@ -154,6 +154,11 @@ escalate() {
 
 dispatch() {
   local role="$1" issue="$2"
+  # Honor the kill switch mid-cycle. It may have been set manually, or by the
+  # AUTH_EXPIRED branch below on a prior issue this same cycle — without this a
+  # single dead-OAuth session would fail every remaining Claude dispatch in the
+  # cycle before the top-of-loop should_stop check ever runs.
+  [[ -f "$STOP_FILE" ]] && return 0
   local script ts log
   script="$(script_for "$role")"
   ts="$(date +%Y%m%d-%H%M%S)"
@@ -181,6 +186,18 @@ dispatch() {
   elif (( rc == 124 )); then
     echo "    ✗ #$issue TIMED OUT after ${DISPATCH_TIMEOUT}s"
     escalate "$issue" "agent run exceeded ${DISPATCH_TIMEOUT}s" "$log" "timeout"
+  elif (( rc == 3 )) || grep -qiE 'AUTH_EXPIRED|Failed to authenticate|OAuth session expired' "$log" 2>/dev/null; then
+    # MACHINE-LEVEL auth failure (dead Claude OAuth) — NOT this issue's fault.
+    # require_claude_auth (rc 3) catches an already-dead session before the run;
+    # the grep also catches a session that expires mid-run. Every Claude
+    # dispatch will fail identically, so do NOT escalate or label the issue.
+    # Roll back this issue's dispatch counter (it was bumped pre-run above) and
+    # halt the whole poller with a loud banner; a human must /login and clear
+    # the kill switch before resuming.
+    echo "    ‼ #$issue — AUTH_EXPIRED: Claude Code OAuth session is dead (not an issue defect)."
+    echo "$(( $(dispatches_of "$issue") - 1 ))" > "$STATE_DIR/dispatches-$issue"
+    echo "    ‼ HALTING poller. Fix: run 'claude' → /login, then 'rm -f $STOP_FILE' and restart."
+    touch "$STOP_FILE"
   else
     local kind; kind="$(classify_failure "$log")"
     if [[ "$kind" == "environmental" ]]; then

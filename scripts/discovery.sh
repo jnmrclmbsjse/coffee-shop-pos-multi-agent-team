@@ -19,6 +19,8 @@ as_human
 
 [[ -f DISCOVERY.md ]] || { echo "DISCOVERY.md not found at repo root — it is the map this agent needs."; exit 1; }
 
+require_claude_auth
+
 sha="$(prompt_sha)"
 PROMPT="$(sed "s/{{PROMPT_SHA}}/${sha}/g" "$PROMPTS_DIR/discovery.md")"
 
