@@ -1,0 +1,163 @@
+import {
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
+import type { PrismaService } from '../prisma/prisma.service';
+import { StaffService } from './staff.service';
+
+describe('StaffService', () => {
+  const staffId = '9e55c455-879c-4ea8-8365-433e0e2cf4a3';
+  const locationId = '56fe72cc-5c03-466c-bd87-7c5d2d732bbe';
+  const now = new Date('2026-07-25T00:00:00Z');
+
+  function staffRecord(overrides: Record<string, unknown> = {}) {
+    return {
+      id: staffId,
+      displayName: 'Alex Rivera',
+      isActive: true,
+      locationId: null,
+      createdAt: now,
+      updatedAt: now,
+      ...overrides,
+    };
+  }
+
+  function createPrisma() {
+    return {
+      staffMember: {
+        create: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
+      location: {
+        findUnique: jest.fn(),
+      },
+    };
+  }
+
+  it('combines case-insensitive name search and active filtering', async () => {
+    const prisma = createPrisma();
+    prisma.staffMember.findMany.mockResolvedValue([]);
+    const service = new StaffService(
+      prisma as unknown as PrismaService,
+    );
+
+    await service.list({
+      search: 'aLeX',
+      active: false,
+      sort: 'name',
+      direction: 'desc',
+    });
+
+    expect(prisma.staffMember.findMany).toHaveBeenCalledWith({
+      where: {
+        displayName: { contains: 'aLeX', mode: 'insensitive' },
+        isActive: false,
+      },
+      orderBy: [{ displayName: 'desc' }],
+    });
+  });
+
+  it('sorts inactive before active in ascending active order', async () => {
+    const prisma = createPrisma();
+    prisma.staffMember.findMany.mockResolvedValue([]);
+    const service = new StaffService(
+      prisma as unknown as PrismaService,
+    );
+
+    await service.list({
+      sort: 'active',
+      direction: 'asc',
+    });
+
+    expect(prisma.staffMember.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [
+          { isActive: 'asc' },
+          { displayName: 'asc' },
+        ],
+      }),
+    );
+  });
+
+  it('creates duplicate names without a uniqueness check', async () => {
+    const prisma = createPrisma();
+    prisma.staffMember.create.mockResolvedValue(staffRecord());
+    const service = new StaffService(
+      prisma as unknown as PrismaService,
+    );
+
+    await service.create({
+      displayName: 'Alex Rivera',
+      isActive: true,
+    });
+
+    expect(prisma.staffMember.create).toHaveBeenCalledWith({
+      data: {
+        displayName: 'Alex Rivera',
+        isActive: true,
+        locationId: null,
+      },
+    });
+  });
+
+  it('rejects a nonexistent location before creating staff', async () => {
+    const prisma = createPrisma();
+    prisma.location.findUnique.mockResolvedValue(null);
+    const service = new StaffService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.create({
+        displayName: 'Alex Rivera',
+        isActive: true,
+        locationId,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.staffMember.create).not.toHaveBeenCalled();
+  });
+
+  it('updates the existing record for rename or status changes', async () => {
+    const prisma = createPrisma();
+    prisma.staffMember.findUnique.mockResolvedValue({ id: staffId });
+    prisma.staffMember.update.mockResolvedValue(
+      staffRecord({ displayName: 'Alex Santos', isActive: false }),
+    );
+    const service = new StaffService(
+      prisma as unknown as PrismaService,
+    );
+
+    const result = await service.update(staffId, {
+      displayName: 'Alex Santos',
+      isActive: false,
+    });
+
+    expect(prisma.staffMember.update).toHaveBeenCalledWith({
+      where: { id: staffId },
+      data: {
+        displayName: 'Alex Santos',
+        isActive: false,
+      },
+    });
+    expect(result).toMatchObject({
+      id: staffId,
+      displayName: 'Alex Santos',
+      isActive: false,
+    });
+  });
+
+  it('returns not found instead of replacing a missing record', async () => {
+    const prisma = createPrisma();
+    prisma.staffMember.findUnique.mockResolvedValue(null);
+    const service = new StaffService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.update(staffId, { isActive: false }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.staffMember.update).not.toHaveBeenCalled();
+  });
+});
