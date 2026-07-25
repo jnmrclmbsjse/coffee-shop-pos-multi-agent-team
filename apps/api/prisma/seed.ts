@@ -15,6 +15,14 @@ interface SeedUser {
   role: Role;
 }
 
+const initialStockCategories = [
+  { name: 'Water & Ice', sortWeight: 0 },
+  { name: 'Cups', sortWeight: 1 },
+  { name: 'Lids', sortWeight: 2 },
+  { name: 'Dairies', sortWeight: 3 },
+  { name: 'Others', sortWeight: 4 },
+] as const;
+
 function readSeedUser(
   usernameVariable: string,
   displayNameVariable: string,
@@ -79,6 +87,28 @@ async function seedUser(user: SeedUser): Promise<void> {
   });
 }
 
+async function seedStockCategories(): Promise<void> {
+  for (const category of initialStockCategories) {
+    const existing = await prisma.stockCategory.findFirst({
+      where: {
+        name: { equals: category.name, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await prisma.stockCategory.update({
+        where: { id: existing.id },
+        data: { sortWeight: category.sortWeight },
+      });
+    } else {
+      await prisma.stockCategory.create({
+        data: category,
+      });
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const admin = readSeedUser(
     'SEED_ADMIN_USERNAME',
@@ -96,9 +126,11 @@ async function main(): Promise<void> {
 
   await seedUser(admin);
   await seedUser(staff);
+  await seedStockCategories();
 
   console.log(`Seeded administrator "${admin.username}"`);
   console.log(`Seeded staff user "${staff.username}"`);
+  console.log('Seeded initial stock categories');
 }
 
 main()

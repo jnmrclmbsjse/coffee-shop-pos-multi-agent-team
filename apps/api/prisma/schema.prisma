@@ -22,6 +22,16 @@ enum Role {
   STAFF
 }
 
+enum CountMethod {
+  QUANTITY
+  LEVEL
+}
+
+enum DayType {
+  NORMAL
+  PEAK
+}
+
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   username     String   @unique
@@ -75,6 +85,19 @@ model Category {
   @@map("categories")
 }
 
+model StockCategory {
+  id         String          @id @default(uuid()) @db.Uuid
+  name       String
+  sortWeight Int             @map("sort_weight")
+  active     Boolean         @default(true)
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+  items      InventoryItem[]
+
+  @@index([sortWeight])
+  @@map("stock_categories")
+}
+
 model ProductVariant {
   id                 String         @id @default(uuid()) @db.Uuid
   productId          String         @map("product_id") @db.Uuid
@@ -99,13 +122,38 @@ model InventoryItem {
   id                 String           @id @default(uuid()) @db.Uuid
   sku                String           @unique
   name               String
+  categoryId         String           @map("category_id") @db.Uuid
   unit               String
+  size               String?
+  countMethod        CountMethod      @map("count_method")
+  critical           Boolean          @default(false)
+  reconciled         Boolean          @default(false)
   active             Boolean          @default(true)
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  category           StockCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  parLevels          ParLevel[]
   stockCountLines    StockCountLine[]
   cupProductVariants ProductVariant[] @relation("VariantCupInventoryItem")
   lidProductVariants ProductVariant[] @relation("VariantLidInventoryItem")
 
+  @@index([categoryId])
   @@map("inventory_items")
+}
+
+// Par quantities are non-monetary whole stock units. Their ordering invariant
+// (urgent <= low <= par) is enforced by both the API and database migration.
+model ParLevel {
+  id              String        @id @default(uuid()) @db.Uuid
+  inventoryItemId String        @map("inventory_item_id") @db.Uuid
+  dayType         DayType       @map("day_type")
+  parQty          Int           @map("par_qty")
+  lowThreshold    Int?          @map("low_threshold")
+  urgentThreshold Int?          @map("urgent_threshold")
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([inventoryItemId, dayType])
+  @@map("par_levels")
 }
 
 // Append-only: corrections are additional StockCount records linked with

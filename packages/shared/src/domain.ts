@@ -37,6 +37,60 @@ export interface InventoryItemOption {
   name: string;
 }
 
+export enum CountMethod {
+  QUANTITY = 'QUANTITY',
+  LEVEL = 'LEVEL',
+}
+
+export enum DayType {
+  NORMAL = 'NORMAL',
+  PEAK = 'PEAK',
+}
+
+export interface StockCategory {
+  id: string;
+  name: string;
+  sortWeight: number;
+  active: boolean;
+}
+
+export interface StockCategorySummary extends StockCategory {
+  itemCount: number;
+}
+
+export interface InventoryItem {
+  id: string;
+  sku: string;
+  name: string;
+  categoryId: string;
+  category: StockCategory;
+  unit: string;
+  size: string | null;
+  countMethod: CountMethod;
+  critical: boolean;
+  reconciled: boolean;
+  active: boolean;
+  parLevels: ParLevel[];
+}
+
+export interface ParLevel {
+  id: string;
+  inventoryItemId: string;
+  dayType: DayType;
+  parQty: number;
+  lowThreshold: number | null;
+  urgentThreshold: number | null;
+}
+
+export interface InventoryItemListFilters {
+  search?: string;
+  categoryId?: string;
+  countMethod?: CountMethod;
+  reconciled?: boolean;
+  critical?: boolean;
+  active?: boolean;
+}
+
 export type ProductListSort = 'category' | 'name' | 'active';
 
 export type StockCountPhase = 'open' | 'close';
