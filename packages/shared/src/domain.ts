@@ -154,3 +154,48 @@ export interface LineItem {
   unitPriceCents: MoneyCents;
   lineTotalCents: MoneyCents;
 }
+
+export enum TradingDayStatus {
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
+}
+
+export enum PaymentMethod {
+  CASH = 'CASH',
+  ONLINE = 'ONLINE',
+}
+
+export interface TradingDay {
+  id: string;
+  locationId: string | null;
+  businessDate: string;
+  status: TradingDayStatus;
+  openedAt: string;
+  closedAt: string | null;
+  openingFloatCents: MoneyCents;
+  openedByStaffMemberId: string;
+  closedByStaffMemberId: string | null;
+}
+
+export interface CashCount {
+  id: string;
+  tradingDayId: string;
+  countedCents: MoneyCents;
+  countedAt: string;
+  countedByStaffMemberId: string;
+}
+
+export interface CashExpense {
+  id: string;
+  tradingDayId: string;
+  amountCents: MoneyCents;
+  description: string;
+  recordedAt: string;
+}
+
+export interface SalePayment {
+  id: string;
+  saleId: string;
+  method: PaymentMethod;
+  amountCents: MoneyCents;
+}

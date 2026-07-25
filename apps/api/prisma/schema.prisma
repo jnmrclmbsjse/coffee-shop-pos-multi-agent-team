@@ -17,6 +17,16 @@ enum SaleKind {
   VOID
 }
 
+enum TradingDayStatus {
+  OPEN
+  CLOSED
+}
+
+enum PaymentMethod {
+  CASH
+  ONLINE
+}
+
 enum Role {
   ADMIN
   STAFF
@@ -53,18 +63,22 @@ model Location {
   stockCounts  StockCount[]
   sales        Sale[]
   staffMembers StaffMember[]
+  tradingDays  TradingDay[]
 
   @@map("locations")
 }
 
 model StaffMember {
-  id          String    @id @default(uuid()) @db.Uuid
-  displayName String    @map("display_name")
-  isActive    Boolean   @default(true) @map("is_active")
-  locationId  String?   @map("location_id") @db.Uuid
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  location    Location? @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  id                String       @id @default(uuid()) @db.Uuid
+  displayName       String       @map("display_name")
+  isActive          Boolean      @default(true) @map("is_active")
+  locationId        String?      @map("location_id") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  location          Location?    @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  openedTradingDays TradingDay[] @relation("TradingDayOpenedBy")
+  closedTradingDays TradingDay[] @relation("TradingDayClosedBy")
+  cashCounts        CashCount[]
 
   @@index([locationId])
   @@map("staff_members")
@@ -201,26 +215,95 @@ model StockCountLine {
   @@map("stock_count_lines")
 }
 
+// The database migration adds a NULLS NOT DISTINCT partial unique index that
+// permits at most one OPEN trading day per location, including the current
+// nullable-location case. Prisma does not model partial indexes.
+model TradingDay {
+  id                    String           @id @default(uuid()) @db.Uuid
+  locationId            String?          @map("location_id") @db.Uuid
+  businessDate          DateTime         @map("business_date") @db.Date
+  status                TradingDayStatus
+  openedAt              DateTime         @map("opened_at")
+  closedAt              DateTime?        @map("closed_at")
+  openingFloatCents     Int              @map("opening_float_cents")
+  openedByStaffMemberId String           @map("opened_by_staff_member_id") @db.Uuid
+  closedByStaffMemberId String?          @map("closed_by_staff_member_id") @db.Uuid
+  location              Location?        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  openedByStaffMember   StaffMember      @relation("TradingDayOpenedBy", fields: [openedByStaffMemberId], references: [id], onDelete: Restrict)
+  closedByStaffMember   StaffMember?     @relation("TradingDayClosedBy", fields: [closedByStaffMemberId], references: [id], onDelete: Restrict)
+  cashCounts            CashCount[]
+  cashExpenses          CashExpense[]
+  sales                 Sale[]
+
+  @@index([locationId, businessDate])
+  @@map("trading_days")
+}
+
+// Append-only: corrections are additional CashCount records. The latest count
+// is the actual cash value for a closed trading day.
+model CashCount {
+  id                     String      @id @default(uuid()) @db.Uuid
+  tradingDayId           String      @map("trading_day_id") @db.Uuid
+  countedCents           Int         @map("counted_cents")
+  countedAt              DateTime    @default(now()) @map("counted_at")
+  countedByStaffMemberId String      @map("counted_by_staff_member_id") @db.Uuid
+  tradingDay             TradingDay  @relation(fields: [tradingDayId], references: [id], onDelete: Restrict)
+  countedByStaffMember   StaffMember @relation(fields: [countedByStaffMemberId], references: [id], onDelete: Restrict)
+
+  @@index([tradingDayId, countedAt])
+  @@map("cash_counts")
+}
+
+// Append-only: expense corrections are recorded as new signed rows.
+model CashExpense {
+  id           String     @id @default(uuid()) @db.Uuid
+  tradingDayId String     @map("trading_day_id") @db.Uuid
+  amountCents  Int        @map("amount_cents")
+  description  String
+  recordedAt   DateTime   @default(now()) @map("recorded_at")
+  tradingDay   TradingDay @relation(fields: [tradingDayId], references: [id], onDelete: Restrict)
+
+  @@index([tradingDayId, recordedAt])
+  @@map("cash_expenses")
+}
+
 // Append-only and idempotent: clientGeneratedId is supplied by the register
 // and is globally unique. Voids are new records linked through correctsSaleId;
 // application code must not update or delete an existing sale.
 model Sale {
-  id                String     @id @default(uuid()) @db.Uuid
-  clientGeneratedId String     @unique @map("client_generated_id") @db.Uuid
-  locationId        String?    @map("location_id") @db.Uuid
-  kind              SaleKind   @default(PURCHASE)
-  correctsSaleId    String?    @map("corrects_sale_id") @db.Uuid
-  subtotalCents     Int        @map("subtotal_cents")
-  taxCents          Int        @map("tax_cents")
-  totalCents        Int        @map("total_cents")
-  recordedAt        DateTime   @default(now()) @map("recorded_at")
-  location          Location?  @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  corrects          Sale?      @relation("SaleCorrections", fields: [correctsSaleId], references: [id], onDelete: Restrict)
-  corrections       Sale[]     @relation("SaleCorrections")
+  id                String        @id @default(uuid()) @db.Uuid
+  clientGeneratedId String        @unique @map("client_generated_id") @db.Uuid
+  locationId        String?       @map("location_id") @db.Uuid
+  tradingDayId      String        @map("trading_day_id") @db.Uuid
+  kind              SaleKind      @default(PURCHASE)
+  correctsSaleId    String?       @map("corrects_sale_id") @db.Uuid
+  subtotalCents     Int           @map("subtotal_cents")
+  taxCents          Int           @map("tax_cents")
+  totalCents        Int           @map("total_cents")
+  cashTipCents      Int           @default(0) @map("cash_tip_cents")
+  recordedAt        DateTime      @default(now()) @map("recorded_at")
+  location          Location?     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  tradingDay        TradingDay    @relation(fields: [tradingDayId], references: [id], onDelete: Restrict)
+  corrects          Sale?         @relation("SaleCorrections", fields: [correctsSaleId], references: [id], onDelete: Restrict)
+  corrections       Sale[]        @relation("SaleCorrections")
   lines             SaleLine[]
+  payments          SalePayment[]
 
   @@index([locationId, recordedAt])
+  @@index([tradingDayId])
   @@map("sales")
+}
+
+// Append-only: a split tender is represented by one row for each method.
+model SalePayment {
+  id          String        @id @default(uuid()) @db.Uuid
+  saleId      String        @map("sale_id") @db.Uuid
+  method      PaymentMethod
+  amountCents Int           @map("amount_cents")
+  sale        Sale          @relation(fields: [saleId], references: [id], onDelete: Restrict)
+
+  @@unique([saleId, method])
+  @@map("sale_payments")
 }
 
 model SaleLine {

@@ -7,6 +7,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SalesModule } from './sales/sales.module';
 import { StaffModule } from './staff/staff.module';
+import { TradingDayModule } from './trading-day/trading-day.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { StaffModule } from './staff/staff.module';
     InventoryModule,
     SalesModule,
     StaffModule,
+    TradingDayModule,
   ],
   controllers: [AppController],
 })
