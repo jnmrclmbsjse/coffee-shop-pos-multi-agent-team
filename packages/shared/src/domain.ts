@@ -199,3 +199,61 @@ export interface SalePayment {
   method: PaymentMethod;
   amountCents: MoneyCents;
 }
+
+export interface DailyReconciliation {
+  date: string;
+  status: 'open' | 'closed';
+  cashSalesCents: MoneyCents;
+  onlineSalesCents: MoneyCents;
+  grossSalesCents: MoneyCents;
+  tipsCents: MoneyCents;
+  cashExpensesCents: MoneyCents;
+  expectedCashCents: MoneyCents;
+  actualCashCents: MoneyCents | null;
+  varianceCents: MoneyCents | null;
+}
+
+export interface ProductSales {
+  productId: string;
+  productName: string;
+  quantitySold: number;
+  revenueCents: MoneyCents;
+}
+
+export interface SalesReportTotals {
+  grossSalesCents: MoneyCents;
+  cashSalesCents: MoneyCents;
+  onlineSalesCents: MoneyCents;
+  tipsCents: MoneyCents;
+}
+
+export interface SalesRangeReport {
+  from: string;
+  to: string;
+  totals: SalesReportTotals;
+  dailyReconciliation: DailyReconciliation[];
+  topProducts: ProductSales[];
+}
+
+export interface DashboardSalesTrend {
+  date: string;
+  cashSalesCents: MoneyCents;
+  onlineSalesCents: MoneyCents;
+}
+
+export interface DashboardTradingDaySummary {
+  date: string;
+  status: 'open' | 'closed';
+  orderCount: number;
+  grossSalesCents: MoneyCents;
+  cashSalesCents: MoneyCents;
+  onlineSalesCents: MoneyCents;
+  averageOrderValueCents: MoneyCents;
+  cashTipsCents: MoneyCents;
+}
+
+export interface ReportingDashboard {
+  summary: DashboardTradingDaySummary | null;
+  salesTrend: DashboardSalesTrend[];
+  topProducts: ProductSales[];
+}
