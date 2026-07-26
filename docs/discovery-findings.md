@@ -537,3 +537,250 @@ Differences between the export and the on-screen table:
   available data, so I could not observe whether v1 caps the Top products table.
   Should v2 cap it (and at what number), or list every product with sales in the
   range?
+
+---
+
+## 2026-07-26 — Sales: Order History (admin back office)
+
+Explored the admin back-office **Order History** resource at `/admin/sales-orders`
+(the list, its filters, search, sorting, column manager, and the per-order View
+page), signed in as the administrator. Same Filament v5.7.1 admin UI as the
+Catalog, Inventory, Staff, and Reporting sections. Exploration was read-only: no
+records were created, edited, or deleted. The only actions taken were changing
+list filters, the search term, the sort column, and the per-page size — all
+query-only controls — and opening View pages. Observed on 2026-07-26, when the
+open business day was **Jul 23, 2026**.
+
+### Navigation
+
+**Order History** is the single child of the collapsible **Sales** sidebar group
+and resolves to `/admin/sales-orders`. Its breadcrumb and page heading read
+"Sales Orders" (the sidebar label "Order History" and the page title "Sales
+Orders" differ). There is no navigation badge on the item.
+
+### The resource is read-only
+
+- The list has **no "New" button**, no bulk-select checkbox column, and no
+  bulk-actions control. The only per-row action is **View**.
+- `/admin/sales-orders/create` returns **404**, and
+  `/admin/sales-orders/{id}/edit` returns **404** for a valid order id.
+- The View page carries **no buttons at all** inside the page content — no Edit,
+  no Delete, no Void, no Reopen, no print/receipt action.
+- An unknown order id (`00000000-0000-0000-0000-000000000000`) returns **404**.
+
+### Order list (`/admin/sales-orders`)
+
+- Columns, left to right: **Day**, **#**, **Customer**, **Status**, **Payment**,
+  **Total**, **Tip**, **Change owed**, **Completed at**, **Action** (View).
+- Sortable column headers (rendered as buttons): **Day**, **#**, **Status**,
+  **Total**, **Completed at**. **Customer**, **Payment**, **Tip**, and **Change
+  owed** are not sortable.
+- Every cell in a row is itself a link to that order's View page, so clicking
+  anywhere in the row opens the order.
+- A **Search** box, a **Filter** control, and a **Column manager** button are
+  present. The column manager lists all nine data columns as individually
+  toggleable.
+- Pagination offers per-page sizes 5, 10, 25, 50 (default 10). 15 orders existed
+  at time of exploration.
+- Empty states render the text **"No sales orders"**.
+- Amounts render with a `₱` prefix and thousands separators (e.g. `₱5,000.00`).
+- Absent values render as an em dash (`—`): Payment and Completed at are `—` for
+  parked orders, Completed at is `—` for the void order.
+- **Day** renders as "Jul 23, 2026"; **Completed at** renders as
+  "Jul 23, 2026 13:21:14" (date plus 24-hour time).
+
+Seeded data at time of exploration (15 orders across four business days):
+
+| Day | # | Customer | Status | Payment | Total | Tip | Change owed | Completed at |
+|---|---|---|---|---|---|---|---|---|
+| Jul 23, 2026 | 2 | Walk-in | Parked | — | ₱158.00 | ₱0.00 | ₱0.00 | — |
+| Jul 23, 2026 | 1 | Jay | Completed | Cash | ₱50.00 | ₱0.00 | ₱50.00 | Jul 23, 2026 13:21:14 |
+| Jul 17, 2026 | 7 | Ajoy | Completed | Cash | ₱200.00 | ₱0.00 | ₱0.00 | Jul 21, 2026 19:54:06 |
+| Jul 17, 2026 | 6 | Walk-in | Completed | Split (Cash + Online) | ₱408.00 | ₱0.00 | ₱0.00 | Jul 21, 2026 19:33:40 |
+| Jul 17, 2026 | 5 | Wes | Completed | Cash | ₱158.00 | ₱0.00 | ₱0.00 | Jul 21, 2026 19:21:42 |
+| Jul 17, 2026 | 4 | Thea | Completed | Online | ₱50.00 | ₱0.00 | ₱0.00 | Jul 21, 2026 19:21:00 |
+| Jul 17, 2026 | 3 | Thea | Completed | Online | ₱50.00 | ₱0.00 | ₱0.00 | Jul 21, 2026 19:20:36 |
+| Jul 17, 2026 | 2 | Thea | Completed | Cash | ₱50.00 | ₱0.00 | ₱0.00 | Jul 21, 2026 19:19:53 |
+| Jul 17, 2026 | 1 | Jay | Completed | Cash | ₱100.00 | ₱0.00 | ₱0.00 | Jul 21, 2026 19:19:13 |
+| Jul 21, 2026 | 2 | Risa | Completed | Cash | ₱150.00 | ₱0.00 | ₱0.00 | Jul 21, 2026 08:17:08 |
+| Jul 21, 2026 | 1 | Ian | Parked | — | ₱100.00 | ₱0.00 | ₱0.00 | — |
+| Jul 20, 2026 | 3 | Lola Nena | Parked | — | ₱120.00 | ₱0.00 | ₱0.00 | — |
+| Jul 20, 2026 | 4 | Void Test | Void | Cash | ₱250.00 | ₱0.00 | ₱0.00 | — |
+| Jul 20, 2026 | 1 | Walk-in 1 | Completed | Cash | ₱5,000.00 | ₱0.00 | ₱0.00 | Jul 19, 2026 19:13:42 |
+| Jul 20, 2026 | 2 | Walk-in 2 | Completed | Online | ₱3,000.00 | ₱0.00 | ₱0.00 | Jul 19, 2026 19:13:42 |
+
+Observable from that data:
+
+- **Order numbers restart per business day** and are shared across statuses:
+  Jul 20 has #1 (completed), #2 (completed), #3 (parked), and #4 (void); Jul 17
+  runs #1–#7. Parked and void orders consume a number in the same sequence.
+- The **default list order groups neither by Day nor by Completed at** — the
+  rows above are in default order, and the Jul 17 block sits above Jul 21 and
+  Jul 20. Orders are listed newest-created first, which is not the same as the
+  Day column's order.
+- An unnamed order shows the literal customer text **"Walk-in"**.
+- A **void order retains its payment method** ("Cash") in the list but has no
+  Completed at.
+- The **Change owed** column keeps showing `₱50.00` for the Jul 23 #1 order even
+  though that order's View page records the change as settled (see below) — the
+  list column does not distinguish owed-and-outstanding from owed-and-settled.
+
+### Filters
+
+The Filter panel offers exactly two filters, plus a **Reset** and an **Apply
+filters** button. Filters are deferred: changing a select does nothing until
+**Apply filters** is clicked.
+
+- **Status** — All / Parked / Completed / Void.
+- **Payment** — All / Cash / Online / Split (Cash + Online).
+
+Applying Status = Void narrowed the list to 1 result and set the URL to
+`?filters[status][value]=void`.
+
+There is **no date filter and no date-range filter** on this screen — no
+business-day picker, no From/To. The only way to narrow to a period is to sort
+by Day and read.
+
+### Search
+
+The Search box is a live, debounced filter and writes `?search=` to the URL. It
+matches on **customer name only**, case-insensitively, as a substring:
+
+- `Thea` → 3 results; `THEA` → the same 3 results (case-insensitive).
+- `walk` → 2 results ("Walk-in 1", "Walk-in 2").
+- `void` → 1 result — the order whose *customer name* is "Void Test", not the
+  void-status order set.
+- `House Blend` (a product on several orders) → no results.
+- `7` (an order number) → no results.
+- `2026-07-17` and `Jul 17` (business dates) → no results.
+- `cash` (a payment method) → no results.
+- `zzzz` → the "No sales orders" empty state.
+
+### Sorting
+
+Clicking a sortable header toggles ascending then descending and writes
+`?sort=<column>:<direction>` to the URL (e.g. `?sort=order_number:desc`).
+
+Sorting by **Day** ascending groups the days correctly (Jul 17 → Jul 20 →
+Jul 21 → Jul 23), but within a day the rows are **not** secondarily ordered by
+order number: Jul 20 appeared as #3, #4, #1, #2.
+
+Sorting by **#** sorts on the order number across all business days at once, so
+days interleave — descending produced 7, 6, 5, 4(Jul 17), 4(Jul 20), 3(Jul 17),
+3(Jul 20), 2(Jul 23), 2(Jul 17), 2(Jul 21), 2(Jul 20), 1(Jul 23), 1(Jul 17),
+1(Jul 21), 1(Jul 20).
+
+### Order View page (`/admin/sales-orders/{id}`)
+
+The page title and heading are "View {order number}" (e.g. "View 6"). Content is
+three sections with these entries, in order:
+
+**Order** — Order #, Day, Customer, Status, Service type, Payment.
+
+**Items** — a repeating block per order line with: Product, Size, Qty, Discount,
+Line total.
+
+**Payment** — Subtotal, Discount, Total, Cash, Online, Tip, Cash received,
+Change owed, Change settled, Completed at, Void reason.
+
+That is the complete field list — 23 labels. Notably **absent** from the View
+page: any **cashier / staff attribution**, any **free upsize** figure, and any
+**taste preference or per-line note** (Sweeter / Stronger / Less sweet / Less
+ice / free text). None of these appear anywhere on the list or the View page.
+
+Observed records:
+
+- **Void order** (Jul 20 #4, "Void Test"): Status Void, Service type Take-out,
+  Payment Cash; one line — House Blend / M / Qty 5 / Discount None / ₱250.00;
+  Subtotal ₱250.00, Discount ₱0.00, Total ₱250.00, Cash `—`, Online `—`, Tip
+  ₱0.00, Cash received `—`, Change owed ₱0.00, Change settled `—`, Completed at
+  `—`, **Void reason "wrong order"**. The void reason is free text and is shown
+  in full.
+- **Split payment** (Jul 17 #6, Walk-in): Payment "Split (Cash + Online)"; three
+  lines — Milky Choco / Medio / 1 / ₱158.00, House Blend / M / 2 / ₱100.00,
+  Signature Latte / M / 1 / ₱150.00; Subtotal ₱408.00, Total ₱408.00, **Cash
+  ₱400.00 and Online ₱8.00** (summing to the total). Qty 2 on one line renders
+  as a single line with a line total of 2 × the unit price, not two lines.
+- **Change owed then settled** (Jul 23 #1, Jay): Total ₱50.00, Cash ₱50.00, Cash
+  received ₱100.00, **Change owed ₱50.00**, **Change settled Jul 23, 2026
+  13:21:53**, Completed at Jul 23, 2026 13:21:14. The settlement timestamp is
+  separate from and later than the completion timestamp.
+- **Change given immediately** (Jul 17 #7, Ajoy): Total ₱200.00, Cash received
+  ₱300.00, **Change owed ₱0.00**. Change owed therefore records only change that
+  was *not* handed over, not the arithmetic change due.
+- **Discounted line** (Jul 20 #3, Lola Nena, Parked): one line — Signature Latte
+  / M / Qty 1 / **Discount "Senior"** / Line total **₱120.00**; Subtotal
+  ₱150.00, **Discount ₱30.00**, Total ₱120.00. The discount is named on the line
+  and totalled at order level; ₱30.00 is 20% of ₱150.00. Undiscounted lines show
+  Discount "None".
+- **Parked order** (Jul 23 #2, Walk-in): Status Parked, Payment `—`; the Items
+  and totals sections are fully populated (Subtotal/Total ₱158.00) while Cash,
+  Online, Cash received, Change settled, Completed at are all `—` and Tip and
+  Change owed are ₱0.00. A parked order therefore shows the same payment section
+  as a completed one, with the money entries blank.
+- **Service type** renders as "Dine-in" or "Take-out" and is present on parked
+  and void orders as well as completed ones.
+
+### Business date vs. completion timestamp
+
+The Day column and the Completed at timestamp are independent and can disagree
+in either direction in the stored data:
+
+- Jul 17's orders #1–#7 all carry Completed at timestamps on **Jul 21**
+  (19:19–19:54) — four days after their business day.
+- Jul 20's orders #1 and #2 both carry Completed at **Jul 19, 2026 19:13:42** —
+  the day *before* their business day.
+
+The screen presents both values plainly with no warning, badge, or annotation
+when they disagree.
+
+### Open questions for the human
+
+- **Order History shows no cashier.** DISCOVERY.md says each order shows its
+  cashier and that the active cashier is how v1 attributes who rang up an order.
+  The admin Order History list and View page expose no staff or cashier field at
+  all. I did not explore the staff-facing POS order ledger in this run, so I
+  could not confirm whether cashier attribution is visible there instead. Should
+  v2's back-office order history show the cashier — and if v1 stores it but does
+  not display it here, is that a gap to close or a deliberate omission?
+- **Free upsizes and taste preferences are not shown.** DISCOVERY.md describes
+  per-line taste preferences (Sweeter / Stronger / Less sweet / Less ice plus
+  free text) and free upsizes worth ₱30, and says the staff ledger shows free
+  upsizes. Neither appears anywhere on the admin View page. Should v2's owner
+  order detail include them, or is the owner view intentionally money-only?
+- **No date filtering on order history.** The screen filters only by status and
+  payment; there is no business-day or date-range control, so finding a specific
+  day's orders means sorting by Day and scrolling. The Reports screen, by
+  contrast, has From/To dates. Should v2's order history offer a day picker or
+  date range?
+- **Search covers customer name only.** Product name, order number, business
+  date, status text, and payment method all return no results. Should v2 widen
+  order search (order number and date seem the most likely lookups for an
+  owner), or keep it as a customer-name lookup?
+- **Sorting by "#" ignores the business day.** Because order numbers restart each
+  day, sorting by the "#" column interleaves days into runs of equal numbers,
+  and sorting by Day does not order by "#" within a day. Should v2 sort order
+  history by day-then-number as a unit?
+- **"Change owed" stays populated after the change is settled.** The Jul 23 #1
+  order shows Change owed ₱50.00 in the list while its View page records Change
+  settled at 13:21:53. A reader scanning the list cannot tell outstanding change
+  from change already handed over. Should v2's list distinguish them (e.g. show
+  only outstanding change, or add a settled indicator)?
+- **Completed at can fall outside the business day.** Seeded orders exist whose
+  completion timestamp is four days after their business day (Jul 17 → Jul 21)
+  and whose completion timestamp is the day before their business day (Jul 20 →
+  Jul 19). I could not determine whether this reflects real v1 behaviour (e.g.
+  a day left open across calendar dates, or backdated seeding) or only how this
+  dataset was created, because confirming it would require completing an order.
+  Should v2 constrain a completion timestamp to its business day, or accept and
+  display the divergence as v1 does?
+- **A cash-received figure below the order total exists in the data.** Jul 17 #1
+  (Jay) shows Total ₱100.00 with **Cash received ₱90.00**, Cash ₱100.00 and
+  Change owed ₱0.00, while DISCOVERY.md states short cash payments are blocked.
+  I could not test the POS validation without completing an order, so I cannot
+  say whether v1's POS would accept this today or whether the record predates
+  the rule. Should v2 block cash received below the amount due, and what should
+  happen to historical records that breach the rule?
+- **Sidebar label and page title differ.** The sidebar says "Order History"
+  while the breadcrumb, page heading, and browser title all say "Sales Orders".
+  Which name should v2 use?
