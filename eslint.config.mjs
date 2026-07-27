@@ -11,6 +11,10 @@ export default tseslint.config(
       '**/playwright-report/**',
       '**/src/generated/**',
       '**/test-results/**',
+      // Design mockups are standalone browser-JS prototypes for handoff, not
+      // part of any package build — linting them with the product's TS ruleset
+      // is a scope error and lets a throwaway artifact gate real CI (see #88).
+      'docs/design/mockups/**',
     ],
   },
   eslint.configs.recommended,
