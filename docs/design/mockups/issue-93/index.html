@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Order History | UCM Coffee Studio Admin</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <aside class="sidebar" aria-label="Admin navigation" data-od-id="desktop-sidebar">
+      <div class="brand" data-od-id="admin-brand">
+        <span class="brand-mark" aria-hidden="true">UCM</span>
+        <span>
+          <strong>UCM Coffee Studio</strong>
+          <small>Admin</small>
+        </span>
+      </div>
+      <nav class="sidebar-nav" aria-label="Primary">
+        <a href="#" aria-disabled="true">Dashboard</a>
+        <a href="#" aria-disabled="true">Reports</a>
+        <a href="#order-history" aria-current="page">Order History</a>
+        <a href="#" aria-disabled="true">Staff</a>
+      </nav>
+      <footer class="sidebar-footer">
+        <span>Shop date</span>
+        <strong>July 28, 2026</strong>
+        <span class="mono">Asia/Manila</span>
+      </footer>
+    </aside>
+
+    <header class="mobile-header" data-od-id="mobile-header">
+      <div class="mobile-brand">
+        <span class="brand-mark" aria-hidden="true">UCM</span>
+        <span><strong>UCM Coffee Studio</strong><small>Admin</small></span>
+      </div>
+      <div class="mobile-date"><span>July 28, 2026</span><span class="mono">Asia/Manila</span></div>
+      <nav class="mobile-nav" aria-label="Primary">
+        <a href="#" aria-disabled="true">Dashboard</a>
+        <a href="#" aria-disabled="true">Reports</a>
+        <a href="#order-history" aria-current="page">Order History</a>
+        <a href="#" aria-disabled="true">Staff</a>
+      </nav>
+    </header>
+
+    <main id="main-content" class="app-main" tabindex="-1">
+      <section id="list-screen" class="screen screen-active" aria-labelledby="page-title" data-od-id="order-history-screen">
+        <header class="screen-header">
+          <div>
+            <div class="title-line">
+              <h1 id="page-title" data-od-id="order-history-heading">Order History</h1>
+              <span class="readonly-label">Read-only</span>
+            </div>
+            <p>Review sales orders across available business days.</p>
+          </div>
+        </header>
+
+        <section class="filter-panel" aria-labelledby="filter-title" data-od-id="history-filters">
+          <h2 id="filter-title" class="sr-only">Filter order history</h2>
+          <div class="field search-field">
+            <label for="customer-search">Customer</label>
+            <input id="customer-search" type="search" autocomplete="off" placeholder="Search customer name">
+          </div>
+          <div class="field">
+            <label for="status-filter">Status</label>
+            <select id="status-filter">
+              <option value="All">All</option>
+              <option value="Parked">Parked</option>
+              <option value="Completed">Completed</option>
+              <option value="Void">Void</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="payment-filter">Payment</label>
+            <select id="payment-filter">
+              <option value="All">All</option>
+              <option value="Cash">Cash</option>
+              <option value="Online">Online</option>
+              <option value="Split">Split</option>
+            </select>
+          </div>
+          <div class="field page-size-field">
+            <label for="page-size">Rows per page</label>
+            <select id="page-size">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+        </section>
+
+        <div class="results-toolbar">
+          <p id="results-summary" class="results-summary" aria-live="polite"></p>
+          <p class="sample-label">Sample data for design and QA review</p>
+        </div>
+
+        <div id="table-region" class="table-region" tabindex="0" aria-label="Order history table. Scroll horizontally on small screens." data-od-id="history-table-region">
+          <p class="mobile-table-hint">Swipe horizontally to see all order fields.</p>
+          <table>
+            <caption class="sr-only">Read-only order history across business days</caption>
+            <thead>
+              <tr>
+                <th scope="col"><button class="sort-button" data-sort="businessDay">Business day <span aria-hidden="true"></span></button></th>
+                <th scope="col"><button class="sort-button" data-sort="orderNo">Order no. <span aria-hidden="true"></span></button></th>
+                <th scope="col">Customer</th>
+                <th scope="col"><button class="sort-button" data-sort="status">Status <span aria-hidden="true"></span></button></th>
+                <th scope="col">Payment method</th>
+                <th scope="col" class="numeric"><button class="sort-button numeric-sort" data-sort="total">Order total <span aria-hidden="true"></span></button></th>
+                <th scope="col" class="numeric">Tip</th>
+                <th scope="col" class="numeric">Change owed</th>
+                <th scope="col"><button class="sort-button" data-sort="completedAt">Completed <span aria-hidden="true"></span></button></th>
+              </tr>
+            </thead>
+            <tbody id="orders-body"></tbody>
+          </table>
+          <div id="empty-state" class="empty-state" hidden>
+            <h2>No sales orders</h2>
+            <p id="empty-guidance"></p>
+          </div>
+        </div>
+
+        <nav id="pagination" class="pagination" aria-label="Order history pages"></nav>
+
+        <section class="review-utility" aria-labelledby="list-review-title" data-od-id="list-review-states">
+          <div>
+            <h2 id="list-review-title">Review states</h2>
+            <p>Mockup utility, not part of production controls.</p>
+          </div>
+          <div class="segmented" role="group" aria-label="Choose list review state">
+            <button type="button" data-list-state="populated" aria-pressed="true">Populated</button>
+            <button type="button" data-list-state="filtered-empty" aria-pressed="false">Filtered to empty</button>
+            <button type="button" data-list-state="no-orders" aria-pressed="false">No orders</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="detail-screen" class="screen" aria-labelledby="detail-title" hidden data-od-id="order-detail-screen">
+        <a id="back-link" class="back-link" href="#order-history">← Back to Order History</a>
+        <header class="detail-header">
+          <div>
+            <div class="title-line">
+              <h1 id="detail-title" tabindex="-1">Order no. <span id="detail-order-number" class="mono"></span></h1>
+              <span class="readonly-label">Read-only</span>
+            </div>
+            <p id="detail-identity" class="mono"></p>
+          </div>
+          <span id="detail-status" class="status-badge"></span>
+        </header>
+
+        <section class="detail-meta" aria-label="Order summary" data-od-id="detail-meta">
+          <div><span>Customer</span><strong id="detail-customer"></strong></div>
+          <div><span>Service</span><strong id="detail-service"></strong></div>
+          <div><span>Payment method</span><strong id="detail-payment"></strong></div>
+        </section>
+
+        <div class="detail-grid">
+          <section class="detail-section" aria-labelledby="items-title" data-od-id="detail-items">
+            <h2 id="items-title">Items</h2>
+            <div class="detail-table-wrap" tabindex="0" aria-label="Order item details. Scroll horizontally on small screens.">
+              <table class="items-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Product</th>
+                    <th scope="col">Size</th>
+                    <th scope="col" class="numeric">Quantity</th>
+                    <th scope="col">Discount</th>
+                    <th scope="col" class="numeric">Line total</th>
+                  </tr>
+                </thead>
+                <tbody id="items-body"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="detail-section payment-section" aria-labelledby="payment-title" data-od-id="detail-payment-summary">
+            <h2 id="payment-title">Payment summary</h2>
+            <dl id="payment-summary" class="payment-summary"></dl>
+            <p id="split-note" class="split-note" hidden>Cash and online portions exclude tip and together equal Total.</p>
+          </section>
+        </div>
+
+        <section class="review-utility detail-review" aria-labelledby="detail-review-title" data-od-id="detail-review-states">
+          <div>
+            <h2 id="detail-review-title">Detail review states</h2>
+            <p>Mockup utility, not part of production controls.</p>
+          </div>
+          <div class="field review-select-field">
+            <label for="detail-review-select">Scenario</label>
+            <select id="detail-review-select">
+              <option value="split-senior">Split + Senior</option>
+              <option value="parked">Parked</option>
+              <option value="void">Void</option>
+              <option value="outstanding">Outstanding change</option>
+              <option value="settled">Settled change</option>
+            </select>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="screen-announcer" class="sr-only" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
