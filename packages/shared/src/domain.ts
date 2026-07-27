@@ -140,19 +140,58 @@ export interface StockCountLine {
   quantity: number;
 }
 
+export enum OrderStatus {
+  PARKED = 'PARKED',
+  COMPLETED = 'COMPLETED',
+}
+
+export enum ServiceType {
+  DINE_IN = 'DINE_IN',
+  TAKE_OUT = 'TAKE_OUT',
+}
+
+export enum LineDiscountKind {
+  NONE = 'NONE',
+  SENIOR = 'SENIOR',
+}
+
 export interface Order {
   id: string;
   clientGeneratedId: string;
   locationId: string | null;
-  lines: LineItem[];
+  tradingDayId: string;
+  kind: 'PURCHASE' | 'VOID';
+  correctsSaleId: string | null;
+  dayOrderNumber: number;
+  status: OrderStatus;
+  customerName: string | null;
+  serviceType: ServiceType;
+  subtotalCents: MoneyCents;
+  discountCents: MoneyCents;
+  taxCents: MoneyCents;
   totalCents: MoneyCents;
+  cashTipCents: MoneyCents;
+  cashReceivedCents: MoneyCents | null;
+  changeOwedCents: MoneyCents;
+  changeSettledAt: string | null;
+  completedAt: string | null;
+  voidReason: string | null;
+  recordedAt: string;
+  payments: SalePayment[];
+  lines: LineItem[];
 }
 
 export interface LineItem {
+  id: string;
   productVariantId: string;
   quantity: number;
   unitPriceCents: MoneyCents;
+  lineGrossCents: MoneyCents;
+  discountKind: LineDiscountKind;
+  discountCents: MoneyCents;
   lineTotalCents: MoneyCents;
+  productNameSnapshot: string;
+  variantNameSnapshot: string;
 }
 
 export enum TradingDayStatus {

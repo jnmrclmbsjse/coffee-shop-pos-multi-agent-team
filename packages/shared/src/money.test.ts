@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { LineDiscountKind } from './domain.js';
 import {
   addMoney,
   calculateCashReconciliation,
+  calculateLineAmounts,
+  calculateOrderTotal,
   cents,
   multiplyMoney,
 } from './money.js';
@@ -14,6 +17,60 @@ describe('money helpers', () => {
 
   it('rejects fractional cents', () => {
     expect(() => cents(1.5)).toThrow(TypeError);
+  });
+});
+
+describe('line discount helpers', () => {
+  it('calculates an evenly divisible Senior discount', () => {
+    expect(
+      calculateLineAmounts(cents(100), 1, LineDiscountKind.SENIOR),
+    ).toEqual({
+      lineGrossCents: 100,
+      discountCents: 20,
+      lineTotalCents: 80,
+    });
+  });
+
+  it('rounds a Senior discount upward per line', () => {
+    expect(
+      calculateLineAmounts(cents(103), 1, LineDiscountKind.SENIOR),
+    ).toEqual({
+      lineGrossCents: 103,
+      discountCents: 21,
+      lineTotalCents: 82,
+    });
+  });
+
+  it('rounds a Senior discount downward per line', () => {
+    expect(
+      calculateLineAmounts(cents(102), 1, LineDiscountKind.SENIOR),
+    ).toEqual({
+      lineGrossCents: 102,
+      discountCents: 20,
+      lineTotalCents: 82,
+    });
+  });
+
+  it('calculates gross before discount for a quantity greater than one', () => {
+    expect(
+      calculateLineAmounts(cents(103), 3, LineDiscountKind.SENIOR),
+    ).toEqual({
+      lineGrossCents: 309,
+      discountCents: 62,
+      lineTotalCents: 247,
+    });
+  });
+
+  it('returns zero discount for NONE', () => {
+    expect(calculateLineAmounts(cents(103), 2, LineDiscountKind.NONE)).toEqual({
+      lineGrossCents: 206,
+      discountCents: 0,
+      lineTotalCents: 206,
+    });
+  });
+
+  it('rolls up total from the pre-discount subtotal', () => {
+    expect(calculateOrderTotal(cents(515), cents(103), cents(0))).toBe(412);
   });
 });
 

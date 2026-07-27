@@ -1,3 +1,5 @@
+import type { LineDiscountKind } from './domain.js';
+
 /** Integer minor units (cents). Monetary values must never use floating point. */
 export type MoneyCents = number & { readonly __brand: 'MoneyCents' };
 
@@ -26,6 +28,12 @@ export interface CashReconciliation {
   varianceCents: MoneyCents | null;
 }
 
+export interface LineAmounts {
+  lineGrossCents: MoneyCents;
+  discountCents: MoneyCents;
+  lineTotalCents: MoneyCents;
+}
+
 export function cents(value: number): MoneyCents {
   if (!Number.isSafeInteger(value)) {
     throw new TypeError('Money must be a safe integer number of cents');
@@ -44,6 +52,41 @@ export function multiplyMoney(value: MoneyCents, quantity: number): MoneyCents {
   }
 
   return cents(value * quantity);
+}
+
+/**
+ * Apply ADR 0005's binding per-line Senior discount arithmetic.
+ *
+ * Twenty percent reduces to division by five. The quotient/remainder form
+ * keeps the calculation in safe integers and introduces no floating-point
+ * money.
+ */
+export function calculateLineAmounts(
+  unitPriceCents: MoneyCents,
+  quantity: number,
+  discountKind: LineDiscountKind,
+): LineAmounts {
+  const lineGrossCents = multiplyMoney(unitPriceCents, quantity);
+  const absoluteGross = Math.abs(lineGrossCents);
+  const roundedAbsoluteDiscount =
+    Math.floor(absoluteGross / 5) + (absoluteGross % 5 >= 3 ? 1 : 0);
+  const discountCents = cents(
+    discountKind === 'SENIOR'
+      ? Math.sign(lineGrossCents) * roundedAbsoluteDiscount
+      : 0,
+  );
+  const lineTotalCents = addMoney(lineGrossCents, cents(-discountCents));
+
+  return { lineGrossCents, discountCents, lineTotalCents };
+}
+
+/** Roll up a sale whose subtotal is the pre-discount line gross. */
+export function calculateOrderTotal(
+  subtotalCents: MoneyCents,
+  discountCents: MoneyCents,
+  taxCents: MoneyCents,
+): MoneyCents {
+  return addMoney(subtotalCents, cents(-discountCents), taxCents);
 }
 
 function sumMoney(values: readonly MoneyCents[]): MoneyCents {
