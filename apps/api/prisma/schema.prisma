@@ -27,6 +27,21 @@ enum PaymentMethod {
   ONLINE
 }
 
+enum OrderStatus {
+  PARKED
+  COMPLETED
+}
+
+enum ServiceType {
+  DINE_IN
+  TAKE_OUT
+}
+
+enum LineDiscountKind {
+  NONE
+  SENIOR
+}
+
 enum Role {
   ADMIN
   STAFF
@@ -277,10 +292,20 @@ model Sale {
   tradingDayId      String        @map("trading_day_id") @db.Uuid
   kind              SaleKind      @default(PURCHASE)
   correctsSaleId    String?       @map("corrects_sale_id") @db.Uuid
+  dayOrderNumber    Int           @map("day_order_number")
+  status            OrderStatus
+  customerName      String?       @map("customer_name")
+  serviceType       ServiceType   @map("service_type")
   subtotalCents     Int           @map("subtotal_cents")
+  discountCents     Int           @default(0) @map("discount_cents")
   taxCents          Int           @map("tax_cents")
   totalCents        Int           @map("total_cents")
   cashTipCents      Int           @default(0) @map("cash_tip_cents")
+  cashReceivedCents Int?          @map("cash_received_cents")
+  changeOwedCents   Int           @default(0) @map("change_owed_cents")
+  changeSettledAt   DateTime?     @map("change_settled_at")
+  completedAt       DateTime?     @map("completed_at")
+  voidReason        String?       @map("void_reason")
   recordedAt        DateTime      @default(now()) @map("recorded_at")
   location          Location?     @relation(fields: [locationId], references: [id], onDelete: Restrict)
   tradingDay        TradingDay    @relation(fields: [tradingDayId], references: [id], onDelete: Restrict)
@@ -289,6 +314,7 @@ model Sale {
   lines             SaleLine[]
   payments          SalePayment[]
 
+  @@unique([tradingDayId, dayOrderNumber])
   @@index([locationId, recordedAt])
   @@index([tradingDayId])
   @@map("sales")
@@ -307,16 +333,19 @@ model SalePayment {
 }
 
 model SaleLine {
-  id                  String         @id @default(uuid()) @db.Uuid
-  saleId              String         @map("sale_id") @db.Uuid
-  productVariantId    String         @map("product_variant_id") @db.Uuid
+  id                  String           @id @default(uuid()) @db.Uuid
+  saleId              String           @map("sale_id") @db.Uuid
+  productVariantId    String           @map("product_variant_id") @db.Uuid
   quantity            Int
-  unitPriceCents      Int            @map("unit_price_cents")
-  lineTotalCents      Int            @map("line_total_cents")
-  productNameSnapshot String         @map("product_name_snapshot")
-  variantNameSnapshot String         @map("variant_name_snapshot")
-  sale                Sale           @relation(fields: [saleId], references: [id], onDelete: Restrict)
-  productVariant      ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  unitPriceCents      Int              @map("unit_price_cents")
+  lineGrossCents      Int              @map("line_gross_cents")
+  discountKind        LineDiscountKind @map("discount_kind")
+  discountCents       Int              @default(0) @map("discount_cents")
+  lineTotalCents      Int              @map("line_total_cents")
+  productNameSnapshot String           @map("product_name_snapshot")
+  variantNameSnapshot String           @map("variant_name_snapshot")
+  sale                Sale             @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  productVariant      ProductVariant   @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
 
   @@map("sale_lines")
 }

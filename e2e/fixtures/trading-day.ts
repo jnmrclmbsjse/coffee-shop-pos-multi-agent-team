@@ -23,10 +23,20 @@ export interface TradingDayFixture {
     locationId: string | null;
     kind: 'PURCHASE' | 'VOID';
     correctsSaleId: string | null;
+    dayOrderNumber: number;
+    status: 'PARKED' | 'COMPLETED';
+    customerName: string | null;
+    serviceType: 'DINE_IN' | 'TAKE_OUT';
     subtotalCents: number;
+    discountCents: number;
     taxCents: number;
     totalCents: number;
     cashTipCents: number;
+    cashReceivedCents: number | null;
+    changeOwedCents: number;
+    changeSettledAt: string | null;
+    completedAt: string | null;
+    voidReason: string | null;
     recordedAt: string;
     payments: Array<{
       id: string;
@@ -38,6 +48,9 @@ export interface TradingDayFixture {
       productVariantId: string;
       quantity: number;
       unitPriceCents: number;
+      lineGrossCents: number;
+      discountKind: 'NONE' | 'SENIOR';
+      discountCents: number;
       lineTotalCents: number;
       productNameSnapshot: string;
       variantNameSnapshot: string;
@@ -108,10 +121,24 @@ export function seedTradingDayFixture(fixture: TradingDayFixture): void {
               tradingDayId: fixture.tradingDay.id,
               kind: sale.kind,
               correctsSaleId: sale.correctsSaleId,
+              dayOrderNumber: sale.dayOrderNumber,
+              status: sale.status,
+              customerName: sale.customerName,
+              serviceType: sale.serviceType,
               subtotalCents: sale.subtotalCents,
+              discountCents: sale.discountCents,
               taxCents: sale.taxCents,
               totalCents: sale.totalCents,
               cashTipCents: sale.cashTipCents,
+              cashReceivedCents: sale.cashReceivedCents,
+              changeOwedCents: sale.changeOwedCents,
+              changeSettledAt: sale.changeSettledAt
+                ? new Date(sale.changeSettledAt)
+                : null,
+              completedAt: sale.completedAt
+                ? new Date(sale.completedAt)
+                : null,
+              voidReason: sale.voidReason,
               recordedAt: new Date(sale.recordedAt),
               payments: {
                 create: sale.payments.map((payment) => ({
@@ -126,6 +153,9 @@ export function seedTradingDayFixture(fixture: TradingDayFixture): void {
                   productVariantId: line.productVariantId,
                   quantity: line.quantity,
                   unitPriceCents: line.unitPriceCents,
+                  lineGrossCents: line.lineGrossCents,
+                  discountKind: line.discountKind,
+                  discountCents: line.discountCents,
                   lineTotalCents: line.lineTotalCents,
                   productNameSnapshot: line.productNameSnapshot,
                   variantNameSnapshot: line.variantNameSnapshot,

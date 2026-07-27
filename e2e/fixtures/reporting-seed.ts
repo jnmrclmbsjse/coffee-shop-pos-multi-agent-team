@@ -206,6 +206,9 @@ export interface SeedLine {
   variant: SeededVariant;
   quantity: number;
   unitPriceCents: number;
+  lineGrossCents?: number;
+  discountKind?: 'NONE' | 'SENIOR';
+  discountCents?: number;
   lineTotalCents: number;
 }
 
@@ -213,9 +216,18 @@ export interface SeedSale {
   id?: string;
   kind?: 'PURCHASE' | 'VOID';
   correctsSaleId?: string | null;
+  status?: 'PARKED' | 'COMPLETED';
+  customerName?: string | null;
+  serviceType?: 'DINE_IN' | 'TAKE_OUT';
+  discountCents?: number;
   cashCents?: number;
   onlineCents?: number;
   cashTipCents?: number;
+  cashReceivedCents?: number | null;
+  changeOwedCents?: number;
+  changeSettledAt?: string | null;
+  completedAt?: string | null;
+  voidReason?: string | null;
   lines?: SeedLine[];
 }
 
@@ -245,9 +257,18 @@ export function seedTradingDay(
     clientGeneratedId: randomUUID(),
     kind: sale.kind ?? 'PURCHASE',
     correctsSaleId: sale.correctsSaleId ?? null,
+    status: sale.status ?? 'COMPLETED',
+    customerName: sale.customerName ?? null,
+    serviceType: sale.serviceType ?? 'TAKE_OUT',
+    discountCents: sale.discountCents ?? 0,
     cashCents: sale.cashCents ?? 0,
     onlineCents: sale.onlineCents ?? 0,
     cashTipCents: sale.cashTipCents ?? 0,
+    cashReceivedCents: sale.cashReceivedCents ?? null,
+    changeOwedCents: sale.changeOwedCents ?? 0,
+    changeSettledAt: sale.changeSettledAt ?? null,
+    completedAt: sale.completedAt ?? null,
+    voidReason: sale.voidReason ?? null,
     lines: sale.lines ?? [],
   }));
 
@@ -305,10 +326,26 @@ export function seedTradingDay(
           tradingDayId: fixture.tradingDay.id,
           kind: sale.kind,
           correctsSaleId: sale.correctsSaleId,
-          subtotalCents: total,
+          dayOrderNumber: offset,
+          status: sale.status,
+          customerName: sale.customerName,
+          serviceType: sale.serviceType,
+          subtotalCents: total + sale.discountCents,
+          discountCents: sale.discountCents,
           taxCents: 0,
           totalCents: total,
           cashTipCents: sale.cashTipCents,
+          cashReceivedCents: sale.cashReceivedCents,
+          changeOwedCents: sale.changeOwedCents,
+          changeSettledAt: sale.changeSettledAt
+            ? new Date(sale.changeSettledAt)
+            : null,
+          completedAt: sale.completedAt
+            ? new Date(sale.completedAt)
+            : (sale.status === 'COMPLETED' && sale.kind === 'PURCHASE'
+              ? new Date(businessDate.getTime() + (2 + offset) * 3600000)
+              : null),
+          voidReason: sale.voidReason,
           recordedAt: new Date(businessDate.getTime() + (2 + offset) * 3600000),
           payments: { create: payments },
           lines: {
@@ -316,6 +353,9 @@ export function seedTradingDay(
               productVariantId: line.variant.variantId,
               quantity: line.quantity,
               unitPriceCents: line.unitPriceCents,
+              lineGrossCents: line.lineGrossCents ?? line.lineTotalCents,
+              discountKind: line.discountKind ?? 'NONE',
+              discountCents: line.discountCents ?? 0,
               lineTotalCents: line.lineTotalCents,
               productNameSnapshot: line.variant.productName,
               variantNameSnapshot: line.variant.variantName,
