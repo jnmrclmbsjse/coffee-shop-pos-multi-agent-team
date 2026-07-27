@@ -29,10 +29,13 @@ export function buildOrderHistoryFixture(
     unitPriceCents: number,
     discountKind: 'NONE' | 'SENIOR' = 'NONE',
   ) => {
+    // ADR 0005 §4 is authoritative; packages/shared/src/money.ts is canonical.
+    const absoluteGross = Math.abs(unitPriceCents);
     const discountCents =
       discountKind === 'SENIOR'
-        ? Math.floor(Math.abs(unitPriceCents) / 5) *
-            Math.sign(unitPriceCents)
+        ? (Math.floor(absoluteGross / 5) +
+            (absoluteGross % 5 >= 3 ? 1 : 0)) *
+          Math.sign(unitPriceCents)
         : 0;
 
     return {
