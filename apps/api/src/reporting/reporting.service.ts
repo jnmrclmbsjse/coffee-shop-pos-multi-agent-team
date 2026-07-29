@@ -520,7 +520,7 @@ function orderHistoryCte(): Prisma.Sql {
     WITH order_history AS (
       SELECT
         sale.id,
-        day.business_date,
+        day.business_date AS business_day,
         sale.day_order_number,
         sale.status AS stored_status,
         sale.customer_name,
@@ -630,7 +630,7 @@ function orderHistoryOrderBy(
     case 'completedAt':
       selectedSort = Prisma.sql`
         CASE
-          WHEN has_correction OR completed_at IS NULL THEN 1
+          WHEN completed_at IS NULL THEN 1
           ELSE 0
         END ASC,
         completed_at ${sqlDirection}
@@ -697,8 +697,7 @@ function toOrderHistoryListItem(
       isParked
         ? null
         : row.changeOwedCents === 0 || row.changeSettledAt !== null,
-    completedAt:
-      status === 'Completed' ? toIsoTimestamp(row.completedAt) : null,
+    completedAt: isParked ? null : toIsoTimestamp(row.completedAt),
   };
 }
 
@@ -741,8 +740,7 @@ function toOrderHistoryDetail(
     changeSettledAt: isParked
       ? null
       : toIsoTimestamp(row.changeSettledAt),
-    completedAt:
-      status === 'Completed' ? toIsoTimestamp(row.completedAt) : null,
+    completedAt: isParked ? null : toIsoTimestamp(row.completedAt),
     voidReason: status === 'Void' ? row.voidReason : null,
   };
 }

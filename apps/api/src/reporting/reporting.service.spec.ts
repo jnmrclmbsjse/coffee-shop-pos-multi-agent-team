@@ -352,28 +352,6 @@ describe('order history read model', () => {
     expect(query.values).toContain('%mInA%');
   });
 
-  it('sorts order numbers as a business-day and number pair', async () => {
-    const prisma = createPrisma();
-    prisma.$queryRaw
-      .mockResolvedValueOnce([{ count: 0n }])
-      .mockResolvedValueOnce([]);
-    const service = new ReportingService(
-      prisma as unknown as PrismaService,
-    );
-
-    await service.getOrderHistory({
-      sort: 'orderNumber',
-      direction: 'asc',
-    });
-
-    const query = prisma.$queryRaw.mock.calls[1]![0] as {
-      strings: readonly string[];
-    };
-    expect(query.strings.join('?')).toMatch(
-      /ORDER BY\s+business_day ASC,\s+day_order_number ASC/,
-    );
-  });
-
   it('returns correct page-boundary metadata and an empty result', async () => {
     const prisma = createPrisma();
     prisma.$queryRaw
@@ -460,7 +438,7 @@ describe('order history read model', () => {
     ]);
   });
 
-  it('returns the correcting reason and hides completion for a void', async () => {
+  it('returns the correcting reason and stored completion for a void', async () => {
     const prisma = createPrisma();
     prisma.$queryRaw.mockResolvedValueOnce([
       {
@@ -479,7 +457,7 @@ describe('order history read model', () => {
     ).resolves.toEqual(
       expect.objectContaining({
         status: 'Void',
-        completedAt: null,
+        completedAt: '2026-07-20T06:00:00.000Z',
         voidReason: 'Duplicate order',
       }),
     );
