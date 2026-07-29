@@ -1,6 +1,8 @@
 import {
   Controller,
   Get,
+  Param,
+  ParseUUIDPipe,
   Query,
   Res,
   UseGuards,
@@ -8,13 +10,18 @@ import {
 import { Role } from '@coffee-shop/shared';
 import type {
   ReportingDashboard,
+  OrderHistoryDetail,
+  OrderHistoryList,
   SalesRangeReport,
 } from '@coffee-shop/shared';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { ReportingRangeQueryDto } from './reporting.dto';
+import {
+  OrderHistoryListQueryDto,
+  ReportingRangeQueryDto,
+} from './reporting.dto';
 import { ReportingService } from './reporting.service';
 
 @Controller('reporting')
@@ -49,5 +56,19 @@ export class ReportingController {
       `ucm-report-${query.from}_to_${query.to}.csv`,
     );
     return this.reportingService.toCsv(report);
+  }
+
+  @Get('order-history')
+  orderHistory(
+    @Query() query: OrderHistoryListQueryDto,
+  ): Promise<OrderHistoryList> {
+    return this.reportingService.getOrderHistory(query);
+  }
+
+  @Get('order-history/:id')
+  orderHistoryDetail(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<OrderHistoryDetail> {
+    return this.reportingService.getOrderHistoryDetail(id);
   }
 }
