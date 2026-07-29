@@ -29,6 +29,8 @@ describe('ReportingController', () => {
         'dashboard',
         'report',
         'reportCsv',
+        'orderHistory',
+        'orderHistoryDetail',
       ]),
     );
     expect(handlers).not.toEqual(

@@ -296,3 +296,77 @@ export interface ReportingDashboard {
   salesTrend: DashboardSalesTrend[];
   topProducts: ProductSales[];
 }
+
+export type OrderHistoryStatus = 'Parked' | 'Completed' | 'Void';
+
+export type OrderHistoryPaymentMethod = 'Cash' | 'Online' | 'Split';
+
+export type OrderHistoryListSort =
+  | 'businessDay'
+  | 'orderNumber'
+  | 'status'
+  | 'total'
+  | 'completedAt';
+
+export interface OrderHistoryListQuery {
+  status?: OrderHistoryStatus;
+  paymentMethod?: OrderHistoryPaymentMethod;
+  search?: string;
+  sort?: OrderHistoryListSort;
+  direction?: SortDirection;
+  page?: number;
+  pageSize?: 5 | 10 | 25 | 50;
+}
+
+export interface OrderHistoryListItem {
+  id: string;
+  businessDay: string;
+  dayOrderNumber: number;
+  customerName: string | null;
+  status: OrderHistoryStatus;
+  paymentMethod: OrderHistoryPaymentMethod | null;
+  totalCents: MoneyCents;
+  tipCents: MoneyCents;
+  changeOwedCents: MoneyCents;
+  changeSettled: boolean | null;
+  completedAt: string | null;
+}
+
+export interface OrderHistoryList {
+  items: OrderHistoryListItem[];
+  page: number;
+  pageSize: 5 | 10 | 25 | 50;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface OrderHistoryLine {
+  id: string;
+  productName: string;
+  size: string;
+  quantity: number;
+  discountKind: LineDiscountKind;
+  lineTotalCents: MoneyCents;
+}
+
+export interface OrderHistoryDetail {
+  id: string;
+  businessDay: string;
+  dayOrderNumber: number;
+  customerName: string | null;
+  status: OrderHistoryStatus;
+  serviceType: ServiceType;
+  paymentMethod: OrderHistoryPaymentMethod | null;
+  lines: OrderHistoryLine[];
+  subtotalCents: MoneyCents;
+  totalDiscountCents: MoneyCents;
+  totalCents: MoneyCents;
+  cashPortionCents: MoneyCents | null;
+  onlinePortionCents: MoneyCents | null;
+  tipCents: MoneyCents;
+  cashReceivedCents: MoneyCents | null;
+  changeOwedCents: MoneyCents;
+  changeSettledAt: string | null;
+  completedAt: string | null;
+  voidReason: string | null;
+}

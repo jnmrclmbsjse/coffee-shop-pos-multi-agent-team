@@ -1,17 +1,35 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   addMoney,
   calculateCashReconciliation,
   cents,
+  LineDiscountKind as SharedLineDiscountKind,
+  ServiceType as SharedServiceType,
 } from '@coffee-shop/shared';
 import type {
   DailyReconciliation,
   MoneyCents,
+  OrderHistoryDetail,
+  OrderHistoryLine,
+  OrderHistoryList,
+  OrderHistoryListItem,
+  OrderHistoryListQuery,
+  OrderHistoryPaymentMethod,
+  OrderHistoryStatus,
   ProductSales,
   ReportingDashboard,
   SalesRangeReport,
 } from '@coffee-shop/shared';
-import { Prisma, TradingDayStatus } from '@prisma/client';
+import {
+  OrderStatus as StoredOrderStatus,
+  Prisma,
+  ServiceType,
+  TradingDayStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 type DatabaseInteger = bigint | number;
@@ -44,6 +62,48 @@ interface SummaryDayRow {
 interface DailyReadModel extends DailyReconciliation {
   id: string;
   orderCount: number;
+}
+
+interface OrderHistoryBaseRow {
+  id: string;
+  businessDay: Date;
+  dayOrderNumber: number;
+  storedStatus: StoredOrderStatus;
+  customerName: string | null;
+  serviceType: ServiceType;
+  subtotalCents: number;
+  discountCents: number;
+  totalCents: number;
+  cashTipCents: number;
+  cashReceivedCents: number | null;
+  changeOwedCents: number;
+  changeSettledAt: Date | null;
+  completedAt: Date | null;
+  hasCorrection: boolean;
+  voidReason: string | null;
+  hasCash: boolean;
+  hasOnline: boolean;
+}
+
+interface OrderHistoryDetailRow extends OrderHistoryBaseRow {
+  cashPortionCents: DatabaseInteger;
+  onlinePortionCents: DatabaseInteger;
+  lines: unknown;
+}
+
+type OrderHistoryListRow = OrderHistoryBaseRow;
+
+interface CountRow {
+  count: DatabaseInteger;
+}
+
+interface DatabaseOrderHistoryLine {
+  id: string;
+  productName: string;
+  size: string;
+  quantity: number;
+  discountKind: 'NONE' | 'SENIOR';
+  lineTotalCents: number;
 }
 
 const ISO_DATE_LENGTH = 10;
@@ -133,6 +193,136 @@ export class ReportingService {
       })),
       topProducts,
     };
+  }
+
+  async getOrderHistory(
+    query: OrderHistoryListQuery,
+  ): Promise<OrderHistoryList> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const filters = orderHistoryFilters(query);
+    const orderBy = orderHistoryOrderBy(
+      query.sort ?? 'businessDay',
+      query.direction ?? 'desc',
+    );
+    const offset = (page - 1) * pageSize;
+
+    const [countRows, rows] = await this.prisma.$transaction([
+      this.prisma.$queryRaw<CountRow[]>(Prisma.sql`
+        ${orderHistoryCte()}
+        SELECT COUNT(*) AS count
+        FROM order_history
+        ${filters}
+      `),
+      this.prisma.$queryRaw<OrderHistoryListRow[]>(Prisma.sql`
+        ${orderHistoryCte()}
+        SELECT
+          id,
+          business_day AS "businessDay",
+          day_order_number AS "dayOrderNumber",
+          stored_status AS "storedStatus",
+          customer_name AS "customerName",
+          service_type AS "serviceType",
+          subtotal_cents AS "subtotalCents",
+          discount_cents AS "discountCents",
+          total_cents AS "totalCents",
+          cash_tip_cents AS "cashTipCents",
+          cash_received_cents AS "cashReceivedCents",
+          change_owed_cents AS "changeOwedCents",
+          change_settled_at AS "changeSettledAt",
+          completed_at AS "completedAt",
+          has_correction AS "hasCorrection",
+          void_reason AS "voidReason",
+          has_cash AS "hasCash",
+          has_online AS "hasOnline"
+        FROM order_history
+        ${filters}
+        ${orderBy}
+        LIMIT ${pageSize}
+        OFFSET ${offset}
+      `),
+    ]);
+
+    const totalItems = databaseNumber(countRows[0]?.count ?? 0);
+    return {
+      items: rows.map(toOrderHistoryListItem),
+      page,
+      pageSize,
+      totalItems,
+      totalPages: Math.ceil(totalItems / pageSize),
+    };
+  }
+
+  async getOrderHistoryDetail(id: string): Promise<OrderHistoryDetail> {
+    const rows = await this.prisma.$queryRaw<OrderHistoryDetailRow[]>(
+      Prisma.sql`
+        ${orderHistoryCte()}
+        SELECT
+          history.id,
+          history.business_day AS "businessDay",
+          history.day_order_number AS "dayOrderNumber",
+          history.stored_status AS "storedStatus",
+          history.customer_name AS "customerName",
+          history.service_type AS "serviceType",
+          history.subtotal_cents AS "subtotalCents",
+          history.discount_cents AS "discountCents",
+          history.total_cents AS "totalCents",
+          history.cash_tip_cents AS "cashTipCents",
+          history.cash_received_cents AS "cashReceivedCents",
+          history.change_owed_cents AS "changeOwedCents",
+          history.change_settled_at AS "changeSettledAt",
+          history.completed_at AS "completedAt",
+          history.has_correction AS "hasCorrection",
+          history.void_reason AS "voidReason",
+          history.has_cash AS "hasCash",
+          history.has_online AS "hasOnline",
+          COALESCE(
+            (
+              SELECT payment.amount_cents
+              FROM sale_payments AS payment
+              WHERE payment.sale_id = history.id
+                AND payment.method = 'CASH'
+            ),
+            0
+          ) AS "cashPortionCents",
+          COALESCE(
+            (
+              SELECT payment.amount_cents
+              FROM sale_payments AS payment
+              WHERE payment.sale_id = history.id
+                AND payment.method = 'ONLINE'
+            ),
+            0
+          ) AS "onlinePortionCents",
+          COALESCE(
+            (
+              SELECT jsonb_agg(
+                jsonb_build_object(
+                  'id', line.id,
+                  'productName', line.product_name_snapshot,
+                  'size', line.variant_name_snapshot,
+                  'quantity', line.quantity,
+                  'discountKind', line.discount_kind,
+                  'lineTotalCents', line.line_total_cents
+                )
+                ORDER BY line.id ASC
+              )
+              FROM sale_lines AS line
+              WHERE line.sale_id = history.id
+            ),
+            '[]'::jsonb
+          ) AS lines
+        FROM order_history AS history
+        WHERE history.id = ${id}::uuid
+        LIMIT 1
+      `,
+    );
+    const row = rows[0];
+    if (!row) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return toOrderHistoryDetail(row);
   }
 
   toCsv(report: SalesRangeReport): string {
@@ -325,6 +515,272 @@ export class ReportingService {
   }
 }
 
+function orderHistoryCte(): Prisma.Sql {
+  return Prisma.sql`
+    WITH order_history AS (
+      SELECT
+        sale.id,
+        day.business_date AS business_day,
+        sale.day_order_number,
+        sale.status AS stored_status,
+        sale.customer_name,
+        sale.service_type,
+        sale.subtotal_cents,
+        sale.discount_cents,
+        sale.total_cents,
+        sale.cash_tip_cents,
+        sale.cash_received_cents,
+        sale.change_owed_cents,
+        sale.change_settled_at,
+        sale.completed_at,
+        COALESCE(correction.has_correction, FALSE) AS has_correction,
+        correction.void_reason,
+        EXISTS (
+          SELECT 1
+          FROM sale_payments AS payment
+          WHERE payment.sale_id = sale.id
+            AND payment.method = 'CASH'
+        ) AS has_cash,
+        EXISTS (
+          SELECT 1
+          FROM sale_payments AS payment
+          WHERE payment.sale_id = sale.id
+            AND payment.method = 'ONLINE'
+        ) AS has_online
+      FROM sales AS sale
+      INNER JOIN trading_days AS day ON day.id = sale.trading_day_id
+      LEFT JOIN LATERAL (
+        SELECT
+          TRUE AS has_correction,
+          correcting_sale.void_reason
+        FROM sales AS correcting_sale
+        WHERE correcting_sale.kind = 'VOID'
+          AND correcting_sale.corrects_sale_id = sale.id
+        ORDER BY correcting_sale.recorded_at DESC, correcting_sale.id DESC
+        LIMIT 1
+      ) AS correction ON TRUE
+      WHERE sale.kind = 'PURCHASE'
+    )
+  `;
+}
+
+function orderHistoryFilters(
+  query: OrderHistoryListQuery,
+): Prisma.Sql {
+  const conditions: Prisma.Sql[] = [];
+
+  if (query.status === 'Void') {
+    conditions.push(Prisma.sql`has_correction`);
+  } else if (query.status === 'Parked') {
+    conditions.push(
+      Prisma.sql`NOT has_correction AND stored_status = 'PARKED'`,
+    );
+  } else if (query.status === 'Completed') {
+    conditions.push(
+      Prisma.sql`NOT has_correction AND stored_status = 'COMPLETED'`,
+    );
+  }
+
+  if (query.paymentMethod === 'Split') {
+    conditions.push(Prisma.sql`has_cash AND has_online`);
+  } else if (query.paymentMethod === 'Cash') {
+    conditions.push(Prisma.sql`has_cash AND NOT has_online`);
+  } else if (query.paymentMethod === 'Online') {
+    conditions.push(Prisma.sql`has_online AND NOT has_cash`);
+  }
+
+  if (query.search) {
+    conditions.push(
+      Prisma.sql`customer_name ILIKE ${`%${query.search}%`}`,
+    );
+  }
+
+  return conditions.length === 0
+    ? Prisma.empty
+    : Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
+}
+
+function orderHistoryOrderBy(
+  sort: NonNullable<OrderHistoryListQuery['sort']>,
+  direction: NonNullable<OrderHistoryListQuery['direction']>,
+): Prisma.Sql {
+  const sqlDirection =
+    direction === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+  let selectedSort: Prisma.Sql;
+
+  switch (sort) {
+    case 'orderNumber':
+      selectedSort = Prisma.sql`
+        business_day ${sqlDirection},
+        day_order_number ${sqlDirection}
+      `;
+      break;
+    case 'status':
+      selectedSort = Prisma.sql`
+        CASE
+          WHEN has_correction THEN 3
+          WHEN stored_status = 'PARKED' THEN 1
+          ELSE 2
+        END ${sqlDirection}
+      `;
+      break;
+    case 'total':
+      selectedSort = Prisma.sql`total_cents ${sqlDirection}`;
+      break;
+    case 'completedAt':
+      selectedSort = Prisma.sql`
+        CASE
+          WHEN completed_at IS NULL THEN 1
+          ELSE 0
+        END ASC,
+        completed_at ${sqlDirection}
+      `;
+      break;
+    case 'businessDay':
+    default:
+      selectedSort = Prisma.sql`business_day ${sqlDirection}`;
+      break;
+  }
+
+  return Prisma.sql`
+    ORDER BY
+      ${selectedSort},
+      business_day DESC,
+      day_order_number DESC,
+      id ASC
+  `;
+}
+
+export function deriveOrderHistoryStatus(
+  storedStatus: StoredOrderStatus,
+  hasCorrection: boolean,
+): OrderHistoryStatus {
+  if (hasCorrection) return 'Void';
+  return storedStatus === StoredOrderStatus.PARKED
+    ? 'Parked'
+    : 'Completed';
+}
+
+export function deriveOrderHistoryPaymentMethod(
+  hasCash: boolean,
+  hasOnline: boolean,
+): OrderHistoryPaymentMethod | null {
+  if (hasCash && hasOnline) return 'Split';
+  if (hasCash) return 'Cash';
+  if (hasOnline) return 'Online';
+  return null;
+}
+
+function toOrderHistoryListItem(
+  row: OrderHistoryListRow,
+): OrderHistoryListItem {
+  const status = deriveOrderHistoryStatus(
+    row.storedStatus,
+    row.hasCorrection,
+  );
+  const isParked = status === 'Parked';
+
+  return {
+    id: row.id,
+    businessDay: toIsoDate(row.businessDay),
+    dayOrderNumber: row.dayOrderNumber,
+    customerName: row.customerName,
+    status,
+    paymentMethod: deriveOrderHistoryPaymentMethod(
+      row.hasCash,
+      row.hasOnline,
+    ),
+    totalCents: cents(row.totalCents),
+    tipCents: cents(row.cashTipCents),
+    changeOwedCents: cents(row.changeOwedCents),
+    changeSettled:
+      isParked
+        ? null
+        : row.changeOwedCents === 0 || row.changeSettledAt !== null,
+    completedAt: isParked ? null : toIsoTimestamp(row.completedAt),
+  };
+}
+
+function toOrderHistoryDetail(
+  row: OrderHistoryDetailRow,
+): OrderHistoryDetail {
+  const status = deriveOrderHistoryStatus(
+    row.storedStatus,
+    row.hasCorrection,
+  );
+  const isParked = status === 'Parked';
+
+  return {
+    id: row.id,
+    businessDay: toIsoDate(row.businessDay),
+    dayOrderNumber: row.dayOrderNumber,
+    customerName: row.customerName,
+    status,
+    serviceType: SharedServiceType[row.serviceType],
+    paymentMethod: deriveOrderHistoryPaymentMethod(
+      row.hasCash,
+      row.hasOnline,
+    ),
+    lines: parseOrderHistoryLines(row.lines),
+    subtotalCents: cents(row.subtotalCents),
+    totalDiscountCents: cents(row.discountCents),
+    totalCents: cents(row.totalCents),
+    cashPortionCents: isParked
+      ? null
+      : databaseCents(row.cashPortionCents),
+    onlinePortionCents: isParked
+      ? null
+      : databaseCents(row.onlinePortionCents),
+    tipCents: cents(row.cashTipCents),
+    cashReceivedCents:
+      isParked || row.cashReceivedCents === null
+        ? null
+        : cents(row.cashReceivedCents),
+    changeOwedCents: cents(row.changeOwedCents),
+    changeSettledAt: isParked
+      ? null
+      : toIsoTimestamp(row.changeSettledAt),
+    completedAt: isParked ? null : toIsoTimestamp(row.completedAt),
+    voidReason: status === 'Void' ? row.voidReason : null,
+  };
+}
+
+function parseOrderHistoryLines(value: unknown): OrderHistoryLine[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError('Order history lines must be an array');
+  }
+
+  return value.map((item: unknown) => {
+    if (!isDatabaseOrderHistoryLine(item)) {
+      throw new TypeError('Order history line has an invalid shape');
+    }
+    return {
+      id: item.id,
+      productName: item.productName,
+      size: item.size,
+      quantity: item.quantity,
+      discountKind: SharedLineDiscountKind[item.discountKind],
+      lineTotalCents: cents(item.lineTotalCents),
+    };
+  });
+}
+
+function isDatabaseOrderHistoryLine(
+  value: unknown,
+): value is DatabaseOrderHistoryLine {
+  if (typeof value !== 'object' || value === null) return false;
+  const line = value as Record<string, unknown>;
+  return (
+    typeof line.id === 'string' &&
+    typeof line.productName === 'string' &&
+    typeof line.size === 'string' &&
+    Number.isSafeInteger(line.quantity) &&
+    (line.discountKind === 'NONE' ||
+      line.discountKind === 'SENIOR') &&
+    Number.isSafeInteger(line.lineTotalCents)
+  );
+}
+
 export function assertValidRange(from: string, to: string): void {
   if (!isIsoDate(from) || !isIsoDate(to)) {
     throw new BadRequestException(
@@ -391,6 +847,10 @@ function isIsoDate(value: string): boolean {
 
 function toIsoDate(value: Date): string {
   return value.toISOString().slice(0, ISO_DATE_LENGTH);
+}
+
+function toIsoTimestamp(value: Date | null): string | null {
+  return value?.toISOString() ?? null;
 }
 
 function shopDate(value: Date): string {

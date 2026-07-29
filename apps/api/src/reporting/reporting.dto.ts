@@ -1,4 +1,20 @@
-import { IsDateString, IsNotEmpty, Matches } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  Min,
+} from 'class-validator';
+import type {
+  OrderHistoryListSort,
+  OrderHistoryPaymentMethod,
+  OrderHistoryStatus,
+  SortDirection,
+} from '@coffee-shop/shared';
 
 export class ReportingRangeQueryDto {
   @IsNotEmpty({ message: 'from is required' })
@@ -14,4 +30,48 @@ export class ReportingRangeQueryDto {
   })
   @IsDateString({ strict: true }, { message: 'to must be a valid date' })
   to!: string;
+}
+
+export class OrderHistoryListQueryDto {
+  @IsOptional()
+  @IsIn(['Parked', 'Completed', 'Void'])
+  status?: OrderHistoryStatus;
+
+  @IsOptional()
+  @IsIn(['Cash', 'Online', 'Split'])
+  paymentMethod?: OrderHistoryPaymentMethod;
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? undefined : trimmed;
+  })
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsIn([
+    'businessDay',
+    'orderNumber',
+    'status',
+    'total',
+    'completedAt',
+  ])
+  sort: OrderHistoryListSort = 'businessDay';
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  direction: SortDirection = 'desc';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsIn([5, 10, 25, 50])
+  pageSize: 5 | 10 | 25 | 50 = 10;
 }

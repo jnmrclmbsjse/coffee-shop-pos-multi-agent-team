@@ -1,9 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
 import { cents } from '@coffee-shop/shared';
+import { OrderStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
   assertValidRange,
   averageCents,
+  deriveOrderHistoryPaymentMethod,
+  deriveOrderHistoryStatus,
   formatCsvMoney,
   ReportingService,
 } from './reporting.service';
@@ -12,6 +15,9 @@ describe('ReportingService', () => {
   function createPrisma() {
     return {
       $queryRaw: jest.fn(),
+      $transaction: jest.fn(
+        async (queries: Promise<unknown>[]) => Promise.all(queries),
+      ),
     };
   }
 
@@ -227,6 +233,233 @@ describe('ReportingService', () => {
     expect(csv).toBe(
       'Date,Status,Cash sales,Online sales,Gross,Tips,Cash expenses,Expected cash,Actual cash,Variance\r\n' +
         '2026-07-20,open,0.00,0.01,-0.50,1.05,100.00,-89.44,,\r\n',
+    );
+  });
+});
+
+describe('order history read model', () => {
+  function createPrisma() {
+    return {
+      $queryRaw: jest.fn(),
+      $transaction: jest.fn(
+        async (queries: Promise<unknown>[]) => Promise.all(queries),
+      ),
+    };
+  }
+
+  const baseOrder = {
+    id: 'b70f5635-4c68-444e-b659-9c087d36268c',
+    businessDay: new Date('2026-07-20T00:00:00.000Z'),
+    dayOrderNumber: 4,
+    storedStatus: OrderStatus.COMPLETED,
+    customerName: 'Mina Santos',
+    serviceType: 'DINE_IN',
+    subtotalCents: 20_000,
+    discountCents: 0,
+    totalCents: 20_000,
+    cashTipCents: 1_000,
+    cashReceivedCents: 8_000,
+    changeOwedCents: 0,
+    changeSettledAt: null,
+    completedAt: new Date('2026-07-20T06:00:00.000Z'),
+    hasCorrection: false,
+    voidReason: null,
+    hasCash: true,
+    hasOnline: true,
+    cashPortionCents: 8_000n,
+    onlinePortionCents: 12_000n,
+  } as const;
+
+  it('derives void status from a correcting row, never the stored status', () => {
+    expect(
+      deriveOrderHistoryStatus(OrderStatus.COMPLETED, true),
+    ).toBe('Void');
+    expect(
+      deriveOrderHistoryStatus(OrderStatus.PARKED, false),
+    ).toBe('Parked');
+    expect(
+      deriveOrderHistoryStatus(OrderStatus.COMPLETED, false),
+    ).toBe('Completed');
+  });
+
+  it('derives split, cash, online, and parked payment methods', () => {
+    expect(deriveOrderHistoryPaymentMethod(true, true)).toBe('Split');
+    expect(deriveOrderHistoryPaymentMethod(true, false)).toBe('Cash');
+    expect(deriveOrderHistoryPaymentMethod(false, true)).toBe('Online');
+    expect(deriveOrderHistoryPaymentMethod(false, false)).toBeNull();
+  });
+
+  it('keeps walk-in customer names null and maps stored list money', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw
+      .mockResolvedValueOnce([{ count: 1n }])
+      .mockResolvedValueOnce([
+        {
+          ...baseOrder,
+          customerName: null,
+        },
+      ]);
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(service.getOrderHistory({})).resolves.toEqual({
+      items: [
+        {
+          id: baseOrder.id,
+          businessDay: '2026-07-20',
+          dayOrderNumber: 4,
+          customerName: null,
+          status: 'Completed',
+          paymentMethod: 'Split',
+          totalCents: 20_000,
+          tipCents: 1_000,
+          changeOwedCents: 0,
+          changeSettled: true,
+          completedAt: '2026-07-20T06:00:00.000Z',
+        },
+      ],
+      page: 1,
+      pageSize: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+  });
+
+  it('pushes combined derived filters and case-insensitive search into SQL', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw
+      .mockResolvedValueOnce([{ count: 0n }])
+      .mockResolvedValueOnce([]);
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await service.getOrderHistory({
+      status: 'Void',
+      paymentMethod: 'Split',
+      search: 'mInA',
+    });
+
+    const query = prisma.$queryRaw.mock.calls[1]![0] as {
+      strings: readonly string[];
+      values: readonly unknown[];
+    };
+    const sql = query.strings.join('?');
+    expect(sql).toContain(
+      'WHERE has_correction AND has_cash AND has_online AND customer_name ILIKE ?',
+    );
+    expect(query.values).toContain('%mInA%');
+  });
+
+  it('returns correct page-boundary metadata and an empty result', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw
+      .mockResolvedValueOnce([{ count: 6n }])
+      .mockResolvedValueOnce([baseOrder])
+      .mockResolvedValueOnce([{ count: 0n }])
+      .mockResolvedValueOnce([]);
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    const lastPage = await service.getOrderHistory({
+      page: 2,
+      pageSize: 5,
+    });
+    expect(lastPage).toEqual(
+      expect.objectContaining({
+        page: 2,
+        pageSize: 5,
+        totalItems: 6,
+        totalPages: 2,
+      }),
+    );
+    expect(lastPage.items).toHaveLength(1);
+
+    await expect(
+      service.getOrderHistory({ page: 1, pageSize: 25 }),
+    ).resolves.toEqual({
+      items: [],
+      page: 1,
+      pageSize: 25,
+      totalItems: 0,
+      totalPages: 0,
+    });
+  });
+
+  it('returns one detail read with stored split portions and line values', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw.mockResolvedValueOnce([
+      {
+        ...baseOrder,
+        cashReceivedCents: 7_500,
+        lines: [
+          {
+            id: 'fdf3f40f-56e3-4b76-a70f-34670507a1f5',
+            productName: 'Fixture Latte',
+            size: 'Regular',
+            quantity: 2,
+            discountKind: 'SENIOR',
+            lineTotalCents: 20_000,
+          },
+        ],
+      },
+    ]);
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    const detail = await service.getOrderHistoryDetail(baseOrder.id);
+
+    expect(detail).toEqual(
+      expect.objectContaining({
+        status: 'Completed',
+        serviceType: 'DINE_IN',
+        paymentMethod: 'Split',
+        totalCents: 20_000,
+        cashPortionCents: 8_000,
+        onlinePortionCents: 12_000,
+        cashReceivedCents: 7_500,
+      }),
+    );
+    expect(
+      detail.cashPortionCents! + detail.onlinePortionCents!,
+    ).toBe(detail.totalCents);
+    expect(detail.lines).toEqual([
+      {
+        id: 'fdf3f40f-56e3-4b76-a70f-34670507a1f5',
+        productName: 'Fixture Latte',
+        size: 'Regular',
+        quantity: 2,
+        discountKind: 'SENIOR',
+        lineTotalCents: 20_000,
+      },
+    ]);
+  });
+
+  it('returns the correcting reason and stored completion for a void', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw.mockResolvedValueOnce([
+      {
+        ...baseOrder,
+        hasCorrection: true,
+        voidReason: 'Duplicate order',
+        lines: [],
+      },
+    ]);
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.getOrderHistoryDetail(baseOrder.id),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        status: 'Void',
+        completedAt: '2026-07-20T06:00:00.000Z',
+        voidReason: 'Duplicate order',
+      }),
     );
   });
 });
