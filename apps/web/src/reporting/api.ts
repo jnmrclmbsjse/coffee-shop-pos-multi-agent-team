@@ -1,4 +1,7 @@
 import type {
+  OrderHistoryDetail,
+  OrderHistoryList,
+  OrderHistoryListQuery,
   ReportingDashboard,
   SalesRangeReport,
 } from '@coffee-shop/shared';
@@ -35,6 +38,32 @@ export function getDashboard(): Promise<ReportingDashboard> {
 
 export function getReport(from: string, to: string): Promise<SalesRangeReport> {
   return request(`/reporting/report?${rangeQuery(from, to)}`);
+}
+
+export function getOrderHistory(
+  query: OrderHistoryListQuery,
+): Promise<OrderHistoryList> {
+  const params = new URLSearchParams();
+  if (query.status) params.set('status', query.status);
+  if (query.paymentMethod) {
+    params.set('paymentMethod', query.paymentMethod);
+  }
+  if (query.search?.trim()) params.set('search', query.search.trim());
+  if (query.sort) params.set('sort', query.sort);
+  if (query.direction) params.set('direction', query.direction);
+  if (query.page) params.set('page', String(query.page));
+  if (query.pageSize) params.set('pageSize', String(query.pageSize));
+
+  const queryString = params.toString();
+  return request(
+    `/reporting/order-history${queryString ? `?${queryString}` : ''}`,
+  );
+}
+
+export function getOrderHistoryDetail(
+  id: string,
+): Promise<OrderHistoryDetail> {
+  return request(`/reporting/order-history/${encodeURIComponent(id)}`);
 }
 
 export async function downloadReportCsv(

@@ -23,6 +23,8 @@ import { InventoryPage } from './inventory/InventoryPage';
 import { StaffPage } from './staff/StaffPage';
 import { DashboardPage } from './reporting/DashboardPage';
 import { ReportsPage } from './reporting/ReportsPage';
+import { OrderHistoryPage } from './pages/OrderHistoryPage';
+import { OrderHistoryDetailPage } from './pages/OrderHistoryDetailPage';
 
 const DEFAULT_ADMIN_PATH = '/dashboard';
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
@@ -61,6 +63,7 @@ function destinationName(path: string): string {
     '/inventory': 'Inventory',
     '/staff': 'Staff',
     '/reports': 'Reports',
+    '/order-history': 'Order History',
   };
 
   return names[pathname] ?? 'the requested admin page';
@@ -344,12 +347,20 @@ function SignInPage() {
 
 function AdminLayout() {
   const auth = useAuth();
+  const location = useLocation();
+  const navigationRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    navigationRef.current
+      ?.querySelector<HTMLAnchorElement>('a.active')
+      ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [location.pathname]);
 
   return (
     <div className="admin-shell catalog-admin-shell">
       <aside className="admin-sidebar">
         <Brand />
-        <nav aria-label="Administrator navigation">
+        <nav ref={navigationRef} aria-label="Administrator navigation">
           <span className="admin-nav-label">Workspace</span>
           <NavLink to="/dashboard">
             <Icon name="grid" />
@@ -376,6 +387,10 @@ function AdminLayout() {
           <NavLink to="/reports">
             <Icon name="grid" />
             Reports
+          </NavLink>
+          <NavLink to="/order-history">
+            <Icon name="grid" />
+            Order History
           </NavLink>
         </nav>
         <div className="admin-sidebar-user">
@@ -489,6 +504,11 @@ export function AppRoutes() {
               element={<ProductEditorPage />}
             />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/order-history" element={<OrderHistoryPage />} />
+            <Route
+              path="/order-history/:id"
+              element={<OrderHistoryDetailPage />}
+            />
             <Route
               path="*"
               element={<AdminPage title="Administrator workspace" />}

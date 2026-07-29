@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { downloadReportCsv, getDashboard, getReport } from './api';
+import {
+  downloadReportCsv,
+  getDashboard,
+  getOrderHistory,
+  getOrderHistoryDetail,
+  getReport,
+} from './api';
 
 describe('reporting API client', () => {
   afterEach(() => {
@@ -33,6 +39,41 @@ describe('reporting API client', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'http://localhost:3000/reporting/report?from=2026-07-13&to=2026-07-26',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+    expect(fetchMock.mock.calls.every(([, init]) => !init?.method)).toBe(true);
+  });
+
+  it('uses only credentialed GET requests for order history list and detail', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () =>
+        new Response('{}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getOrderHistory({
+      status: 'Completed',
+      paymentMethod: 'Split',
+      search: '  Ana  ',
+      sort: 'total',
+      direction: 'desc',
+      page: 2,
+      pageSize: 25,
+    });
+    await getOrderHistoryDetail('f82df0bd-a75b-4e8d-9f93-54dc8bc24446');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3000/reporting/order-history?status=Completed&paymentMethod=Split&search=Ana&sort=total&direction=desc&page=2&pageSize=25',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3000/reporting/order-history/f82df0bd-a75b-4e8d-9f93-54dc8bc24446',
       expect.objectContaining({ credentials: 'include' }),
     );
     expect(fetchMock.mock.calls.every(([, init]) => !init?.method)).toBe(true);
