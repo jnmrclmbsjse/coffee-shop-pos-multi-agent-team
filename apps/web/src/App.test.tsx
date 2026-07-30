@@ -314,6 +314,45 @@ describe('staff authentication routes', () => {
       screen.queryByRole('heading', { name: 'Reports' }),
     ).not.toBeInTheDocument();
   });
+
+  it('opens inventory routes under the staff guard with persistent active navigation', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/auth/session') {
+        return response(200, { user: staffUser });
+      }
+      if (path === '/inventory/counts/opening-sheet') {
+        return response(200, {
+          businessDay: {
+            isOpen: true,
+            businessDate: '2026-07-30',
+            dayType: 'NORMAL',
+          },
+          phase: 'open',
+          items: [],
+          submittedCount: null,
+        });
+      }
+      if (path === '/inventory/counts/staff') {
+        return response(200, []);
+      }
+      return response(500);
+    });
+
+    renderAt('/pos/opening');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Opening count' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Opening' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Deliveries & Wastage' }),
+    ).toHaveAttribute('href', '/pos/movements');
+    expect(screen.queryByText(/cashier/i)).not.toBeInTheDocument();
+  });
 });
 
 describe('remembered staff storage', () => {
