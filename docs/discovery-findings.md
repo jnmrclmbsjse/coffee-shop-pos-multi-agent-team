@@ -784,3 +784,201 @@ when they disagree.
 - **Sidebar label and page title differ.** The sidebar says "Order History"
   while the breadcrumb, page heading, and browser title all say "Sales Orders".
   Which name should v2 use?
+
+---
+
+## 2026-07-30 — Inventory operations: staff count sheets, restock status & movements (staff POS workspace)
+
+Explored the **staff** POS workspace inventory screens at `/inventory/opening`,
+`/inventory/closing`, `/inventory/status`, and `/inventory/movements`, signed in
+with the shared system login as the administrator. This is the operational
+counterpart to the 2026-07-24 admin-side inventory findings (stock categories,
+stock items, par levels); no earlier run had covered any staff POS screen.
+
+Exploration was strictly read-only: no count was submitted, no movement was
+recorded, no field was filled in. Every form below was observed in its initial
+state only. The screens are not the Filament admin UI — they are a separate
+touch-first layout with large controls (buttons have a 48px minimum height).
+
+Environment at time of exploration: one business day was open, **Thu, Jul 23
+2026**, flagged **Normal day**, with **no stock count submitted for it yet**.
+That state fixed what was observable and what was not (noted per screen).
+
+### Staff POS shell and navigation
+
+- Every staff screen shares a header: the shop name (linking to `/pos/order`), a
+  horizontal nav, a **Toggle dark mode** button, and a **Set cashier** link to
+  `/pos/cashier`.
+- The nav has nine links in this order: **Open Day** (`/pos/open`), **Take
+  Order** (`/pos/order`), **Order History** (`/pos/orders`), **Cash & Expenses**
+  (`/pos/cash`), **Close Day** (`/pos/close`), **Opening**
+  (`/inventory/opening`), **Closing** (`/inventory/closing`), **Restock**
+  (`/inventory/status`), **Deliveries & Wastage** (`/inventory/movements`).
+  Inventory therefore sits in the same flat nav as the day and order screens,
+  under `/inventory/*` rather than `/pos/*`.
+- All four inventory screens loaded while **no cashier was set** (the header
+  still offered "Set cashier"). They do not require an active cashier; each
+  identifies the person through its own staff select instead.
+- Each screen's header carries a right-aligned pair of chips. On the three
+  count/movement screens these read the business date ("Thu, Jul 23 2026") and
+  the day type ("Normal day"). On the Restock screen the second chip instead
+  names the count source ("Opening count").
+- No numeric attention badge appeared on the **Restock** nav link. With no count
+  submitted for the open day, no count-derived indicator was rendered anywhere
+  in the nav.
+- The nav's current-page link carries no `aria-current` attribute; the active
+  item is conveyed by styling only.
+
+### Opening count (`/inventory/opening`)
+
+- Heading "Opening count", subtitle "Short sheet — critical items."
+- Two selects above the item list:
+  - **Submitted by** — marked required (`*`), placeholder option "Select staff…"
+    selected by default.
+  - **Shift lead** — not marked required, default option "—".
+  - Both list the same three names: **Ben**, **Carmen**, **Rodette Sevilla**.
+    The roster (per the 2026-07-25 staff findings) holds four staff, of which
+    "Ana Banana" is inactive; the inactive member is absent from both selects.
+  - No third role select was present on this sheet (no "production support" or
+    "backup" field was rendered).
+- The sheet listed **5 items**, each badged **critical**: Coffee/Non-Coffee Cup
+  (16oz · pcs), Coffee/Non-Coffee Lid (16oz and 12oz · pcs), Full Cream Milk
+  (carton), Water (container), Yakult (bottle). Each row shows the item name and
+  a secondary line combining size (when set) and unit.
+- These are exactly the five items flagged **Critical = Yes** in the admin stock
+  items list; **Straw** (Critical = No) does not appear.
+- Items counted by **quantity** render a single number input: `min="0"`, no
+  `max`, `inputmode="numeric"`, empty value with placeholder "0".
+- **Water**, the one item whose admin count method is **Level**, renders no
+  number input. It renders a row of eight level buttons instead: **Empty**,
+  **Low**, **Quarter**, **One-third**, **Half**, **Two-thirds**,
+  **Three-quarters**, **Full**. None was pre-selected — the item starts unset.
+- A single **Submit opening count** button sits at the foot of the sheet. It was
+  **enabled** with every field still empty and no staff selected.
+- The form is a Livewire form (`wire:submit`); the inputs carry no `name` or
+  HTML `required` attributes, so validation is server-side. Because submitting
+  would create a count record, no validation message was observed.
+
+### Closing count (`/inventory/closing`)
+
+- Heading "Closing count", subtitle "Full sheet — every active item."
+- Identical structure to the opening sheet: same **Submitted by** (required) and
+  **Shift lead** (optional) selects, same three staff options.
+- The sheet listed **6 items** — the five critical items above **plus Straw**
+  (pcs), which carries no "critical" badge. That matches the six active stock
+  items in the admin list.
+- Item order differs between the two sheets. Opening lists its five critical
+  items alphabetically by name. Closing lists the same five critical items
+  first, in the same alphabetical order, and appends the non-critical **Straw**
+  last — i.e. critical items sort ahead of non-critical ones rather than the
+  whole sheet being alphabetical. Neither sheet follows the stock-category sort
+  weights recorded on 2026-07-24 (Water & Ice 0, Cups 1, Lids 2, Dairies 3,
+  Others 4).
+- Water again renders the same eight level buttons; quantity items render the
+  same `min="0"` numeric inputs.
+- Button label is **Submit closing count**; also enabled with the sheet empty.
+- The closing sheet shows **no expected figures, no opening count, and no
+  variance column** — it collects physical counts only. No warning about a
+  missing opening count was displayed even though none had been submitted for
+  the open day.
+- DISCOVERY.md states a submitted closing sheet becomes read-only. That state
+  could not be observed: no count existed for the open day, and submitting one
+  would mutate v1.
+
+### Restock status (`/inventory/status`)
+
+- Heading "Restock status", subtitle "Counts vs par for the day. Restock the top
+  of the list first."
+- The second header chip read **"Opening count"**, naming the count the page is
+  reading from, consistent with DISCOVERY.md's rule that closing is used when
+  available and opening otherwise.
+- A table with four columns: **Item**, **Counted**, **Par**, **Status**.
+- With no count submitted, the table body held a single full-width empty-state
+  row: **"No count has been submitted for this day yet."** No items, pars, or
+  status badges were listed.
+- Because the open day had no count, the populated behaviour could not be
+  observed: the urgent / low / below par / enough classifications, the
+  urgency ordering, and the peak-vs-normal par column were all unobservable
+  without submitting a count.
+
+### Deliveries & wastage (`/inventory/movements`)
+
+- Heading "Deliveries & wastage", subtitle **"Adjust stock between counts. Each
+  entry is permanent."**
+- An entry form with five controls:
+  - **Item** — marked required, select, placeholder "Select item…". Options list
+    all six active stock items, alphabetically, with size appended where set:
+    "Coffee/Non-Coffee Cup · 16oz", "Coffee/Non-Coffee Lid · 16oz and 12oz",
+    "Full Cream Milk", "Straw", "Water", "Yakult". **Water is selectable even
+    though it is counted by level, not quantity.**
+  - **Type** — marked required, a two-button pair **Delivery** / **Wastage**.
+    **Delivery** is pre-selected (rendered filled; Wastage outlined). Selection
+    is conveyed by styling only — neither button carries `aria-pressed`.
+  - **Quantity** — marked required, number input, `min="0"`, `step="any"`
+    (decimal values are accepted by the control), placeholder "0", empty by
+    default.
+  - **Recorded by** — **not** marked required, select defaulting to "—", same
+    three active staff names.
+  - **Reason** — **not** marked required, free-text box, placeholder "e.g. AM
+    delivery, dropped tray".
+- **Record movement** button, enabled with the form empty.
+- Below the form, a table of the day's movements with columns **Item**,
+  **Type**, **Qty**, **Reason**, **By**. Its empty state read **"No movements
+  recorded today."**
+- The table shows no timestamp column and no per-row edit or delete action,
+  consistent with the "Each entry is permanent" subtitle.
+
+### Not observable in this run
+
+Recorded so the gaps are not mistaken for absent behaviour:
+
+- A submitted count sheet (its read-only state) and a populated restock table
+  with status badges and urgency ordering — both require submitting a count.
+- Server-side validation messages on all three forms (required-field errors,
+  whether a quantity item may be left blank, whether a level item must be set).
+- Peak-day par behaviour: the only open day was flagged "Normal day".
+- What these four screens show when **no** business day is open.
+- Whether the back office can review submitted counts or movements at all: the
+  admin sidebar lists only Dashboard, Staff, Reports, Order History, Product
+  Categories, Products, Stock Categories, Stock Items. No admin resource for
+  counts or movements was present.
+
+### Open questions for the human
+
+- **Quantity movements against a level-counted item.** The movements Item select
+  offers **Water**, whose count method is **Level** (counted with Empty…Full
+  buttons, never a number), yet the form's only quantity control is a numeric
+  input. I did not record a movement, so I could not see how v1 stores or
+  applies a numeric delivery against a level-counted item, nor whether it
+  affects that item's restock status. Should v2 allow deliveries and wastage on
+  level-counted items, and if so in what unit?
+- **Decimal quantities on whole-unit items.** The movement quantity input allows
+  decimals (`step="any"`) for every item, including cups, lids, straws and
+  bottles that are counted in `pcs`. The count sheets' quantity inputs use the
+  default integer step instead. Should v2 allow fractional movement quantities,
+  and should the movement input match the item's unit the way the count sheet
+  does?
+- **Submit buttons are enabled on an empty sheet.** All three forms let the user
+  press Submit / Record with nothing filled in and no staff selected, and
+  validation is server-side only. I could not observe what comes back without
+  mutating v1. Should v2 block submission until the required fields are set, and
+  should a count sheet with some items left blank be rejected, or accepted with
+  those items treated as uncounted (which is different from counted zero)?
+- **No back-office view of counts or movements.** Submitted counts and
+  movements appear only on the staff screens for the current business day, and
+  the closing sheet is described as becoming read-only after submission. The
+  admin panel offers no resource for either, so once a day is closed there is no
+  observed way for the owner to review what was counted or which wastage was
+  recorded, or to correct a mistaken entry. Should v2 give the owner a read-only
+  history of counts and movements — and, given "each entry is permanent", how
+  should a wrong count or a mis-keyed wastage entry be corrected?
+- **No missing-opening-count warning on the closing sheet.** DISCOVERY.md notes
+  the *closing day* screen warns when a closing count is missing. The closing
+  *count* sheet showed no warning that no opening count existed for the open day,
+  even though cup and lid variance needs both. Should v2 warn at count time that
+  the opening count is missing?
+- **Level scale is finer than the business description.** DISCOVERY.md describes
+  level counting as "empty, quarter, half, or full"; the sheets offer eight
+  steps (Empty, Low, Quarter, One-third, Half, Two-thirds, Three-quarters,
+  Full), mixing fractions with a qualitative "Low". Should v2 keep all eight
+  steps, and is "Low" intended as a level or as a status?
