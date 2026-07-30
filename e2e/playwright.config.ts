@@ -10,9 +10,18 @@ import { defineConfig, devices } from '@playwright/test';
  * load the app from a `localhost` origin on one of those ports. We target
  * the already-running dev servers (web on 5174, API on 3000) and reuse
  * them; the `command` fallbacks only run if a server is not reachable.
+ *
+ * The web and the API must be reached over the SAME host name. The session is
+ * an httpOnly SameSite=Lax cookie set by the API, so a page served from
+ * `localhost` fetching an API on `127.0.0.1` is cross-site and the browser
+ * withholds the cookie — sign-in appears to succeed and every guarded route
+ * then bounces. The Vite dev server is therefore started on whatever host
+ * `E2E_WEB_URL` names rather than a hard-coded one (`--host localhost` binds
+ * `::1` only, which `127.0.0.1` cannot reach).
  */
 const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5174);
 const WEB_BASE_URL = process.env.E2E_WEB_URL ?? `http://localhost:${WEB_PORT}`;
+const WEB_HOST = new URL(WEB_BASE_URL).hostname;
 const API_BASE_URL = process.env.E2E_API_URL ?? 'http://localhost:3000';
 
 export default defineConfig({
@@ -39,7 +48,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `pnpm --filter @coffee-shop/web dev --host localhost --port ${WEB_PORT} --strictPort`,
+      command: `pnpm --filter @coffee-shop/web dev --host ${WEB_HOST} --port ${WEB_PORT} --strictPort`,
       url: WEB_BASE_URL,
       reuseExistingServer: true,
       timeout: 120_000,

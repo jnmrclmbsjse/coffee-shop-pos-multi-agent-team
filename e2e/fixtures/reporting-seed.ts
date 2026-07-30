@@ -38,7 +38,7 @@ function databaseUrl(): string {
  * because `@prisma/client` is not hoisted to the repo root. Whatever the script
  * writes to stdout is returned verbatim.
  */
-function runPrisma(body: string): string {
+export function runPrisma(body: string): string {
   const script = `
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
