@@ -20,6 +20,13 @@ import { ProductsPage } from './catalog/ProductsPage';
 import { Icon } from './catalog/components';
 import { InventoryItemEditorPage } from './inventory/InventoryItemEditorPage';
 import { InventoryPage } from './inventory/InventoryPage';
+import {
+  ClosingCountPage,
+  OpeningCountPage,
+  RestockStatusPage,
+  StaffWorkspaceLayout,
+  StockMovementsPage,
+} from './inventory/StaffInventoryPages';
 import { StaffPage } from './staff/StaffPage';
 import { DashboardPage } from './reporting/DashboardPage';
 import { ReportsPage } from './reporting/ReportsPage';
@@ -430,34 +437,16 @@ function AdminPage({ title }: { title: string }) {
 }
 
 function PointOfSalePage() {
-  const auth = useAuth();
-
   useEffect(() => {
     document.title = 'Point of Sale · UCM Coffee Studio';
   }, []);
 
   return (
-    <div className="pos-shell">
-      <header className="staff-topbar">
-        <div className="staff-brand">
-          <span className="staff-brand-mark" aria-hidden="true">
-            UCM
-          </span>
-          <span>
-            <strong>UCM Coffee Studio</strong>
-            <small>Point of Sale</small>
-          </span>
-        </div>
-        <span className="pos-staff-name">
-          Signed in as {auth.user?.displayName ?? auth.user?.username}
-        </span>
-      </header>
-      <main className="pos-landing">
-        <p className="eyebrow">Point of Sale</p>
-        <h1>Ready for the next order.</h1>
-        <p>The sales workspace is ready for its upcoming workflow.</p>
-      </main>
-    </div>
+    <main id="staff-main" className="pos-landing">
+      <p className="eyebrow">Point of Sale</p>
+      <h1>Ready for the next order.</h1>
+      <p>The sales workspace is ready for its upcoming workflow.</p>
+    </main>
   );
 }
 
@@ -523,7 +512,13 @@ export function AppRoutes() {
             />
           }
         >
-          <Route path="/pos" element={<PointOfSalePage />} />
+          <Route path="/pos" element={<StaffWorkspaceLayout />}>
+            <Route index element={<PointOfSalePage />} />
+            <Route path="opening" element={<OpeningCountPage />} />
+            <Route path="closing" element={<ClosingCountPage />} />
+            <Route path="restock" element={<RestockStatusPage />} />
+            <Route path="movements" element={<StockMovementsPage />} />
+          </Route>
         </Route>
         <Route path="/" element={<Navigate replace to={DEFAULT_ADMIN_PATH} />} />
       </Routes>

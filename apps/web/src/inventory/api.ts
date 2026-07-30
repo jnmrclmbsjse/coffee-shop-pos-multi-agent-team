@@ -1,10 +1,18 @@
 import type {
+  CountSheet,
   CountMethod,
+  CreateStockMovementInput,
   DayType,
   InventoryItem,
   InventoryItemListFilters,
+  InventoryStaffOption,
   ParLevel,
+  RestockStatusResult,
   StockCategorySummary,
+  StockMovementList,
+  StockMovementListItem,
+  SubmitStockCountInput,
+  SubmittedStockCount,
 } from '@coffee-shop/shared';
 
 const API_ORIGIN = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
@@ -167,4 +175,42 @@ export function saveParLevel(
     method: 'PUT',
     body: JSON.stringify(input),
   });
+}
+
+export function getOpeningCountSheet(): Promise<CountSheet> {
+  return request('/inventory/counts/opening-sheet');
+}
+
+export function getClosingCountSheet(): Promise<CountSheet> {
+  return request('/inventory/counts/closing-sheet');
+}
+
+export function listActiveInventoryStaff(): Promise<InventoryStaffOption[]> {
+  return request('/inventory/counts/staff');
+}
+
+export function submitStockCount(
+  input: SubmitStockCountInput,
+): Promise<SubmittedStockCount> {
+  return request('/inventory/counts', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listStockMovements(): Promise<StockMovementList> {
+  return request('/inventory/movements');
+}
+
+export function createStockMovement(
+  input: CreateStockMovementInput,
+): Promise<StockMovementListItem> {
+  return request('/inventory/movements', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getRestockStatus(): Promise<RestockStatusResult> {
+  return request('/inventory/restock');
 }
