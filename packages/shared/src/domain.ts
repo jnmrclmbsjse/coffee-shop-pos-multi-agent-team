@@ -47,6 +47,22 @@ export enum DayType {
   PEAK = 'PEAK',
 }
 
+export enum StockLevel {
+  EMPTY = 'EMPTY',
+  LOW = 'LOW',
+  QUARTER = 'QUARTER',
+  ONE_THIRD = 'ONE_THIRD',
+  HALF = 'HALF',
+  TWO_THIRDS = 'TWO_THIRDS',
+  THREE_QUARTERS = 'THREE_QUARTERS',
+  FULL = 'FULL',
+}
+
+export enum MovementType {
+  DELIVERY = 'DELIVERY',
+  WASTAGE = 'WASTAGE',
+}
+
 export interface StockCategory {
   id: string;
   name: string;
@@ -131,13 +147,31 @@ export interface StockCount {
   locationId: string | null;
   businessDate: string;
   phase: StockCountPhase;
+  submittedByStaffMemberId: string;
+  submittedByNameSnapshot: string;
+  shiftLeadStaffMemberId: string | null;
+  shiftLeadNameSnapshot: string | null;
   recordedAt: string;
   lines: StockCountLine[];
 }
 
 export interface StockCountLine {
   inventoryItemId: string;
+  quantity: number | null;
+  level: StockLevel | null;
+}
+
+export interface StockMovement {
+  id: string;
+  locationId: string | null;
+  businessDate: string;
+  inventoryItemId: string;
+  type: MovementType;
   quantity: number;
+  recordedByStaffMemberId: string | null;
+  recordedByNameSnapshot: string | null;
+  reason: string | null;
+  recordedAt: string;
 }
 
 export enum OrderStatus {
@@ -209,6 +243,7 @@ export interface TradingDay {
   locationId: string | null;
   businessDate: string;
   status: TradingDayStatus;
+  dayType: DayType;
   openedAt: string;
   closedAt: string | null;
   openingFloatCents: MoneyCents;

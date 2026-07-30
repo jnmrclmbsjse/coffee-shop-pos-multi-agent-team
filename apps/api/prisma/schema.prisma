@@ -57,6 +57,22 @@ enum DayType {
   PEAK
 }
 
+enum StockLevel {
+  EMPTY
+  LOW
+  QUARTER
+  ONE_THIRD
+  HALF
+  TWO_THIRDS
+  THREE_QUARTERS
+  FULL
+}
+
+enum MovementType {
+  DELIVERY
+  WASTAGE
+}
+
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   username     String   @unique
@@ -72,28 +88,32 @@ model User {
 }
 
 model Location {
-  id           String        @id @default(uuid()) @db.Uuid
-  name         String
-  createdAt    DateTime      @default(now()) @map("created_at")
-  stockCounts  StockCount[]
-  sales        Sale[]
-  staffMembers StaffMember[]
-  tradingDays  TradingDay[]
+  id             String          @id @default(uuid()) @db.Uuid
+  name           String
+  createdAt      DateTime        @default(now()) @map("created_at")
+  stockCounts    StockCount[]
+  stockMovements StockMovement[]
+  sales          Sale[]
+  staffMembers   StaffMember[]
+  tradingDays    TradingDay[]
 
   @@map("locations")
 }
 
 model StaffMember {
-  id                String       @id @default(uuid()) @db.Uuid
-  displayName       String       @map("display_name")
-  isActive          Boolean      @default(true) @map("is_active")
-  locationId        String?      @map("location_id") @db.Uuid
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
-  location          Location?    @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  openedTradingDays TradingDay[] @relation("TradingDayOpenedBy")
-  closedTradingDays TradingDay[] @relation("TradingDayClosedBy")
-  cashCounts        CashCount[]
+  id                     String          @id @default(uuid()) @db.Uuid
+  displayName            String          @map("display_name")
+  isActive               Boolean         @default(true) @map("is_active")
+  locationId             String?         @map("location_id") @db.Uuid
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+  location               Location?       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  openedTradingDays      TradingDay[]    @relation("TradingDayOpenedBy")
+  closedTradingDays      TradingDay[]    @relation("TradingDayClosedBy")
+  submittedStockCounts   StockCount[]    @relation("StockCountSubmittedBy")
+  ledStockCounts         StockCount[]    @relation("StockCountShiftLead")
+  recordedStockMovements StockMovement[] @relation("StockMovementRecordedBy")
+  cashCounts             CashCount[]
 
   @@index([locationId])
   @@map("staff_members")
@@ -177,6 +197,7 @@ model InventoryItem {
   category           StockCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   parLevels          ParLevel[]
   stockCountLines    StockCountLine[]
+  stockMovements     StockMovement[]
   cupProductVariants ProductVariant[] @relation("VariantCupInventoryItem")
   lidProductVariants ProductVariant[] @relation("VariantLidInventoryItem")
 
@@ -202,17 +223,22 @@ model ParLevel {
 // Append-only: corrections are additional StockCount records linked with
 // correctsStockCountId. Application code must not update or delete records.
 model StockCount {
-  id                   String           @id @default(uuid()) @db.Uuid
-  locationId           String?          @map("location_id") @db.Uuid
-  businessDate         DateTime         @map("business_date") @db.Date
-  phase                StockCountPhase
-  recordedAt           DateTime         @default(now()) @map("recorded_at")
-  recordedBy           String           @map("recorded_by")
-  correctsStockCountId String?          @map("corrects_stock_count_id") @db.Uuid
-  location             Location?        @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  corrects             StockCount?      @relation("StockCountCorrections", fields: [correctsStockCountId], references: [id], onDelete: Restrict)
-  corrections          StockCount[]     @relation("StockCountCorrections")
-  lines                StockCountLine[]
+  id                       String           @id @default(uuid()) @db.Uuid
+  locationId               String?          @map("location_id") @db.Uuid
+  businessDate             DateTime         @map("business_date") @db.Date
+  phase                    StockCountPhase
+  recordedAt               DateTime         @default(now()) @map("recorded_at")
+  submittedByStaffMemberId String           @map("submitted_by_staff_member_id") @db.Uuid
+  submittedByNameSnapshot  String           @map("submitted_by_name_snapshot")
+  shiftLeadStaffMemberId   String?          @map("shift_lead_staff_member_id") @db.Uuid
+  shiftLeadNameSnapshot    String?          @map("shift_lead_name_snapshot")
+  correctsStockCountId     String?          @map("corrects_stock_count_id") @db.Uuid
+  location                 Location?        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  submittedByStaffMember   StaffMember      @relation("StockCountSubmittedBy", fields: [submittedByStaffMemberId], references: [id], onDelete: Restrict)
+  shiftLeadStaffMember     StaffMember?     @relation("StockCountShiftLead", fields: [shiftLeadStaffMemberId], references: [id], onDelete: Restrict)
+  corrects                 StockCount?      @relation("StockCountCorrections", fields: [correctsStockCountId], references: [id], onDelete: Restrict)
+  corrections              StockCount[]     @relation("StockCountCorrections")
+  lines                    StockCountLine[]
 
   @@index([locationId, businessDate, phase])
   @@map("stock_counts")
@@ -222,12 +248,34 @@ model StockCountLine {
   id              String        @id @default(uuid()) @db.Uuid
   stockCountId    String        @map("stock_count_id") @db.Uuid
   inventoryItemId String        @map("inventory_item_id") @db.Uuid
-  quantity        Int
+  quantity        Int?
+  level           StockLevel?
   stockCount      StockCount    @relation(fields: [stockCountId], references: [id], onDelete: Restrict)
   inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
 
   @@unique([stockCountId, inventoryItemId])
   @@map("stock_count_lines")
+}
+
+// Append-only: deliveries and wastage are recorded permanently. They are not
+// used to derive a running stock balance.
+model StockMovement {
+  id                      String        @id @default(uuid()) @db.Uuid
+  locationId              String?       @map("location_id") @db.Uuid
+  businessDate            DateTime      @map("business_date") @db.Date
+  inventoryItemId         String        @map("inventory_item_id") @db.Uuid
+  type                    MovementType
+  quantity                Int
+  recordedByStaffMemberId String?       @map("recorded_by_staff_member_id") @db.Uuid
+  recordedByNameSnapshot  String?       @map("recorded_by_name_snapshot")
+  reason                  String?
+  recordedAt              DateTime      @default(now()) @map("recorded_at")
+  location                Location?     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  inventoryItem           InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  recordedByStaffMember   StaffMember?  @relation("StockMovementRecordedBy", fields: [recordedByStaffMemberId], references: [id], onDelete: Restrict)
+
+  @@index([locationId, businessDate, recordedAt])
+  @@map("stock_movements")
 }
 
 // The database migration adds a NULLS NOT DISTINCT partial unique index that
@@ -238,6 +286,7 @@ model TradingDay {
   locationId            String?          @map("location_id") @db.Uuid
   businessDate          DateTime         @map("business_date") @db.Date
   status                TradingDayStatus
+  dayType               DayType          @default(NORMAL) @map("day_type")
   openedAt              DateTime         @map("opened_at")
   closedAt              DateTime?        @map("closed_at")
   openingFloatCents     Int              @map("opening_float_cents")
