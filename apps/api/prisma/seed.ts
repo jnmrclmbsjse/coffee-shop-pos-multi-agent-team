@@ -1,4 +1,4 @@
-import { PrismaClient, Role } from '@prisma/client';
+import { PrismaClient, Role, TradingDayStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
@@ -109,6 +109,60 @@ async function seedStockCategories(): Promise<void> {
   }
 }
 
+async function seedStaffMember(displayName: string): Promise<string> {
+  const existing = await prisma.staffMember.findFirst({
+    where: {
+      displayName: { equals: displayName, mode: 'insensitive' },
+      locationId: null,
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return existing.id;
+  }
+
+  const staffMember = await prisma.staffMember.create({
+    data: { displayName },
+    select: { id: true },
+  });
+
+  return staffMember.id;
+}
+
+function currentBusinessDate(): Date {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+  );
+}
+
+async function seedOpenTradingDay(
+  openedByStaffMemberId: string,
+): Promise<void> {
+  const existing = await prisma.tradingDay.findFirst({
+    where: {
+      locationId: null,
+      status: TradingDayStatus.OPEN,
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return;
+  }
+
+  await prisma.tradingDay.create({
+    data: {
+      businessDate: currentBusinessDate(),
+      status: TradingDayStatus.OPEN,
+      openedAt: new Date(),
+      openingFloatCents: 0,
+      openedByStaffMemberId,
+    },
+  });
+}
+
 async function main(): Promise<void> {
   const admin = readSeedUser(
     'SEED_ADMIN_USERNAME',
@@ -127,10 +181,13 @@ async function main(): Promise<void> {
   await seedUser(admin);
   await seedUser(staff);
   await seedStockCategories();
+  const staffMemberId = await seedStaffMember(staff.displayName);
+  await seedOpenTradingDay(staffMemberId);
 
   console.log(`Seeded administrator "${admin.username}"`);
   console.log(`Seeded staff user "${staff.username}"`);
   console.log('Seeded initial stock categories');
+  console.log('Ensured an open trading day exists');
 }
 
 main()
