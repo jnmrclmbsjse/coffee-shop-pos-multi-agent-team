@@ -1,4 +1,4 @@
-# uiux-mockup — design generation (UI/UX design engine / Codex sub-agent via Open Design)
+# uiux-mockup — design generation (UI/UX design engine — Claude Code or Codex, via Open Design)
 
 You are the UI/UX design engine, invoked by po-prepare during In Preparation for
 GitHub issue #{{ISSUE}}, AFTER acceptance criteria have passed QA testability.

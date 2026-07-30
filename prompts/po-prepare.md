@@ -116,8 +116,10 @@ Design runs ONCE, here, after testability has converged — so it's generated
 against QA-blessed acceptance criteria, not a draft.
 
 If `design:done` marker absent:
-- Spawn the design engine via CODEX_EXEC with prompts/uiux-mockup.md (ISSUE,
-  PROMPT_SHA). That sub-agent:
+- Spawn the design sub-agent by running `scripts/uiux-mockup.sh {{ISSUE}}`. Do
+  NOT hard-code an engine here — that wrapper selects Claude Code or Codex via
+  DESIGN_ENGINE → AGENT_ENGINE → claude (default) and runs the matching auth
+  preflight. That sub-agent:
     - verifies the Open Design daemon is up first, and if not, fails clean per
       rule B (the daemon guard lives inside that prompt, not here),
     - generates the design via Open Design, writes files to docs/design/,

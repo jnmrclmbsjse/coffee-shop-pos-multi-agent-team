@@ -2,6 +2,10 @@
 # discovery.sh — explore v1 and feed requirements to PO.
 # Takes no issue number; it picks its own area from DISCOVERY.md vs findings.
 #
+# ENGINE: runs under Claude Code or Codex, selected by (first set wins)
+#   DISCOVERY_ENGINE  → AGENT_ENGINE  → "claude" (default; current behaviour).
+#   e.g.  DISCOVERY_ENGINE=codex ./scripts/discovery.sh
+#
 # Requires in your shell profile:
 #   export V1_URL="http://localhost:3000"
 #   export V1_USERNAME="..."
@@ -19,9 +23,9 @@ as_human
 
 [[ -f DISCOVERY.md ]] || { echo "DISCOVERY.md not found at repo root — it is the map this agent needs."; exit 1; }
 
-require_claude_auth
+select_agent "${DISCOVERY_ENGINE:-}"   # sets AGENT_EXEC and runs the engine's auth preflight
 
 sha="$(prompt_sha)"
 PROMPT="$(sed "s/{{PROMPT_SHA}}/${sha}/g" "$PROMPTS_DIR/discovery.md")"
 
-$CLAUDE_EXEC "$PROMPT"
+$AGENT_EXEC "$PROMPT"

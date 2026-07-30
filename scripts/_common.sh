@@ -53,6 +53,46 @@ require_claude_auth() {
   fi
 }
 
+# require_codex_auth — Codex-side twin of require_claude_auth. A dead Codex login
+# makes `codex exec` fail with generic text that poll.sh's classify_failure()
+# would read as a per-issue *environmental* failure — escalating and stamping
+# `agent:human` on an innocent issue while the real problem (the machine needs a
+# human to `codex login`) goes unnamed. Probe once, cheaply, before the dispatch.
+# Same contract as the Claude probe: exit 3 + the AUTH_EXPIRED sentinel, which
+# poll.sh treats as a machine-level halt, not a per-issue escalation. (If a
+# lighter `codex login status`-style check exists in your Codex version, swap the
+# probe for it — the exec turn here is chosen to match the proven Claude path and
+# avoid guessing a subcommand.)
+require_codex_auth() {
+  local out
+  if ! out="$($CODEX_EXEC 'Reply with the single word OK and nothing else.' 2>&1)" \
+     || ! printf '%s' "$out" | grep -qi 'ok'; then
+    echo "AUTH_EXPIRED: Codex session is dead — run 'codex login' to re-authenticate." >&2
+    printf '  probe output: %s\n' "${out:0:200}" >&2
+    exit 3
+  fi
+}
+
+# select_agent [lane-override] — pick the coding engine (Claude Code or Codex)
+# for a lane and prepare it. Resolution order, first non-empty wins:
+#   1. the lane's own override (passed as $1, e.g. "${DISCOVERY_ENGINE:-}")
+#   2. AGENT_ENGINE — global default for every lane that opts in
+#   3. "claude"     — built-in default; preserves pre-swap behaviour
+# Sets AGENT_EXEC to the resolved CLI and runs that engine's auth preflight, so a
+# dead login halts the poller cleanly instead of being misclassified. Call once,
+# right after the as_* identity line, then invoke `$AGENT_EXEC "$PROMPT"`.
+select_agent() {
+  local engine="${1:-}"
+  engine="${engine:-${AGENT_ENGINE:-claude}}"
+  case "$engine" in
+    claude) AGENT_EXEC="$CLAUDE_EXEC"; require_claude_auth ;;
+    codex)  AGENT_EXEC="$CODEX_EXEC"; require_codex_auth ;;
+    *) echo "select_agent: unknown engine '$engine' (expected 'claude' or 'codex')" >&2; exit 2 ;;
+  esac
+  AGENT_ENGINE_RESOLVED="$engine"
+  export AGENT_EXEC AGENT_ENGINE_RESOLVED
+}
+
 # render <template-name> <issue-number>  → prints the interpolated prompt
 render() {
   local template="$1" issue="$2" sha
