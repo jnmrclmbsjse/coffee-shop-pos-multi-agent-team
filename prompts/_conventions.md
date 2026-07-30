@@ -23,6 +23,25 @@ Where `<step>` is one of: `feasibility`, `testability`, `design`.
 - `<prompt-sha>` is the short SHA of the `prompts/` directory at invocation
   time (traceability — which prompt version produced this).
 
+### Terminal convergence marker
+
+The three step markers above prove individual sub-agents ran. They do NOT prove
+the story is fully prepared: Step 4 (flip the gate — label dev tasks `agent:dev`,
+set statuses) runs AFTER `design:done` is written and could crash in between.
+`po-prepare` therefore writes one final marker as the LAST action of Step 4:
+
+```
+<!-- OD-PREPARE:prepared:done sha=<prompt-sha> -->
+```
+
+- This is written by `po-prepare` itself (the orchestrator), not by a sub-agent.
+- It means "all four steps complete AND the gate is flipped — dev tasks are
+  labeled and ready." It is the ONLY authoritative "story is prepared" signal.
+- The poller (`story_prepared`, `backlog_empty`) keys on THIS marker, so the
+  poller's notion of "done" exactly equals `po-prepare`'s. Keying on any earlier
+  step marker strands a story whose later step failed (feasibility:done stranded
+  a Step-3 failure; design:done would strand a Step-4 failure).
+
 ## Prompt SHA (traceability)
 
 Every wrapper script computes:

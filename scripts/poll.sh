@@ -229,14 +229,24 @@ Address this specifically rather than repeating the same approach." >/dev/null 2
 # other lane claims it, and backlog_empty() correctly reports "not empty", so
 # discovery stops too. The pipeline deadlocks at exactly this seam.
 story_prepared() {
-  # Match the REAL marker only — the `<!-- ... -->` HTML comment the Tech Lead
-  # emits — never a prose mention. An aborted prepare posts an OD-PREPARE:error
-  # comment that literally quotes "No `OD-PREPARE:feasibility:done` marker was
-  # written"; a bare substring grep matched that and made the prepare lane skip
-  # the story forever (no agent:* label => no other lane claims it). Require the
-  # opening delimiter so backtick-quoted mentions can't false-positive.
+  # A story is CONVERGED only when po-prepare has finished ALL of Step 1-4 and
+  # flipped the gate. Key on the TERMINAL marker `prepared:done`, which po-prepare
+  # writes as the very last action of Step 4 (see prompts/po-prepare.md) — after
+  # dev tasks are labeled agent:dev. Do NOT key on any per-step marker:
+  #   - feasibility:done proves only Step 1 ran; a story that dies at Step 3
+  #     (design) carries it yet is not prepared (was the #108 strand).
+  #   - design:done proves only Step 3 ran; a story whose Step 4 crashes after
+  #     design (e.g. dispatch timeout mid-gate-flip) carries all three step
+  #     markers but its dev tasks were never labeled — dev never picks it up.
+  # Only prepared:done means "gate flipped, dev tasks ready". Keying on it makes
+  # the poller's notion of done EQUAL po-prepare's, closing the whole class.
+  #
+  # Match the REAL marker only — the `<!-- ... -->` HTML comment — never a prose
+  # mention. An OD-PREPARE:error comment can quote a marker name in backticks;
+  # requiring the opening delimiter stops a backtick-quoted mention from
+  # false-positiving (see memory: poller-marker-false-positive).
   gh issue view "$1" --json comments -q '[.comments[].body] | join(" ")' 2>/dev/null \
-    | grep -q '<!-- OD-PREPARE:feasibility:done'
+    | grep -q '<!-- OD-PREPARE:prepared:done'
 }
 
 poll_prepare() {
@@ -396,13 +406,14 @@ backlog_empty() {
   # apply an agent:* label, a story created by po-intake but never po-prepare'd
   # is indistinguishable by labels from a finished one. Without this check,
   # discovery would keep filing new stories on top of unstarted ones.
-  # A converged story carries the feasibility:done marker in its comments.
+  # A converged story carries the terminal prepared:done marker — see
+  # story_prepared() for why the per-step markers are NOT sufficient proof.
   local s
   for s in $(gh issue list --state open --limit 100 --label type:story \
              --json number -q '.[].number' 2>/dev/null); do
     if ! gh issue view "$s" --json comments \
          -q '[.comments[].body] | join(" ")' 2>/dev/null \
-         | grep -q '<!-- OD-PREPARE:feasibility:done'; then   # real marker only; see story_prepared()
+         | grep -q '<!-- OD-PREPARE:prepared:done'; then   # real marker only; see story_prepared()
       return 1        # at least one story still needs preparing
     fi
   done

@@ -14,12 +14,18 @@ Read the issue and its existing comments:
 `gh issue view {{ISSUE}} --json title,body,labels,comments`
 
 Inventory which completion markers are already present (see _conventions.md):
+- `OD-PREPARE:prepared:done` — the TERMINAL marker (Step 4 finished)
 - `OD-PREPARE:feasibility:done`
 - `OD-PREPARE:testability:done`
 - `OD-PREPARE:design:done`
 
-Skip any step whose marker is already present. Only run missing steps. This makes
-re-running `po-prepare {{ISSUE}}` safe after a partial or failed prior run.
+FIRST: if `prepared:done` is already present, the story is fully converged and
+the gate is already flipped. STOP immediately — do nothing, touch no tasks, print
+"already prepared (marker present) — no-op" and exit cleanly. Re-running must
+never re-touch a finished story's tasks.
+
+Otherwise: skip any step whose marker is already present, only run missing steps.
+This makes re-running `po-prepare {{ISSUE}}` safe after a partial or failed run.
 
 ## Step 1 — Feasibility + breakdown (Technical Lead sub-agent)
 
@@ -139,7 +145,12 @@ acceptance criteria present.
 
 - Verify all three markers once more (defensive).
 - TASKS CARRY REAL STATUS. For each DEV TASK issue Tech Lead created:
-    - set its Projects v2 Status to `Ready for Dev`, AND
+    - IDEMPOTENCY GUARD: if the dev task issue is already CLOSED, skip it
+      entirely — do not re-open it, do not re-label it, do not touch its status.
+      A closed dev task is merged/shipped work; re-flipping it would re-activate
+      the Dev poller on finished code. (This makes Step 4 safe to re-run, which a
+      resumed po-prepare after a Step-4 crash requires.)
+    - Otherwise set its Projects v2 Status to `Ready for Dev`, AND
     - ensure it is labeled `agent:dev`.
       This is what the Dev poller watches — a dev task left in Backlog will never
       be picked up, even if the story says Ready for Dev.
@@ -156,6 +167,12 @@ acceptance criteria present.
   already-done, how many testability attempts, final status.
 
 If any marker is somehow still missing here, do NOT flip — abort per rule B.
+
+- LAST action, only after everything above succeeded: write the terminal marker
+  `<!-- OD-PREPARE:prepared:done sha={{PROMPT_SHA}} -->` as an issue comment. This
+  is what the poller keys on to consider the story prepared (see _conventions.md).
+  If you could not complete the gate flip, do NOT write this marker — leaving it
+  absent is exactly what lets a resumed po-prepare re-run Step 4 to finish the job.
 
 ## Step 5 — Output contract (what you print to the human)
 
