@@ -11,9 +11,19 @@ import {
   IsUUID,
   Min,
   ValidateNested,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CountMethod } from '@coffee-shop/shared';
+import {
+  CountMethod,
+  MovementType,
+  StockLevel,
+} from '@coffee-shop/shared';
+import type {
+  CreateStockMovementInput,
+  SubmitStockCountInput,
+  SubmitStockCountLineInput,
+} from '@coffee-shop/shared';
 
 const trimString = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -190,4 +200,61 @@ export class UpsertParLevelDto {
   @IsInt()
   @Min(0, { message: 'urgentThreshold must be zero or greater' })
   urgentThreshold?: number | null;
+}
+
+export class SubmitStockCountLineDto
+  implements SubmitStockCountLineInput
+{
+  @IsUUID()
+  inventoryItemId!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0, { message: 'quantity must be zero or greater' })
+  quantity?: number;
+
+  @IsOptional()
+  @IsEnum(StockLevel)
+  level?: StockLevel;
+}
+
+export class SubmitStockCountDto implements SubmitStockCountInput {
+  @IsIn(['open', 'close'])
+  phase!: 'open' | 'close';
+
+  @IsUUID()
+  submittedByStaffMemberId!: string;
+
+  @IsOptional()
+  @IsUUID()
+  shiftLeadStaffMemberId?: string | null;
+
+  @IsArray()
+  @ArrayMinSize(1, { message: 'at least one count line is required' })
+  @ValidateNested({ each: true })
+  @Type(() => SubmitStockCountLineDto)
+  lines!: SubmitStockCountLineDto[];
+}
+
+export class CreateStockMovementDto
+  implements CreateStockMovementInput
+{
+  @IsUUID()
+  inventoryItemId!: string;
+
+  @IsEnum(MovementType)
+  type!: MovementType;
+
+  @IsInt()
+  @Min(0, { message: 'quantity must be zero or greater' })
+  quantity!: number;
+
+  @IsOptional()
+  @IsUUID()
+  recordedByStaffMemberId?: string | null;
+
+  @IsOptional()
+  @Transform(optionalTrimmedString)
+  @IsString()
+  reason?: string | null;
 }

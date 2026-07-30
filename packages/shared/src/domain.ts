@@ -174,6 +174,97 @@ export interface StockMovement {
   recordedAt: string;
 }
 
+export interface CurrentOpenBusinessDay {
+  isOpen: boolean;
+  businessDate: string | null;
+  dayType: DayType | null;
+}
+
+export interface InventoryStaffOption {
+  id: string;
+  displayName: string;
+}
+
+export interface CountSheetItem {
+  id: string;
+  name: string;
+  size: string | null;
+  unit: string;
+  countMethod: CountMethod;
+  critical: boolean;
+}
+
+export interface SubmittedStockCountLine extends StockCountLine {
+  itemName: string;
+}
+
+export interface SubmittedStockCount extends Omit<StockCount, 'lines'> {
+  lines: SubmittedStockCountLine[];
+}
+
+export interface CountSheet {
+  businessDay: CurrentOpenBusinessDay;
+  phase: StockCountPhase;
+  items: CountSheetItem[];
+  submittedCount: SubmittedStockCount | null;
+}
+
+export interface SubmitStockCountLineInput {
+  inventoryItemId: string;
+  quantity?: number;
+  level?: StockLevel;
+}
+
+export interface SubmitStockCountInput {
+  phase: StockCountPhase;
+  submittedByStaffMemberId: string;
+  shiftLeadStaffMemberId?: string | null;
+  lines: SubmitStockCountLineInput[];
+}
+
+export interface CreateStockMovementInput {
+  inventoryItemId: string;
+  type: MovementType;
+  quantity: number;
+  recordedByStaffMemberId?: string | null;
+  reason?: string | null;
+}
+
+export interface StockMovementListItem extends StockMovement {
+  itemName: string;
+}
+
+export interface StockMovementList {
+  businessDay: CurrentOpenBusinessDay;
+  movements: StockMovementListItem[];
+}
+
+export type RestockStatus =
+  | 'URGENT'
+  | 'LOW'
+  | 'BELOW_PAR'
+  | 'ENOUGH';
+
+export interface RestockStatusRow {
+  inventoryItemId: string;
+  itemName: string;
+  critical: boolean;
+  countMethod: CountMethod;
+  quantity: number | null;
+  level: StockLevel | null;
+  par: number | null;
+  status: RestockStatus;
+}
+
+export interface RestockStatusResult {
+  businessDay: CurrentOpenBusinessDay;
+  hasCount: boolean;
+  selectedPhase: StockCountPhase | null;
+  selectedCountId: string | null;
+  selectedCountRecordedAt: string | null;
+  rows: RestockStatusRow[];
+}
+
 export enum OrderStatus {
   PARKED = 'PARKED',
   COMPLETED = 'COMPLETED',
