@@ -229,8 +229,14 @@ Address this specifically rather than repeating the same approach." >/dev/null 2
 # other lane claims it, and backlog_empty() correctly reports "not empty", so
 # discovery stops too. The pipeline deadlocks at exactly this seam.
 story_prepared() {
+  # Match the REAL marker only — the `<!-- ... -->` HTML comment the Tech Lead
+  # emits — never a prose mention. An aborted prepare posts an OD-PREPARE:error
+  # comment that literally quotes "No `OD-PREPARE:feasibility:done` marker was
+  # written"; a bare substring grep matched that and made the prepare lane skip
+  # the story forever (no agent:* label => no other lane claims it). Require the
+  # opening delimiter so backtick-quoted mentions can't false-positive.
   gh issue view "$1" --json comments -q '[.comments[].body] | join(" ")' 2>/dev/null \
-    | grep -q 'OD-PREPARE:feasibility:done'
+    | grep -q '<!-- OD-PREPARE:feasibility:done'
 }
 
 poll_prepare() {
@@ -271,9 +277,17 @@ poll_prepare() {
 # ---------- ADR lane ----------
 # Stories blocked on an ADR carry `blocked-on-adr` and a marker:
 #   <!-- OD-PREPARE:adr-pr:<n> -->
-# The PR's own state is the trigger; there is no event mechanism locally.
+# There is no event mechanism locally, so the PR's own state is the trigger:
+#   - merged            -> unblock the story and resume po-prepare
+#   - closed unmerged   -> escalate (direction rejected)
+#   - `adr-changes-requested` LABEL on the PR -> dispatch a Tech Lead revision.
+# The label (not GitHub's reviewDecision) carries "please revise": ADR PRs are
+# authored by the operator's own account, and GitHub forbids requesting changes
+# on your own PR, so reviewDecision can never read CHANGES_REQUESTED here. The
+# operator adds the label after leaving comments; the revise agent removes it
+# when done, so the label's presence is also the freshness signal.
 poll_adr() {
-  local stories story pr state merged decision last_commit last_review
+  local stories story pr state merged flag
   stories="$(gh issue list --state open --label blocked-on-adr --limit 50 \
              --json number -q '.[].number' 2>/dev/null)"
   [[ -z "$stories" ]] && return 0
@@ -311,23 +325,44 @@ poll_adr() {
       continue
     fi
 
-    decision="$(gh pr view "$pr" --json reviewDecision -q .reviewDecision 2>/dev/null)"
-    if [[ "$decision" == "CHANGES_REQUESTED" ]]; then
-      # FRESHNESS: reviewDecision stays CHANGES_REQUESTED until the human reviews
-      # again, so without this we would re-dispatch a revision every cycle.
-      # Only act if the last review is NEWER than the last commit — i.e. Tech
-      # Lead has not already responded.
-      last_commit="$(gh pr view "$pr" --json commits -q '.commits | last | .committedDate' 2>/dev/null)"
-      last_review="$(gh pr view "$pr" --json reviews -q '[.reviews[] | .submittedAt] | last' 2>/dev/null)"
-      if [[ -n "$last_review" && "$last_review" > "$last_commit" ]]; then
-        echo "  [adr] changes requested on PR #$pr — dispatching revision"
-        [[ "$DRY_RUN" == "1" ]] && { echo "    [dry-run] would run: scripts/techlead-adr-revise.sh $story"; continue; }
-        local ts2 log2; ts2="$(date +%Y%m%d-%H%M%S)"; log2="$LOG_DIR/adr-revise-${story}-${ts2}.log"
-        echo "    → scripts/techlead-adr-revise.sh $story  (log: $log2)"
-        scripts/techlead-adr-revise.sh "$story" >"$log2" 2>&1 \
-          && echo "    ✓ revision pushed" || echo "    ✗ revision failed — see $log2"
+    # The `adr-changes-requested` label on the PR — not reviewDecision — is the
+    # revise trigger (see lane comment above). The revise agent removes it when
+    # done, so its presence means the Tech Lead has not yet responded; no
+    # timestamp freshness check is needed.
+    flag="$(gh pr view "$pr" --json labels -q '[.labels[].name] | index("adr-changes-requested")' 2>/dev/null)"
+    if [[ -n "$flag" && "$flag" != "null" ]]; then
+      # SAFETY CAP: this lane runs synchronously (no double-dispatch), but a
+      # revise agent that keeps failing leaves the label in place and would
+      # retry every cycle. Cap it like the other lanes.
+      if (( $(attempts_of "$story") >= MAX_ATTEMPTS )); then
+        local n; n="$(attempts_of "$story")"
+        echo "  [adr] revision failed $n times on PR #$pr — escalating story #$story"
+        [[ "$DRY_RUN" == "1" ]] && { echo "    [dry-run] would escalate #$story and drop the label"; continue; }
+        escalate "$story" "ADR revision failed $n times — needs a human" "" "adr"
+        # escalate resets the attempt counter, so drop the label too or the next
+        # cycle would re-trigger from zero.
+        gh pr edit "$pr" --remove-label adr-changes-requested >/dev/null 2>&1
+        continue
+      fi
+      echo "  [adr] changes requested on PR #$pr — dispatching revision"
+      [[ "$DRY_RUN" == "1" ]] && { echo "    [dry-run] would run: scripts/techlead-adr-revise.sh $story"; continue; }
+      local ts2 log2 rc2; ts2="$(date +%Y%m%d-%H%M%S)"; log2="$LOG_DIR/adr-revise-${story}-${ts2}.log"
+      echo "    → scripts/techlead-adr-revise.sh $story  (log: $log2)"
+      scripts/techlead-adr-revise.sh "$story" >"$log2" 2>&1; rc2=$?
+      if (( rc2 == 0 )); then
+        echo "    ✓ revision pushed"
+        rm -f "$STATE_DIR/attempts-$story"   # agent has cleared the label itself
+      elif (( rc2 == 3 )) || grep -qiE 'AUTH_EXPIRED|Failed to authenticate|OAuth session expired' "$log2" 2>/dev/null; then
+        # MACHINE-LEVEL auth failure (dead Claude OAuth) — NOT this story's fault.
+        # Do NOT bump the cap or escalate the innocent story; halt like dispatch()
+        # does so a human can /login before anything gets misclassified.
+        echo "    ‼ #$story — AUTH_EXPIRED: Claude Code OAuth session is dead (not an ADR defect)."
+        echo "    ‼ HALTING poller. Fix: run 'claude' → /login, then 'rm -f $STOP_FILE' and restart."
+        touch "$STOP_FILE"
+        continue
       else
-        echo "  [adr] PR #$pr revised already — waiting on human re-review"
+        _bump "attempts-$story"
+        echo "    ✗ revision failed (attempt $(attempts_of "$story")/$MAX_ATTEMPTS) — see $log2"
       fi
     else
       echo "  [adr] PR #$pr awaiting human review"
@@ -367,7 +402,7 @@ backlog_empty() {
              --json number -q '.[].number' 2>/dev/null); do
     if ! gh issue view "$s" --json comments \
          -q '[.comments[].body] | join(" ")' 2>/dev/null \
-         | grep -q 'OD-PREPARE:feasibility:done'; then
+         | grep -q '<!-- OD-PREPARE:feasibility:done'; then   # real marker only; see story_prepared()
       return 1        # at least one story still needs preparing
     fi
   done

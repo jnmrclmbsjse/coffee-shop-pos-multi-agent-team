@@ -19,6 +19,11 @@ You are the Technical Lead. The human reviewed the ADR PR you opened for story
 4. Commit the revision to the SAME branch and push. Do not open a new PR — the
    review thread is the conversation and it should stay in one place.
 5. Comment on the PR summarizing what changed and why, sha={{PROMPT_SHA}}.
+6. Remove the `adr-changes-requested` label from the ADR PR
+   (`gh pr edit <pr> --remove-label adr-changes-requested`). This signals the
+   revision is ready for re-review. Do this LAST, after the commit is pushed and
+   the summary comment is posted — the label is the operator's request, and it
+   should only clear once your response actually landed.
 
 ## Boundaries
 

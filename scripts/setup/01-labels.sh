@@ -30,6 +30,7 @@ moscow:wont|c5def5|MoSCoW: Won'"'"'t have (this time)
 blocked|000000|Dependency unmet — the poller skips these
 needs-clarification|e99695|Kicked back to PO or the human instead of guessing
 blocked-on-adr|0e8a16|Story blocked pending human review of an ADR PR
+adr-changes-requested|fbca04|Operator requests changes on this ADR PR — Tech Lead revises and clears
 escalation-digest|ededed|Daily digest issue collecting overnight escalations
 '
 
@@ -46,4 +47,4 @@ done
 
 echo
 echo "Verify with: gh label list --repo $REPO --limit 50"
-echo "Expected: 20 labels."
+echo "Expected: 21 labels."
