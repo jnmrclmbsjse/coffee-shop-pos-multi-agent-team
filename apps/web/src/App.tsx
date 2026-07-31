@@ -32,6 +32,10 @@ import { DashboardPage } from './reporting/DashboardPage';
 import { ReportsPage } from './reporting/ReportsPage';
 import { OrderHistoryPage } from './pages/OrderHistoryPage';
 import { OrderHistoryDetailPage } from './pages/OrderHistoryDetailPage';
+import {
+  CloseBusinessDayPage,
+  OpenBusinessDayPage,
+} from './trading-day/StaffTradingDayPages';
 
 const DEFAULT_ADMIN_PATH = '/dashboard';
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
@@ -514,10 +518,12 @@ export function AppRoutes() {
         >
           <Route path="/pos" element={<StaffWorkspaceLayout />}>
             <Route index element={<PointOfSalePage />} />
+            <Route path="open" element={<OpenBusinessDayPage />} />
             <Route path="opening" element={<OpeningCountPage />} />
             <Route path="closing" element={<ClosingCountPage />} />
             <Route path="restock" element={<RestockStatusPage />} />
             <Route path="movements" element={<StockMovementsPage />} />
+            <Route path="close" element={<CloseBusinessDayPage />} />
           </Route>
         </Route>
         <Route path="/" element={<Navigate replace to={DEFAULT_ADMIN_PATH} />} />

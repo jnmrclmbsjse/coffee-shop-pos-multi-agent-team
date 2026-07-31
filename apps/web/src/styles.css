@@ -7,6 +7,9 @@
   --accent: oklch(58% 0.16 145);
   --danger: oklch(48% 0.18 28);
   --danger-surface: oklch(97% 0.018 28);
+  --warn-ink: oklch(39% 0.08 72);
+  --warn-surface: oklch(97% 0.025 82);
+  --warn-border: oklch(73% 0.09 78);
   --focus: oklch(43% 0.14 145);
   --accent-hover: oklch(52% 0.16 145);
   --accent-pressed: oklch(46% 0.14 145);
@@ -4214,6 +4217,7 @@ button {
 .staff-inventory-button:focus-visible,
 .staff-inventory-field select:focus-visible,
 .staff-inventory-field input:focus-visible,
+.staff-inventory-field textarea:focus-visible,
 .staff-radio-option input:focus-visible + label {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
@@ -4327,7 +4331,8 @@ button {
 }
 
 .staff-inventory-field select,
-.staff-inventory-field input {
+.staff-inventory-field input,
+.staff-inventory-field textarea {
   width: 100%;
   min-height: 48px;
   padding: 0 12px;
@@ -4338,23 +4343,34 @@ button {
   background: var(--surface);
 }
 
-.staff-inventory-field input::placeholder {
+.staff-inventory-field textarea {
+  min-height: 96px;
+  padding-block: 11px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.staff-inventory-field input::placeholder,
+.staff-inventory-field textarea::placeholder {
   color: var(--muted);
   opacity: 1;
 }
 
 .staff-inventory-field select:hover:not(:disabled),
-.staff-inventory-field input:hover:not(:disabled) {
+.staff-inventory-field input:hover:not(:disabled),
+.staff-inventory-field textarea:hover:not(:disabled) {
   border-color: var(--ink-soft);
 }
 
 .staff-inventory-field select[aria-invalid='true'],
-.staff-inventory-field input[aria-invalid='true'] {
+.staff-inventory-field input[aria-invalid='true'],
+.staff-inventory-field textarea[aria-invalid='true'] {
   border-color: var(--danger);
 }
 
 .staff-inventory-field select:disabled,
-.staff-inventory-field input:disabled {
+.staff-inventory-field input:disabled,
+.staff-inventory-field textarea:disabled {
   cursor: not-allowed;
   color: var(--muted);
   background: var(--surface-subtle);
@@ -4819,6 +4835,396 @@ button {
   font-size: 12px;
 }
 
+/* Staff business-day opening and close */
+.staff-day-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.staff-day-type-fieldset {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.staff-day-type-fieldset > legend {
+  margin-bottom: var(--space-2);
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.staff-day-type-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.staff-day-type-options label {
+  position: relative;
+}
+
+.staff-day-type-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.staff-day-type-options span {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: var(--surface);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.staff-day-type-options input:checked + span {
+  border-color: var(--accent-pressed);
+  color: var(--surface);
+  background: var(--accent-pressed);
+}
+
+.staff-day-type-options input:focus-visible + span {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.staff-day-type-options input:disabled + span {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: var(--surface-subtle);
+}
+
+.staff-money-input {
+  position: relative;
+}
+
+.staff-money-input > span {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  color: var(--ink-soft);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.staff-money-input input {
+  padding-left: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+.staff-inventory-message p {
+  margin: 0;
+}
+
+.staff-inventory-message p + p {
+  margin-top: var(--space-1);
+}
+
+.staff-day-open-summary {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.staff-day-open-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--accent) 7%, var(--surface));
+}
+
+.staff-day-open-banner > span {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in oklch, var(--accent) 42%, var(--border));
+  border-radius: var(--radius-sm);
+  color: var(--focus);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.staff-day-open-banner h2 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.staff-day-open-banner p {
+  max-width: 65ch;
+  margin: var(--space-2) 0 0;
+  color: var(--ink-soft);
+}
+
+.staff-day-summary-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0 var(--space-6);
+}
+
+.staff-day-summary-list > div {
+  min-width: 0;
+  padding: var(--space-5) var(--space-4);
+  border-right: 1px solid var(--border);
+}
+
+.staff-day-summary-list > div:first-child {
+  padding-left: 0;
+}
+
+.staff-day-summary-list > div:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.staff-day-summary-list dt,
+.staff-cash-summary dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.staff-day-summary-list dd {
+  margin: var(--space-1) 0 0;
+  font-size: 17px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.staff-closing-advisory {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-sm);
+  color: var(--warn-ink);
+  background: var(--warn-surface);
+}
+
+.staff-closing-advisory strong {
+  flex: 0 0 auto;
+}
+
+.staff-closing-advisory a {
+  color: inherit;
+  font-weight: 800;
+  text-underline-offset: 3px;
+}
+
+.staff-closing-advisory a:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.staff-close-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+  gap: var(--space-5);
+}
+
+.staff-close-section {
+  min-width: 0;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.staff-section-heading {
+  margin-bottom: var(--space-4);
+}
+
+.staff-section-heading h2,
+.staff-section-heading p {
+  margin: 0;
+}
+
+.staff-section-heading h2 {
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.staff-section-heading p {
+  max-width: 65ch;
+  margin-top: var(--space-1);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.staff-packaging-table table {
+  min-width: 700px;
+}
+
+.staff-packaging-table th[scope='row'] {
+  font-weight: 750;
+  text-align: left;
+}
+
+.staff-packaging-table td {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.staff-packaging-table .unknown {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.staff-packaging-table .variance-short,
+.staff-packaging-table .variance-over {
+  color: var(--warn-ink);
+  font-weight: 800;
+}
+
+.staff-packaging-table .variance-balanced {
+  color: var(--ink-soft);
+  font-weight: 750;
+}
+
+.staff-packaging-empty {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: var(--surface-subtle);
+  text-align: center;
+}
+
+.staff-cash-summary {
+  margin: 0;
+}
+
+.staff-cash-summary > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.staff-cash-summary dt {
+  color: var(--ink-soft);
+}
+
+.staff-cash-summary dt small {
+  display: block;
+  max-width: 42ch;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1.35;
+}
+
+.staff-cash-summary dd {
+  margin: 0;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.staff-cash-summary .excluded {
+  color: var(--muted);
+}
+
+.staff-cash-summary .change-owed {
+  margin-inline: calc(var(--space-2) * -1);
+  padding-inline: var(--space-2);
+  background: var(--surface-subtle);
+}
+
+.staff-cash-summary .total {
+  padding-top: var(--space-4);
+  border-bottom: 0;
+}
+
+.staff-cash-summary .total dt,
+.staff-cash-summary .total dd {
+  color: var(--fg);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.staff-close-day-form {
+  margin-top: var(--space-5);
+}
+
+.staff-close-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-5);
+}
+
+.staff-discrepancy {
+  min-height: 100%;
+  display: grid;
+  align-content: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.staff-discrepancy > span,
+.staff-discrepancy small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.staff-discrepancy strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.staff-discrepancy strong.short,
+.staff-discrepancy strong.over {
+  color: var(--warn-ink);
+}
+
+.staff-discrepancy strong.pending {
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.staff-close-success {
+  color: var(--focus);
+  font-size: 18px;
+}
+
 @media (max-width: 1000px) {
   .staff-workspace-header-inner {
     grid-template-columns: 1fr;
@@ -4839,6 +5245,26 @@ button {
 
   .staff-movement-form > .staff-inventory-field:last-child {
     grid-column: auto;
+  }
+
+  .staff-day-summary-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .staff-day-summary-list > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .staff-day-summary-list > div:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+
+  .staff-day-summary-list > div:nth-child(3) {
+    padding-left: 0;
+  }
+
+  .staff-close-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -4871,8 +5297,16 @@ button {
 
   .staff-count-selectors,
   .staff-count-row,
-  .staff-movement-form {
+  .staff-movement-form,
+  .staff-day-form-grid,
+  .staff-close-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .staff-closing-advisory,
+  .staff-day-open-banner {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .staff-count-row {
@@ -4900,6 +5334,24 @@ button {
 
   .staff-submitted-banner {
     align-items: flex-start;
+  }
+
+  .staff-day-summary-list {
+    grid-template-columns: 1fr;
+    padding-inline: var(--space-4);
+  }
+
+  .staff-day-summary-list > div,
+  .staff-day-summary-list > div:first-child,
+  .staff-day-summary-list > div:nth-child(3),
+  .staff-day-summary-list > div:last-child {
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--border);
+    border-right: 0;
+  }
+
+  .staff-day-summary-list > div:first-child {
+    border-top: 0;
   }
 
   .staff-inventory-button,
