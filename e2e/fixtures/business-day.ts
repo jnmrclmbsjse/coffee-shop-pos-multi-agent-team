@@ -360,12 +360,20 @@ export function seedSale(input: SeedSaleInput): string {
   return JSON.parse(output) as string;
 }
 
-/** Seed a drawer movement: cash in, cash out, or a cash-affecting expense. */
+/**
+ * Seed a drawer movement: cash in, cash out, or a cash-affecting expense.
+ *
+ * `category` and `recordedBy` were added for story #154 (QA task #159), which is
+ * the capture path for these rows. Both stay optional so the #123 closing-summary
+ * tests that only care about the amount are unaffected.
+ */
 export function seedCashMovement(input: {
   tradingDayId: string;
   kind: 'CASH_IN' | 'CASH_OUT' | 'EXPENSE';
   amountCents: number;
   description: string;
+  category?: string | null;
+  recordedBy?: SeededStaff | null;
 }): void {
   runPrisma(`
     const input = ${JSON.stringify(input)};
@@ -375,8 +383,71 @@ export function seedCashMovement(input: {
         kind: input.kind,
         amountCents: input.amountCents,
         description: input.description,
+        category: input.category ?? null,
+        recordedByStaffMemberId: input.recordedBy ? input.recordedBy.id : null,
+        recordedByNameSnapshot: input.recordedBy
+          ? input.recordedBy.displayName
+          : null,
         recordedAt: new Date(),
       },
+    });
+  `);
+}
+
+export interface StoredCashMovement {
+  id: string;
+  tradingDayId: string;
+  kind: 'CASH_IN' | 'CASH_OUT' | 'EXPENSE';
+  amountCents: number;
+  description: string;
+  category: string | null;
+  recordedByStaffMemberId: string | null;
+  recordedByNameSnapshot: string | null;
+}
+
+/**
+ * Every drawer movement in the database, oldest first.
+ *
+ * Story #154's validation criteria are "no entry is recorded", not "a message
+ * appeared", so the specs assert against this row set rather than against the
+ * screen. It also carries `amountCents` unrounded, which is the only place the
+ * peso→cents boundary is observable exactly.
+ */
+export function readCashMovements(): StoredCashMovement[] {
+  const output = runPrisma(`
+    const movements = await prisma.cashMovement.findMany({
+      orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }],
+    });
+    process.stdout.write(JSON.stringify(movements.map((movement) => ({
+      id: movement.id,
+      tradingDayId: movement.tradingDayId,
+      kind: movement.kind,
+      amountCents: movement.amountCents,
+      description: movement.description,
+      category: movement.category,
+      recordedByStaffMemberId: movement.recordedByStaffMemberId,
+      recordedByNameSnapshot: movement.recordedByNameSnapshot,
+    }))));
+  `);
+  return JSON.parse(output) as StoredCashMovement[];
+}
+
+/** How many drawer movements exist. The count validation criteria pin. */
+export function countCashMovements(): number {
+  return Number(
+    runPrisma(`
+      const total = await prisma.cashMovement.count({});
+      process.stdout.write(String(total));
+    `),
+  );
+}
+
+/** Close a business day without going through the closing screen. */
+export function closeBusinessDayDirect(tradingDayId: string): void {
+  runPrisma(`
+    await prisma.tradingDay.update({
+      where: { id: ${JSON.stringify(tradingDayId)} },
+      data: { status: 'CLOSED', closedAt: new Date() },
     });
   `);
 }
