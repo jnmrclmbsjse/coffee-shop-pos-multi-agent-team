@@ -152,6 +152,37 @@ escalate() {
   rm -f "$STATE_DIR/attempts-$issue"
 }
 
+# ---------- dependency gate (dev lane) ----------
+# A dev task carries a "Blocked By: #a, #b" line in its body, written by
+# po-prepare. The poller has NO dependency gate of its own: poll_role filters
+# only the `blocked` LABEL, which nothing applies automatically. So a dev task
+# whose prerequisite has not merged yet is still dispatched — the dev agent
+# correctly refuses and exits 0, but each no-op pickup counts toward
+# MAX_DISPATCHES, and after 6 cycles the cycle-detector escalates it to
+# agent:human as a false "loop". The prerequisite then merges minutes later and
+# the task is stuck forever, because agent:human is filtered out. This is
+# exactly how #130 died: 5 no-op pickups while blocked by #128, escalated as a
+# loop at 03:05, then #128 merged (PR #136) at 03:17 — 12 minutes too late.
+#
+# Fix: resolve the "Blocked By:" line live and skip the task entirely while ANY
+# referenced issue is still OPEN — no dispatch, no counter bump, no escalation.
+# When the blocker closes, the task flows on its own next cycle. Only the
+# `Blocked By:` line is read (not the `### Blocked By` heading or prose #refs),
+# matching how po-prepare writes it. Echoes the still-open blockers (empty when
+# clear or when the body has no Blocked By line).
+open_blockers() {
+  local issue="$1" body refs n out=""
+  body="$(gh issue view "$issue" --json body -q .body 2>/dev/null)" || return 0
+  refs="$(printf '%s\n' "$body" | grep -iE '^Blocked By:' \
+          | grep -oE '#[0-9]+' | grep -oE '[0-9]+' | sort -u)"
+  [[ -z "$refs" ]] && return 0
+  for n in $refs; do
+    [[ "$(gh issue view "$n" --json state -q .state 2>/dev/null)" == "OPEN" ]] \
+      && out="$out #$n"
+  done
+  printf '%s' "${out# }"
+}
+
 dispatch() {
   local role="$1" issue="$2"
   # Honor the kill switch mid-cycle. It may have been set manually, or by the
@@ -462,6 +493,21 @@ poll_role() {
 
   while read -r issue; do
     [[ -z "$issue" ]] && continue
+
+    # Dependency gate: never dispatch a dev task whose "Blocked By" prerequisites
+    # are still open. Checked BEFORE the cycle/attempt guards so a blocked task
+    # stays completely inert — no dispatch, no counter bump, no false-loop
+    # escalation (see open_blockers). QA/bug lanes are excluded: a QA task is
+    # blocked by its parent story, which stays OPEN through QA by design, so
+    # gating it on that would wrongly block QA forever.
+    if [[ "$role" == "dev" ]]; then
+      local blk; blk="$(open_blockers "$issue")"
+      if [[ -n "$blk" ]]; then
+        echo "  [$role] #$issue waiting on open blocker(s):$blk — skipping (no dispatch)"
+        continue
+      fi
+    fi
+
     (( $(attempts_of "$issue") >= MAX_ATTEMPTS )) && continue
 
     # cycle detection: an issue dispatched many times is ping-ponging between roles
