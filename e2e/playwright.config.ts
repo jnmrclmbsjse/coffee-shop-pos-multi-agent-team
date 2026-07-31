@@ -27,6 +27,14 @@ const API_BASE_URL = process.env.E2E_API_URL ?? 'http://localhost:3000';
 export default defineConfig({
   testDir: '.',
   fullyParallel: false,
+  // `fullyParallel: false` only serialises tests *within* a file — Playwright
+  // still runs different files concurrently across workers. That is not safe
+  // here: several specs reset globally shared state that others depend on
+  // (owner-reporting and order-history delete every trading day, staff-roster
+  // empties the roster, and the business-day suite clears the whole trading-day
+  // world before each test), and they all share one persistent dev database.
+  // One worker is what actually makes the suite deterministic.
+  workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   reporter: [['list']],
