@@ -61,10 +61,13 @@ const report = {
       onlineSalesCents: 1342000,
       grossSalesCents: 3317000,
       tipsCents: 134000,
+      cashInCents: 25000,
+      cashOutCents: 15000,
       cashExpensesCents: 82000,
-      expectedCashCents: 2027000,
+      outstandingChangeCents: 10000,
+      expectedCashCents: 2047000,
       actualCashCents: 0,
-      varianceCents: -2027000,
+      varianceCents: -2047000,
     },
     {
       date: '2026-07-25',
@@ -73,7 +76,10 @@ const report = {
       onlineSalesCents: 1168000,
       grossSalesCents: 3024000,
       tipsCents: 142000,
+      cashInCents: 0,
+      cashOutCents: 0,
       cashExpensesCents: 60000,
+      outstandingChangeCents: 0,
       expectedCashCents: 1938000,
       actualCashCents: null,
       varianceCents: null,
@@ -145,7 +151,10 @@ describe('reporting pages', () => {
       within(rows[2]!).getByLabelText('Variance not available'),
     ).toHaveTextContent('—');
     expect(within(rows[1]!).getByText('Short')).toBeInTheDocument();
-    expect(within(rows[1]!).getByText('₱-20,270.00')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('₱250.00')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('₱150.00')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('₱100.00')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('₱-20,470.00')).toBeInTheDocument();
   });
 
   it('keeps the last valid results and makes no request for an invalid range', async () => {

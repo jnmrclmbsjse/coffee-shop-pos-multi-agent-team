@@ -13,7 +13,10 @@ export interface CashReconciliationInput {
   openingFloatCents: MoneyCents;
   payments: readonly TenderAmount[];
   cashTipCents: readonly MoneyCents[];
-  cashExpenseCents: readonly MoneyCents[];
+  cashInCents: MoneyCents;
+  cashOutCents: MoneyCents;
+  cashExpensesCents: MoneyCents;
+  outstandingChangeCents: MoneyCents;
   latestCountedCents: MoneyCents | null;
 }
 
@@ -22,7 +25,10 @@ export interface CashReconciliation {
   onlineSalesCents: MoneyCents;
   grossSalesCents: MoneyCents;
   tipsCents: MoneyCents;
+  cashInCents: MoneyCents;
+  cashOutCents: MoneyCents;
   cashExpensesCents: MoneyCents;
+  outstandingChangeCents: MoneyCents;
   expectedCashCents: MoneyCents;
   actualCashCents: MoneyCents | null;
   varianceCents: MoneyCents | null;
@@ -94,7 +100,7 @@ function sumMoney(values: readonly MoneyCents[]): MoneyCents {
 }
 
 /**
- * Apply ADR 0004's binding trading-day cash arithmetic.
+ * Apply ADR 0006's binding trading-day cash arithmetic.
  *
  * Open days intentionally ignore any supplied count so actual cash and
  * variance remain null at the API boundary.
@@ -114,12 +120,14 @@ export function calculateCashReconciliation(
   );
   const grossSalesCents = addMoney(cashSalesCents, onlineSalesCents);
   const tipsCents = sumMoney(input.cashTipCents);
-  const cashExpensesCents = sumMoney(input.cashExpenseCents);
   const expectedCashCents = addMoney(
     input.openingFloatCents,
     cashSalesCents,
     tipsCents,
-    cents(-cashExpensesCents),
+    input.cashInCents,
+    input.outstandingChangeCents,
+    cents(-input.cashOutCents),
+    cents(-input.cashExpensesCents),
   );
   const actualCashCents =
     input.status === 'OPEN' ? null : input.latestCountedCents;
@@ -133,7 +141,10 @@ export function calculateCashReconciliation(
     onlineSalesCents,
     grossSalesCents,
     tipsCents,
-    cashExpensesCents,
+    cashInCents: input.cashInCents,
+    cashOutCents: input.cashOutCents,
+    cashExpensesCents: input.cashExpensesCents,
+    outstandingChangeCents: input.outstandingChangeCents,
     expectedCashCents,
     actualCashCents,
     varianceCents,

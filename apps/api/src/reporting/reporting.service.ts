@@ -42,7 +42,10 @@ interface DailyAggregateRow {
   cashSalesCents: DatabaseInteger;
   onlineSalesCents: DatabaseInteger;
   tipsCents: DatabaseInteger;
+  cashInCents: DatabaseInteger;
+  cashOutCents: DatabaseInteger;
   cashExpensesCents: DatabaseInteger;
+  outstandingChangeCents: DatabaseInteger;
   latestCountedCents: number | null;
   orderCount: DatabaseInteger;
 }
@@ -186,7 +189,10 @@ export class ReportingService {
         onlineSalesCents: day.onlineSalesCents,
         grossSalesCents: day.grossSalesCents,
         tipsCents: day.tipsCents,
+        cashInCents: day.cashInCents,
+        cashOutCents: day.cashOutCents,
         cashExpensesCents: day.cashExpensesCents,
+        outstandingChangeCents: day.outstandingChangeCents,
         expectedCashCents: day.expectedCashCents,
         actualCashCents: day.actualCashCents,
         varianceCents: day.varianceCents,
@@ -333,7 +339,10 @@ export class ReportingService {
       'Online sales',
       'Gross',
       'Tips',
+      'Cash in',
+      'Cash out',
       'Cash expenses',
+      'Outstanding change',
       'Expected cash',
       'Actual cash',
       'Variance',
@@ -346,7 +355,10 @@ export class ReportingService {
         formatCsvMoney(day.onlineSalesCents),
         formatCsvMoney(day.grossSalesCents),
         formatCsvMoney(day.tipsCents),
+        formatCsvMoney(day.cashInCents),
+        formatCsvMoney(day.cashOutCents),
         formatCsvMoney(day.cashExpensesCents),
+        formatCsvMoney(day.outstandingChangeCents),
         formatCsvMoney(day.expectedCashCents),
         formatNullableCsvMoney(day.actualCashCents),
         formatNullableCsvMoney(day.varianceCents),
@@ -408,15 +420,35 @@ export class ReportingService {
           ON selected_day.id = sale.trading_day_id
         GROUP BY sale.trading_day_id
       ),
-      expense_totals AS (
+      movement_totals AS (
         SELECT
           trading_day_id,
-          COALESCE(SUM(amount_cents), 0) AS cash_expenses_cents
-        FROM cash_movements AS expense
+          COALESCE(
+            SUM(amount_cents) FILTER (WHERE kind = 'CASH_IN'),
+            0
+          ) AS cash_in_cents,
+          COALESCE(
+            SUM(amount_cents) FILTER (WHERE kind = 'CASH_OUT'),
+            0
+          ) AS cash_out_cents,
+          COALESCE(
+            SUM(amount_cents) FILTER (WHERE kind = 'EXPENSE'),
+            0
+          ) AS cash_expenses_cents
+        FROM cash_movements AS movement
         INNER JOIN selected_days AS selected_day
-          ON selected_day.id = expense.trading_day_id
-        WHERE expense.kind = 'EXPENSE'
-        GROUP BY expense.trading_day_id
+          ON selected_day.id = movement.trading_day_id
+        GROUP BY movement.trading_day_id
+      ),
+      outstanding_change_totals AS (
+        SELECT
+          trading_day_id,
+          COALESCE(SUM(change_owed_cents), 0) AS outstanding_change_cents
+        FROM sales AS sale
+        INNER JOIN selected_days AS selected_day
+          ON selected_day.id = sale.trading_day_id
+        WHERE sale.change_settled_at IS NULL
+        GROUP BY sale.trading_day_id
       )
       SELECT
         day.id,
@@ -426,7 +458,13 @@ export class ReportingService {
         COALESCE(payment.cash_sales_cents, 0) AS "cashSalesCents",
         COALESCE(payment.online_sales_cents, 0) AS "onlineSalesCents",
         COALESCE(sale.tips_cents, 0) AS "tipsCents",
-        COALESCE(expense.cash_expenses_cents, 0) AS "cashExpensesCents",
+        COALESCE(movement.cash_in_cents, 0) AS "cashInCents",
+        COALESCE(movement.cash_out_cents, 0) AS "cashOutCents",
+        COALESCE(movement.cash_expenses_cents, 0) AS "cashExpensesCents",
+        COALESCE(
+          outstanding_change.outstanding_change_cents,
+          0
+        ) AS "outstandingChangeCents",
         latest_count.counted_cents AS "latestCountedCents",
         COALESCE(sale.order_count, 0) AS "orderCount"
       FROM selected_days AS day
@@ -434,8 +472,10 @@ export class ReportingService {
         ON payment.trading_day_id = day.id
       LEFT JOIN sale_totals AS sale
         ON sale.trading_day_id = day.id
-      LEFT JOIN expense_totals AS expense
-        ON expense.trading_day_id = day.id
+      LEFT JOIN movement_totals AS movement
+        ON movement.trading_day_id = day.id
+      LEFT JOIN outstanding_change_totals AS outstanding_change
+        ON outstanding_change.trading_day_id = day.id
       LEFT JOIN LATERAL (
         SELECT counted_cents
         FROM cash_counts
@@ -461,7 +501,12 @@ export class ReportingService {
           },
         ],
         cashTipCents: [databaseCents(row.tipsCents)],
-        cashExpenseCents: [databaseCents(row.cashExpensesCents)],
+        cashInCents: databaseCents(row.cashInCents),
+        cashOutCents: databaseCents(row.cashOutCents),
+        cashExpensesCents: databaseCents(row.cashExpensesCents),
+        outstandingChangeCents: databaseCents(
+          row.outstandingChangeCents,
+        ),
         latestCountedCents:
           row.latestCountedCents === null
             ? null

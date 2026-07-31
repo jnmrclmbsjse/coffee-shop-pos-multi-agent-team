@@ -29,7 +29,10 @@ describe('ReportingService', () => {
     cashSalesCents: 25_000n,
     onlineSalesCents: 12_500n,
     tipsCents: 1_200n,
+    cashInCents: 2_000n,
+    cashOutCents: 500n,
     cashExpensesCents: 3_000n,
+    outstandingChangeCents: 800n,
     latestCountedCents: 32_700,
     orderCount: 3n,
   } as const;
@@ -69,10 +72,13 @@ describe('ReportingService', () => {
           onlineSalesCents: 12_500,
           grossSalesCents: 37_500,
           tipsCents: 1_200,
+          cashInCents: 2_000,
+          cashOutCents: 500,
           cashExpensesCents: 3_000,
-          expectedCashCents: 33_200,
+          outstandingChangeCents: 800,
+          expectedCashCents: 35_500,
           actualCashCents: 32_700,
-          varianceCents: -500,
+          varianceCents: -2_800,
         },
       ],
       topProducts: [
@@ -109,14 +115,14 @@ describe('ReportingService', () => {
 
     expect(report.dailyReconciliation[0]).toEqual(
       expect.objectContaining({
-        expectedCashCents: 33_200,
+        expectedCashCents: 35_500,
         actualCashCents: null,
         varianceCents: null,
       }),
     );
   });
 
-  it('aggregates expenses only from EXPENSE cash movements', async () => {
+  it('aggregates signed movement kinds and only unsettled change in SQL', async () => {
     const prisma = createPrisma();
     prisma.$queryRaw
       .mockResolvedValueOnce([closedDay])
@@ -131,8 +137,12 @@ describe('ReportingService', () => {
       strings: string[];
     };
     const sql = dailyQuery.strings.join('?');
-    expect(sql).toContain('FROM cash_movements AS expense');
-    expect(sql).toContain("WHERE expense.kind = 'EXPENSE'");
+    expect(sql).toContain('FROM cash_movements AS movement');
+    expect(sql).toContain("FILTER (WHERE kind = 'CASH_IN')");
+    expect(sql).toContain("FILTER (WHERE kind = 'CASH_OUT')");
+    expect(sql).toContain("FILTER (WHERE kind = 'EXPENSE')");
+    expect(sql).toContain('WHERE sale.change_settled_at IS NULL');
+    expect(sql).not.toContain('ABS(');
     expect(sql).not.toContain('FROM cash_expenses');
   });
 
@@ -242,7 +252,10 @@ describe('ReportingService', () => {
           onlineSalesCents: cents(1),
           grossSalesCents: cents(-50),
           tipsCents: cents(105),
+          cashInCents: cents(-25),
+          cashOutCents: cents(250),
           cashExpensesCents: cents(10_000),
+          outstandingChangeCents: cents(75),
           expectedCashCents: cents(-8_944),
           actualCashCents: null,
           varianceCents: null,
@@ -251,8 +264,8 @@ describe('ReportingService', () => {
     });
 
     expect(csv).toBe(
-      'Date,Status,Cash sales,Online sales,Gross,Tips,Cash expenses,Expected cash,Actual cash,Variance\r\n' +
-        '2026-07-20,open,0.00,0.01,-0.50,1.05,100.00,-89.44,,\r\n',
+      'Date,Status,Cash sales,Online sales,Gross,Tips,Cash in,Cash out,Cash expenses,Outstanding change,Expected cash,Actual cash,Variance\r\n' +
+        '2026-07-20,open,0.00,0.01,-0.50,1.05,-0.25,2.50,100.00,0.75,-89.44,,\r\n',
     );
   });
 });
