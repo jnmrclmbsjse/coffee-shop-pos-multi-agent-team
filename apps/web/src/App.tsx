@@ -36,6 +36,7 @@ import {
   CloseBusinessDayPage,
   OpenBusinessDayPage,
 } from './trading-day/StaffTradingDayPages';
+import { StaffOrderHistoryPage } from './orders/StaffOrderHistoryPage';
 
 const DEFAULT_ADMIN_PATH = '/dashboard';
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
@@ -523,6 +524,7 @@ export function AppRoutes() {
             <Route path="closing" element={<ClosingCountPage />} />
             <Route path="restock" element={<RestockStatusPage />} />
             <Route path="movements" element={<StockMovementsPage />} />
+            <Route path="orders" element={<StaffOrderHistoryPage />} />
             <Route path="close" element={<CloseBusinessDayPage />} />
           </Route>
         </Route>

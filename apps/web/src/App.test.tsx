@@ -351,6 +351,10 @@ describe('staff authentication routes', () => {
     expect(
       screen.getByRole('link', { name: 'Deliveries & Wastage' }),
     ).toHaveAttribute('href', '/pos/movements');
+    expect(screen.getByRole('link', { name: 'Order History' })).toHaveAttribute(
+      'href',
+      '/pos/orders',
+    );
     expect(screen.getByRole('link', { name: 'Open Day' })).toHaveAttribute(
       'href',
       '/pos/open',
@@ -360,6 +364,42 @@ describe('staff authentication routes', () => {
       '/pos/close',
     );
     expect(screen.queryByText(/cashier/i)).not.toBeInTheDocument();
+  });
+
+  it('opens staff order history under the staff guard and marks its navigation current', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/auth/session') {
+        return response(200, { user: staffUser });
+      }
+      if (path === '/trading-day') {
+        return response(200, {
+          items: [
+            {
+              id: 'day-open',
+              businessDate: '2026-07-31',
+              status: 'OPEN',
+            },
+          ],
+          currentOpenBusinessDayId: 'day-open',
+        });
+      }
+      if (path === '/reporting/staff-order-ledger/day-open') {
+        return response(200, { businessDayId: 'day-open', orders: [] });
+      }
+      return response(500);
+    });
+
+    renderAt('/pos/orders');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Order History' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Order History' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(await screen.findByText('No orders to show')).toBeInTheDocument();
   });
 
   it.each([
