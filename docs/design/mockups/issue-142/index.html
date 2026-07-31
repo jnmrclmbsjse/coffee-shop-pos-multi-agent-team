@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="description" content="UCM Coffee Studio staff order history prototype">
+    <title>Order History | UCM Coffee Studio</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to order history</a>
+
+    <header class="app-header" data-od-id="staff-header">
+      <div class="header-inner">
+        <div class="brand-lockup">
+          <span class="brand-name">UCM Coffee Studio</span>
+          <span class="role-tag">Staff</span>
+        </div>
+        <div class="header-meta" aria-label="Current workspace context">
+          <span class="meta-chip">UCM Main</span>
+          <span class="meta-chip">Register 1</span>
+          <span class="meta-chip">Mika Reyes</span>
+        </div>
+      </div>
+
+      <nav class="shell-nav" aria-label="Staff workspace">
+        <a href="#/pos/open-day">Open Day</a>
+        <a href="#/pos/take-order" aria-disabled="true" title="Not part of this prototype">Take Order</a>
+        <a href="#/pos/orders" aria-current="page">Order History</a>
+        <a href="#/pos/cash-expenses" aria-disabled="true" title="Not part of this prototype">Cash &amp; Expenses</a>
+        <a href="#/pos/close-day">Close Day</a>
+        <span class="nav-separator" aria-hidden="true"></span>
+        <a href="#/pos/opening" aria-disabled="true" title="Not part of this prototype">Opening</a>
+        <a href="#/pos/closing" aria-disabled="true" title="Not part of this prototype">Closing</a>
+        <a href="#/pos/restock" aria-disabled="true" title="Not part of this prototype">Restock</a>
+        <a href="#/pos/deliveries-wastage" aria-disabled="true" title="Not part of this prototype">Deliveries &amp; wastage</a>
+      </nav>
+    </header>
+
+    <main class="workspace" id="main-content" tabindex="-1" data-od-id="order-history-workspace">
+      <section class="page-head" aria-labelledby="page-title" data-od-id="order-history-heading">
+        <div>
+          <h1 id="page-title">Order History</h1>
+          <p>Review recorded orders for one business day. This screen never changes an order.</p>
+        </div>
+        <span class="read-only-label">Read only</span>
+      </section>
+
+      <section class="filter-bar" aria-labelledby="filters-title" data-od-id="order-history-filters">
+        <div class="filter-heading">
+          <h2 id="filters-title">Find an order</h2>
+          <button class="clear-button" id="clear-filters" type="button">Clear filters</button>
+        </div>
+
+        <div class="filter-grid">
+          <div class="field-group">
+            <label for="business-day">Business day</label>
+            <select id="business-day" name="business-day"></select>
+          </div>
+
+          <div class="field-group">
+            <label for="status-filter">Status</label>
+            <select id="status-filter" name="status-filter">
+              <option value="all">All</option>
+              <option value="completed">Completed</option>
+              <option value="parked">Parked</option>
+              <option value="void">Void</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="payment-filter">Payment</label>
+            <select id="payment-filter" name="payment-filter" aria-describedby="payment-helper">
+              <option value="any">Any payment</option>
+              <option value="cash">Cash</option>
+              <option value="online">Online</option>
+              <option value="split">Split</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="customer-search">Customer name</label>
+            <input id="customer-search" name="customer-search" type="search" autocomplete="off" placeholder="Search name or Walk-in">
+          </div>
+        </div>
+
+        <p class="filter-helper" id="payment-helper">Payment types are exclusive. Unpaid orders appear only under Any payment.</p>
+        <p class="result-count numeric" id="result-count" role="status" aria-live="polite" aria-atomic="true"></p>
+      </section>
+
+      <aside class="correction-guidance" data-testid="correction-guidance" data-od-id="correction-guidance" aria-labelledby="guidance-title">
+        <div>
+          <h2 id="guidance-title">About corrections</h2>
+          <p>To correct a completed order, void the original and enter the corrected order again from the order screen. Reviewing or filtering history never changes an order.</p>
+        </div>
+        <span class="guidance-state">History only</span>
+      </aside>
+
+      <section class="ledger-region" aria-labelledby="ledger-title" data-od-id="order-ledger">
+        <div class="ledger-heading">
+          <h2 id="ledger-title">Orders</h2>
+          <p id="day-context"></p>
+        </div>
+        <ol class="order-ledger" id="order-ledger"></ol>
+        <div class="empty-state" id="empty-state" hidden></div>
+      </section>
+
+      <section class="review-panel" aria-labelledby="review-title" data-od-id="review-states">
+        <div class="review-heading">
+          <div>
+            <h2 id="review-title">Review states</h2>
+            <p>Mockup only</p>
+          </div>
+          <p id="review-note">Fixture controls for QA and design review. They never change order data.</p>
+        </div>
+        <div class="review-actions" role="group" aria-describedby="review-note">
+          <button type="button" data-review="open">Open day selected</button>
+          <button type="button" data-review="closed-mixed">Closed day with parked + void orders</button>
+          <button type="button" data-review="past">Past day selected</button>
+          <button type="button" data-review="no-open">No day open</button>
+          <button type="button" data-review="no-days">No business day exists at all</button>
+          <button type="button" data-review="filters-empty">Filters excluded everything</button>
+          <button type="button" data-review="retained">Three-deep filters, then day switched</button>
+          <button type="button" data-review="void-pair">Void + re-entry pair</button>
+          <button type="button" data-review="split">Split payment</button>
+          <button type="button" data-review="change">Change given vs change still owed</button>
+          <button type="button" data-review="cashier">Unattributed cashier</button>
+          <button type="button" data-review="discount">Line with a discount label</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
