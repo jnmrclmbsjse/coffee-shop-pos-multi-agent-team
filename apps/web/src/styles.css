@@ -5898,3 +5898,382 @@ button {
     animation: none;
   }
 }
+
+/* Staff cash and expenses */
+.staff-cash-page > .staff-inventory-page-heading {
+  margin-bottom: var(--space-5);
+}
+
+.staff-cash-day-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+}
+
+.staff-cash-day-context > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+}
+
+.staff-cash-day-context > div > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.staff-cash-day-context strong {
+  font-size: 16px;
+}
+
+.staff-cash-day-context > span {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.staff-cash-layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 0.78fr) minmax(560px, 1.35fr);
+  align-items: start;
+  gap: var(--space-5);
+}
+
+.staff-cash-entry-panel > header {
+  margin-bottom: var(--space-5);
+}
+
+.staff-cash-entry-panel > header h2,
+.staff-cash-ledger-heading h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.staff-cash-entry-panel > header p,
+.staff-cash-ledger-heading p {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.staff-cash-entry-panel form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.staff-cash-type {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.staff-cash-type legend {
+  margin-bottom: var(--space-2);
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.staff-cash-type legend span {
+  color: var(--danger);
+}
+
+.staff-cash-type-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.staff-cash-type-options label {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.staff-cash-type-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.staff-cash-type-options label > span {
+  min-height: 84px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.staff-cash-type-options label:hover > span {
+  border-color: var(--ink-soft);
+}
+
+.staff-cash-type-options input:focus-visible + span {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.staff-cash-type-options input:checked + span {
+  border-color: var(--focus);
+  background: color-mix(in oklch, var(--accent) 7%, var(--surface));
+  box-shadow: inset 0 0 0 1px var(--focus);
+}
+
+.staff-cash-type-options input:disabled + span {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: var(--surface-subtle);
+}
+
+.staff-cash-type-options strong {
+  font-size: 14px;
+}
+
+.staff-cash-type-options small,
+.staff-cash-type-options em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.staff-cash-type-options em {
+  color: var(--focus);
+  font-weight: 800;
+}
+
+.staff-cash-amount-input {
+  position: relative;
+}
+
+.staff-cash-amount-input > span {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  z-index: 1;
+  color: var(--muted);
+  font-weight: 750;
+  transform: translateY(-50%);
+}
+
+.staff-inventory-field .staff-cash-amount-input input {
+  padding-left: 32px;
+}
+
+.staff-cash-field-help {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.staff-cash-category-slot {
+  min-height: 83px;
+  visibility: hidden;
+}
+
+.staff-cash-category-slot.is-visible {
+  visibility: visible;
+}
+
+.staff-cash-permanence {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: var(--surface-subtle);
+  font-size: 13px;
+}
+
+.staff-cash-permanence strong {
+  color: var(--fg);
+}
+
+.staff-cash-entry-panel .staff-inventory-message {
+  margin: 0;
+}
+
+.staff-cash-entry-panel .staff-inventory-actions {
+  margin-top: 0;
+}
+
+.staff-cash-ledger {
+  min-width: 0;
+}
+
+.staff-cash-ledger-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.staff-cash-ledger-heading > span {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: var(--surface-subtle);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.staff-cash-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.staff-cash-table-wrap:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.staff-cash-table-wrap table {
+  width: 100%;
+  min-width: 700px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+
+.staff-cash-table-wrap th,
+.staff-cash-table-wrap td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.staff-cash-table-wrap th {
+  position: sticky;
+  top: 0;
+  color: var(--ink-soft);
+  background: var(--surface-subtle);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.staff-cash-table-wrap tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.staff-cash-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.staff-cash-kind > span {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.staff-cash-kind[data-kind='EXPENSE'] > span {
+  border-style: dashed;
+}
+
+.staff-cash-amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.staff-cash-detail {
+  max-width: 36ch;
+  overflow-wrap: anywhere;
+}
+
+.staff-cash-empty {
+  display: grid;
+  justify-items: center;
+  padding: var(--space-8) var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.staff-cash-empty h3,
+.staff-cash-no-day h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.staff-cash-empty p,
+.staff-cash-no-day > p {
+  max-width: 56ch;
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+}
+
+.staff-cash-no-day .staff-inventory-button {
+  margin-top: var(--space-2);
+  text-decoration: none;
+}
+
+@media (max-width: 1050px) {
+  .staff-cash-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .staff-cash-day-context,
+  .staff-cash-ledger-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .staff-cash-type-options {
+    grid-template-columns: 1fr;
+  }
+
+  .staff-cash-type-options label > span {
+    min-height: 64px;
+  }
+}

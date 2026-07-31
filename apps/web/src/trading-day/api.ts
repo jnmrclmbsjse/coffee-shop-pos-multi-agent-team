@@ -1,5 +1,8 @@
 import type {
+  CashMovement,
+  CashMovementList,
   CloseBusinessDayInput,
+  CreateCashMovementInput,
   CurrentOpenBusinessDay,
   DayClosing,
   InventoryStaffOption,
@@ -56,6 +59,10 @@ export function getClosingSummary(): Promise<TradingDayClosingSummary> {
   return request('/trading-day/current/closing-summary');
 }
 
+export function getCurrentCashMovements(): Promise<CashMovementList> {
+  return request('/trading-day/current/cash-movements');
+}
+
 export function listActiveTradingDayStaff(): Promise<InventoryStaffOption[]> {
   return request('/inventory/counts/staff');
 }
@@ -73,6 +80,15 @@ export function closeBusinessDay(
   input: CloseBusinessDayInput,
 ): Promise<DayClosing> {
   return request('/trading-day/close', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function recordCashMovement(
+  input: CreateCashMovementInput,
+): Promise<CashMovement> {
+  return request('/trading-day/cash-movements', {
     method: 'POST',
     body: JSON.stringify(input),
   });

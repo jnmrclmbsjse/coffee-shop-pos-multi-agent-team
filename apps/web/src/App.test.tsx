@@ -355,6 +355,10 @@ describe('staff authentication routes', () => {
       'href',
       '/pos/orders',
     );
+    expect(screen.getByRole('link', { name: 'Cash & Expenses' })).toHaveAttribute(
+      'href',
+      '/pos/cash',
+    );
     expect(screen.getByRole('link', { name: 'Open Day' })).toHaveAttribute(
       'href',
       '/pos/open',
@@ -400,6 +404,64 @@ describe('staff authentication routes', () => {
       'page',
     );
     expect(await screen.findByText('No orders to show')).toBeInTheDocument();
+  });
+
+  it('keeps the cash and expenses route inside the staff guard', async () => {
+    fetchMock.mockResolvedValueOnce(response(401));
+
+    renderAt('/pos/cash');
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'No staff remembered on this device',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Cash & Expenses' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens cash and expenses for staff and marks its navigation current', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const requestPath = new URL(String(url)).pathname;
+      if (requestPath === '/auth/session') {
+        return response(200, { user: staffUser });
+      }
+      if (requestPath === '/trading-day/current') {
+        return response(200, {
+          isOpen: true,
+          businessDate: '2026-07-31',
+          dayType: 'NORMAL',
+          openingFloatCents: 50000,
+          openedByDisplayName: 'Maya Santos',
+          openedAt: '2026-07-31T00:00:00.000Z',
+        });
+      }
+      if (requestPath === '/trading-day/current/cash-movements') {
+        return response(200, {
+          businessDay: {
+            isOpen: true,
+            businessDate: '2026-07-31',
+            dayType: 'NORMAL',
+            openingFloatCents: 50000,
+            openedByDisplayName: 'Maya Santos',
+            openedAt: '2026-07-31T00:00:00.000Z',
+          },
+          movements: [],
+        });
+      }
+      if (requestPath === '/inventory/counts/staff') return response(200, []);
+      return response(500);
+    });
+
+    renderAt('/pos/cash');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Cash & Expenses' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Cash & Expenses' }),
+    ).toHaveAttribute('aria-current', 'page');
   });
 
   it.each([

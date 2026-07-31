@@ -36,6 +36,7 @@ import {
   CloseBusinessDayPage,
   OpenBusinessDayPage,
 } from './trading-day/StaffTradingDayPages';
+import { CashAndExpensesPage } from './trading-day/CashAndExpensesPage';
 import { StaffOrderHistoryPage } from './orders/StaffOrderHistoryPage';
 
 const DEFAULT_ADMIN_PATH = '/dashboard';
@@ -525,6 +526,7 @@ export function AppRoutes() {
             <Route path="restock" element={<RestockStatusPage />} />
             <Route path="movements" element={<StockMovementsPage />} />
             <Route path="orders" element={<StaffOrderHistoryPage />} />
+            <Route path="cash" element={<CashAndExpensesPage />} />
             <Route path="close" element={<CloseBusinessDayPage />} />
           </Route>
         </Route>
