@@ -117,7 +117,7 @@ export function StaffWorkspaceLayout() {
   return (
     <div className="staff-inventory-shell">
       <a className="staff-skip-link" href="#staff-main">
-        Skip to inventory workspace
+        Skip to staff workspace
       </a>
       <header className="staff-workspace-header">
         <div className="staff-workspace-header-inner">
@@ -131,10 +131,12 @@ export function StaffWorkspaceLayout() {
             </small>
           </div>
           <nav className="staff-inventory-nav" aria-label="Staff workspace">
+            <NavLink to="/pos/open">Open Day</NavLink>
             <NavLink to="/pos/opening">Opening</NavLink>
             <NavLink to="/pos/closing">Closing</NavLink>
             <NavLink to="/pos/restock">Restock</NavLink>
             <NavLink to="/pos/movements">Deliveries &amp; Wastage</NavLink>
+            <NavLink to="/pos/close">Close Day</NavLink>
           </nav>
         </div>
       </header>

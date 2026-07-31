@@ -351,8 +351,77 @@ describe('staff authentication routes', () => {
     expect(
       screen.getByRole('link', { name: 'Deliveries & Wastage' }),
     ).toHaveAttribute('href', '/pos/movements');
+    expect(screen.getByRole('link', { name: 'Open Day' })).toHaveAttribute(
+      'href',
+      '/pos/open',
+    );
+    expect(screen.getByRole('link', { name: 'Close Day' })).toHaveAttribute(
+      'href',
+      '/pos/close',
+    );
     expect(screen.queryByText(/cashier/i)).not.toBeInTheDocument();
   });
+
+  it.each([
+    {
+      path: '/pos/open',
+      endpoint: '/trading-day/current',
+      heading: 'Open business day',
+      activeLink: 'Open Day',
+      body: {
+        isOpen: true,
+        businessDate: '2026-07-30',
+        dayType: 'NORMAL',
+        openingFloatCents: 50000,
+        openedByDisplayName: 'Maya Santos',
+        openedAt: '2026-07-30T07:00:00.000Z',
+      },
+    },
+    {
+      path: '/pos/close',
+      endpoint: '/trading-day/current/closing-summary',
+      heading: 'Close business day',
+      activeLink: 'Close Day',
+      body: {
+        isOpen: false,
+        businessDate: null,
+        openingFloatCents: null,
+        cashSalesCents: null,
+        onlineSalesCents: null,
+        grossSalesCents: null,
+        cashTipsCents: null,
+        cashInCents: null,
+        cashOutCents: null,
+        cashExpensesCents: null,
+        outstandingChangeCents: null,
+        expectedCashCents: null,
+        packaging: [],
+        hasClosingStockCount: false,
+      },
+    },
+  ])(
+    'opens $path under the staff guard and marks $activeLink current',
+    async ({ path: routePath, endpoint, heading, activeLink, body }) => {
+      fetchMock.mockImplementation(async (url) => {
+        const requestPath = new URL(String(url)).pathname;
+        if (requestPath === '/auth/session') {
+          return response(200, { user: staffUser });
+        }
+        if (requestPath === endpoint) return response(200, body);
+        return response(500);
+      });
+
+      renderAt(routePath);
+
+      expect(
+        await screen.findByRole('heading', { name: heading }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: activeLink })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+    },
+  );
 });
 
 describe('remembered staff storage', () => {
