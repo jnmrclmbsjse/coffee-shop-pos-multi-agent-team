@@ -22,6 +22,9 @@ describe('StockCountsService', () => {
     locationId: null,
     businessDate,
     dayType: 'NORMAL',
+    openingFloatCents: 50000,
+    openedAt: new Date('2026-07-23T00:00:00.000Z'),
+    openedByStaffMember: { displayName: 'Staff Member' },
   };
 
   function createPrisma() {

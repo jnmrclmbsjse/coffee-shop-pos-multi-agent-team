@@ -16,6 +16,10 @@ export interface PackagingReconciliationTradingDay {
   businessDate: Date;
 }
 
+type PackagingReconciliationClient =
+  | PrismaService
+  | Prisma.TransactionClient;
+
 const countSelect = {
   id: true,
   phase: true,
@@ -44,8 +48,9 @@ export class PackagingReconciliationService {
 
   async getForTradingDay(
     tradingDay: PackagingReconciliationTradingDay,
+    client: PackagingReconciliationClient = this.prisma,
   ): Promise<PackagingReconciliationRow[]> {
-    const items = await this.prisma.inventoryItem.findMany({
+    const items = await client.inventoryItem.findMany({
       where: {
         active: true,
         reconciled: true,
@@ -63,7 +68,7 @@ export class PackagingReconciliationService {
       businessDate: tradingDay.businessDate,
     };
     const [counts, movements, saleLines] = await Promise.all([
-      this.prisma.stockCount.findMany({
+      client.stockCount.findMany({
         where: {
           ...stockScope,
           phase: {
@@ -78,7 +83,7 @@ export class PackagingReconciliationService {
           },
         },
       }),
-      this.prisma.stockMovement.findMany({
+      client.stockMovement.findMany({
         where: {
           ...stockScope,
           inventoryItemId: { in: itemIds },
@@ -92,7 +97,7 @@ export class PackagingReconciliationService {
           quantity: true,
         },
       }),
-      this.prisma.saleLine.findMany({
+      client.saleLine.findMany({
         where: {
           sale: {
             tradingDayId: tradingDay.id,
