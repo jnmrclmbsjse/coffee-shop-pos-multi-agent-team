@@ -337,6 +337,7 @@ model CashMovement {
   kind                    CashMovementKind
   amountCents             Int              @map("amount_cents")
   description             String
+  category                String?
   recordedByStaffMemberId String?          @map("recorded_by_staff_member_id") @db.Uuid
   recordedByNameSnapshot  String?          @map("recorded_by_name_snapshot")
   recordedAt              DateTime         @default(now()) @map("recorded_at")

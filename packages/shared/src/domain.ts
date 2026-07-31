@@ -415,9 +415,24 @@ export interface CashMovement {
   kind: CashMovementKind;
   amountCents: MoneyCents;
   description: string;
+  category: string | null;
   recordedByStaffMemberId: string | null;
   recordedByNameSnapshot: string | null;
   recordedAt: string;
+}
+
+export interface CreateCashMovementInput {
+  clientGeneratedId: string;
+  kind: CashMovementKind;
+  amountCents: MoneyCents;
+  description: string;
+  category?: string | null;
+  recordedByStaffMemberId?: string | null;
+}
+
+export interface CashMovementList {
+  businessDay: CurrentOpenBusinessDay;
+  movements: CashMovement[];
 }
 
 export interface DayClosing {
