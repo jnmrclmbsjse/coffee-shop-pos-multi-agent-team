@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="UCM Coffee Studio cash and expenses staff POS prototype">
+  <title>Cash &amp; Expenses | UCM Coffee Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to cash and expenses</a>
+
+  <header class="shell-header" data-od-id="staff-header">
+    <div class="header-bar">
+      <div class="brand">
+        <span>UCM Coffee Studio</span>
+        <span class="brand-role">Staff</span>
+      </div>
+      <div class="header-meta" aria-label="Current workspace context">
+        <span class="meta-user">Marilou Bagtas</span>
+        <span>UCM Main</span>
+        <span class="chip chip--open" id="header-day-state">Day open</span>
+        <span class="chip">Register 1</span>
+      </div>
+    </div>
+    <nav class="shell-nav" aria-label="Staff workspace">
+      <div class="nav-scroll">
+        <ul class="nav-list">
+          <li><a href="#/pos/open" aria-disabled="true" title="Not part of this prototype">Open Day</a></li>
+          <li><a href="#/pos/take-order" aria-disabled="true" title="Not part of this prototype">Take Order</a></li>
+          <li><a href="#/pos/orders" aria-disabled="true" title="Not part of this prototype">Order History</a></li>
+          <li><a href="#/pos/cash" aria-current="page">Cash &amp; Expenses</a></li>
+          <li><a href="#/pos/close" aria-disabled="true" title="Not part of this prototype">Close Day</a></li>
+          <li class="nav-sep-item" aria-hidden="true"><span class="nav-sep"></span></li>
+          <li><a href="#/pos/opening" aria-disabled="true" title="Not part of this prototype">Opening</a></li>
+          <li><a href="#/pos/closing" aria-disabled="true" title="Not part of this prototype">Closing</a></li>
+          <li><a href="#/pos/restock" aria-disabled="true" title="Not part of this prototype">Restock</a></li>
+          <li><a href="#/pos/deliveries-wastage" aria-disabled="true" title="Not part of this prototype">Deliveries &amp; wastage</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <main class="workspace" id="workspace" tabindex="-1" data-od-id="cash-expenses-workspace">
+    <div class="page-head" data-od-id="cash-expenses-heading">
+      <h1>Cash &amp; expenses</h1>
+      <p>Record permanent drawer movements for the current business day, then review the day ledger.</p>
+    </div>
+
+    <div id="cash-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="screen-mount"></div>
+
+    <section class="review-panel" aria-labelledby="review-title" data-od-id="review-states">
+      <header>
+        <h2 id="review-title">Review states</h2>
+        <span class="advisory-tag">Mockup only</span>
+      </header>
+      <p class="review-sub" id="review-note">Fixture controls for QA and design review. Production entries remain in memory only.</p>
+      <div class="review-buttons" role="group" aria-describedby="review-note">
+        <button type="button" data-review="empty-form">Empty form</button>
+        <button type="button" data-review="cash-in">Cash in selected</button>
+        <button type="button" data-review="cash-out">Cash out selected</button>
+        <button type="button" data-review="expense">Expense selected (category visible)</button>
+        <button type="button" data-review="filled">Filled form</button>
+        <button type="button" data-review="invalid">Invalid submission (bad amount + blank reason)</button>
+        <button type="button" data-review="submitting">Submitting</button>
+        <button type="button" data-review="recorded">Just recorded (confirmation)</button>
+        <button type="button" data-review="rejected">Day closed mid-submission (rejected)</button>
+        <button type="button" data-review="ledger">Ledger with entries</button>
+        <button type="button" data-review="ledger-empty">Ledger empty state</button>
+        <button type="button" data-review="no-day">No day open</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
