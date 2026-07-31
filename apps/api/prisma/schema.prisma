@@ -73,6 +73,12 @@ enum MovementType {
   WASTAGE
 }
 
+enum CashMovementKind {
+  CASH_IN
+  CASH_OUT
+  EXPENSE
+}
+
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   username     String   @unique
@@ -113,7 +119,9 @@ model StaffMember {
   submittedStockCounts   StockCount[]    @relation("StockCountSubmittedBy")
   ledStockCounts         StockCount[]    @relation("StockCountShiftLead")
   recordedStockMovements StockMovement[] @relation("StockMovementRecordedBy")
+  recordedCashMovements  CashMovement[]  @relation("CashMovementRecordedBy")
   cashCounts             CashCount[]
+  dayClosings            DayClosing[]    @relation("DayClosingClosedBy")
 
   @@index([locationId])
   @@map("staff_members")
@@ -198,6 +206,7 @@ model InventoryItem {
   parLevels          ParLevel[]
   stockCountLines    StockCountLine[]
   stockMovements     StockMovement[]
+  dayClosingLines    DayClosingLine[]
   cupProductVariants ProductVariant[] @relation("VariantCupInventoryItem")
   lidProductVariants ProductVariant[] @relation("VariantLidInventoryItem")
 
@@ -296,7 +305,8 @@ model TradingDay {
   openedByStaffMember   StaffMember      @relation("TradingDayOpenedBy", fields: [openedByStaffMemberId], references: [id], onDelete: Restrict)
   closedByStaffMember   StaffMember?     @relation("TradingDayClosedBy", fields: [closedByStaffMemberId], references: [id], onDelete: Restrict)
   cashCounts            CashCount[]
-  cashExpenses          CashExpense[]
+  cashMovements         CashMovement[]
+  dayClosing            DayClosing?
   sales                 Sale[]
 
   @@index([locationId, businessDate])
@@ -313,22 +323,70 @@ model CashCount {
   countedByStaffMemberId String      @map("counted_by_staff_member_id") @db.Uuid
   tradingDay             TradingDay  @relation(fields: [tradingDayId], references: [id], onDelete: Restrict)
   countedByStaffMember   StaffMember @relation(fields: [countedByStaffMemberId], references: [id], onDelete: Restrict)
+  dayClosing             DayClosing?
 
   @@index([tradingDayId, countedAt])
   @@map("cash_counts")
 }
 
-// Append-only: expense corrections are recorded as new signed rows.
-model CashExpense {
-  id           String     @id @default(uuid()) @db.Uuid
-  tradingDayId String     @map("trading_day_id") @db.Uuid
-  amountCents  Int        @map("amount_cents")
-  description  String
-  recordedAt   DateTime   @default(now()) @map("recorded_at")
-  tradingDay   TradingDay @relation(fields: [tradingDayId], references: [id], onDelete: Restrict)
+// Append-only: corrections are additional signed rows of the same kind.
+model CashMovement {
+  id                      String           @id @default(uuid()) @db.Uuid
+  tradingDayId            String           @map("trading_day_id") @db.Uuid
+  kind                    CashMovementKind
+  amountCents             Int              @map("amount_cents")
+  description             String
+  recordedByStaffMemberId String?          @map("recorded_by_staff_member_id") @db.Uuid
+  recordedByNameSnapshot  String?          @map("recorded_by_name_snapshot")
+  recordedAt              DateTime         @default(now()) @map("recorded_at")
+  tradingDay              TradingDay       @relation(fields: [tradingDayId], references: [id], onDelete: Restrict)
+  recordedByStaffMember   StaffMember?     @relation("CashMovementRecordedBy", fields: [recordedByStaffMemberId], references: [id], onDelete: Restrict)
 
   @@index([tradingDayId, recordedAt])
-  @@map("cash_expenses")
+  @@map("cash_movements")
+}
+
+// Immutable snapshot of the final cash reconciliation for one trading day.
+model DayClosing {
+  id                     String           @id @default(uuid()) @db.Uuid
+  tradingDayId           String           @unique @map("trading_day_id") @db.Uuid
+  cashCountId            String           @unique @map("cash_count_id") @db.Uuid
+  openingFloatCents      Int              @map("opening_float_cents")
+  cashSalesCents         Int              @map("cash_sales_cents")
+  onlineSalesCents       Int              @map("online_sales_cents")
+  cashTipsCents          Int              @map("cash_tips_cents")
+  cashInCents            Int              @map("cash_in_cents")
+  cashOutCents           Int              @map("cash_out_cents")
+  cashExpensesCents      Int              @map("cash_expenses_cents")
+  outstandingChangeCents Int              @map("outstanding_change_cents")
+  expectedCashCents      Int              @map("expected_cash_cents")
+  actualCashCents        Int              @map("actual_cash_cents")
+  varianceCents          Int              @map("variance_cents")
+  varianceReason         String?          @map("variance_reason")
+  closedByStaffMemberId  String           @map("closed_by_staff_member_id") @db.Uuid
+  closedByNameSnapshot   String           @map("closed_by_name_snapshot")
+  closedAt               DateTime         @default(now()) @map("closed_at")
+  tradingDay             TradingDay       @relation(fields: [tradingDayId], references: [id], onDelete: Restrict)
+  cashCount              CashCount        @relation(fields: [cashCountId], references: [id], onDelete: Restrict)
+  closedByStaffMember    StaffMember      @relation("DayClosingClosedBy", fields: [closedByStaffMemberId], references: [id], onDelete: Restrict)
+  lines                  DayClosingLine[]
+
+  @@map("day_closings")
+}
+
+model DayClosingLine {
+  id               String        @id @default(uuid()) @db.Uuid
+  dayClosingId     String        @map("day_closing_id") @db.Uuid
+  inventoryItemId  String        @map("inventory_item_id") @db.Uuid
+  itemNameSnapshot String        @map("item_name_snapshot")
+  expectedQty      Int?          @map("expected_qty")
+  actualQty        Int?          @map("actual_qty")
+  varianceQty      Int?          @map("variance_qty")
+  dayClosing       DayClosing    @relation(fields: [dayClosingId], references: [id], onDelete: Restrict)
+  inventoryItem    InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([dayClosingId, inventoryItemId])
+  @@map("day_closing_lines")
 }
 
 // Append-only and idempotent: clientGeneratedId is supplied by the register

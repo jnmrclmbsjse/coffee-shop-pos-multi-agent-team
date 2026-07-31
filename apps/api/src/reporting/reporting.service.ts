@@ -412,9 +412,10 @@ export class ReportingService {
         SELECT
           trading_day_id,
           COALESCE(SUM(amount_cents), 0) AS cash_expenses_cents
-        FROM cash_expenses AS expense
+        FROM cash_movements AS expense
         INNER JOIN selected_days AS selected_day
           ON selected_day.id = expense.trading_day_id
+        WHERE expense.kind = 'EXPENSE'
         GROUP BY expense.trading_day_id
       )
       SELECT

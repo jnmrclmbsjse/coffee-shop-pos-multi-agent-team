@@ -116,6 +116,26 @@ describe('ReportingService', () => {
     );
   });
 
+  it('aggregates expenses only from EXPENSE cash movements', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw
+      .mockResolvedValueOnce([closedDay])
+      .mockResolvedValueOnce([]);
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await service.getReport('2026-07-20', '2026-07-20');
+
+    const dailyQuery = prisma.$queryRaw.mock.calls[0]?.[0] as {
+      strings: string[];
+    };
+    const sql = dailyQuery.strings.join('?');
+    expect(sql).toContain('FROM cash_movements AS expense');
+    expect(sql).toContain("WHERE expense.kind = 'EXPENSE'");
+    expect(sql).not.toContain('FROM cash_expenses');
+  });
+
   it('returns zero totals and empty collections for a range without days', async () => {
     const prisma = createPrisma();
     prisma.$queryRaw.mockResolvedValue([]);

@@ -350,12 +350,53 @@ export interface CashCount {
   countedByStaffMemberId: string;
 }
 
-export interface CashExpense {
+export enum CashMovementKind {
+  CASH_IN = 'CASH_IN',
+  CASH_OUT = 'CASH_OUT',
+  EXPENSE = 'EXPENSE',
+}
+
+export interface CashMovement {
   id: string;
   tradingDayId: string;
+  kind: CashMovementKind;
   amountCents: MoneyCents;
   description: string;
+  recordedByStaffMemberId: string | null;
+  recordedByNameSnapshot: string | null;
   recordedAt: string;
+}
+
+export interface DayClosing {
+  id: string;
+  tradingDayId: string;
+  cashCountId: string;
+  openingFloatCents: MoneyCents;
+  cashSalesCents: MoneyCents;
+  onlineSalesCents: MoneyCents;
+  cashTipsCents: MoneyCents;
+  cashInCents: MoneyCents;
+  cashOutCents: MoneyCents;
+  cashExpensesCents: MoneyCents;
+  outstandingChangeCents: MoneyCents;
+  expectedCashCents: MoneyCents;
+  actualCashCents: MoneyCents;
+  varianceCents: MoneyCents;
+  varianceReason: string | null;
+  closedByStaffMemberId: string;
+  closedByNameSnapshot: string;
+  closedAt: string;
+  lines: DayClosingLine[];
+}
+
+export interface DayClosingLine {
+  id: string;
+  dayClosingId: string;
+  inventoryItemId: string;
+  itemNameSnapshot: string;
+  expectedQty: number | null;
+  actualQty: number | null;
+  varianceQty: number | null;
 }
 
 export interface SalePayment {
