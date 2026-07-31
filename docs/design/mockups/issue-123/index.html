@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UCM Coffee Studio · Staff POS</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#workspace">Skip to main content</a>
+
+<header class="shell-header">
+  <div class="header-bar">
+    <div class="brand">
+      <span>UCM Coffee Studio</span>
+      <span class="brand-role">Staff</span>
+    </div>
+    <div class="header-meta">
+      <span class="meta-user" id="hdr-staff">Marilou Bagtas</span>
+      <span id="hdr-date">Thu, Jul 23 2026</span>
+      <span class="chip" id="hdr-day-chip">No day open</span>
+      <span class="chip" id="hdr-type-chip" hidden>Normal</span>
+      <span class="chip" id="hdr-count-chip">Closing count: none</span>
+    </div>
+  </div>
+  <nav class="shell-nav" aria-label="Staff workspace">
+    <div class="nav-scroll">
+      <ul class="nav-list">
+        <li><a href="#/pos/open" data-route="/pos/open">Open Day</a></li>
+        <li><a href="#" aria-disabled="true" title="Not part of this prototype">Take Order</a></li>
+        <li><a href="#" aria-disabled="true" title="Not part of this prototype">Order History</a></li>
+        <li><a href="#" aria-disabled="true" title="Not part of this prototype">Cash &amp; Expenses</a></li>
+        <li><a href="#/pos/close" data-route="/pos/close">Close Day</a></li>
+        <li class="nav-sep-item" aria-hidden="true"><span class="nav-sep"></span></li>
+        <li><a href="#" aria-disabled="true" title="Not part of this prototype">Opening</a></li>
+        <li><a href="#" aria-disabled="true" title="Not part of this prototype">Closing</a></li>
+        <li><a href="#" aria-disabled="true" title="Not part of this prototype">Restock</a></li>
+        <li><a href="#" aria-disabled="true" title="Not part of this prototype">Deliveries &amp; wastage</a></li>
+      </ul>
+    </div>
+  </nav>
+</header>
+
+<main class="workspace" id="workspace" tabindex="-1">
+
+  <!-- ============ SCREEN 1 — OPEN BUSINESS DAY ============ -->
+  <div id="screen-open" data-screen>
+    <div class="page-head">
+      <h1>Open business day</h1>
+      <p>Start the day everything else anchors on — orders, cash, and counts.</p>
+    </div>
+
+    <div id="open-live" role="status" aria-live="polite" class="sr-only"></div>
+    <div id="open-mount"></div>
+
+    <section class="review-panel" aria-labelledby="open-review-h">
+      <header>
+        <h2 id="open-review-h">Review states</h2>
+        <span class="advisory-tag">Mockup only</span>
+      </header>
+      <p class="review-sub">Not a production control. Switches the screen between review states; no data is stored.</p>
+
+      <div class="review-group">
+        <h3>No day open — opening form</h3>
+        <div class="review-buttons" data-review-group="open">
+          <button type="button" data-state="empty">Empty</button>
+          <button type="button" data-state="filled">Filled</button>
+          <button type="button" data-state="invalid">Invalid submission</button>
+          <button type="button" data-state="date-taken">Date already used</button>
+          <button type="button" data-state="submitting">Submitting</button>
+        </div>
+      </div>
+
+      <div class="review-group">
+        <h3>Day already open — summary</h3>
+        <div class="review-buttons" data-review-group="open">
+          <button type="button" data-state="open-normal">Day open (Normal)</button>
+          <button type="button" data-state="open-peak">Day open (Peak)</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ SCREEN 2 — CLOSE BUSINESS DAY ============ -->
+  <div id="screen-close" data-screen hidden>
+    <div class="page-head">
+      <h1>Close business day</h1>
+      <p>Review both reconciliations, count the drawer, then close.</p>
+    </div>
+
+    <div id="close-live" role="status" aria-live="polite" class="sr-only"></div>
+    <div id="close-mount"></div>
+
+    <section class="review-panel" aria-labelledby="close-review-h">
+      <header>
+        <h2 id="close-review-h">Review states</h2>
+        <span class="advisory-tag">Mockup only</span>
+      </header>
+      <p class="review-sub">Not a production control. Switches the screen between review states; no data is stored.</p>
+
+      <div class="review-group">
+        <h3>Day &amp; closing count</h3>
+        <div class="review-buttons" data-review-group="close">
+          <button type="button" data-state="no-day">No day open</button>
+          <button type="button" data-state="no-count">Open day, no closing count</button>
+          <button type="button" data-state="with-count">Open day, closing count done</button>
+          <button type="button" data-state="no-recon-items">No items marked reconciled</button>
+        </div>
+      </div>
+
+      <div class="review-group">
+        <h3>Drawer count</h3>
+        <div class="review-buttons" data-review-group="close-count">
+          <button type="button" data-count="empty">Not counted yet</button>
+          <button type="button" data-count="balanced">Discrepancy: balanced</button>
+          <button type="button" data-count="short">Discrepancy: short</button>
+          <button type="button" data-count="over">Discrepancy: over</button>
+        </div>
+      </div>
+
+      <div class="review-group">
+        <h3>Submission</h3>
+        <div class="review-buttons" data-review-group="close-submit">
+          <button type="button" data-submit="idle">Idle</button>
+          <button type="button" data-submit="submitting">Submitting</button>
+          <button type="button" data-submit="invalid">Invalid submission</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
