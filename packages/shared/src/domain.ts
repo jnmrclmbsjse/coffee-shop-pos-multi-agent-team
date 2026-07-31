@@ -178,6 +178,40 @@ export interface CurrentOpenBusinessDay {
   isOpen: boolean;
   businessDate: string | null;
   dayType: DayType | null;
+  openingFloatCents: MoneyCents | null;
+  openedByDisplayName: string | null;
+  openedAt: string | null;
+}
+
+export interface OpenBusinessDayInput {
+  businessDate: string;
+  dayType: DayType;
+  openingFloatCents: MoneyCents;
+  openedByStaffMemberId: string;
+}
+
+export interface CloseBusinessDayInput {
+  clientGeneratedId: string;
+  actualCashCents: MoneyCents;
+  varianceReason?: string | null;
+  closedByStaffMemberId: string;
+}
+
+export interface TradingDayClosingSummary {
+  isOpen: boolean;
+  businessDate: string | null;
+  openingFloatCents: MoneyCents | null;
+  cashSalesCents: MoneyCents | null;
+  onlineSalesCents: MoneyCents | null;
+  grossSalesCents: MoneyCents | null;
+  cashTipsCents: MoneyCents | null;
+  cashInCents: MoneyCents | null;
+  cashOutCents: MoneyCents | null;
+  cashExpensesCents: MoneyCents | null;
+  outstandingChangeCents: MoneyCents | null;
+  expectedCashCents: MoneyCents | null;
+  packaging: PackagingReconciliationRow[];
+  hasClosingStockCount: boolean;
 }
 
 export interface InventoryStaffOption {

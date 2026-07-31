@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { TradingDayModule } from '../trading-day/trading-day.module';
 import { InventoryItemsController } from './inventory-items.controller';
@@ -15,7 +15,7 @@ import { StockMovementsService } from './stock-movements.service';
 
 /** Manual open/close stock counts. This is not a live inventory ledger. */
 @Module({
-  imports: [AuthModule, TradingDayModule],
+  imports: [AuthModule, forwardRef(() => TradingDayModule)],
   controllers: [
     InventoryItemsController,
     RestockController,

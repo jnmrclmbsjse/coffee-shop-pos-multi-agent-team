@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  cents,
   CountMethod,
   DayType,
   MovementType,
@@ -50,12 +51,18 @@ const openDay = {
   isOpen: true,
   businessDate: '2026-07-30',
   dayType: DayType.NORMAL,
+  openingFloatCents: cents(50000),
+  openedByDisplayName: 'Maya Santos',
+  openedAt: '2026-07-30T07:00:00.000Z',
 };
 
 const noOpenDay = {
   isOpen: false,
   businessDate: null,
   dayType: null,
+  openingFloatCents: null,
+  openedByDisplayName: null,
+  openedAt: null,
 };
 
 const activeStaff = [

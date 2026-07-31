@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { InventoryModule } from '../inventory/inventory.module';
 import { TradingDayController } from './trading-day.controller';
 import { TradingDayService } from './trading-day.service';
 
@@ -10,7 +11,7 @@ import { TradingDayService } from './trading-day.service';
  * reporting providers are deliberately deferred to their owning stories.
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, forwardRef(() => InventoryModule)],
   controllers: [TradingDayController],
   providers: [TradingDayService],
   exports: [TradingDayService],
