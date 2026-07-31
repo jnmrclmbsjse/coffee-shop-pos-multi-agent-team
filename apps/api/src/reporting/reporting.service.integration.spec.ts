@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   CashMovementKind,
+  LineDiscountKind,
   OrderStatus,
   PaymentMethod,
   Prisma,
@@ -190,6 +191,14 @@ describeWithDatabase('Order History queries against Postgres', () => {
   const olderFirstOrderId = randomUUID();
   const olderSecondOrderId = randomUUID();
   const newerFirstOrderId = randomUUID();
+  const parkedOrderId = randomUUID();
+  const voidedOrderId = randomUUID();
+  const correctingVoidId = randomUUID();
+  const splitOrderId = randomUUID();
+  const categoryId = randomUUID();
+  const productId = randomUUID();
+  const variantId = randomUUID();
+  const lineId = randomUUID();
   const customerMarker = `order-history-integration-${randomUUID()}`;
   let prisma: PrismaService;
   let service: ReportingService;
@@ -233,6 +242,30 @@ describeWithDatabase('Order History queries against Postgres', () => {
         },
       ],
     });
+    await prisma.category.create({
+      data: {
+        id: categoryId,
+        name: `Ledger category ${categoryId}`,
+        sortWeight: 1,
+      },
+    });
+    await prisma.product.create({
+      data: {
+        id: productId,
+        sku: `ledger-${productId}`,
+        name: 'Ledger Latte',
+        categoryId,
+      },
+    });
+    await prisma.productVariant.create({
+      data: {
+        id: variantId,
+        productId,
+        name: 'Regular',
+        priceCents: 5_000,
+        sortWeight: 1,
+      },
+    });
     await prisma.sale.createMany({
       data: [
         completedOrder(
@@ -257,12 +290,113 @@ describeWithDatabase('Order History queries against Postgres', () => {
           1,
           customerMarker,
         ),
+        {
+          ...completedOrder(
+            parkedOrderId,
+            olderTradingDayId,
+            3,
+            'Parked Customer',
+          ),
+          status: OrderStatus.PARKED,
+          completedAt: null,
+        },
+        completedOrder(
+          voidedOrderId,
+          olderTradingDayId,
+          4,
+          'Voided Customer',
+        ),
+        {
+          ...completedOrder(
+            correctingVoidId,
+            olderTradingDayId,
+            5,
+            null,
+          ),
+          kind: SaleKind.VOID,
+          correctsSaleId: voidedOrderId,
+          subtotalCents: -5_000,
+          totalCents: -5_000,
+          completedAt: null,
+          voidReason: 'Incorrect item',
+        },
+        {
+          ...completedOrder(
+            splitOrderId,
+            olderTradingDayId,
+            6,
+            null,
+          ),
+          subtotalCents: 10_000,
+          discountCents: 2_000,
+          totalCents: 8_000,
+          cashReceivedCents: 5_000,
+          changeOwedCents: 1_000,
+          changeSettledAt: new Date('2026-07-20T06:30:00.000Z'),
+        },
       ],
+    });
+    await prisma.salePayment.createMany({
+      data: [
+        {
+          saleId: olderFirstOrderId,
+          method: PaymentMethod.CASH,
+          amountCents: 5_000,
+        },
+        {
+          saleId: olderSecondOrderId,
+          method: PaymentMethod.ONLINE,
+          amountCents: 5_000,
+        },
+        {
+          saleId: voidedOrderId,
+          method: PaymentMethod.CASH,
+          amountCents: 5_000,
+        },
+        {
+          saleId: splitOrderId,
+          method: PaymentMethod.CASH,
+          amountCents: 4_000,
+        },
+        {
+          saleId: splitOrderId,
+          method: PaymentMethod.ONLINE,
+          amountCents: 4_000,
+        },
+      ],
+    });
+    await prisma.saleLine.create({
+      data: {
+        id: lineId,
+        saleId: splitOrderId,
+        productVariantId: variantId,
+        quantity: 2,
+        unitPriceCents: 5_000,
+        lineGrossCents: 10_000,
+        discountKind: LineDiscountKind.SENIOR,
+        discountCents: 2_000,
+        lineTotalCents: 8_000,
+        productNameSnapshot: 'Ledger Latte',
+        variantNameSnapshot: 'Regular',
+      },
     });
   });
 
   afterAll(async () => {
     if (!prisma) return;
+    await prisma.saleLine.deleteMany({ where: { id: lineId } });
+    await prisma.salePayment.deleteMany({
+      where: {
+        saleId: {
+          in: [
+            olderFirstOrderId,
+            olderSecondOrderId,
+            voidedOrderId,
+            splitOrderId,
+          ],
+        },
+      },
+    });
     await prisma.sale.deleteMany({
       where: {
         id: {
@@ -270,10 +404,17 @@ describeWithDatabase('Order History queries against Postgres', () => {
             olderFirstOrderId,
             olderSecondOrderId,
             newerFirstOrderId,
+            parkedOrderId,
+            voidedOrderId,
+            correctingVoidId,
+            splitOrderId,
           ],
         },
       },
     });
+    await prisma.productVariant.delete({ where: { id: variantId } });
+    await prisma.product.delete({ where: { id: productId } });
+    await prisma.category.delete({ where: { id: categoryId } });
     await prisma.tradingDay.deleteMany({
       where: {
         id: { in: [olderTradingDayId, newerTradingDayId] },
@@ -329,13 +470,107 @@ describeWithDatabase('Order History queries against Postgres', () => {
       }),
     );
   });
+
+  it('keeps completed, parked, and derived void orders on a closed day', async () => {
+    const ledger = await service.getStaffOrderLedger(
+      olderTradingDayId,
+      {},
+    );
+
+    expect(
+      ledger.orders.map(({ id, dayOrderNumber, status }) => ({
+        id,
+        dayOrderNumber,
+        status,
+      })),
+    ).toEqual([
+      { id: splitOrderId, dayOrderNumber: 6, status: 'Completed' },
+      { id: voidedOrderId, dayOrderNumber: 4, status: 'Void' },
+      { id: parkedOrderId, dayOrderNumber: 3, status: 'Parked' },
+      { id: olderSecondOrderId, dayOrderNumber: 2, status: 'Completed' },
+      { id: olderFirstOrderId, dayOrderNumber: 1, status: 'Completed' },
+    ]);
+
+    const voided = ledger.orders.find(({ id }) => id === voidedOrderId);
+    expect(voided).toEqual(
+      expect.objectContaining({
+        voidReason: 'Incorrect item',
+        completedAt: '2026-07-20T06:00:00.000Z',
+      }),
+    );
+
+    const split = ledger.orders.find(({ id }) => id === splitOrderId);
+    expect(split).toEqual(
+      expect.objectContaining({
+        cashierName: null,
+        paymentMethod: 'Split',
+        cashPortionCents: 4_000,
+        onlinePortionCents: 4_000,
+        changeOwedCents: 1_000,
+        changeSettled: true,
+        lines: [
+          expect.objectContaining({
+            productName: 'Ledger Latte',
+            size: 'Regular',
+            quantity: 2,
+            discountKind: 'SENIOR',
+            discountCents: 2_000,
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('applies status, payment, and customer filters conjunctively', async () => {
+    await expect(
+      service.getStaffOrderLedger(olderTradingDayId, {
+        status: 'Completed',
+        paymentMethod: 'Split',
+        search: 'Walk-in',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        orders: [expect.objectContaining({ id: splitOrderId })],
+      }),
+    );
+
+    const [cash, online, parked, voided, partialWalkIn] =
+      await Promise.all([
+        service.getStaffOrderLedger(olderTradingDayId, {
+          paymentMethod: 'Cash',
+        }),
+        service.getStaffOrderLedger(olderTradingDayId, {
+          paymentMethod: 'Online',
+        }),
+        service.getStaffOrderLedger(olderTradingDayId, {
+          status: 'Parked',
+        }),
+        service.getStaffOrderLedger(olderTradingDayId, {
+          status: 'Void',
+        }),
+        service.getStaffOrderLedger(olderTradingDayId, {
+          search: 'walk',
+        }),
+      ]);
+
+    expect(cash.orders.map(({ id }) => id)).toEqual([
+      voidedOrderId,
+      olderFirstOrderId,
+    ]);
+    expect(online.orders.map(({ id }) => id)).toEqual([
+      olderSecondOrderId,
+    ]);
+    expect(parked.orders.map(({ id }) => id)).toEqual([parkedOrderId]);
+    expect(voided.orders.map(({ id }) => id)).toEqual([voidedOrderId]);
+    expect(partialWalkIn.orders).toEqual([]);
+  });
 });
 
 function completedOrder(
   id: string,
   tradingDayId: string,
   dayOrderNumber: number,
-  customerName: string,
+  customerName: string | null,
   cashier: {
     staffMemberId: string;
     nameSnapshot: string;

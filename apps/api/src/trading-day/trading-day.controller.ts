@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Role } from '@coffee-shop/shared';
 import type {
+  BusinessDayList,
   CurrentOpenBusinessDay,
   DayClosing,
   TradingDayClosingSummary,
@@ -29,6 +30,11 @@ export class TradingDayController {
   @Get('current')
   current(): Promise<CurrentOpenBusinessDay> {
     return this.tradingDayService.getCurrentOpenDay();
+  }
+
+  @Get()
+  list(): Promise<BusinessDayList> {
+    return this.tradingDayService.listBusinessDays();
   }
 
   @Get('current/closing-summary')

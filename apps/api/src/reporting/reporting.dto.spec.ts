@@ -4,6 +4,7 @@ import { plainToInstance } from 'class-transformer';
 import {
   OrderHistoryListQueryDto,
   ReportingRangeQueryDto,
+  StaffOrderLedgerQueryDto,
 } from './reporting.dto';
 
 describe('ReportingRangeQueryDto', () => {
@@ -28,6 +29,40 @@ describe('ReportingRangeQueryDto', () => {
     await expect(
       messages({ from: 'not-a-date', to: '2026-07-31' }),
     ).resolves.toContain('from must be a valid date');
+  });
+});
+
+describe('StaffOrderLedgerQueryDto', () => {
+  async function validateQuery(input: Record<string, unknown>) {
+    const dto = plainToInstance(StaffOrderLedgerQueryDto, input);
+    return { dto, errors: await validate(dto) };
+  }
+
+  it('trims search and accepts every supported filter', async () => {
+    const { dto, errors } = await validateQuery({
+      status: 'Parked',
+      paymentMethod: 'Cash',
+      search: '  Walk-in  ',
+    });
+
+    expect(errors).toEqual([]);
+    expect(dto).toEqual({
+      status: 'Parked',
+      paymentMethod: 'Cash',
+      search: 'Walk-in',
+    });
+  });
+
+  it('rejects malformed status and payment filters', async () => {
+    const { errors } = await validateQuery({
+      status: 'ALL',
+      paymentMethod: 'Card',
+    });
+
+    expect(errors.map((error) => error.property)).toEqual([
+      'status',
+      'paymentMethod',
+    ]);
   });
 });
 

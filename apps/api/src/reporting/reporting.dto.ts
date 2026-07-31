@@ -75,3 +75,22 @@ export class OrderHistoryListQueryDto {
   @IsIn([5, 10, 25, 50])
   pageSize: 5 | 10 | 25 | 50 = 10;
 }
+
+export class StaffOrderLedgerQueryDto {
+  @IsOptional()
+  @IsIn(['Parked', 'Completed', 'Void'])
+  status?: OrderHistoryStatus;
+
+  @IsOptional()
+  @IsIn(['Cash', 'Online', 'Split'])
+  paymentMethod?: OrderHistoryPaymentMethod;
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? undefined : trimmed;
+  })
+  @IsString()
+  search?: string;
+}

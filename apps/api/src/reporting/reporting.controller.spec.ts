@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ROLES_KEY } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ReportingController } from './reporting.controller';
+import { StaffOrderLedgerController } from './staff-order-ledger.controller';
 
 describe('ReportingController', () => {
   it('restricts the entire reporting API to administrators', () => {
@@ -42,5 +43,30 @@ describe('ReportingController', () => {
         'close',
       ]),
     );
+  });
+});
+
+describe('StaffOrderLedgerController', () => {
+  it('is a separate staff-only read controller', () => {
+    const roles = Reflect.getMetadata(
+      ROLES_KEY,
+      StaffOrderLedgerController,
+    );
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      StaffOrderLedgerController,
+    );
+
+    expect(roles).toEqual([Role.STAFF]);
+    expect(guards).toEqual([JwtAuthGuard, RolesGuard]);
+    expect(Reflect.getMetadata(ROLES_KEY, ReportingController)).toEqual([
+      Role.ADMIN,
+    ]);
+  });
+
+  it('exposes only the day-scoped read handler', () => {
+    expect(
+      Object.getOwnPropertyNames(StaffOrderLedgerController.prototype),
+    ).toEqual(['constructor', 'list']);
   });
 });
