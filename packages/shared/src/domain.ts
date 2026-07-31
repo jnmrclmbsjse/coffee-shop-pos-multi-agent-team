@@ -421,7 +421,10 @@ export interface DailyReconciliation {
   onlineSalesCents: MoneyCents;
   grossSalesCents: MoneyCents;
   tipsCents: MoneyCents;
+  cashInCents: MoneyCents;
+  cashOutCents: MoneyCents;
   cashExpensesCents: MoneyCents;
+  outstandingChangeCents: MoneyCents;
   expectedCashCents: MoneyCents;
   actualCashCents: MoneyCents | null;
   varianceCents: MoneyCents | null;

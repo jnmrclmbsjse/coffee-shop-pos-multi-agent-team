@@ -121,6 +121,10 @@ export function ReconciliationTable({
                   <th scope="col" className="num">Online sales</th>
                   <th scope="col" className="num">Gross</th>
                   <th scope="col" className="num">Tips</th>
+                  <th scope="col" className="num">Cash in</th>
+                  <th scope="col" className="num">Cash out</th>
+                  <th scope="col" className="num">Cash expenses</th>
+                  <th scope="col" className="num">Outstanding change</th>
                   <th scope="col" className="num">Expected cash</th>
                   <th scope="col" className="num">Actual cash</th>
                   <th scope="col" className="num">Variance</th>
@@ -135,6 +139,14 @@ export function ReconciliationTable({
                     <td className="num">{formatMoney(row.onlineSalesCents)}</td>
                     <td className="num">{formatMoney(row.grossSalesCents)}</td>
                     <td className="num">{formatMoney(row.tipsCents)}</td>
+                    <td className="num">{formatMoney(row.cashInCents)}</td>
+                    <td className="num">{formatMoney(row.cashOutCents)}</td>
+                    <td className="num">
+                      {formatMoney(row.cashExpensesCents)}
+                    </td>
+                    <td className="num">
+                      {formatMoney(row.outstandingChangeCents)}
+                    </td>
                     <td className="num">{formatMoney(row.expectedCashCents)}</td>
                     <td className="num">
                       {row.actualCashCents === null ? (
