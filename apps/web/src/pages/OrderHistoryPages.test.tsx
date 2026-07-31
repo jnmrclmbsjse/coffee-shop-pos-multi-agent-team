@@ -91,6 +91,7 @@ const splitDetail: OrderHistoryDetail = {
       size: 'Large',
       quantity: 2,
       discountKind: LineDiscountKind.SENIOR,
+      discountCents: cents(6000),
       lineTotalCents: cents(24000),
     },
   ],

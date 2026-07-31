@@ -183,6 +183,17 @@ export interface CurrentOpenBusinessDay {
   openedAt: string | null;
 }
 
+export interface BusinessDayListItem {
+  id: string;
+  businessDate: string;
+  status: TradingDayStatus;
+}
+
+export interface BusinessDayList {
+  items: BusinessDayListItem[];
+  currentOpenBusinessDayId: string | null;
+}
+
 export interface OpenBusinessDayInput {
   businessDate: string;
   dayType: DayType;
@@ -558,6 +569,7 @@ export interface OrderHistoryLine {
   size: string;
   quantity: number;
   discountKind: LineDiscountKind;
+  discountCents: MoneyCents;
   lineTotalCents: MoneyCents;
 }
 
@@ -581,4 +593,32 @@ export interface OrderHistoryDetail {
   changeSettledAt: string | null;
   completedAt: string | null;
   voidReason: string | null;
+}
+
+export interface StaffOrderLedgerQuery {
+  status?: OrderHistoryStatus;
+  paymentMethod?: OrderHistoryPaymentMethod;
+  search?: string;
+}
+
+export interface StaffOrderLedgerOrder {
+  id: string;
+  dayOrderNumber: number;
+  customerName: string | null;
+  cashierName: string | null;
+  status: OrderHistoryStatus;
+  paymentMethod: OrderHistoryPaymentMethod | null;
+  completedAt: string | null;
+  totalCents: MoneyCents;
+  lines: OrderHistoryLine[];
+  cashPortionCents: MoneyCents | null;
+  onlinePortionCents: MoneyCents | null;
+  voidReason: string | null;
+  changeOwedCents: MoneyCents;
+  changeSettled: boolean;
+}
+
+export interface StaffOrderLedger {
+  businessDayId: string;
+  orders: StaffOrderLedgerOrder[];
 }

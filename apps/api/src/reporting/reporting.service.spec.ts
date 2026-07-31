@@ -14,6 +14,9 @@ import {
 describe('ReportingService', () => {
   function createPrisma() {
     return {
+      tradingDay: {
+        findUnique: jest.fn(),
+      },
       $queryRaw: jest.fn(),
       $transaction: jest.fn(
         async (queries: Promise<unknown>[]) => Promise.all(queries),
@@ -273,6 +276,9 @@ describe('ReportingService', () => {
 describe('order history read model', () => {
   function createPrisma() {
     return {
+      tradingDay: {
+        findUnique: jest.fn(),
+      },
       $queryRaw: jest.fn(),
       $transaction: jest.fn(
         async (queries: Promise<unknown>[]) => Promise.all(queries),
@@ -286,6 +292,7 @@ describe('order history read model', () => {
     dayOrderNumber: 4,
     storedStatus: OrderStatus.COMPLETED,
     customerName: 'Mina Santos',
+    cashierNameSnapshot: 'Original Cashier Name',
     serviceType: 'DINE_IN',
     subtotalCents: 20_000,
     discountCents: 0,
@@ -434,6 +441,7 @@ describe('order history read model', () => {
             size: 'Regular',
             quantity: 2,
             discountKind: 'SENIOR',
+            discountCents: 5_000,
             lineTotalCents: 20_000,
           },
         ],
@@ -466,6 +474,7 @@ describe('order history read model', () => {
         size: 'Regular',
         quantity: 2,
         discountKind: 'SENIOR',
+        discountCents: 5_000,
         lineTotalCents: 20_000,
       },
     ]);
@@ -494,6 +503,133 @@ describe('order history read model', () => {
         voidReason: 'Duplicate order',
       }),
     );
+  });
+
+  it('returns the complete staff card projection in one day-scoped query', async () => {
+    const prisma = createPrisma();
+    prisma.tradingDay.findUnique.mockResolvedValue({ id: 'day-id' });
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        ...baseOrder,
+        customerName: null,
+        cashierNameSnapshot: null,
+        changeOwedCents: 3_000,
+        changeSettledAt: new Date('2026-07-20T06:30:00.000Z'),
+        lines: [
+          {
+            id: 'fdf3f40f-56e3-4b76-a70f-34670507a1f5',
+            productName: 'Fixture Latte',
+            size: 'Regular',
+            quantity: 2,
+            discountKind: 'SENIOR',
+            discountCents: 5_000,
+            lineTotalCents: 20_000,
+          },
+        ],
+      },
+    ]);
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.getStaffOrderLedger('day-id', {}),
+    ).resolves.toEqual({
+      businessDayId: 'day-id',
+      orders: [
+        {
+          id: baseOrder.id,
+          dayOrderNumber: 4,
+          customerName: null,
+          cashierName: null,
+          status: 'Completed',
+          paymentMethod: 'Split',
+          completedAt: '2026-07-20T06:00:00.000Z',
+          totalCents: 20_000,
+          lines: [
+            {
+              id: 'fdf3f40f-56e3-4b76-a70f-34670507a1f5',
+              productName: 'Fixture Latte',
+              size: 'Regular',
+              quantity: 2,
+              discountKind: 'SENIOR',
+              discountCents: 5_000,
+              lineTotalCents: 20_000,
+            },
+          ],
+          cashPortionCents: 8_000,
+          onlinePortionCents: 12_000,
+          voidReason: null,
+          changeOwedCents: 3_000,
+          changeSettled: true,
+        },
+      ],
+    });
+
+    const sql = (
+      prisma.$queryRaw.mock.calls[0]![0] as { strings: string[] }
+    ).strings.join('?');
+    expect(sql).toContain('sale.trading_day_id = ?::uuid');
+    expect(sql).toContain(
+      'ORDER BY history.day_order_number DESC, history.id ASC',
+    );
+  });
+
+  it.each([
+    [{ status: 'Completed' }, "stored_status = 'COMPLETED'"],
+    [{ status: 'Parked' }, "stored_status = 'PARKED'"],
+    [{ status: 'Void' }, 'WHERE has_correction'],
+    [{ paymentMethod: 'Cash' }, 'has_cash AND NOT has_online'],
+    [{ paymentMethod: 'Online' }, 'has_online AND NOT has_cash'],
+    [{ paymentMethod: 'Split' }, 'has_cash AND has_online'],
+  ] as const)('applies staff ledger filter %#', async (query, expectedSql) => {
+    const prisma = createPrisma();
+    prisma.tradingDay.findUnique.mockResolvedValue({ id: 'day-id' });
+    prisma.$queryRaw.mockResolvedValue([]);
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await service.getStaffOrderLedger('day-id', query);
+
+    const sql = (
+      prisma.$queryRaw.mock.calls[0]![0] as { strings: string[] }
+    ).strings.join('?');
+    expect(sql).toContain(expectedSql);
+  });
+
+  it('matches only the exact Walk-in search to null customer names', async () => {
+    const prisma = createPrisma();
+    prisma.tradingDay.findUnique.mockResolvedValue({ id: 'day-id' });
+    prisma.$queryRaw.mockResolvedValue([]);
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await service.getStaffOrderLedger('day-id', { search: 'Walk-in' });
+    await service.getStaffOrderLedger('day-id', { search: 'walk' });
+
+    const exactSql = (
+      prisma.$queryRaw.mock.calls[0]![0] as { strings: string[] }
+    ).strings.join('?');
+    const partialSql = (
+      prisma.$queryRaw.mock.calls[1]![0] as { strings: string[] }
+    ).strings.join('?');
+    expect(exactSql).toContain('OR customer_name IS NULL');
+    expect(partialSql).not.toContain('customer_name IS NULL');
+  });
+
+  it('rejects an unknown business day before querying orders', async () => {
+    const prisma = createPrisma();
+    prisma.tradingDay.findUnique.mockResolvedValue(null);
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.getStaffOrderLedger('unknown-day', {}),
+    ).rejects.toThrow('Business day not found');
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 });
 

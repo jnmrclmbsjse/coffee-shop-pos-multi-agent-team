@@ -98,6 +98,7 @@ describe('TradingDayService', () => {
     const prisma = {
       tradingDay: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         findUnique: jest.fn(),
         create: jest.fn(),
         updateMany: jest.fn(),
@@ -218,6 +219,62 @@ describe('TradingDayService', () => {
       openedByDisplayName: null,
       openedAt: null,
     });
+  });
+
+  it('lists newest business days and identifies the open day', async () => {
+    const { prisma, service } = createHarness();
+    prisma.tradingDay.findMany.mockResolvedValue([
+      {
+        id: day.id,
+        businessDate: day.businessDate,
+        status: TradingDayStatus.OPEN,
+      },
+      {
+        id: '10000000-0000-4000-8000-000000000002',
+        businessDate: new Date('2026-07-22T00:00:00.000Z'),
+        status: TradingDayStatus.CLOSED,
+      },
+    ]);
+
+    await expect(service.listBusinessDays()).resolves.toEqual({
+      items: [
+        {
+          id: day.id,
+          businessDate: '2026-07-23',
+          status: 'OPEN',
+        },
+        {
+          id: '10000000-0000-4000-8000-000000000002',
+          businessDate: '2026-07-22',
+          status: 'CLOSED',
+        },
+      ],
+      currentOpenBusinessDayId: day.id,
+    });
+    expect(prisma.tradingDay.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [
+          { businessDate: 'desc' },
+          { openedAt: 'desc' },
+          { id: 'asc' },
+        ],
+      }),
+    );
+  });
+
+  it('lists closed days without requiring an open day', async () => {
+    const { prisma, service } = createHarness();
+    prisma.tradingDay.findMany.mockResolvedValue([
+      {
+        id: day.id,
+        businessDate: day.businessDate,
+        status: TradingDayStatus.CLOSED,
+      },
+    ]);
+
+    await expect(service.listBusinessDays()).resolves.toEqual(
+      expect.objectContaining({ currentOpenBusinessDayId: null }),
+    );
   });
 
   it('opens a valid unused business date for active staff', async () => {

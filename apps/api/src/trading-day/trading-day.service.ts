@@ -8,8 +8,10 @@ import {
   calculateCashReconciliation,
   cents,
   DayType as SharedDayType,
+  TradingDayStatus as SharedTradingDayStatus,
 } from '@coffee-shop/shared';
 import type {
+  BusinessDayList,
   CashReconciliation,
   CurrentOpenBusinessDay,
   DayClosing as DayClosingResponse,
@@ -84,6 +86,32 @@ export class TradingDayService {
 
   async getCurrentOpenDay(): Promise<CurrentOpenBusinessDay> {
     return this.toResponse(await this.findCurrentOpenDay());
+  }
+
+  async listBusinessDays(): Promise<BusinessDayList> {
+    const days = await this.prisma.tradingDay.findMany({
+      orderBy: [
+        { businessDate: 'desc' },
+        { openedAt: 'desc' },
+        { id: 'asc' },
+      ],
+      select: {
+        id: true,
+        businessDate: true,
+        status: true,
+      },
+    });
+
+    return {
+      items: days.map((day) => ({
+        id: day.id,
+        businessDate: this.toDateOnly(day.businessDate),
+        status: day.status as SharedTradingDayStatus,
+      })),
+      currentOpenBusinessDayId:
+        days.find((day) => day.status === TradingDayStatus.OPEN)?.id ??
+        null,
+    };
   }
 
   async open(input: OpenBusinessDayDto): Promise<CurrentOpenBusinessDay> {
