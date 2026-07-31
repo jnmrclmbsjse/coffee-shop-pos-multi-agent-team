@@ -3,6 +3,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import {
+  CashMovementKind as SharedCashMovementKind,
   DayType as SharedDayType,
 } from '@coffee-shop/shared';
 import {
@@ -14,6 +15,7 @@ import type { PackagingReconciliationService } from '../inventory/packaging-reco
 import type { PrismaService } from '../prisma/prisma.service';
 import type {
   CloseBusinessDayDto,
+  CreateCashMovementDto,
   OpenBusinessDayDto,
 } from './trading-day.dto';
 import { TradingDayService } from './trading-day.service';
@@ -45,6 +47,14 @@ describe('TradingDayService', () => {
     openingFloatCents: 50000 as OpenBusinessDayDto['openingFloatCents'],
     openedByStaffMemberId:
       '40000000-0000-4000-8000-000000000001',
+  };
+  const movementInput: CreateCashMovementDto = {
+    clientGeneratedId: '90000000-0000-4000-8000-000000000001',
+    kind: SharedCashMovementKind.EXPENSE,
+    amountCents: 750 as CreateCashMovementDto['amountCents'],
+    description: '  Cleaning supplies  ',
+    category: '  Supplies  ',
+    recordedByStaffMemberId: closer.id,
   };
   const packagingRows = [
     {
@@ -117,6 +127,8 @@ describe('TradingDayService', () => {
       },
       cashMovement: {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
       },
       cashCount: {
         create: jest.fn(),
@@ -126,6 +138,7 @@ describe('TradingDayService', () => {
         create: jest.fn(),
       },
       $transaction: jest.fn(),
+      $queryRaw: jest.fn().mockResolvedValue([]),
     };
     prisma.$transaction.mockImplementation(
       async (callback: (transaction: unknown) => unknown) =>
@@ -441,6 +454,232 @@ describe('TradingDayService', () => {
         hasClosingStockCount: false,
       }),
     );
+  });
+
+  it('lists only the open day movements newest first', async () => {
+    const { prisma, service } = createHarness();
+    prisma.tradingDay.findFirst.mockResolvedValue(day);
+    prisma.cashMovement.findMany.mockResolvedValue([
+      {
+        id: movementInput.clientGeneratedId,
+        tradingDayId: day.id,
+        kind: CashMovementKind.EXPENSE,
+        amountCents: 750,
+        description: 'Cleaning supplies',
+        category: 'Supplies',
+        recordedByStaffMemberId: closer.id,
+        recordedByNameSnapshot: closer.displayName,
+        recordedAt: new Date('2026-07-23T09:00:00.000Z'),
+      },
+    ]);
+
+    await expect(service.getCashMovements()).resolves.toEqual({
+      businessDay: expect.objectContaining({
+        isOpen: true,
+        businessDate: '2026-07-23',
+      }),
+      movements: [
+        {
+          id: movementInput.clientGeneratedId,
+          tradingDayId: day.id,
+          kind: SharedCashMovementKind.EXPENSE,
+          amountCents: 750,
+          description: 'Cleaning supplies',
+          category: 'Supplies',
+          recordedByStaffMemberId: closer.id,
+          recordedByNameSnapshot: closer.displayName,
+          recordedAt: '2026-07-23T09:00:00.000Z',
+        },
+      ],
+    });
+    expect(prisma.cashMovement.findMany).toHaveBeenCalledWith({
+      where: { tradingDayId: day.id },
+      orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
+    });
+  });
+
+  it('returns an empty movement list when no day is open', async () => {
+    const { prisma, service } = createHarness();
+    prisma.tradingDay.findFirst.mockResolvedValue(null);
+
+    await expect(service.getCashMovements()).resolves.toEqual({
+      businessDay: {
+        isOpen: false,
+        businessDate: null,
+        dayType: null,
+        openingFloatCents: null,
+        openedByDisplayName: null,
+        openedAt: null,
+      },
+      movements: [],
+    });
+    expect(prisma.cashMovement.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    SharedCashMovementKind.CASH_IN,
+    SharedCashMovementKind.CASH_OUT,
+    SharedCashMovementKind.EXPENSE,
+  ])('records one %s movement against the locked open day', async (kind) => {
+    const { prisma, service } = createHarness();
+    const input = {
+      ...movementInput,
+      kind,
+      category:
+        kind === SharedCashMovementKind.EXPENSE ? '  Supplies  ' : null,
+    };
+    prisma.tradingDay.findFirst
+      .mockResolvedValueOnce(day)
+      .mockResolvedValueOnce({ id: day.id });
+    prisma.staffMember.findFirst.mockResolvedValue(closer);
+    prisma.cashMovement.create.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        ...data,
+        recordedAt: new Date('2026-07-23T09:00:00.000Z'),
+      }),
+    );
+
+    await expect(service.recordCashMovement(input)).resolves.toEqual(
+      expect.objectContaining({
+        id: movementInput.clientGeneratedId,
+        tradingDayId: day.id,
+        kind,
+        amountCents: 750,
+        description: 'Cleaning supplies',
+        category:
+          kind === SharedCashMovementKind.EXPENSE ? 'Supplies' : null,
+        recordedByNameSnapshot: closer.displayName,
+      }),
+    );
+    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(prisma.cashMovement.create).toHaveBeenCalledWith({
+      data: {
+        id: movementInput.clientGeneratedId,
+        tradingDayId: day.id,
+        kind,
+        amountCents: 750,
+        description: 'Cleaning supplies',
+        category:
+          kind === SharedCashMovementKind.EXPENSE ? 'Supplies' : null,
+        recordedByStaffMemberId: closer.id,
+        recordedByNameSnapshot: closer.displayName,
+      },
+    });
+  });
+
+  it('records an unattributed movement with null attribution', async () => {
+    const { prisma, service } = createHarness();
+    prisma.tradingDay.findFirst
+      .mockResolvedValueOnce(day)
+      .mockResolvedValueOnce({ id: day.id });
+    prisma.cashMovement.create.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        ...data,
+        recordedAt: new Date('2026-07-23T09:00:00.000Z'),
+      }),
+    );
+
+    await service.recordCashMovement({
+      ...movementInput,
+      recordedByStaffMemberId: undefined,
+      category: '   ',
+    });
+
+    expect(prisma.staffMember.findFirst).not.toHaveBeenCalled();
+    expect(prisma.cashMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        category: null,
+        recordedByStaffMemberId: null,
+        recordedByNameSnapshot: null,
+      }),
+    });
+  });
+
+  it('rejects inactive attribution without writing', async () => {
+    const { prisma, service } = createHarness();
+    prisma.tradingDay.findFirst
+      .mockResolvedValueOnce(day)
+      .mockResolvedValueOnce({ id: day.id });
+    prisma.staffMember.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.recordCashMovement(movementInput),
+    ).rejects.toThrow(
+      'recordedByStaffMemberId must reference an active staff member',
+    );
+    expect(prisma.cashMovement.create).not.toHaveBeenCalled();
+  });
+
+  it('replays a movement ID without another write', async () => {
+    const { prisma, service } = createHarness();
+    prisma.cashMovement.findUnique.mockResolvedValue({
+      id: movementInput.clientGeneratedId,
+      tradingDayId: day.id,
+      kind: CashMovementKind.EXPENSE,
+      amountCents: 750,
+      description: 'Cleaning supplies',
+      category: 'Supplies',
+      recordedByStaffMemberId: closer.id,
+      recordedByNameSnapshot: 'Original Staff Name',
+      recordedAt: new Date('2026-07-23T09:00:00.000Z'),
+    });
+
+    await expect(
+      service.recordCashMovement(movementInput),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: movementInput.clientGeneratedId,
+        recordedByNameSnapshot: 'Original Staff Name',
+      }),
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.cashMovement.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the selected day closes before the write lock is acquired', async () => {
+    const { prisma, service } = createHarness();
+    prisma.tradingDay.findFirst
+      .mockResolvedValueOnce(day)
+      .mockResolvedValueOnce(null);
+    prisma.staffMember.findFirst.mockResolvedValue(closer);
+
+    await expect(
+      service.recordCashMovement(movementInput),
+    ).rejects.toThrow(new ConflictException('No business day is open'));
+    expect(prisma.cashMovement.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects recording when no business day is open', async () => {
+    const { prisma, service } = createHarness();
+    prisma.tradingDay.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.recordCashMovement(movementInput),
+    ).rejects.toThrow(new ConflictException('No business day is open'));
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ ...movementInput, amountCents: 0 }, 'amountCents'],
+    [{ ...movementInput, amountCents: -1 }, 'amountCents'],
+    [{ ...movementInput, amountCents: 1.5 }, 'amountCents'],
+    [{ ...movementInput, description: '   ' }, 'description'],
+    [
+      {
+        ...movementInput,
+        kind: SharedCashMovementKind.CASH_IN,
+        category: 'Supplies',
+      },
+      'category',
+    ],
+  ])('rejects invalid movement input %# without writing', async (input, field) => {
+    const { prisma, service } = createHarness();
+
+    await expect(
+      service.recordCashMovement(input as CreateCashMovementDto),
+    ).rejects.toThrow(field);
+    expect(prisma.cashMovement.findUnique).not.toHaveBeenCalled();
+    expect(prisma.cashMovement.create).not.toHaveBeenCalled();
   });
 
   it('closes once and writes the complete immutable snapshot transaction', async () => {

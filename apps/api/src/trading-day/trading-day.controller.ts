@@ -8,6 +8,8 @@ import {
 import { Role } from '@coffee-shop/shared';
 import type {
   BusinessDayList,
+  CashMovement,
+  CashMovementList,
   CurrentOpenBusinessDay,
   DayClosing,
   TradingDayClosingSummary,
@@ -17,6 +19,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import {
   CloseBusinessDayDto,
+  CreateCashMovementDto,
   OpenBusinessDayDto,
 } from './trading-day.dto';
 import { TradingDayService } from './trading-day.service';
@@ -42,6 +45,11 @@ export class TradingDayController {
     return this.tradingDayService.getClosingSummary();
   }
 
+  @Get('current/cash-movements')
+  cashMovements(): Promise<CashMovementList> {
+    return this.tradingDayService.getCashMovements();
+  }
+
   @Post('open')
   open(
     @Body() input: OpenBusinessDayDto,
@@ -52,5 +60,12 @@ export class TradingDayController {
   @Post('close')
   close(@Body() input: CloseBusinessDayDto): Promise<DayClosing> {
     return this.tradingDayService.close(input);
+  }
+
+  @Post('cash-movements')
+  recordCashMovement(
+    @Body() input: CreateCashMovementDto,
+  ): Promise<CashMovement> {
+    return this.tradingDayService.recordCashMovement(input);
   }
 }

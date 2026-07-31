@@ -8,10 +8,13 @@ import {
   calculateCashReconciliation,
   cents,
   DayType as SharedDayType,
+  CashMovementKind as SharedCashMovementKind,
   TradingDayStatus as SharedTradingDayStatus,
 } from '@coffee-shop/shared';
 import type {
   BusinessDayList,
+  CashMovement as CashMovementResponse,
+  CashMovementList,
   CashReconciliation,
   CurrentOpenBusinessDay,
   DayClosing as DayClosingResponse,
@@ -28,6 +31,7 @@ import { PackagingReconciliationService } from '../inventory/packaging-reconcili
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CloseBusinessDayDto,
+  CreateCashMovementDto,
   OpenBusinessDayDto,
 } from './trading-day.dto';
 
@@ -68,6 +72,8 @@ const dayClosingInclude = {
 type DayClosingRecord = Prisma.DayClosingGetPayload<{
   include: typeof dayClosingInclude;
 }>;
+
+type CashMovementRecord = Prisma.CashMovementGetPayload<Record<string, never>>;
 
 @Injectable()
 export class TradingDayService {
@@ -216,6 +222,112 @@ export class TradingDayService {
     };
   }
 
+  async getCashMovements(): Promise<CashMovementList> {
+    const day = await this.findCurrentOpenDay();
+    if (day === null) {
+      return {
+        businessDay: this.toResponse(null),
+        movements: [],
+      };
+    }
+
+    const movements = await this.prisma.cashMovement.findMany({
+      where: { tradingDayId: day.id },
+      orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
+    });
+
+    return {
+      businessDay: this.toResponse(day),
+      movements: movements.map((movement) =>
+        this.toCashMovement(movement),
+      ),
+    };
+  }
+
+  async recordCashMovement(
+    input: CreateCashMovementDto,
+  ): Promise<CashMovementResponse> {
+    this.validateCashMovementInput(input);
+
+    const replay = await this.prisma.cashMovement.findUnique({
+      where: { id: input.clientGeneratedId },
+    });
+    if (replay !== null) return this.toCashMovement(replay);
+
+    const initiallyOpenDay = await this.findCurrentOpenDay();
+    if (initiallyOpenDay === null) {
+      throw new ConflictException('No business day is open');
+    }
+
+    try {
+      const movement = await this.prisma.$transaction(
+        async (transaction) => {
+          await this.lockTradingDay(transaction, initiallyOpenDay.id);
+
+          const transactionReplay =
+            await transaction.cashMovement.findUnique({
+              where: { id: input.clientGeneratedId },
+            });
+          if (transactionReplay !== null) return transactionReplay;
+
+          const [day, recorder] = await Promise.all([
+            transaction.tradingDay.findFirst({
+              where: {
+                id: initiallyOpenDay.id,
+                status: TradingDayStatus.OPEN,
+              },
+              select: { id: true },
+            }),
+            input.recordedByStaffMemberId
+              ? transaction.staffMember.findFirst({
+                  where: {
+                    id: input.recordedByStaffMemberId,
+                    isActive: true,
+                  },
+                  select: { id: true, displayName: true },
+                })
+              : Promise.resolve(null),
+          ]);
+
+          if (day === null) {
+            throw new ConflictException('No business day is open');
+          }
+          if (input.recordedByStaffMemberId && recorder === null) {
+            throw new BadRequestException(
+              'recordedByStaffMemberId must reference an active staff member',
+            );
+          }
+
+          return transaction.cashMovement.create({
+            data: {
+              id: input.clientGeneratedId,
+              tradingDayId: day.id,
+              kind: input.kind as CashMovementKind,
+              amountCents: input.amountCents,
+              description: input.description.trim(),
+              category: input.category?.trim() || null,
+              recordedByStaffMemberId: recorder?.id ?? null,
+              recordedByNameSnapshot: recorder?.displayName ?? null,
+            },
+          });
+        },
+      );
+
+      return this.toCashMovement(movement);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const existing = await this.prisma.cashMovement.findUnique({
+          where: { id: input.clientGeneratedId },
+        });
+        if (existing !== null) return this.toCashMovement(existing);
+      }
+      throw error;
+    }
+  }
+
   async close(input: CloseBusinessDayDto): Promise<DayClosingResponse> {
     this.validateCloseInput(input);
 
@@ -236,6 +348,8 @@ export class TradingDayService {
         include: dayClosingInclude,
       });
       if (transactionReplay !== null) return transactionReplay;
+
+      await this.lockTradingDay(transaction, initiallyOpenDay.id);
 
       const [day, closer] = await Promise.all([
         transaction.tradingDay.findUnique({
@@ -490,6 +604,50 @@ export class TradingDayService {
     }
   }
 
+  private validateCashMovementInput(input: CreateCashMovementDto): void {
+    if (!input.clientGeneratedId) {
+      throw new BadRequestException('clientGeneratedId is required');
+    }
+    if (!Object.values(SharedCashMovementKind).includes(input.kind)) {
+      throw new BadRequestException(
+        'kind must be CASH_IN, CASH_OUT or EXPENSE',
+      );
+    }
+    if (
+      !Number.isSafeInteger(input.amountCents) ||
+      input.amountCents < 1 ||
+      input.amountCents > 2_147_483_647
+    ) {
+      throw new BadRequestException(
+        'amountCents must be a positive integer no greater than 2147483647',
+      );
+    }
+    if (
+      typeof input.description !== 'string' ||
+      input.description.trim().length === 0
+    ) {
+      throw new BadRequestException('description must not be blank');
+    }
+    if (
+      input.kind !== SharedCashMovementKind.EXPENSE &&
+      input.category !== undefined &&
+      input.category !== null
+    ) {
+      throw new BadRequestException(
+        'category is only allowed for EXPENSE',
+      );
+    }
+  }
+
+  private async lockTradingDay(
+    transaction: Prisma.TransactionClient,
+    tradingDayId: string,
+  ): Promise<void> {
+    await transaction.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "trading_days" WHERE "id" = ${tradingDayId}::uuid FOR UPDATE`,
+    );
+  }
+
   private parseBusinessDate(value: string): Date {
     const date = new Date(`${value}T00:00:00.000Z`);
     if (
@@ -534,6 +692,22 @@ export class TradingDayService {
         actualQty: line.actualQty,
         varianceQty: line.varianceQty,
       })),
+    };
+  }
+
+  private toCashMovement(
+    record: CashMovementRecord,
+  ): CashMovementResponse {
+    return {
+      id: record.id,
+      tradingDayId: record.tradingDayId,
+      kind: record.kind as SharedCashMovementKind,
+      amountCents: cents(record.amountCents),
+      description: record.description,
+      category: record.category,
+      recordedByStaffMemberId: record.recordedByStaffMemberId,
+      recordedByNameSnapshot: record.recordedByNameSnapshot,
+      recordedAt: record.recordedAt.toISOString(),
     };
   }
 }

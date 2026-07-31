@@ -2,7 +2,11 @@ import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
+  CashMovementKind,
+} from '@coffee-shop/shared';
+import {
   CloseBusinessDayDto,
+  CreateCashMovementDto,
   OpenBusinessDayDto,
 } from './trading-day.dto';
 
@@ -20,6 +24,16 @@ describe('trading day DTOs', () => {
     actualCashCents: 51000,
     closedByStaffMemberId:
       '30000000-0000-4000-8000-000000000001',
+  };
+  const validMovement = {
+    clientGeneratedId:
+      '40000000-0000-4000-8000-000000000001',
+    kind: CashMovementKind.EXPENSE,
+    amountCents: 250,
+    description: '  Cleaning supplies  ',
+    category: '  Supplies  ',
+    recordedByStaffMemberId:
+      '50000000-0000-4000-8000-000000000001',
   };
 
   async function messages(
@@ -98,6 +112,65 @@ describe('trading day DTOs', () => {
     ],
   ])('rejects invalid close request %#', async (value, field) => {
     const result = await messages(CloseBusinessDayDto, value);
+    expect(result.join(' ')).toContain(field);
+  });
+
+  it('accepts and trims a valid expense movement', async () => {
+    const instance = plainToInstance(
+      CreateCashMovementDto,
+      validMovement,
+    );
+
+    await expect(validate(instance)).resolves.toEqual([]);
+    expect(instance.description).toBe('Cleaning supplies');
+    expect(instance.category).toBe('Supplies');
+  });
+
+  it.each([
+    CashMovementKind.CASH_IN,
+    CashMovementKind.CASH_OUT,
+    CashMovementKind.EXPENSE,
+  ])('accepts kind %s without a category', async (kind) => {
+    const instance = plainToInstance(CreateCashMovementDto, {
+      ...validMovement,
+      kind,
+      category: '   ',
+    });
+
+    await expect(validate(instance)).resolves.toEqual([]);
+    expect(instance.category).toBeNull();
+  });
+
+  it.each([CashMovementKind.CASH_IN, CashMovementKind.CASH_OUT])(
+    'rejects a category for %s',
+    async (kind) => {
+      const result = await messages(CreateCashMovementDto, {
+        ...validMovement,
+        kind,
+      });
+
+      expect(result).toContain('category is only allowed for EXPENSE');
+    },
+  );
+
+  it.each([
+    [{ ...validMovement, clientGeneratedId: undefined }, 'clientGeneratedId'],
+    [{ ...validMovement, clientGeneratedId: 'not-a-uuid' }, 'clientGeneratedId'],
+    [{ ...validMovement, kind: undefined }, 'kind'],
+    [{ ...validMovement, kind: 'TRANSFER' }, 'kind'],
+    [{ ...validMovement, amountCents: undefined }, 'amountCents'],
+    [{ ...validMovement, amountCents: 0 }, 'amountCents'],
+    [{ ...validMovement, amountCents: -1 }, 'amountCents'],
+    [{ ...validMovement, amountCents: 1.5 }, 'amountCents'],
+    [{ ...validMovement, amountCents: 2_147_483_648 }, 'amountCents'],
+    [{ ...validMovement, description: undefined }, 'description'],
+    [{ ...validMovement, description: '   ' }, 'description'],
+    [
+      { ...validMovement, recordedByStaffMemberId: 'not-a-uuid' },
+      'recordedByStaffMemberId',
+    ],
+  ])('rejects invalid cash movement request %#', async (value, field) => {
+    const result = await messages(CreateCashMovementDto, value);
     expect(result.join(' ')).toContain(field);
   });
 });
