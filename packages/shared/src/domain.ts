@@ -265,6 +265,14 @@ export interface RestockStatusResult {
   rows: RestockStatusRow[];
 }
 
+export interface PackagingReconciliationRow {
+  inventoryItemId: string;
+  itemName: string;
+  expectedQty: number | null;
+  actualQty: number | null;
+  varianceQty: number | null;
+}
+
 export enum OrderStatus {
   PARKED = 'PARKED',
   COMPLETED = 'COMPLETED',
