@@ -1090,3 +1090,148 @@ for ₱50.00 existed on the day.
   Actual cash counted is marked required, but **Close day** remains enabled
   while it is blank. Should v2 leave submission available and return validation
   afterward, or disable it until the visible prerequisites are present?
+
+---
+
+## 2026-07-31 — Staff order history (staff POS workspace)
+
+Explored the staff-facing **Order history** ledger at `/pos/orders`, signed in
+with the shared system login as the administrator. Exploration was strictly
+read-only: only business-day, status, payment, and customer-search filters were
+changed. No order was created, resumed, completed, voided, or otherwise
+modified.
+
+Environment at time of exploration: one business day was open, **Thursday,
+Jul 23 2026**. The ledger offered that open day and four closed days. The open
+day held one completed order and two parked orders.
+
+### Page purpose and access
+
+- The page heading is **"Order history"**.
+- Its subtitle says: **"Read-only ledger. Pick a day to review past, closed
+  days. Corrections are void + re-enter on the order screen."**
+- The page uses the same touch-first staff shell and nine-link navigation
+  recorded in the inventory findings. **Order History** links to `/pos/orders`.
+- The screen loaded while no active cashier was set; the header showed **Set
+  cashier**. Reviewing the ledger does not require selecting a cashier.
+
+### Business-day selection
+
+- The ledger defaulted to the currently open business day, **Thu, Jul 23
+  2026**, and showed an **Open** status chip beside the date.
+- A **Day** select listed five business days in reverse chronological order:
+  Thu, Jul 23 (Open); Tue, Jul 21 (Closed); Mon, Jul 20 (Closed); Fri, Jul 17
+  (Closed); Thu, Jul 16 (Closed).
+- The select contained only dates with a business-day record. It did not offer
+  calendar dates between those records.
+- Choosing a closed day changed the heading date and status chip to that day
+  and **Closed**.
+- Changing the day did not change the browser URL from `/pos/orders`; the
+  selected day was not represented in a query string.
+
+### Filters, search, and read-only behaviour
+
+- Four status buttons are present: **All**, **Completed**, **Parked**, and
+  **Void**. **All** is selected by default.
+- Four payment buttons are present: **Any payment**, **Cash**, **Online**, and
+  **Split**. **Any payment** is selected by default.
+- Status, payment, day, and customer search filters update the displayed cards
+  without a full page navigation and without adding state to the URL.
+- Status and payment filters can be used together. Parked orders have no
+  payment method and disappear when a specific payment method is selected.
+- Payment = Cash includes a void order whose retained payment method is Cash,
+  as well as completed cash orders.
+- A search input has placeholder **"Search customer…"**. Search is live,
+  case-insensitive, and matches customer-name substrings within the selected
+  day.
+- Searching `Thea` and `THEA` on Jul 17 returned the same three orders.
+  Searching for a displayed product (`House Blend`), order number (`7`), or
+  payment (`cash`) returned no orders.
+- Searching `walk` on Jul 17 did not return the order displayed as **Walk-in**;
+  that label is a display fallback for an unnamed customer rather than
+  searchable customer text.
+- The status/payment buttons do not expose `aria-pressed`; their selected state
+  is conveyed by visual styling.
+- Order cards contain no link, button, expand control, or row action. There is
+  no order-detail destination on this staff screen and no edit, delete, void,
+  or resume action in the ledger.
+
+### Order cards
+
+- Orders are shown as individual cards, newest order number first within the
+  selected business day.
+- Each card heading combines the business-day order number and customer name,
+  for example **"#1 · Jay"**. An unnamed customer renders as **Walk-in**.
+- Every card shows a status badge: **Completed**, **Parked**, or **Void**.
+- A completed or void order shows its payment method when present: **Cash**,
+  **Online**, or **Split (Cash + Online)**. Parked orders show no payment
+  method.
+- Completed orders show only the completion time (for example **7:21 PM**), not
+  the completion date. Parked and void orders show no completion time.
+- Cashier attribution appears as a dot followed by the staff name when an order
+  has one, for example **"· Rodette Sevilla"**. Orders without an attributed
+  cashier omit the line entirely; they do not show an "unassigned" label.
+- The card total is shown in pesos with two decimal places and thousands
+  separators.
+- Each order line shows quantity, product, and size together, followed by its
+  discounted line total. Repeated quantity remains one line, such as **"100×
+  House Blend · M"**.
+- A discounted line appends the discount type in parentheses, such as
+  **"(PWD)"** or **"(Senior)"**. It does not show the original unit price,
+  discount percentage, or discount amount.
+- A split-payment card adds a breakdown immediately below the total, observed
+  as **"Cash ₱400.00 · Online ₱8.00"** for a ₱408.00 order.
+- A void card adds the free-text reason at the bottom, observed as **"Voided:
+  wrong order"**.
+- The completed Jul 23 cash order whose ₱50.00 owed change had later been
+  settled showed **"Change ₱50.00 given"**. The card did not show the settlement
+  timestamp.
+
+### Observed day and order states
+
+- The open Jul 23 day contained three cards: #3 Parked (Walk-in, ₱276.40), #2
+  Parked (Walk-in, ₱158.00, cashier Rodette Sevilla), and #1 Completed (Jay,
+  Cash, ₱50.00, cashier Rodette Sevilla).
+- Jul 23 order #3 included one regular Signature Latte line and one discounted
+  **Milky Choco · Medio (PWD)** line. The ₱158.00 Milky Choco line rendered as
+  ₱126.40 after the 20% discount.
+- Closed Jul 21 retained one parked order alongside one completed order.
+- Closed Jul 20 retained all three states together: one void, one parked, and
+  two completed orders.
+- The Jul 17 split-payment order displayed all three line items and the
+  Cash/Online allocation; the two portions summed to the displayed total.
+- Selecting Jul 16, which had no orders, showed the empty state **"No orders to
+  show."** The same empty state appeared when filters or search produced no
+  match.
+
+### Information not shown on the staff ledger
+
+- Cards show no service type (Dine-in/Take-out), per-line taste preferences or
+  free-text notes, subtotal, order-level discount total, tip, free-upsize count,
+  cash received, or arithmetic change due.
+- Apart from the split-payment allocation, the cards do not show payment
+  breakdown fields. Apart from **"Change … given"**, they do not show a change
+  settlement date or time.
+
+### Open questions for the human
+
+- **Displayed "Walk-in" customers are not found by searching `walk`.** The
+  search operates on stored customer text, while the card substitutes
+  "Walk-in" for a blank name. Should v2 search the label staff can see, so a
+  search for "Walk-in" returns unnamed orders, or keep v1's stored-name-only
+  behaviour?
+- **The staff ledger omits several order facts named in the map.**
+  DISCOVERY.md says the staff ledger shows payment breakdown, tips, free
+  upsizes, and owed or settled change. In v1, the cards showed a split
+  allocation and a settled-change message when applicable, but no tip,
+  free-upsize figure, cash received, or settlement timestamp. Should v2 copy
+  the compact cards exactly, add those missing facts to each card, or provide a
+  separate read-only detail view?
+- **Service type and customer preferences are absent.** A staff member reviewing
+  a past order cannot see whether it was dine-in or take-out, nor any Sweeter /
+  Stronger / Less sweet / Less ice choice or free-text note. Should v2 expose
+  these operational details in staff history?
+- **Filter selections have no programmatic selected state.** The status and
+  payment chips visually distinguish the active option but expose no
+  `aria-pressed` state. Should v2 make the selected filter state available to
+  assistive technology?
