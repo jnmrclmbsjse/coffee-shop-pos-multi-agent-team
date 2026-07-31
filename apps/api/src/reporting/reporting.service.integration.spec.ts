@@ -240,6 +240,10 @@ describeWithDatabase('Order History queries against Postgres', () => {
           olderTradingDayId,
           1,
           customerMarker,
+          {
+            staffMemberId,
+            nameSnapshot: 'Order History integration test',
+          },
         ),
         completedOrder(
           olderSecondOrderId,
@@ -332,11 +336,17 @@ function completedOrder(
   tradingDayId: string,
   dayOrderNumber: number,
   customerName: string,
+  cashier: {
+    staffMemberId: string;
+    nameSnapshot: string;
+  } | null = null,
 ): Prisma.SaleCreateManyInput {
   return {
     id,
     clientGeneratedId: randomUUID(),
     tradingDayId,
+    cashierStaffMemberId: cashier?.staffMemberId ?? null,
+    cashierNameSnapshot: cashier?.nameSnapshot ?? null,
     kind: SaleKind.PURCHASE,
     dayOrderNumber,
     status: OrderStatus.COMPLETED,

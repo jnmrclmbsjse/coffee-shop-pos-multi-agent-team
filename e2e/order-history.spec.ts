@@ -84,6 +84,10 @@ interface LineSeed {
 interface OrderSeed {
   id?: string;
   dayOrderNumber: number;
+  cashier?: {
+    staffMemberId: string;
+    nameSnapshot: string;
+  } | null;
   kind?: 'PURCHASE' | 'VOID';
   correctsSaleId?: string | null;
   status?: 'PARKED' | 'COMPLETED';
@@ -199,6 +203,7 @@ function buildDay(
         id: order.id ?? randomUUID(),
         clientGeneratedId: randomUUID(),
         locationId: null,
+        cashier: order.cashier ?? null,
         kind: order.kind ?? ('PURCHASE' as const),
         correctsSaleId: order.correctsSaleId ?? null,
         dayOrderNumber: order.dayOrderNumber,

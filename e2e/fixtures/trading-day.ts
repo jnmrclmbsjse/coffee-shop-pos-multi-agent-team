@@ -21,6 +21,10 @@ export interface TradingDayFixture {
     id: string;
     clientGeneratedId: string;
     locationId: string | null;
+    cashier: {
+      staffMemberId: string;
+      nameSnapshot: string;
+    } | null;
     kind: 'PURCHASE' | 'VOID';
     correctsSaleId: string | null;
     dayOrderNumber: number;
@@ -119,6 +123,8 @@ export function seedTradingDayFixture(fixture: TradingDayFixture): void {
               clientGeneratedId: sale.clientGeneratedId,
               locationId: sale.locationId,
               tradingDayId: fixture.tradingDay.id,
+              cashierStaffMemberId: sale.cashier?.staffMemberId ?? null,
+              cashierNameSnapshot: sale.cashier?.nameSnapshot ?? null,
               kind: sale.kind,
               correctsSaleId: sale.correctsSaleId,
               dayOrderNumber: sale.dayOrderNumber,

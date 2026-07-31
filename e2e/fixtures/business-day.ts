@@ -291,6 +291,10 @@ export interface SeedSaleInput {
   tradingDayId: string;
   dayOrderNumber: number;
   status: 'PARKED' | 'COMPLETED';
+  cashier?: {
+    staffMemberId: string;
+    nameSnapshot: string;
+  } | null;
   kind?: 'PURCHASE' | 'VOID';
   /** Sale this one voids, when `kind` is VOID. */
   correctsSaleId?: string | null;
@@ -312,6 +316,8 @@ export function seedSale(input: SeedSaleInput): string {
         clientGeneratedId: require('node:crypto').randomUUID(),
         locationId: null,
         tradingDayId: input.tradingDayId,
+        cashierStaffMemberId: input.cashier?.staffMemberId ?? null,
+        cashierNameSnapshot: input.cashier?.nameSnapshot ?? null,
         kind: input.kind || 'PURCHASE',
         correctsSaleId: input.correctsSaleId || null,
         dayOrderNumber: input.dayOrderNumber,
