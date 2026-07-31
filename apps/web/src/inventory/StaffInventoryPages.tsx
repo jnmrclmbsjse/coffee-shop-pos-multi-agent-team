@@ -136,6 +136,7 @@ export function StaffWorkspaceLayout() {
             <NavLink to="/pos/closing">Closing</NavLink>
             <NavLink to="/pos/restock">Restock</NavLink>
             <NavLink to="/pos/movements">Deliveries &amp; Wastage</NavLink>
+            <NavLink to="/pos/orders">Order History</NavLink>
             <NavLink to="/pos/close">Close Day</NavLink>
           </nav>
         </div>
