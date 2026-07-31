@@ -1235,3 +1235,100 @@ day held one completed order and two parked orders.
   payment chips visually distinguish the active option but expose no
   `aria-pressed` state. Should v2 make the selected filter state available to
   assistive technology?
+
+---
+
+## 2026-08-01 — Cash movements and expenses (staff POS workspace)
+
+Explored the staff-facing **Cash & expenses** screen at `/pos/cash`, signed in
+with the shared system login as the administrator. Exploration was strictly
+read-only: the three entry-type controls were selected to observe their
+unsubmitted form states, but no amount, reason, category, or staff member was
+entered and no record was submitted.
+
+Environment at time of exploration: one business day was open, **Thursday,
+Jul 23 2026**, marked **Normal day**. No cash movement or expense had been
+recorded for that day.
+
+### Page purpose and access
+
+- The page heading is **"Cash & expenses"**. Its subtitle says **"Drawer cash
+  in/out and expenses. Each entry is permanent."**
+- The screen uses the same touch-first staff shell and nine-link navigation
+  recorded in earlier staff-workspace findings. **Cash & Expenses** links to
+  `/pos/cash`.
+- The page loaded while no active cashier was selected; the header showed
+  **Set cashier**. The form identifies a person separately through its
+  **Recorded by** select.
+- Two chips identify the current business day as **Thu, Jul 23 2026** and
+  **Normal day**. There is no day picker on this screen.
+
+### Entry form
+
+- **Type** is visibly marked required and is presented as three large buttons:
+  **Cash in**, **Cash out**, and **Expense**. **Cash in** is selected by
+  default.
+- Selecting another type changes the filled visual selection to that button.
+  The three buttons do not expose `aria-pressed`; their selected state is
+  conveyed by styling only.
+- **Amount** is visibly marked required. It is a number input with placeholder
+  `0.00`, `min="0"`, and `step="0.01"`.
+- **Reason** is visibly marked required. It is a free-text input with
+  placeholder **"e.g. bank change, milk delivery payment"**.
+- **Recorded by** is not marked required and defaults to an em dash. Its
+  options are the three active staff members **Ben**, **Carmen**, and
+  **Rodette Sevilla**; inactive **Ana Banana** is not offered.
+- When **Cash in** or **Cash out** is selected, those are the complete fields:
+  Type, Amount, Reason, and Recorded by.
+- Selecting **Expense** inserts a **Category** free-text input between Amount
+  and Reason. Category is not marked required and has placeholder **"e.g.
+  supplies, transport"**. No fixed category choices are presented.
+- The **Record** submit button remains enabled with Amount and Reason blank and
+  Recorded by unset.
+- Amount and Reason carry visible required markers but no HTML `required`
+  attributes. Validation is therefore not enforced by the browser. No
+  server-side validation was observed because pressing Record would create a
+  permanent entry.
+
+### Current-day ledger
+
+- A table below the form has four columns: **Type**, **Amount**, **Detail**,
+  and **By**.
+- With no entries for the open day, its single empty-state row reads **"Nothing
+  recorded today."**
+- The table has no timestamp column and no edit or delete action. This matches
+  the page's statement that each entry is permanent.
+
+### Not observable in this run
+
+- How Cash in, Cash out, and Expense rows are labelled and formatted in a
+  populated ledger, including whether an expense's Category and Reason both
+  appear in the single Detail column.
+- Server-side validation messages, whether zero is accepted, and whether
+  Recorded by or Expense Category can actually be omitted on submission.
+- The page state when no business day is open or when viewing a closed day.
+- Whether the ledger has a row limit or pagination, and whether it includes
+  automatically generated order-linked free-upsize expenses.
+
+### Open questions for the human
+
+- **Expense categories are optional-looking free text.** v1 shows Category
+  only for Expense, offers no predefined choices, and does not mark it
+  required. Should v2 keep arbitrary optional category text, require a
+  category, or provide a managed list so expense reporting is consistent?
+- **Recorded by appears optional.** The screen accepts no active cashier as a
+  fallback and leaves Recorded by unmarked, defaulting to an em dash. Should v2
+  require an active staff member on every cash movement and expense for
+  accountability, or allow unattributed entries as v1's form appears to?
+- **Required inputs do not gate the permanent action.** Record remains enabled
+  while the visibly required Amount and Reason are empty, and validation is
+  server-side only. Should v2 disable Record until its required inputs are
+  present, or preserve v1's submit-then-validate interaction?
+- **Permanent entries have no observed correction path.** The current-day
+  ledger exposes no edit or delete action, consistent with append-only records,
+  but the screen also shows no explicit reversal or correction action. How
+  should staff correct a cash movement or expense entered with the wrong type,
+  amount, or reason in v2?
+- **Type selection has no programmatic state.** Cash in, Cash out, and Expense
+  visually identify the selected option but expose no `aria-pressed` state.
+  Should v2 make the selected entry type available to assistive technology?
