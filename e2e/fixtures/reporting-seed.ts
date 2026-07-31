@@ -214,6 +214,10 @@ export interface SeedLine {
 
 export interface SeedSale {
   id?: string;
+  cashier?: {
+    staffMemberId: string;
+    nameSnapshot: string;
+  } | null;
   kind?: 'PURCHASE' | 'VOID';
   correctsSaleId?: string | null;
   status?: 'PARKED' | 'COMPLETED';
@@ -255,6 +259,7 @@ export function seedTradingDay(
   const sales = (day.sales ?? []).map((sale) => ({
     id: sale.id ?? randomUUID(),
     clientGeneratedId: randomUUID(),
+    cashier: sale.cashier ?? null,
     kind: sale.kind ?? 'PURCHASE',
     correctsSaleId: sale.correctsSaleId ?? null,
     status: sale.status ?? 'COMPLETED',
@@ -324,6 +329,8 @@ export function seedTradingDay(
           clientGeneratedId: sale.clientGeneratedId,
           locationId: null,
           tradingDayId: fixture.tradingDay.id,
+          cashierStaffMemberId: sale.cashier?.staffMemberId ?? null,
+          cashierNameSnapshot: sale.cashier?.nameSnapshot ?? null,
           kind: sale.kind,
           correctsSaleId: sale.correctsSaleId,
           dayOrderNumber: offset,
