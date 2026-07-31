@@ -982,3 +982,111 @@ Recorded so the gaps are not mistaken for absent behaviour:
   steps (Empty, Low, Quarter, One-third, Half, Two-thirds, Three-quarters,
   Full), mixing fractions with a qualitative "Low". Should v2 keep all eight
   steps, and is "Low" intended as a level or as a status?
+
+---
+
+## 2026-07-31 — Business day opening and closing (staff POS workspace)
+
+Explored the staff POS workspace at `/pos/open` and `/pos/close`, signed in
+with the shared system login as the administrator. Exploration was strictly
+read-only: the open business day was not changed, no day was closed, and no
+field was submitted. To observe the close form's live calculation, values were
+typed into **Actual cash counted**, then the page was reloaded; the values were
+not submitted and did not persist.
+
+Environment at time of exploration: one business day was already open,
+**Thursday, Jul 23 2026**, marked **Normal day**. Its opening inventory count
+and closing inventory count had not been submitted. One completed cash order
+for ₱50.00 existed on the day.
+
+### Open business day (`/pos/open`)
+
+- The page heading is **"Open business day"** with the subtitle **"Start the
+  day everything else anchors on — orders, cash, and counts."**
+- Because a day was already open, the screen showed a read-only **DAY OPEN**
+  summary instead of an opening form.
+- The summary showed **Thursday, Jul 23 2026** and **Normal day**.
+- It showed **Cash float ₱1,000.00**, **Opened by Rodette Sevilla**, and
+  **Opened at 1:16 PM**.
+- Below the summary, the page said **"Take orders and record cash against this
+  day; close it at end of shift."**
+- There was no action to open another day, edit the open day, or close it from
+  this screen. Apart from the shared dark-mode toggle, the page contained no
+  form control.
+
+### Close business day (`/pos/close`)
+
+- The page heading is **"Close business day"** with the subtitle **"Review
+  both reconciliations, count the drawer, then close."**
+- A warning appeared above the reconciliation:
+  **"No closing count submitted yet — cup/lid variances won't be snapshotted.
+  Do the closing count."** The final sentence is a link to
+  `/inventory/closing`.
+- The **Cup / lid balance** table has columns **Item**, **Expected**,
+  **Actual**, and **Var**.
+- It listed two reconciled items: **Coffee/Non-Coffee Cup · 16oz** and
+  **Coffee/Non-Coffee Lid · 16oz and 12oz**. Both showed **-1** Expected and an
+  em dash for Actual and Var.
+- The **Cash summary (online sales excluded)** showed these rows:
+  Cash float ₱1,000.00; Cash sales ₱50.00; Online sales (excluded) ₱0.00;
+  Cash tips +₱0.00; Cash in +₱0.00; Cash out −₱0.00; Expenses (cash) −₱0.00;
+  Expected cash ₱1,050.00.
+- **Actual cash counted** is visibly marked required (`*`). Its control is a
+  number input with placeholder `0.00`, minimum `0`, and step `0.01`.
+- **Discrepancy** initially showed an em dash. Typing an actual count updated it
+  without submitting: 1050.00 showed **₱0.00**, 1049.50 showed **₱-0.50**, and
+  1051.25 showed **₱1.25**.
+- A negative discrepancy places the minus sign after the peso symbol
+  (`₱-0.50`), matching the formatting observed in the admin Reports table.
+- **Discrepancy reason** is an unmarked text field with placeholder
+  **"e.g. short by change given, over from tips"**. It did not become visibly
+  required when the live discrepancy was non-zero.
+- **Closed by** is an unmarked select that defaults to an em dash. Its options
+  were the three active staff members **Ben**, **Carmen**, and
+  **Rodette Sevilla**; inactive **Ana Banana** was not offered.
+- The **Close day** submit button was enabled while Actual cash counted was
+  blank, Closed by was unset, and no closing inventory count existed.
+- Although Actual cash counted has a visible required marker, the input did not
+  have an HTML `required` attribute. Closed by and Discrepancy reason also had
+  no HTML `required` attribute. Validation could not be observed without
+  attempting the mutating close action.
+- Reloading after typing test amounts restored Actual cash counted to blank and
+  Discrepancy to an em dash, confirming the unsubmitted values had not
+  persisted.
+
+### Not observable in this run
+
+- The day-opening form, its defaults, constraints, and validation because v1
+  permits only one open business day and closing the existing day would mutate
+  data.
+- Server-side validation from **Close day**, including whether Actual cash
+  counted or Closed by is enforced and whether a discrepancy reason is required
+  for a non-zero result.
+- The closed-day result or stored closing snapshot because closing the day would
+  mutate data.
+- Final cup/lid Actual and Var figures because no closing inventory count had
+  been submitted.
+- The opening and closing screens when no business day is open.
+
+### Open questions for the human
+
+- **Closing is offered without a closing inventory count.** v1 warns that
+  cup/lid variances will not be snapshotted and links to the closing sheet, but
+  leaves **Close day** enabled. Should v2 allow the day to close after this
+  warning, or require a closing count first?
+- **Expected cup and lid stock is negative when the opening count is missing.**
+  With no opening count and one completed drink sale, both Expected figures
+  showed `-1` rather than unavailable. Should v2 display a negative expected
+  quantity in this state, or show that reconciliation cannot be calculated
+  until an opening count exists?
+- **Closed by appears optional.** The select has no required marker, defaults to
+  an em dash, and the submit action remains enabled. Should v2 require an active
+  staff member to be identified before the day can close?
+- **A non-zero cash discrepancy does not visibly require a reason.** The reason
+  field remained optional-looking for both a ₱0.50 shortage and a ₱1.25
+  overage. Should v2 require a reason whenever actual cash differs from
+  expected cash?
+- **The close action is enabled before visibly required data is entered.**
+  Actual cash counted is marked required, but **Close day** remains enabled
+  while it is blank. Should v2 leave submission available and return validation
+  afterward, or disable it until the visible prerequisites are present?
