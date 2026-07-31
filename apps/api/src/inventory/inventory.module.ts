@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { TradingDayModule } from '../trading-day/trading-day.module';
 import { InventoryItemsController } from './inventory-items.controller';
 import { InventoryItemsService } from './inventory-items.service';
+import { PackagingReconciliationService } from './packaging-reconciliation.service';
 import { RestockController } from './restock.controller';
 import { RestockService } from './restock.service';
 import { StockCountsController } from './stock-counts.controller';
@@ -24,10 +25,12 @@ import { StockMovementsService } from './stock-movements.service';
   ],
   providers: [
     InventoryItemsService,
+    PackagingReconciliationService,
     RestockService,
     StockCategoriesService,
     StockCountsService,
     StockMovementsService,
   ],
+  exports: [PackagingReconciliationService],
 })
 export class InventoryModule {}
