@@ -1411,3 +1411,135 @@ active cashier.
 - **Selection persistence is not explained on screen.** Should the active
   cashier apply only to the current tab, the whole browser session, the device,
   or the open business day, and when should staff be asked to choose again?
+
+---
+
+## 2026-08-02 — Order taking: initial workspace and catalog browsing (staff POS workspace)
+
+Explored the staff-facing **Take order** screen at `/pos/order`, signed in with
+the shared system login as the administrator. Exploration was strictly
+read-only: category tabs were used to browse products, but no product size,
+parked order, availability control, service type, or order action was pressed.
+No customer name was entered. No order was created, resumed, changed, parked,
+charged, completed, or voided, and no product was marked sold out.
+
+Environment at time of exploration: one business day was open, **Thursday,
+Jul 23 2026**, marked **Normal day**; the fresh browser session had no active
+cashier. All three seeded products were available. Two parked orders already
+existed for the open day.
+
+### Page purpose, context, and layout
+
+- The page heading is **"Take order"**. Its subtitle says **"Tap a size to add
+  it. Totals update automatically."**
+- Two right-aligned context labels show **Thu, Jul 23 2026** and **Normal day**.
+  There is no business-day picker on this screen.
+- The page loaded while the header showed **Set cashier**. The product-size
+  controls remained enabled and the empty order workspace was available; the
+  screen did not require a cashier selection before browsing or presenting the
+  order controls.
+- The main workspace is split into two columns. Categories, product cards, and
+  parked orders occupy the left side; the current order, totals, and actions
+  occupy a bordered panel on the right.
+- At a 1024×768 landscape viewport, the main order workspace fit without page
+  overflow. The header navigation itself was a horizontally scrollable strip:
+  its visible area was 587 pixels wide while its content was 1,287 pixels wide.
+  At the initial scroll position, links through **Cash & Expenses** were visible,
+  while later destinations including the inventory links were off-screen; no
+  scrollbar was visible in the captured viewport.
+- The **Take Order** navigation link was visually highlighted, but it did not
+  expose `aria-current`.
+
+### Category and product browsing
+
+- Two category buttons appeared in this order: **Non Coffee**, then **Coffee**.
+  **Non Coffee** was visually selected on initial load.
+- Clicking **Coffee** switched the visible product cards in place and did not
+  change the `/pos/order` URL. This category-only action created no order.
+- The category buttons did not expose `aria-pressed`; their selected state was
+  conveyed through fill and border styling.
+- **Non Coffee** contained one visible product: **Milky Choco**, with one size
+  **Medio** priced at **₱158.00**.
+- **Coffee** contained two visible products: **House Blend**, with size **M**
+  priced at **₱50.00**, and **Signature Latte**, with size **M** priced at
+  **₱150.00**.
+- Each product appeared as a separate card. Its name was shown at the top, an
+  **Available** status control appeared beside the name, and the size and price
+  appeared together in a large button below.
+- Each **Available** control was an enabled button whose browser title was
+  **"Mark sold out"**. It was not pressed because that would change v1 product
+  availability.
+- Each size/price control was enabled. It was not pressed because the page says
+  tapping a size adds it, and DISCOVERY.md states the order is saved when its
+  first item is added.
+- All visible products were marked **Available**, so the appearance and disabled
+  behaviour of a sold-out product could not be observed safely.
+- No search, product filter beyond category, or catalog pagination control was
+  present in the visible order workspace.
+
+### Parked orders
+
+- A **PARKED ORDERS** section appeared below the product cards.
+- It contained two large order buttons, newest number last in the displayed
+  left-to-right order: **#2 Walk-in** and **#3 Walk-in**.
+- Order #2 showed **1 item(s) · ₱158.00**. Order #3 showed **2 item(s) ·
+  ₱276.40**.
+- Each parked-order button exposed the customer label, item count, and total,
+  but no cashier, service type, age, or parked timestamp.
+- Neither parked order was opened. Its control was wired as a resume action, so
+  pressing it could change the order's parked/current state and was outside the
+  read-only exploration boundary.
+
+### Empty new-order panel
+
+- The right panel was headed **New order**.
+- A single text input had placeholder **"Customer name (optional)"**. It was
+  empty, enabled, and not marked required.
+- Two enabled service-type buttons appeared beside the heading: **Dine-in** and
+  **Take-out**.
+- On the untouched empty order, Dine-in and Take-out used the same visible
+  button styling and neither exposed `aria-pressed`; the screen did not visibly
+  or programmatically identify which service type was current.
+- The empty item area read **"No items yet — tap a size to start."**
+- The summary showed **Subtotal ₱0.00**, **Discount −₱0.00**, and **Total
+  ₱0.00**. The zero discount therefore rendered with a leading minus sign.
+- The primary action read **Charge ₱0.00**. It was disabled.
+- **Park** and **Void** buttons were also present and disabled while the order
+  was empty.
+- No line-item quantity, preference, note, or discount controls were rendered
+  before the first item was added.
+- No payment-method, tender, tip, change, or free-upsize controls were rendered
+  in the initial empty-order state.
+
+### Not observable in this run
+
+- Creating the first line and the resulting saved-order state, including order
+  number assignment, item quantity controls, repeated-tap behaviour, line
+  removal, taste-preference buttons, free-text notes, and PWD/Senior discount
+  controls. Observing any of these requires tapping a size, which creates an
+  order.
+- The Charge flow and its cash, online, split-payment, tip, free-upsize, cash
+  received, change due, and owed-change states. Charge is disabled until an
+  order exists.
+- Park, resume, and void confirmations or validation. Each available route to
+  these states acts on a persisted order.
+- The sold-out product state and staff availability-toggle behaviour; all
+  products were available, and toggling one would mutate catalog state.
+- Validation and error states, the screen with no business day open, and the
+  behaviour when the current catalog has no active categories or products.
+
+### Open questions for the human
+
+- **The empty order renders a negative-zero discount.** With no items or
+  discount, v1 shows **Discount −₱0.00** rather than ₱0.00. Should v2 reproduce
+  that display exactly or normalize a zero discount to ₱0.00?
+- **The default service type has no selected-state cue.** On the untouched new
+  order, Dine-in and Take-out looked the same and exposed no `aria-pressed`
+  state, even though DISCOVERY.md says new orders default to dine-in. Should v2
+  visibly and programmatically identify Dine-in as the default selection?
+- **Later navigation destinations are off-screen at the target tablet width.**
+  At 1024×768, the horizontal navigation starts with only the first operational
+  destinations visible and requires sideways scrolling to reach inventory.
+  Should v2 retain a scrollable navigation strip, or make every primary
+  destination discoverable without horizontal scrolling at the intended
+  landscape-tablet width?
