@@ -111,7 +111,7 @@ function businessDate(offset: number): string {
   return new Date(base + offset * 86_400_000).toISOString().slice(0, 10);
 }
 
-/** The business date exactly as both screens render it (StaffTradingDayPages.tsx). */
+/** The business date exactly as the trading-day page content renders it. */
 function businessDateLabel(isoDate: string): string {
   const [year, month, day] = isoDate.split('-').map(Number);
   return new Intl.DateTimeFormat('en-PH', {
@@ -119,6 +119,15 @@ function businessDateLabel(isoDate: string): string {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: 'Asia/Manila',
+  }).format(new Date(Date.UTC(year!, month! - 1, day)));
+}
+
+/** The business date exactly as the shared staff shell renders it. */
+function shellBusinessDateLabel(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-PH', {
+    dateStyle: 'medium',
     timeZone: 'Asia/Manila',
   }).format(new Date(Date.UTC(year!, month! - 1, day)));
 }
@@ -667,9 +676,9 @@ test('names the open business date and distinguishes unavailable expected, unava
   await gotoScreen(page, '/pos/close');
 
   // The screen identifies the day being closed.
-  await expect(page.locator('.staff-business-context')).toHaveText(
-    businessDateLabel(date),
-  );
+  const businessDayContext = page.getByLabel('Business day context');
+  await expect(businessDayContext).toContainText(shellBusinessDateLabel(date));
+  await expect(businessDayContext).toContainText('Normal day');
 
   // Column headings are Expected / Actual / Var, per item.
   await expect(page.locator('.staff-packaging-table thead th')).toHaveText([

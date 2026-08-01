@@ -318,13 +318,19 @@ test.describe('navigation and business-day context (#108)', () => {
       await expect(context).toContainText('Normal day');
     }
 
-    // Restock names the count it is reading rather than the day type.
+    // The shared shell owns the day context; Restock separately names the
+    // count it is reading and repeats the business date in the table caption.
     await submitSeededClosingCount(page);
     await gotoScreen(page, '/pos/restock');
-    const restockContext = page.locator('[aria-label="Business day context"]');
-    await expect(restockContext).toContainText(expectedDate);
-    await expect(restockContext).toContainText('Closing count');
-    await expect(restockContext).not.toContainText('Normal day');
+    const restockDayContext = page.locator('[aria-label="Business day context"]');
+    await expect(restockDayContext).toContainText(expectedDate);
+    await expect(restockDayContext).toContainText('Normal day');
+    await expect(page.locator('.staff-restock-source')).toContainText(
+      /^Using closing count submitted at /,
+    );
+    await expect(page.locator('.staff-inventory-table-wrap caption')).toContainText(
+      expectedDate,
+    );
   });
 
   test('the day type shown follows the open day (Peak)', async ({ page }) => {
@@ -1004,8 +1010,8 @@ test.describe('restock status (#108)', () => {
     await expect(page.locator('.staff-restock-source')).toContainText(
       /^Using closing count submitted at /,
     );
-    await expect(page.locator('[aria-label="Business day context"]')).toContainText(
-      'Closing count',
+    await expect(page.locator('.staff-inventory-table-wrap caption')).toContainText(
+      businessDateLabel(businessDate),
     );
     await expect(restockRows(page)).toHaveCount(7);
   });
