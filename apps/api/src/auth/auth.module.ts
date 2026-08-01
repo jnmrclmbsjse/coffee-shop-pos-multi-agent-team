@@ -36,6 +36,6 @@ function jwtSecret(config: ConfigService): string {
     JwtAuthGuard,
     RolesGuard,
   ],
-  exports: [JwtModule, JwtAuthGuard, RolesGuard],
+  exports: [JwtModule, AuthService, JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}

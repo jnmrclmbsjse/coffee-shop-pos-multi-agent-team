@@ -2,10 +2,11 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { StaffController } from './staff.controller';
 import { StaffService } from './staff.service';
+import { SelectableStaffController } from './selectable-staff.controller';
 
 @Module({
   imports: [AuthModule],
-  controllers: [StaffController],
+  controllers: [StaffController, SelectableStaffController],
   providers: [StaffService],
 })
 export class StaffModule {}

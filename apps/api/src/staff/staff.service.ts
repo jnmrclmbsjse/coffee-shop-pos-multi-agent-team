@@ -3,7 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { StaffMember } from '@coffee-shop/shared';
+import type {
+  SelectableStaffMember,
+  StaffMember,
+} from '@coffee-shop/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -35,6 +38,24 @@ export class StaffService {
     });
 
     return records.map((record) => this.toStaffMember(record));
+  }
+
+  async listSelectable(): Promise<SelectableStaffMember[]> {
+    const records = await this.prisma.staffMember.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        displayName: true,
+        user: { select: { pinHash: true } },
+      },
+      orderBy: { displayName: 'asc' },
+    });
+
+    return records.map((record) => ({
+      id: record.id,
+      displayName: record.displayName,
+      requiresPin: record.user?.pinHash != null,
+    }));
   }
 
   async create(input: CreateStaffMemberDto): Promise<StaffMember> {

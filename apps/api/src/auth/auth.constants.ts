@@ -1,6 +1,7 @@
 export const AUTH_COOKIE_NAME = 'ucm_admin_session';
 export const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
 export const INVALID_STAFF_CREDENTIALS_MESSAGE = 'Invalid staff credentials.';
+export const INVALID_CASHIER_PIN_MESSAGE = 'Unable to authorize cashier.';
 export const THROTTLED_MESSAGE =
   'Too many failed attempts. Try again in {seconds} seconds.';
 export const USERNAME_REQUIRED_MESSAGE = 'Username is required';
