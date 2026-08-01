@@ -127,6 +127,10 @@ export interface ActiveCashier {
   displayName: string;
 }
 
+export interface ActiveCashierResponse {
+  cashier: ActiveCashier | null;
+}
+
 export interface SelectActiveCashierInput {
   deviceId: string;
   staffMemberId: string;

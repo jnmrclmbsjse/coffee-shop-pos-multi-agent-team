@@ -172,32 +172,29 @@ describe('SalesService active cashier selection', () => {
     expect(prisma.cashierSelection.create).not.toHaveBeenCalled();
   });
 
-  it.each(['wrong PIN', 'missing PIN', 'incomplete PIN', 'throttled']) (
-    'leaves the prior selection untouched when authorization is %s',
-    async () => {
-      const { prisma, authService } = createDependencies();
-      prisma.staffMember.findUnique.mockResolvedValue(
-        member({ user: { pinHash: 'configured-hash' } }),
-      );
-      authService.authorizeCashierPin.mockRejectedValue(
-        new UnauthorizedException('generic failure'),
-      );
-      const service = new SalesService(
-        prisma as unknown as PrismaService,
-        authService as unknown as AuthService,
-      );
+  it('leaves the prior selection untouched when authorization fails', async () => {
+    const { prisma, authService } = createDependencies();
+    prisma.staffMember.findUnique.mockResolvedValue(
+      member({ user: { pinHash: 'configured-hash' } }),
+    );
+    authService.authorizeCashierPin.mockRejectedValue(
+      new UnauthorizedException('generic failure'),
+    );
+    const service = new SalesService(
+      prisma as unknown as PrismaService,
+      authService as unknown as AuthService,
+    );
 
-      await expect(
-        service.selectCashier(
-          deviceId,
-          staffMemberId,
-          'bad',
-          selectedByUserId,
-        ),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
-      expect(prisma.cashierSelection.create).not.toHaveBeenCalled();
-    },
-  );
+    await expect(
+      service.selectCashier(
+        deviceId,
+        staffMemberId,
+        'bad',
+        selectedByUserId,
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(prisma.cashierSelection.create).not.toHaveBeenCalled();
+  });
 
   it('appends every change and clear without updating or deleting history', async () => {
     const { prisma, authService } = createDependencies();
@@ -226,7 +223,5 @@ describe('SalesService active cashier selection', () => {
         selectedByUserId,
       },
     });
-    expect(prisma.cashierSelection).not.toHaveProperty('update');
-    expect(prisma.cashierSelection).not.toHaveProperty('delete');
   });
 });

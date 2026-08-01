@@ -9,7 +9,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { Role, type ActiveCashier } from '@coffee-shop/shared';
+import {
+  Role,
+  type ActiveCashier,
+  type ActiveCashierResponse,
+} from '@coffee-shop/shared';
 import { DEVICE_ID_REQUIRED_MESSAGE } from '../auth/auth.constants';
 import type { AuthenticatedRequest } from '../auth/auth.types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -30,10 +34,13 @@ export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
   @Get()
-  getActiveCashier(
+  async getActiveCashier(
     @Query('deviceId') deviceId: unknown,
-  ): Promise<ActiveCashier | null> {
-    return this.salesService.activeCashier(this.requireDeviceId(deviceId));
+  ): Promise<ActiveCashierResponse> {
+    const cashier = await this.salesService.activeCashier(
+      this.requireDeviceId(deviceId),
+    );
+    return { cashier };
   }
 
   @Post()
@@ -52,14 +59,15 @@ export class SalesController {
   }
 
   @Delete()
-  clearCashier(
+  async clearCashier(
     @Body() body: ClearActiveCashierDto | null | undefined,
     @Req() request: AuthenticatedRequest,
-  ): Promise<null> {
-    return this.salesService.clearCashier(
+  ): Promise<ActiveCashierResponse> {
+    await this.salesService.clearCashier(
       this.requireDeviceId(body?.deviceId),
       request.user!.id,
     );
+    return { cashier: null };
   }
 
   private requireDeviceId(deviceId: unknown): string {
