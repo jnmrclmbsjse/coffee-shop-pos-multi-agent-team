@@ -7,16 +7,23 @@
   --accent: oklch(58% 0.16 145);
   --danger: oklch(48% 0.18 28);
   --danger-surface: oklch(97% 0.018 28);
-  --warn-ink: oklch(39% 0.08 72);
-  --warn-surface: oklch(97% 0.025 82);
-  --warn-border: oklch(73% 0.09 78);
+  --warn-ink: oklch(41% 0.09 75);
+  --warn-surface: oklch(97% 0.03 85);
+  --warn-border: oklch(80% 0.08 80);
   --focus: oklch(43% 0.14 145);
   --accent-hover: oklch(52% 0.16 145);
   --accent-pressed: oklch(46% 0.14 145);
   --ink-soft: oklch(36% 0.018 240);
   --surface-subtle: oklch(96.5% 0.007 240);
   --border-strong: oklch(76% 0.012 240);
+  --restock-urgent: oklch(44% 0.17 28);
+  --restock-low: oklch(45% 0.14 48);
+  --restock-below-par: oklch(42% 0.105 82);
+  --restock-enough: oklch(40% 0.018 240);
   --radius-sm: 6px;
+  --radius-md: 10px;
+  --touch-min: 44px;
+  --field-h: 48px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -95,7 +102,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--touch-min);
   color: var(--fg);
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -313,7 +320,7 @@ button {
 
 .field input {
   width: 100%;
-  min-height: 48px;
+  min-height: var(--field-h);
   padding: 10px 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -360,8 +367,8 @@ button {
   position: absolute;
   top: 2px;
   right: 2px;
-  width: 44px;
-  height: 44px;
+  width: var(--touch-min);
+  height: var(--touch-min);
   display: grid;
   place-items: center;
   padding: 0;
@@ -402,7 +409,7 @@ button {
 
 .submit-button {
   width: 100%;
-  min-height: 48px;
+  min-height: var(--field-h);
   display: grid;
   place-items: center;
   margin-top: var(--space-2);
@@ -539,8 +546,13 @@ button {
   gap: var(--space-1);
 }
 
+.admin-nav-group,
+.admin-nav-group-links {
+  display: contents;
+}
+
 .admin-sidebar nav a {
-  min-height: 44px;
+  min-height: var(--touch-min);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -560,8 +572,10 @@ button {
 }
 
 .admin-sidebar nav a.active {
-  color: var(--focus);
+  color: var(--fg);
   background: color-mix(in oklch, var(--accent) 10%, var(--surface));
+  box-shadow: inset 3px 0 0 currentColor;
+  font-weight: 750;
 }
 
 .admin-sidebar nav svg,
@@ -700,7 +714,7 @@ button {
 }
 
 .catalog-button {
-  min-height: 44px;
+  min-height: var(--touch-min);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -801,7 +815,7 @@ button {
 
 .catalog-panel {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--surface);
 }
@@ -829,7 +843,7 @@ button {
   margin-bottom: var(--space-4);
   padding: var(--space-5);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -850,7 +864,7 @@ button {
 .product-filters input,
 .product-filters select {
   width: 100%;
-  min-height: 44px;
+  min-height: var(--touch-min);
   padding: 9px 11px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -903,7 +917,11 @@ button {
 }
 
 .catalog-table-wrap {
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  contain: inline-size paint;
 }
 
 .catalog-table {
@@ -968,8 +986,8 @@ button {
 }
 
 .drag-handle {
-  width: 44px;
-  height: 44px;
+  width: var(--touch-min);
+  height: var(--touch-min);
   display: grid;
   place-items: center;
   padding: 0;
@@ -1258,7 +1276,7 @@ button {
   gap: var(--space-3);
   padding: var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   transition:
     border-color 160ms ease-out,
@@ -1291,7 +1309,7 @@ button {
 }
 
 .size-state {
-  min-height: 44px;
+  min-height: var(--touch-min);
   margin-top: 25px;
 }
 
@@ -1398,7 +1416,7 @@ button {
 }
 
 .inventory-tabs button {
-  min-height: 44px;
+  min-height: var(--touch-min);
   padding: 0 2px;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -1443,7 +1461,7 @@ button {
 .inventory-filters input,
 .inventory-filters select {
   width: 100%;
-  min-height: 44px;
+  min-height: var(--touch-min);
   padding: 9px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -1543,7 +1561,7 @@ button {
   width: min(100%, 560px);
   max-height: calc(100dvh - 40px);
   overflow-y: auto;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: 0 6px 8px oklch(18% 0.02 240 / 0.18);
 }
@@ -1623,7 +1641,7 @@ button {
 .staff-filters input,
 .staff-filters select {
   width: 100%;
-  min-height: 44px;
+  min-height: var(--touch-min);
   padding: 9px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -1780,7 +1798,7 @@ button {
   margin: 0;
   padding: var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .par-level-group legend {
@@ -1867,7 +1885,7 @@ button {
   .inventory-modal {
     width: 100%;
     max-height: 100dvh;
-    border-radius: 10px 10px 0 0;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
   }
 
   .inventory-modal-grid,
@@ -1954,14 +1972,14 @@ button {
 @media (max-width: 760px) {
   .catalog-admin-shell {
     display: block;
-    padding-bottom: 68px;
+    padding-bottom: 80px;
   }
 
   .admin-sidebar {
     position: fixed;
     inset: auto 0 0;
     width: 100%;
-    height: 68px;
+    height: 80px;
     display: block;
     padding: 6px 8px;
     border-top: 1px solid var(--border);
@@ -1969,8 +1987,7 @@ button {
   }
 
   .admin-sidebar > .brand,
-  .admin-sidebar-user,
-  .admin-nav-label {
+  .admin-sidebar-user {
     display: none;
   }
 
@@ -1983,19 +2000,50 @@ button {
     scrollbar-width: none;
   }
 
+  .admin-nav-group {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .admin-nav-group + .admin-nav-group {
+    margin-left: var(--space-1);
+    padding-left: var(--space-1);
+    border-left: 1px solid var(--border-strong);
+  }
+
+  .admin-nav-group-links {
+    display: flex;
+    gap: 2px;
+  }
+
+  .admin-nav-label {
+    margin: 0 4px;
+    font-size: 10px;
+    line-height: 12px;
+    white-space: nowrap;
+  }
+
   .admin-sidebar nav::-webkit-scrollbar {
     display: none;
   }
 
   .admin-sidebar nav a {
     min-width: 68px;
-    min-height: 56px;
-    flex: 1 0 68px;
+    min-height: calc(var(--touch-min) + var(--space-3));
+    flex: 0 0 68px;
     flex-direction: column;
     justify-content: center;
     gap: 2px;
     padding: 3px;
     font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .admin-sidebar nav a.active {
+    box-shadow: inset 0 -3px 0 currentColor;
   }
 
   .admin-sidebar nav svg {
@@ -2290,7 +2338,7 @@ button {
   gap: var(--space-3);
   margin-bottom: var(--space-6);
   padding: var(--space-4);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -2310,7 +2358,7 @@ button {
 .report-filter,
 .report-totals {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -2516,7 +2564,7 @@ button {
 }
 
 .chart-data summary {
-  min-height: 44px;
+  min-height: var(--touch-min);
   display: flex;
   align-items: center;
   padding: 0 var(--space-6);
@@ -2621,7 +2669,7 @@ button {
 
 .report-filter input {
   width: 100%;
-  height: 48px;
+  height: var(--field-h);
   padding: 0 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -2635,7 +2683,7 @@ button {
 }
 
 .report-button {
-  min-height: 48px;
+  min-height: var(--field-h);
   padding: 0 var(--space-4);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -2918,7 +2966,7 @@ button {
   margin-bottom: 0;
   padding: var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -2937,7 +2985,7 @@ button {
 .order-history-filters input,
 .order-history-filters select {
   width: 100%;
-  height: 48px;
+  height: var(--field-h);
   padding: 0 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -2985,7 +3033,7 @@ button {
 
 .order-table-region {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overscroll-behavior-inline: contain;
 }
 
@@ -3003,7 +3051,7 @@ button {
 }
 
 .order-sort {
-  min-height: 44px;
+  min-height: var(--touch-min);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -3032,7 +3080,7 @@ button {
 
 .order-number-link,
 .order-back-link {
-  min-height: 44px;
+  min-height: var(--touch-min);
   display: inline-flex;
   align-items: center;
   color: var(--focus);
@@ -3121,8 +3169,8 @@ button {
 }
 
 .order-pagination button {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
   padding: 0 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -3155,7 +3203,7 @@ button {
   place-content: center;
   padding: 64px var(--space-6);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   text-align: center;
 }
@@ -3236,7 +3284,7 @@ button {
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -3524,7 +3572,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--touch-min);
 }
 
 .staff-brand > span:last-child {
@@ -3558,7 +3606,7 @@ button {
 
 .admin-sign-in-link,
 .staff-text-button {
-  min-height: 44px;
+  min-height: var(--touch-min);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3605,7 +3653,7 @@ button {
   width: min(100%, 760px);
   padding: clamp(24px, 4vw, 40px);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: 0 2px 5px oklch(30% 0.02 240 / 0.06);
 }
@@ -3644,7 +3692,7 @@ button {
   gap: var(--space-3);
   padding: var(--space-3);
   border: 1px solid var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--fg);
   background: var(--surface);
   cursor: pointer;
@@ -3694,8 +3742,8 @@ button {
 }
 
 .staff-avatar {
-  width: 44px;
-  height: 44px;
+  width: var(--touch-min);
+  height: var(--touch-min);
   flex: 0 0 auto;
   display: grid;
   place-items: center;
@@ -3732,14 +3780,14 @@ button {
 .staff-empty-state {
   padding: var(--space-8) var(--space-6);
   border: 1px dashed var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-subtle);
   text-align: center;
 }
 
 .staff-empty-symbol {
   width: 48px;
-  height: 48px;
+  height: var(--field-h);
   display: grid;
   place-items: center;
   margin: 0 auto var(--space-3);
@@ -3770,7 +3818,7 @@ button {
 
 .staff-primary-button {
   width: 100%;
-  min-height: 48px;
+  min-height: var(--field-h);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3832,7 +3880,7 @@ button {
 
 .staff-field input {
   width: 100%;
-  height: 48px;
+  height: var(--field-h);
   padding: 0 var(--space-3);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -3905,8 +3953,8 @@ button {
 }
 
 .staff-pin-cell {
-  width: 44px;
-  height: 48px;
+  width: var(--touch-min);
+  height: var(--field-h);
   display: grid;
   place-items: center;
   border: 1px solid var(--border-strong);
@@ -4113,7 +4161,7 @@ button {
   top: var(--space-2);
   left: var(--space-2);
   z-index: 20;
-  min-height: 44px;
+  min-height: var(--touch-min);
   padding: 11px 16px;
   border-radius: var(--radius-sm);
   color: var(--surface);
@@ -4211,7 +4259,7 @@ button {
 }
 
 .staff-nav-item {
-  min-height: 44px;
+  min-height: var(--touch-min);
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -4306,7 +4354,7 @@ button {
 }
 
 .staff-workspace-day-context button {
-  min-height: 44px;
+  min-height: var(--touch-min);
   padding: 0 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -4393,7 +4441,7 @@ button {
 .staff-inventory-panel {
   padding: var(--space-6);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -4434,7 +4482,7 @@ button {
 .staff-inventory-field input,
 .staff-inventory-field textarea {
   width: 100%;
-  min-height: 48px;
+  min-height: var(--field-h);
   padding: 0 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -4575,7 +4623,7 @@ button {
 }
 
 .staff-radio-option label {
-  min-height: 48px;
+  min-height: var(--field-h);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4602,7 +4650,7 @@ button {
 }
 
 .staff-readonly-count {
-  min-height: 48px;
+  min-height: var(--field-h);
   display: flex;
   align-items: center;
   font-size: 17px;
@@ -4652,7 +4700,7 @@ button {
 }
 
 .staff-inventory-button {
-  min-height: 48px;
+  min-height: var(--field-h);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4730,7 +4778,7 @@ button {
   gap: var(--space-4);
   padding: var(--space-8);
   border: 1px solid var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-subtle);
   text-align: center;
 }
@@ -4746,7 +4794,7 @@ button {
   gap: var(--space-3);
   padding: var(--space-6);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -4822,7 +4870,7 @@ button {
   max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -4913,19 +4961,19 @@ button {
 }
 
 .staff-restock-status.urgent {
-  color: oklch(44% 0.17 28);
+  color: var(--restock-urgent);
 }
 
 .staff-restock-status.low {
-  color: oklch(45% 0.14 48);
+  color: var(--restock-low);
 }
 
 .staff-restock-status.below-par {
-  color: oklch(42% 0.105 82);
+  color: var(--restock-below-par);
 }
 
 .staff-restock-status.enough {
-  color: oklch(40% 0.018 240);
+  color: var(--restock-enough);
 }
 
 .staff-table-scroll-hint {
@@ -4978,7 +5026,7 @@ button {
 }
 
 .staff-day-type-options span {
-  min-height: 48px;
+  min-height: var(--field-h);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5038,7 +5086,7 @@ button {
 .staff-day-open-summary {
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -5151,7 +5199,7 @@ button {
   min-width: 0;
   padding: var(--space-5);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -5466,7 +5514,7 @@ button {
   margin-bottom: var(--space-5);
   padding: var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: color-mix(in oklch, var(--surface) 96%, var(--bg));
 }
 
@@ -5488,7 +5536,7 @@ button {
 .staff-order-filter-head button,
 .staff-order-empty button,
 .staff-order-load-error button {
-  min-height: 44px;
+  min-height: var(--touch-min);
   padding: 0 var(--space-4);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -5535,7 +5583,7 @@ button {
 .staff-order-filter-grid select,
 .staff-order-filter-grid input {
   width: 100%;
-  min-height: 48px;
+  min-height: var(--field-h);
   padding: 0 var(--space-3);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -5591,7 +5639,7 @@ button {
   margin-bottom: var(--space-6);
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-subtle);
 }
 
@@ -5632,7 +5680,7 @@ button {
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -5834,7 +5882,7 @@ button {
   justify-items: center;
   padding: var(--space-8) var(--space-5);
   border: 1px dashed var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   text-align: center;
 }
@@ -5862,7 +5910,7 @@ button {
   gap: var(--space-3);
   padding: var(--space-6);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -5989,7 +6037,7 @@ button {
   margin-bottom: var(--space-5);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-subtle);
 }
 
@@ -6230,7 +6278,7 @@ button {
   max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -6310,7 +6358,7 @@ button {
   justify-items: center;
   padding: var(--space-8) var(--space-5);
   border: 1px dashed var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   text-align: center;
 }
