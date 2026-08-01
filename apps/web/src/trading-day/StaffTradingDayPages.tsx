@@ -17,6 +17,8 @@ import {
   type TradingDayClosingSummary,
 } from '@coffee-shop/shared';
 import { formatMoney } from '../reporting/format';
+import { StaffPageHeading } from '../staff/StaffPageHeading';
+import { useStaffWorkspaceBusinessDay } from '../staff/StaffWorkspace';
 import {
   TradingDayApiError,
   closeBusinessDay,
@@ -123,30 +125,6 @@ function openedTime(value: string): string {
 
 function dayTypeLabel(value: DayType): string {
   return value === DayType.PEAK ? 'Peak day' : 'Normal day';
-}
-
-function PageHeading({
-  title,
-  description,
-  businessDate,
-}: {
-  title: string;
-  description: string;
-  businessDate?: string | null;
-}) {
-  return (
-    <header className="staff-inventory-page-heading">
-      <div>
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </div>
-      {businessDate && (
-        <div className="staff-business-context" aria-label="Business day context">
-          <span>{fullBusinessDate(businessDate)}</span>
-        </div>
-      )}
-    </header>
-  );
 }
 
 function LoadingState({ label }: { label: string }) {
@@ -281,6 +259,7 @@ function OpenDaySummary({ day }: { day: CurrentOpenBusinessDay }) {
 
 export function OpenBusinessDayPage() {
   useDocumentTitle('Open business day');
+  const { setBusinessDay } = useStaffWorkspaceBusinessDay();
   const [day, setDay] = useState<CurrentOpenBusinessDay | null>(null);
   const [staff, setStaff] = useState<InventoryStaffOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -307,6 +286,7 @@ export function OpenBusinessDayPage() {
           : await listActiveTradingDayStaff();
         if (!cancelled) {
           setDay(currentDay);
+          setBusinessDay(currentDay);
           setStaff(activeStaff);
         }
       } catch (error) {
@@ -324,7 +304,7 @@ export function OpenBusinessDayPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadVersion]);
+  }, [loadVersion, setBusinessDay]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -370,6 +350,7 @@ export function OpenBusinessDayPage() {
         openedByStaffMemberId: openedBy,
       });
       setDay(openedDay);
+      setBusinessDay(openedDay);
     } catch (error) {
       setFormMessages(
         apiMessages(error, 'The business day could not be opened. Try again.'),
@@ -381,10 +362,9 @@ export function OpenBusinessDayPage() {
 
   return (
     <main id="staff-main" className="staff-inventory-workspace staff-inventory-screen">
-      <PageHeading
+      <StaffPageHeading
         title="Open business day"
         description="Start the day everything else anchors on: orders, cash, and counts."
-        businessDate={day?.isOpen ? day.businessDate : null}
       />
 
       {loading ? (
@@ -731,6 +711,7 @@ function discrepancyText(value: MoneyCents | null, input: string): string {
 
 export function CloseBusinessDayPage() {
   useDocumentTitle('Close business day');
+  const { clearBusinessDay } = useStaffWorkspaceBusinessDay();
   const [summary, setSummary] = useState<TradingDayClosingSummary | null>(null);
   const [staff, setStaff] = useState<InventoryStaffOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -832,6 +813,7 @@ export function CloseBusinessDayPage() {
       });
       setDidClose(true);
       setSummary(EMPTY_CLOSING_SUMMARY);
+      clearBusinessDay();
     } catch (error) {
       setFormMessages(
         apiMessages(error, 'The business day could not be closed. Try again.'),
@@ -843,10 +825,9 @@ export function CloseBusinessDayPage() {
 
   return (
     <main id="staff-main" className="staff-inventory-workspace staff-inventory-screen">
-      <PageHeading
+      <StaffPageHeading
         title="Close business day"
         description="Review both reconciliations, count the drawer, then close."
-        businessDate={summary?.isOpen ? summary.businessDate : null}
       />
 
       {loading ? (

@@ -5,15 +5,12 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
 import {
   CountMethod,
-  DayType,
   MovementType,
   StockLevel,
   type CountSheet,
   type CountSheetItem,
-  type CurrentOpenBusinessDay,
   type InventoryStaffOption,
   type RestockStatus,
   type RestockStatusResult,
@@ -22,7 +19,7 @@ import {
   type SubmitStockCountLineInput,
   type SubmittedStockCount,
 } from '@coffee-shop/shared';
-import { useAuth } from '../auth/AuthContext';
+import { StaffPageHeading } from '../staff/StaffPageHeading';
 import {
   InventoryApiError,
   createStockMovement,
@@ -84,12 +81,6 @@ function formatRecordedAt(value: string): string {
   }).format(new Date(value));
 }
 
-function dayTypeLabel(dayType: DayType | null): string {
-  if (dayType === DayType.PEAK) return 'Peak day';
-  if (dayType === DayType.NORMAL) return 'Normal day';
-  return '';
-}
-
 function itemMeta(item: Pick<CountSheetItem, 'size' | 'unit'>): string {
   return [item.size, item.unit].filter(Boolean).join(' · ');
 }
@@ -109,71 +100,6 @@ function useDocumentTitle(title: string) {
   useEffect(() => {
     document.title = `${title} · UCM Coffee Studio`;
   }, [title]);
-}
-
-export function StaffWorkspaceLayout() {
-  const auth = useAuth();
-
-  return (
-    <div className="staff-inventory-shell">
-      <a className="staff-skip-link" href="#staff-main">
-        Skip to staff workspace
-      </a>
-      <header className="staff-workspace-header">
-        <div className="staff-workspace-header-inner">
-          <div className="staff-workspace-brand">
-            <div>
-              <strong>UCM Coffee Studio</strong>
-              <span>Staff</span>
-            </div>
-            <small>
-              Signed in as {auth.user?.displayName ?? auth.user?.username}
-            </small>
-          </div>
-          <nav className="staff-inventory-nav" aria-label="Staff workspace">
-            <NavLink to="/pos/open">Open Day</NavLink>
-            <NavLink to="/pos/opening">Opening</NavLink>
-            <NavLink to="/pos/closing">Closing</NavLink>
-            <NavLink to="/pos/restock">Restock</NavLink>
-            <NavLink to="/pos/movements">Deliveries &amp; Wastage</NavLink>
-            <NavLink to="/pos/orders">Order History</NavLink>
-            <NavLink to="/pos/cash">Cash &amp; Expenses</NavLink>
-            <NavLink to="/pos/close">Close Day</NavLink>
-          </nav>
-        </div>
-      </header>
-      <Outlet />
-    </div>
-  );
-}
-
-function PageHeading({
-  headingId,
-  title,
-  description,
-  businessDay,
-  context,
-}: {
-  headingId?: string;
-  title: string;
-  description: string;
-  businessDay?: CurrentOpenBusinessDay;
-  context?: string;
-}) {
-  return (
-    <header className="staff-inventory-page-heading">
-      <div>
-        <h1 id={headingId}>{title}</h1>
-        <p>{description}</p>
-      </div>
-      {businessDay?.isOpen && (
-        <div className="staff-business-context" aria-label="Business day context">
-          <span>{formatBusinessDate(businessDay.businessDate)}</span>
-          {context && <span>{context}</span>}
-        </div>
-      )}
-    </header>
-  );
 }
 
 function LoadingState() {
@@ -454,7 +380,7 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
   if (loadError || !sheet) {
     return (
       <main id="staff-main" className="staff-inventory-workspace">
-        <PageHeading title={pageName} description="Record the physical stock on hand." />
+        <StaffPageHeading title={pageName} description="Record the physical stock on hand." />
         <LoadError
           message={loadError}
           retry={() => setLoadVersion((version) => version + 1)}
@@ -469,7 +395,7 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
   return (
     <main id="staff-main" className="staff-inventory-workspace">
       <section className="staff-inventory-screen" aria-labelledby={`${phase}-title`}>
-        <PageHeading
+        <StaffPageHeading
           headingId={`${phase}-title`}
           title={pageName}
           description={
@@ -477,8 +403,6 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
               ? 'Count the active Critical items before service begins.'
               : 'Record the physical count for every active stock item.'
           }
-          businessDay={sheet.businessDay}
-          context={dayTypeLabel(sheet.businessDay.dayType)}
         />
         {!sheet.businessDay.isOpen ? (
           <NoOpenDay />
@@ -716,7 +640,7 @@ export function RestockStatusPage() {
   if (loadError || !result) {
     return (
       <main id="staff-main" className="staff-inventory-workspace">
-        <PageHeading title="Restock status" description="Review the most urgent items first." />
+        <StaffPageHeading title="Restock status" description="Review the most urgent items first." />
         <LoadError
           message={loadError}
           retry={() => setLoadVersion((version) => version + 1)}
@@ -725,19 +649,13 @@ export function RestockStatusPage() {
     );
   }
 
-  const source = result.selectedPhase
-    ? `${result.selectedPhase === 'close' ? 'Closing' : 'Opening'} count`
-    : '';
-
   return (
     <main id="staff-main" className="staff-inventory-workspace">
       <section className="staff-inventory-screen" aria-labelledby="restock-title">
-        <PageHeading
+        <StaffPageHeading
           headingId="restock-title"
           title="Restock status"
           description="Review stock status from the latest count for this business day."
-          businessDay={result.businessDay}
-          context={source}
         />
         {!result.businessDay.isOpen ? (
           <NoOpenDay />
@@ -934,7 +852,7 @@ export function StockMovementsPage() {
   if (loadError || !data) {
     return (
       <main id="staff-main" className="staff-inventory-workspace">
-        <PageHeading
+        <StaffPageHeading
           headingId="movements-title"
           title="Deliveries & wastage"
           description="Record stock changes between physical counts."
@@ -950,12 +868,10 @@ export function StockMovementsPage() {
   return (
     <main id="staff-main" className="staff-inventory-workspace">
       <section className="staff-inventory-screen" aria-labelledby="movements-title">
-        <PageHeading
+        <StaffPageHeading
           headingId="movements-title"
           title="Deliveries & wastage"
           description="Record stock changes between physical counts."
-          businessDay={data.businessDay}
-          context={dayTypeLabel(data.businessDay.dayType)}
         />
         {!data.businessDay.isOpen ? (
           <NoOpenDay />

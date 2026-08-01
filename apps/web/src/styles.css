@@ -4140,15 +4140,22 @@ button {
   width: min(100%, 1504px);
   min-height: 72px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
   margin: 0 auto;
   padding: var(--space-3) var(--space-8);
 }
 
+.staff-workspace-context-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
 .staff-workspace-brand {
-  min-width: max-content;
+  min-width: 0;
 }
 
 .staff-workspace-brand > div {
@@ -4176,21 +4183,38 @@ button {
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .staff-inventory-nav {
+  max-width: 100%;
   min-width: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-1);
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   scrollbar-width: thin;
 }
 
-.staff-inventory-nav a {
+.staff-inventory-nav ul {
+  width: max-content;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 0 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.staff-inventory-nav li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.staff-nav-item {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
+  gap: 7px;
   flex: 0 0 auto;
   padding: 0 14px;
   border: 1px solid transparent;
@@ -4202,18 +4226,100 @@ button {
   white-space: nowrap;
 }
 
-.staff-inventory-nav a:hover {
+.staff-inventory-nav a.staff-nav-item:hover {
   color: var(--fg);
   background: var(--surface-subtle);
 }
 
-.staff-inventory-nav a[aria-current='page'] {
+.staff-nav-item[aria-current='page'] {
   border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
   color: var(--fg);
   background: color-mix(in oklch, var(--accent) 11%, var(--surface));
+  box-shadow: inset 0 -3px 0 currentColor;
+  font-weight: 750;
+}
+
+.staff-nav-item.is-unavailable {
+  border-color: var(--border-strong);
+  border-style: dashed;
+  color: var(--muted);
+  background: transparent;
+  cursor: default;
+}
+
+.staff-nav-lock {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.staff-nav-separator {
+  width: 1px;
+  height: 24px;
+  flex: 0 0 auto;
+  margin: 0 var(--space-1);
+  background: var(--border-strong);
+}
+
+.staff-workspace-day-context {
+  min-width: 218px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  text-align: right;
+}
+
+.staff-workspace-day-context.is-closed,
+.staff-workspace-day-context.is-unavailable {
+  border-style: dashed;
+  background: transparent;
+}
+
+.staff-workspace-day-context > div {
+  display: grid;
+  gap: 1px;
+}
+
+.staff-workspace-day-context strong,
+.staff-workspace-day-context span {
+  line-height: 1.25;
+}
+
+.staff-workspace-day-context strong {
+  color: var(--fg);
+  font-size: 13px;
+}
+
+.staff-workspace-day-context span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.staff-workspace-day-context button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  background: var(--surface);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
 }
 
 .staff-inventory-nav a:focus-visible,
+.staff-workspace-day-context button:focus-visible,
 .staff-inventory-button:focus-visible,
 .staff-inventory-field select:focus-visible,
 .staff-inventory-field input:focus-visible,
@@ -4269,24 +4375,18 @@ button {
   font-size: 16px;
 }
 
-.staff-business-context {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
-
-.staff-business-context span {
-  min-height: 36px;
+.staff-page-heading-badge {
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
-  padding: 0 10px;
-  border: 1px solid var(--border);
+  padding: 4px 9px;
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--ink-soft);
   background: var(--surface-subtle);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 750;
+  letter-spacing: 0.06em;
   white-space: nowrap;
 }
 
@@ -5226,13 +5326,8 @@ button {
 }
 
 @media (max-width: 1000px) {
-  .staff-workspace-header-inner {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
-  }
-
-  .staff-inventory-nav {
-    justify-content: flex-start;
+  .staff-inventory-nav ul {
+    margin-left: 0;
   }
 
   .staff-level-options {
@@ -5273,6 +5368,18 @@ button {
     padding: var(--space-2) var(--space-4);
   }
 
+  .staff-workspace-context-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .staff-workspace-day-context {
+    min-width: 0;
+    justify-content: space-between;
+    text-align: left;
+  }
+
   .staff-inventory-nav {
     margin-right: calc(var(--space-4) * -1);
   }
@@ -5285,10 +5392,6 @@ button {
     align-items: flex-start;
     flex-direction: column;
     gap: var(--space-3);
-  }
-
-  .staff-business-context {
-    justify-content: flex-start;
   }
 
   .staff-inventory-panel {
@@ -5332,7 +5435,6 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-.staff-order-page-head,
 .staff-order-filter-head,
 .staff-order-ledger-head,
 .staff-order-title-row,
@@ -5342,29 +5444,6 @@ button {
   align-items: center;
 }
 
-.staff-order-page-head {
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-5);
-  margin-bottom: var(--space-6);
-}
-
-.staff-order-page-head h1 {
-  margin: 0;
-  font-size: clamp(30px, 3vw, 40px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  text-wrap: balance;
-}
-
-.staff-order-page-head p {
-  max-width: 65ch;
-  margin: var(--space-2) 0 0;
-  color: var(--muted);
-}
-
-.staff-order-page-head > span,
 .staff-order-guidance > span {
   min-height: 28px;
   display: inline-flex;
@@ -5813,12 +5892,10 @@ button {
 }
 
 @media (max-width: 767px) {
-  .staff-order-page-head,
   .staff-order-guidance {
     display: block;
   }
 
-  .staff-order-page-head > span,
   .staff-order-guidance > span {
     margin-top: var(--space-3);
   }
