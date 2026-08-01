@@ -1332,3 +1332,82 @@ recorded for that day.
 - **Type selection has no programmatic state.** Cash in, Cash out, and Expense
   visually identify the selected option but expose no `aria-pressed` state.
   Should v2 make the selected entry type available to assistive technology?
+
+---
+
+## 2026-08-01 — Active cashier selection (staff POS workspace)
+
+Explored the staff-facing cashier-selection screen at `/pos/cashier`, signed in
+with the shared system login as the administrator. Exploration was strictly
+read-only: no staff choice was pressed because a choice may immediately change
+the active cashier. No cashier was selected, switched, or cleared, and no PIN
+was entered.
+
+Environment at time of exploration: one business day was open, **Thursday,
+Jul 23 2026**, marked **Normal day**, and the fresh browser session had no
+active cashier.
+
+### Cashier picker (`/pos/cashier`)
+
+- The page heading is **"Who's on shift?"**. Its subtitle says **"Pick the
+  person ringing up orders. This stamps every order they take."**
+- The shared staff-workspace header showed **Set cashier** as the rightmost
+  action. It linked to `/pos/cashier`; there was no active person's name in the
+  header in this fresh session.
+- The picker showed exactly three choices: **Ben**, **Carmen**, and **Rodette
+  Sevilla**. These are the three active members seen in the admin Staff roster.
+  **Ana Banana**, the roster's inactive member, was absent.
+- Choices were ordered Ben, Carmen, Rodette Sevilla, matching alphabetical
+  order by displayed first name in the observed roster.
+- Each person was presented as a large button card. The cards showed a circular
+  initials badge above the full name: **B**, **C**, and **RS** respectively.
+- None of the three cards displayed a role, username, status, schedule, PIN
+  indicator, or any other secondary information.
+- The initial screen contained no PIN input, number pad, password input, or
+  visible validation message. It showed only the three person cards beneath
+  the heading and subtitle.
+- There was no search, filter, pagination, roster grouping, or empty-state text
+  visible with the three available choices.
+- There was no visible **Cancel**, **Back**, **Skip**, **Clear cashier**, or
+  **No cashier** action in the picker content.
+- No card exposed `aria-pressed` or `aria-current`; in the observed no-cashier
+  state, no selected-card state was conveyed programmatically.
+- The page did not show the business-date and day-type chips used on several
+  other staff operational screens, even though a business day was open.
+- The full staff navigation remained available while no cashier was selected,
+  including **Take Order**, **Order History**, **Cash & Expenses**, day opening
+  and closing, and all inventory destinations. The picker did not present a
+  blocking overlay or require a selection before those links could be used.
+
+### Not observable in this run
+
+- What pressing each staff card does. A card could immediately set a cashier or
+  could first open a PIN prompt; pressing it was unsafe because the first case
+  would change v1 state.
+- Which, if any, of the three staff members has a PIN configured, the PIN UI,
+  PIN format or length, validation messages, and failure behaviour.
+- What destination follows a successful selection, how long the selection
+  persists, and whether it is shared across tabs or browser sessions.
+- How an active cashier is switched or cleared, and what the picker and header
+  show after a cashier has been selected.
+- The picker when no active staff exist and whether it behaves differently when
+  no business day is open.
+
+### Open questions for the human
+
+- **Cashier selection and staff authentication appear to be separate concepts.**
+  This screen is reached after the shared system login and asks which roster
+  member is ringing orders. Should v2 preserve a separate active-cashier step,
+  or should the individually signed-in staff account always be the cashier?
+- **The PIN interaction could not be observed safely.** DISCOVERY.md says a
+  configured PIN must be entered before the person becomes active, but the
+  initial picker does not indicate who has one. Should v2 reveal that a card
+  will ask for a PIN before it is pressed, and what should staff see after an
+  incorrect PIN?
+- **No clear or unassigned action is visible.** DISCOVERY.md says orders may be
+  taken without a cashier so service is not blocked, but the picker offers only
+  named people. After a cashier is selected, should v2 provide an explicit way
+  to clear the active cashier and return to the unassigned state?
+- **Selection persistence is not explained on screen.** Should the active
+  cashier apply only to the current tab, the whole browser session, the device,
+  or the open business day, and when should staff be asked to choose again?
