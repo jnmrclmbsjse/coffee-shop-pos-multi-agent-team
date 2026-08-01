@@ -68,20 +68,38 @@ echo "==> Parent story: #$STORY"
 
 # ---------- all dev tasks closed? ----------
 # ---------- unblock anything that was waiting on this task ----------
-# Tasks record their blocker as "Blocked By: #<n>" in the body (set by Tech Lead).
+# Tasks record blockers in the issue form's "Blocked By" section. Only advance
+# a dependent after its final blocker closes; an earlier blocker may also call
+# this script while other prerequisites are still open.
 echo "==> Checking for tasks blocked by #$TASK"
-BLOCKED_BY_THIS=$(gh issue list --state open --label blocked --json number,body \
-  -q "[.[] | select(.body | test(\"Blocked By.*#$TASK\\\\b\")) | .number] | .[]")
-if [[ -n "${BLOCKED_BY_THIS:-}" ]]; then
-  while read -r dep; do
-    [[ -z "$dep" ]] && continue
-    echo "    unblocking #$dep"
-    gh issue edit "$dep" --remove-label blocked --add-label agent:dev >/dev/null
-    set_status "$dep" "Ready for Dev" || true
-  done <<< "$BLOCKED_BY_THIS"
-else
-  echo "    none"
-fi
+BLOCKED_CANDIDATES=$(gh issue list --state open --label blocked \
+  --label type:dev-task --limit 1000 --json number -q '.[].number')
+UNBLOCKED_ANY=0
+while read -r dep; do
+  [[ -z "$dep" ]] && continue
+  dep_body="$(gh issue view "$dep" --json body -q .body)"
+  blockers="$(blocked_by_issue_numbers "$dep_body")"
+  printf '%s\n' "$blockers" | grep -qx "$TASK" || continue
+
+  open_blockers=""
+  while read -r blocker; do
+    [[ -z "$blocker" ]] && continue
+    if [[ "$(gh issue view "$blocker" --json state -q .state)" == "OPEN" ]]; then
+      open_blockers="$open_blockers #$blocker"
+    fi
+  done <<< "$blockers"
+
+  if [[ -n "$open_blockers" ]]; then
+    echo "    #$dep remains blocked by${open_blockers}"
+    continue
+  fi
+
+  echo "    unblocking #$dep"
+  gh issue edit "$dep" --remove-label blocked --add-label agent:dev >/dev/null
+  set_status "$dep" "Ready for Dev" || true
+  UNBLOCKED_ANY=1
+done <<< "$BLOCKED_CANDIDATES"
+[[ "$UNBLOCKED_ANY" == "1" ]] || echo "    none ready"
 
 OPEN_DEV=$(gh issue list --label type:dev-task --state open --json number,body \
            -q "[.[] | select(.body | test(\"#$STORY\\\\b\")) | .number] | join(\" \")")

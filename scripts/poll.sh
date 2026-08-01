@@ -153,7 +153,7 @@ escalate() {
 }
 
 # ---------- dependency gate (dev lane) ----------
-# A dev task carries a "Blocked By: #a, #b" line in its body, written by
+# A dev task carries a "Blocked By" issue-form section in its body, written by
 # po-prepare. The poller has NO dependency gate of its own: poll_role filters
 # only the `blocked` LABEL, which nothing applies automatically. So a dev task
 # whose prerequisite has not merged yet is still dispatched — the dev agent
@@ -164,17 +164,16 @@ escalate() {
 # exactly how #130 died: 5 no-op pickups while blocked by #128, escalated as a
 # loop at 03:05, then #128 merged (PR #136) at 03:17 — 12 minutes too late.
 #
-# Fix: resolve the "Blocked By:" line live and skip the task entirely while ANY
+# Fix: resolve the "Blocked By" section live and skip the task entirely while ANY
 # referenced issue is still OPEN — no dispatch, no counter bump, no escalation.
 # When the blocker closes, the task flows on its own next cycle. Only the
-# `Blocked By:` line is read (not the `### Blocked By` heading or prose #refs),
-# matching how po-prepare writes it. Echoes the still-open blockers (empty when
-# clear or when the body has no Blocked By line).
+# issue-form section (or the legacy inline `Blocked By:` form) is read, not
+# unrelated prose #refs. Echoes the still-open blockers (empty when clear or
+# when the body has no Blocked By section).
 open_blockers() {
   local issue="$1" body refs n out=""
   body="$(gh issue view "$issue" --json body -q .body 2>/dev/null)" || return 0
-  refs="$(printf '%s\n' "$body" | grep -iE '^Blocked By:' \
-          | grep -oE '#[0-9]+' | grep -oE '[0-9]+' | sort -u)"
+  refs="$(blocked_by_issue_numbers "$body")"
   [[ -z "$refs" ]] && return 0
   for n in $refs; do
     [[ "$(gh issue view "$n" --json state -q .state 2>/dev/null)" == "OPEN" ]] \
