@@ -15,7 +15,8 @@
     "dev": "pnpm --parallel --filter @coffee-shop/api --filter @coffee-shop/web run dev",
     "e2e": "playwright test",
     "lint": "eslint .",
-    "test": "pnpm --recursive --if-present run test",
+    "test": "pnpm test:scripts && pnpm --recursive --if-present run test",
+    "test:scripts": "bash scripts/tests/dependency-parsing.test.sh",
     "typecheck": "pnpm --recursive --if-present run typecheck"
   },
   "devDependencies": {

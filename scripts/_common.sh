@@ -18,6 +18,7 @@ CLAUDE_EXEC="claude --dangerously-skip-permissions -p"
 # step. Its MCP server is registered in Codex's config.toml (see plan §6).
 
 PROMPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../prompts" && pwd)"
+source "$(dirname "${BASH_SOURCE[0]}")/dependency-utils.sh"
 
 # Per-role GitHub identities.
 # GH_TOKEN_DEV  — machine account (Dev agent authors PRs as this identity)
