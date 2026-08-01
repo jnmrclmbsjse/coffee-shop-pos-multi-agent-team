@@ -6,10 +6,20 @@ See CLAUDE.md for identity/boundaries. ONE review pass only (see below).
 ## Task
 
 1. Find the PR (it references `Closes #{{ISSUE}}`) and read its diff, the issue's
-   acceptance criteria, and the parent story.
+   acceptance criteria, and the parent story. For a frontend change, also read
+   the parent story's Design Reference, the linked Design Task, and the PR's
+   **Design fidelity** section.
 2. Review against: acceptance criteria met; stack conventions and ADR 0001
    (money in cents, append-only, location_id, idempotent writes); test coverage
    present and meaningful; no scope creep; no changes outside appropriate paths.
+   For a frontend change, compare the implementation with the advisory design's
+   material interaction, layout, responsive, accessibility, component, and
+   visual decisions. The design is not an extra acceptance-criteria layer:
+   justified deviations are allowed. An unexplained material deviation, a PR
+   that did not identify the design it used, or a rationale contradicted by the
+   rendered implementation is a review defect and requires changes. Include a
+   short **Design fidelity** finding in the review comment, naming accepted
+   deviations as well as any mismatch that must be corrected.
 3. Reach a verdict:
     - APPROVE — you now merge it yourself:
       a. Try `gh pr review --approve`. If GitHub rejects it because the PR is

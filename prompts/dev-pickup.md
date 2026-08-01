@@ -9,12 +9,36 @@ implementing GitHub issue #{{ISSUE}} (a Dev Task, or a Bug that blocks a story).
    `gh issue view {{ISSUE}} --json title,body,comments`.
 2. Confirm the issue is NOT labeled `blocked`. If it is, stop — comment that it's
    blocked and return; do not implement.
+2a. If this task changes a user interface, read the parent story's **Design
+Reference (UI/UX)** and the linked Design Task before planning the implementation.
+Open the committed mockup and its supporting `DESIGN.md` / `README.md` when
+present. A completed design is required input, but it is **advisory**: acceptance
+criteria and ADRs remain binding, and an established shared shell or component
+may be preserved when that gives the product a more coherent result.
+
+Do not drift from the design silently. In the PR body, complete the **Design
+fidelity (frontend changes)** section with:
+- the design reference you consulted;
+- the material interaction, layout, responsive, accessibility, and visual
+  decisions you followed; and
+- every material deviation, with a concrete reason (for example an acceptance
+  criterion, ADR, accessibility requirement, or existing shared component).
+
+"Material" means a difference a user would notice or that changes how they
+navigate, understand state, or complete the task. Small implementation details
+that do not affect the rendered experience do not need an inventory.
+
+If a frontend task says it depends on design but no usable Design Reference is
+available, treat that as an ambiguity under 3b. If the design conflicts with a
+binding requirement, or choosing a deviation would decide unspecified user
+behaviour, raise the conflict under 3b instead of silently choosing. A documented
+integration choice that preserves settled behaviour does not need clarification.
 3. If this is a re-run after `Changes Requested` or `QA Rejected`: read the Tech
    Lead review comments / the linked Bug, and address those SPECIFIC points. Do
    not re-architect or expand scope.
 
 3b. IF YOU HIT AN AMBIGUITY you cannot resolve from the issue, its parent story,
-CLAUDE.md/AGENTS.md, or `docs/adr/**` — for example the task requires
+its Design Reference (for frontend work), CLAUDE.md/AGENTS.md, or `docs/adr/**` — for example the task requires
 behaviour the approved API or an ADR does not permit — do NOT guess and do
 NOT widen scope to make it work. Hand it to PO:
 

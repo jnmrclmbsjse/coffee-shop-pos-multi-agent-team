@@ -43,6 +43,17 @@ grounded in the acceptance criteria and existing design tokens. Save output
 files under docs/design/ (e.g. docs/design/mockups/issue-{{ISSUE}}/ and any new
 tokens into the project token file — this is the one write-scope UI/UX has).
 
+The delivered mockup is an **advisory implementation reference**, not an extra
+set of acceptance criteria. In its supporting `DESIGN.md`, include an
+"Implementation handoff" section that distinguishes:
+- requirements inherited from the story, ADRs, and accessibility obligations;
+- advisory interaction, layout, responsive, and visual recommendations; and
+- any proposed material change to an existing shared shell or component named
+  in the Tech Lead breakdown, with the reason for recommending it.
+
+This lets Dev evaluate integration choices deliberately and lets Tech Lead
+review any deviation without treating pixel matching as the goal.
+
 If Open Design errors mid-generation (not a daemon-down case): fail clean per
 rule B — error comment, return `DESIGN ERROR — <reason>`, stop.
 

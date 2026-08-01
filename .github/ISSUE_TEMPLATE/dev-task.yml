@@ -23,6 +23,11 @@ body:
       description: Pulled from the parent story
     validations:
       required: true
+  - type: input
+    id: design-input
+    attributes:
+      label: Advisory Design Input
+      description: For frontend work, link the Design Task or delivered Design Reference. Use "Not applicable" for work with no rendered UI.
   - type: textarea
     id: technical-notes
     attributes:

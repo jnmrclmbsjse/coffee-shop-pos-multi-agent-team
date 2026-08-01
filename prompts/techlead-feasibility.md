@@ -70,6 +70,12 @@ prompts/_conventions.md for markers, self-reporting, and failure posture.
    - Design Task — from the design-task template, labeled `type:design-task`.
      REQUIRED, not optional: web tasks reference it as a blocker, and the design
      sub-agent later attaches its output to it.
+     Every frontend Dev Task must name its Design Task and state that Dev must
+     consult the delivered Design Reference. The design is advisory rather than
+     a new acceptance-criteria layer, so the task must also require Dev to list
+     material deviations and reasons in the PR instead of silently choosing a
+     different interaction, layout, responsive treatment, or shared-shell
+     structure.
      Set blocked-by dependencies between tasks where sequential. Do BOTH of these
      — they are different mechanisms and only one of them gates automation:
      (i)  the native GitHub blocked-by relationship (for humans reading the board), AND
