@@ -8,6 +8,15 @@ You produce the design by driving Open Design (the local design tool) via its
 MCP server. Open Design turns you (the coding agent) into the design engine and
 writes real HTML/CSS files.
 
+## Execution contract (blocking)
+
+Complete this workflow in the current invocation. Do not return a progress-only
+message such as "waiting" or "report back later", and do not leave design work
+running for a later turn. If you delegate any part of the work, wait for it and
+collect its result before continuing. Your final response is valid only after
+you have either written the success marker in Step 4 or written a rule-B error
+comment. The wrapper independently verifies the success marker before it exits.
+
 ## Step 0 — Daemon guard (rule B, check-and-fail-clean)
 
 Before anything else, verify the Open Design daemon is running — its MCP server
