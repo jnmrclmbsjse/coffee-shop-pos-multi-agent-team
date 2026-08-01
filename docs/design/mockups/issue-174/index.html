@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cross-screen consistency reference · UCM Coffee Studio POS</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#reference-main">Skip to reference content</a>
+
+    <header class="ref-head" data-od-id="reference-header">
+      <div class="ref-head-inner">
+        <div class="ref-head-title">
+          <p class="ref-kicker">Issue #174 · Design task #176 · advisory reference</p>
+          <h1>Cross-screen consistency reference</h1>
+          <p class="ref-lede">
+            One shell contract for the staff POS workspace and one for the admin
+            back office, plus the shared control and state-cue conventions both
+            workspaces answer to. This is an implementation reference, not a
+            pixel target.
+          </p>
+        </div>
+
+        <div class="ref-controls">
+          <fieldset class="seg" data-od-id="viewport-toggle">
+            <legend>Viewport</legend>
+            <div class="seg-track">
+              <label class="seg-option">
+                <input type="radio" name="viewport" value="tablet" checked />
+                <span>1024 &times; 768 <small>in-shop tablet</small></span>
+              </label>
+              <label class="seg-option">
+                <input type="radio" name="viewport" value="narrow" />
+                <span>390 &times; 844 <small>narrow</small></span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="seg" data-od-id="day-state-toggle">
+            <legend>Business day</legend>
+            <div class="seg-track">
+              <label class="seg-option">
+                <input type="radio" name="dayState" value="open" checked />
+                <span>Day open <small>most destinations actionable</small></span>
+              </label>
+              <label class="seg-option">
+                <input type="radio" name="dayState" value="closed" />
+                <span>No day open <small>prerequisites unmet</small></span>
+              </label>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+    </header>
+
+    <main id="reference-main" class="ref-main">
+      <!-- ============================ STAFF SHELL ============================ -->
+      <section class="ref-section" aria-labelledby="staff-shell-title" data-od-id="staff-shell-section">
+        <div class="ref-section-head">
+          <h2 id="staff-shell-title">Staff POS workspace shell</h2>
+          <p>
+            One navigation strip, nine destinations, identical on every
+            <code>/pos*</code> route. Order is fixed. Grouping is visual only and
+            never reorders. Signed-in staff sits top left of the shell on every
+            route; business-day context sits top right of the shell on every
+            route and is always present, including when no day is open.
+          </p>
+        </div>
+
+        <div class="frame-scroll">
+          <div class="frame" data-frame data-od-id="staff-frame">
+            <div class="frame-label" aria-hidden="true">
+              <span data-frame-size>1024 &times; 768</span>
+              <span>/pos/restock</span>
+            </div>
+            <div class="frame-viewport">
+              <div class="staff-shell">
+                <header class="s-header">
+                  <div class="s-header-top">
+                    <div class="s-identity">
+                      <div class="s-brand">
+                        <span class="s-mark" aria-hidden="true"><span></span><span></span></span>
+                        <strong>UCM Coffee Studio</strong>
+                        <span class="s-role">Staff</span>
+                      </div>
+                      <p class="s-user">Signed in as <strong>Marilou Ababa</strong></p>
+                    </div>
+
+                    <!-- Business-day context: one shell position, never absent -->
+                    <div class="s-day" data-day-context aria-label="Business day context">
+                      <span class="s-day-icon" aria-hidden="true" data-day-icon>
+                        <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+                      </span>
+                      <span class="s-day-text">
+                        <span class="s-day-primary" data-day-primary>Tue 14 Oct 2025</span>
+                        <span class="s-day-secondary" data-day-secondary>Peak day &middot; open</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <nav class="s-nav" aria-label="Staff workspace" data-staff-nav>
+                    <ul class="s-nav-list">
+                      <li class="s-nav-group" data-group="Sell">
+                        <a href="#" class="s-item" data-dest="sell" data-needs="dayOpen">
+                          <span class="s-item-label">Sell</span>
+                        </a>
+                      </li>
+
+                      <li class="s-nav-sep" role="separator" aria-hidden="true"></li>
+
+                      <li class="s-nav-group">
+                        <a href="#" class="s-item" data-dest="open-day" data-needs="dayClosed">
+                          <span class="s-item-label">Open Day</span>
+                        </a>
+                      </li>
+
+                      <li class="s-nav-sep" role="separator" aria-hidden="true"></li>
+
+                      <li class="s-nav-group">
+                        <a href="#" class="s-item" data-dest="opening" data-needs="dayOpen">
+                          <span class="s-item-label">Opening</span>
+                        </a>
+                      </li>
+                      <li class="s-nav-group">
+                        <a href="#" class="s-item is-current" aria-current="page" data-dest="restock" data-needs="dayOpen">
+                          <span class="s-item-label">Restock</span>
+                        </a>
+                      </li>
+                      <li class="s-nav-group">
+                        <a href="#" class="s-item" data-dest="movements" data-needs="dayOpen">
+                          <span class="s-item-label">Deliveries &amp; Wastage</span>
+                        </a>
+                      </li>
+                      <li class="s-nav-group">
+                        <a href="#" class="s-item" data-dest="orders" data-needs="always">
+                          <span class="s-item-label">Order History</span>
+                        </a>
+                      </li>
+                      <li class="s-nav-group">
+                        <a href="#" class="s-item" data-dest="cash" data-needs="dayOpen">
+                          <span class="s-item-label">Cash &amp; Expenses</span>
+                        </a>
+                      </li>
+                      <li class="s-nav-group">
+                        <a href="#" class="s-item" data-dest="closing" data-needs="dayOpen">
+                          <span class="s-item-label">Closing</span>
+                        </a>
+                      </li>
+
+                      <li class="s-nav-sep" role="separator" aria-hidden="true"></li>
+
+                      <li class="s-nav-group">
+                        <a href="#" class="s-item" data-dest="close-day" data-needs="dayOpen">
+                          <span class="s-item-label">Close Day</span>
+                        </a>
+                      </li>
+                    </ul>
+                  </nav>
+                </header>
+
+                <main class="s-main" id="staff-demo-main">
+                  <div class="s-page-head">
+                    <div>
+                      <h3>Restock status</h3>
+                      <p>Review the most urgent items first.</p>
+                    </div>
+                  </div>
+
+                  <div class="panel" data-staff-body>
+                    <table class="tbl">
+                      <caption class="vh">Restock status by item</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Item</th>
+                          <th scope="col">Counted</th>
+                          <th scope="col">Par</th>
+                          <th scope="col">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <th scope="row">Arabica beans <small>1 kg</small></th>
+                          <td class="num">2</td>
+                          <td class="num">8</td>
+                          <td><span class="status status-urgent"><span class="status-glyph" aria-hidden="true">!!</span>Urgent</span></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Oat milk <small>1 L</small></th>
+                          <td class="num">6</td>
+                          <td class="num">14</td>
+                          <td><span class="status status-low"><span class="status-glyph" aria-hidden="true">!</span>Low</span></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Paper cups 12 oz</th>
+                          <td class="num">180</td>
+                          <td class="num">240</td>
+                          <td><span class="status status-below"><span class="status-glyph" aria-hidden="true">&minus;</span>Below par</span></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Cocoa powder <small>500 g</small></th>
+                          <td class="num">9</td>
+                          <td class="num">6</td>
+                          <td><span class="status status-enough"><span class="status-glyph" aria-hidden="true">&check;</span>Enough</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div class="panel panel-blocking" data-staff-blocking hidden role="status">
+                    <p class="blocking-title">No business day is open</p>
+                    <p class="blocking-body">
+                      Open the business day before recording counts, cash, or
+                      sales. Order History stays available because it reads
+                      closed days.
+                    </p>
+                    <button type="button" class="btn btn-primary">Open the business day</button>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="notes" data-od-id="staff-shell-notes">
+          <h3>What the strip encodes</h3>
+          <dl class="note-list">
+            <div>
+              <dt>Fixed order</dt>
+              <dd>
+                Sell, Open Day, Opening, Restock, Deliveries &amp; Wastage, Order
+                History, Cash &amp; Expenses, Closing, Close Day. Hairline
+                separators group the day-bracketing actions away from the shift
+                work without moving any destination.
+              </dd>
+            </div>
+            <div>
+              <dt>Current destination</dt>
+              <dd>
+                <code>aria-current="page"</code>, a 3px inset bar on the leading
+                edge, and a heavier label weight. Remove all colour and the
+                current item is still the only one with a bar.
+              </dd>
+            </div>
+            <div>
+              <dt>Unavailable destination</dt>
+              <dd>
+                The same element with <code>href</code> removed, plus
+                <code>role="link"</code> and <code>aria-disabled="true"</code>.
+                An anchor without <code>href</code> is not focusable and not
+                activatable, so the destination is announced and named, skipped
+                by Tab, and cannot navigate. The cue
+                is a lock glyph plus a dashed outline plus appended
+                screen-reader text naming the unmet prerequisite. It carries no
+                fill, no shadow, and no pointer cursor, so it does not read as
+                tappable.
+              </dd>
+            </div>
+            <div>
+              <dt>Overflow</dt>
+              <dd>
+                The strip scrolls horizontally inside its own bounds
+                (<code>overflow-x: auto</code> on the nav, nothing wider than
+                <code>100%</code> on any ancestor). The page never scrolls
+                sideways at 1024 or 390.
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <!-- ============================ ADMIN SHELL ============================ -->
+      <section class="ref-section" aria-labelledby="admin-shell-title" data-od-id="admin-shell-section">
+        <div class="ref-section-head">
+          <h2 id="admin-shell-title">Admin back-office shell</h2>
+          <p>
+            The admin sidebar is the only navigation on admin routes and never
+            appears on staff routes. Groups stay Workspace, Catalog, Operations.
+            Seven destinations, seven distinct meaningful icons, replacing the
+            five repeated decorative grid marks shipped today.
+          </p>
+        </div>
+
+        <div class="frame-scroll">
+          <div class="frame" data-frame data-od-id="admin-frame">
+            <div class="frame-label" aria-hidden="true">
+              <span data-frame-size>1024 &times; 768</span>
+              <span>/inventory</span>
+            </div>
+            <div class="frame-viewport">
+              <div class="admin-shell">
+                <aside class="a-side">
+                  <div class="a-brand">
+                    <span class="s-mark" aria-hidden="true"><span></span><span></span></span>
+                    <strong>UCM Coffee Studio</strong>
+                  </div>
+
+                  <nav class="a-nav" aria-label="Administrator navigation">
+                    <p class="a-group" id="a-group-workspace">Workspace</p>
+                    <ul aria-labelledby="a-group-workspace">
+                      <li>
+                        <a href="#" class="a-item">
+                          <span class="a-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M4 19V10M10 19V5M16 19v-6M22 19H2"/></svg>
+                          </span>Dashboard
+                        </a>
+                      </li>
+                    </ul>
+
+                    <p class="a-group" id="a-group-catalog">Catalog</p>
+                    <ul aria-labelledby="a-group-catalog">
+                      <li>
+                        <a href="#" class="a-item">
+                          <span class="a-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+                          </span>Categories
+                        </a>
+                      </li>
+                      <li>
+                        <a href="#" class="a-item">
+                          <span class="a-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="m4 7 8-4 8 4-8 4Z"/><path d="m4 7 8 4 8-4v10l-8 4-8-4Z"/><path d="M12 11v10"/></svg>
+                          </span>Products
+                        </a>
+                      </li>
+                    </ul>
+
+                    <p class="a-group" id="a-group-operations">Operations</p>
+                    <ul aria-labelledby="a-group-operations">
+                      <li>
+                        <a href="#" class="a-item is-current" aria-current="page">
+                          <span class="a-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M9 4h6v3H9Z"/><path d="M6 5.5H5a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7.5a2 2 0 0 0-2-2h-1"/><path d="M8 12h8M8 16h5"/></svg>
+                          </span>Inventory
+                        </a>
+                      </li>
+                      <li>
+                        <a href="#" class="a-item">
+                          <span class="a-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16.5 5.5a3 3 0 0 1 0 5.6M18 20a6.6 6.6 0 0 0-2-4.4"/></svg>
+                          </span>Staff
+                        </a>
+                      </li>
+                      <li>
+                        <a href="#" class="a-item">
+                          <span class="a-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+                          </span>Reports
+                        </a>
+                      </li>
+                      <li>
+                        <a href="#" class="a-item">
+                          <span class="a-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M6 3.5 7.6 5l1.7-1.5L11 5l1.7-1.5L14.4 5l1.7-1.5V20.5l-1.7-1.5-1.7 1.5L11 19l-1.7 1.5L7.6 19 6 20.5Z"/><path d="M9 9h6M9 13h4"/></svg>
+                          </span>Order History
+                        </a>
+                      </li>
+                    </ul>
+                  </nav>
+
+                  <div class="a-user">
+                    <span class="a-avatar" aria-hidden="true">R</span>
+                    <span class="a-user-text">
+                      <strong>rgutierrez</strong>
+                      <small>Administrator</small>
+                    </span>
+                  </div>
+                </aside>
+
+                <div class="a-work">
+                  <header class="a-top">
+                    <div class="a-top-brand">
+                      <strong>UCM Coffee Studio</strong>
+                      <span>Back office</span>
+                    </div>
+                    <span class="a-top-user">Signed in as rgutierrez</span>
+                  </header>
+
+                  <main class="a-main">
+                    <div class="a-page-head">
+                      <h3>Inventory</h3>
+                      <p>Stock categories, items, count methods, and par levels.</p>
+                    </div>
+                    <div class="panel">
+                      <table class="tbl">
+                        <caption class="vh">Inventory items</caption>
+                        <thead>
+                          <tr>
+                            <th scope="col">Item</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Normal par</th>
+                            <th scope="col">Peak par</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr><th scope="row">Arabica beans</th><td>Coffee</td><td class="num">8</td><td class="num">12</td></tr>
+                          <tr><th scope="row">Oat milk</th><td>Dairy &amp; alternatives</td><td class="num">14</td><td class="num">20</td></tr>
+                          <tr><th scope="row">Paper cups 12 oz</th><td>Packaging</td><td class="num">240</td><td class="num">360</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </main>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="notes" data-od-id="admin-shell-notes">
+          <h3>What the sidebar encodes</h3>
+          <dl class="note-list">
+            <div>
+              <dt>Current destination</dt>
+              <dd>
+                <code>aria-current="page"</code>, a 3px inset bar on the leading
+                edge, and a heavier label weight. The same non-colour vocabulary
+                as the staff strip, rotated to the vertical axis.
+              </dd>
+            </div>
+            <div>
+              <dt>Icons</dt>
+              <dd>
+                Seven distinct glyphs, one per destination, drawn on the shipped
+                <code>Icon</code> geometry (24&nbsp;box, 1.8 stroke,
+                <code>currentColor</code>). If distinct glyphs are not funded,
+                the correct alternative is no icons at all. Repeating one
+                decorative mark across five destinations is the state being
+                corrected.
+              </dd>
+            </div>
+            <div>
+              <dt>Narrow width</dt>
+              <dd>
+                Below 800&nbsp;px of shell width the sidebar becomes a compact
+                header with the same seven destinations in the same order,
+                scrolling horizontally within its own bounds. Group labels are
+                retained as inline separators rather than dropped, so grouping
+                survives the collapse.
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <!-- ========================= CONTROL SPECIMENS ========================= -->
+      <section class="ref-section" aria-labelledby="specimen-title" data-od-id="specimen-section">
+        <div class="ref-section-head">
+          <h2 id="specimen-title">Shared control and state-cue conventions</h2>
+          <p>
+            One vocabulary, both workspaces. The staff workspace uses the taller
+            48&nbsp;px control body because it is operated standing at a
+            counter; the admin workspace uses the same hierarchy at back-office
+            density. Hierarchy, wording, and non-colour cues are identical.
+          </p>
+        </div>
+
+        <div class="spec-grid">
+          <article class="spec-card" data-od-id="spec-actions">
+            <h3>Action hierarchy</h3>
+            <p class="spec-note">
+              One primary per view. Destructive is never the primary and always
+              names its object.
+            </p>
+            <div class="spec-row">
+              <button type="button" class="btn btn-primary">Submit count</button>
+              <button type="button" class="btn btn-secondary">Cancel</button>
+              <button type="button" class="btn btn-danger">
+                <span class="btn-glyph" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M10.3 3.8 2.2 18a2 2 0 0 0 1.8 3h16a2 2 0 0 0 1.8-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+                </span>
+                Void this order
+              </button>
+            </div>
+            <div class="spec-row">
+              <button type="button" class="btn btn-primary" disabled aria-disabled="true">
+                <span class="btn-glyph" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10"/><path d="M7 10h10a1 1 0 0 1 1 1v8H6v-8a1 1 0 0 1 1-1Z"/></svg>
+                </span>
+                Submit count
+              </button>
+              <p class="spec-hint">
+                Disabled state carries a lock glyph, a flat fill, and a
+                <code>aria-describedby</code> reason. Never grey alone.
+              </p>
+            </div>
+          </article>
+
+          <article class="spec-card" data-od-id="spec-loading">
+            <h3>Loading</h3>
+            <p class="spec-note">
+              Region marked <code>aria-busy="true"</code>, a polite live region
+              carrying the words, and skeleton blocks shaped like the content
+              that will land. Motion is decoration; the text is the state.
+            </p>
+            <div class="state-box" aria-busy="true">
+              <p class="state-line" role="status">
+                <span class="spinner" aria-hidden="true"></span>
+                Loading restock status&hellip;
+              </p>
+              <div class="skel skel-a" aria-hidden="true"></div>
+              <div class="skel skel-b" aria-hidden="true"></div>
+              <div class="skel skel-c" aria-hidden="true"></div>
+            </div>
+          </article>
+
+          <article class="spec-card" data-od-id="spec-empty">
+            <h3>Empty</h3>
+            <p class="spec-note">
+              Literal about what is missing, and what would fill it. No
+              placeholder rows, no illustration.
+            </p>
+            <div class="state-box state-empty">
+              <p class="state-title">No movements recorded yet</p>
+              <p class="state-body">
+                Deliveries and wastage appended to this business day will appear
+                here in the order they were recorded.
+              </p>
+              <button type="button" class="btn btn-secondary">Record a movement</button>
+            </div>
+          </article>
+
+          <article class="spec-card" data-od-id="spec-error">
+            <h3>Error</h3>
+            <p class="spec-note">
+              <code>role="alert"</code>, focusable, a triangle glyph, a solid
+              leading rule, and a recovery action. Red reinforces; it never
+              carries the meaning alone.
+            </p>
+            <div class="state-box state-error" role="alert" tabindex="-1">
+              <span class="state-glyph" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M10.3 3.8 2.2 18a2 2 0 0 0 1.8 3h16a2 2 0 0 0 1.8-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+              </span>
+              <div>
+                <p class="state-title">Restock status could not be loaded</p>
+                <p class="state-body">The workspace could not reach the server. Nothing was changed.</p>
+                <button type="button" class="btn btn-secondary">Try again</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="spec-card" data-od-id="spec-success">
+            <h3>Success</h3>
+            <p class="spec-note">
+              <code>role="status"</code>, a check glyph, a solid leading rule,
+              and a sentence naming the recorded fact. Success is a receipt, not
+              a colour.
+            </p>
+            <div class="state-box state-success" role="status">
+              <span class="state-glyph" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>
+              </span>
+              <div>
+                <p class="state-title">Opening count recorded</p>
+                <p class="state-body">
+                  12 items recorded for Tue 14 Oct 2025 by Marilou Ababa. This
+                  entry is permanent.
+                </p>
+              </div>
+            </div>
+          </article>
+
+          <article class="spec-card" data-od-id="spec-nav-anatomy">
+            <h3>Navigation item anatomy</h3>
+            <p class="spec-note">
+              The three states side by side. Read them with colour removed: bar,
+              nothing, lock.
+            </p>
+            <div class="anatomy">
+              <div class="anatomy-row">
+                <span class="s-item is-current" aria-hidden="true"><span class="s-item-label">Restock</span></span>
+                <span class="anatomy-tag">Current &middot; inset bar + <code>aria-current</code></span>
+              </div>
+              <div class="anatomy-row">
+                <span class="s-item" aria-hidden="true"><span class="s-item-label">Opening</span></span>
+                <span class="anatomy-tag">Available &middot; in tab order, 44&nbsp;px target</span>
+              </div>
+              <div class="anatomy-row">
+                <span class="s-item is-unavailable" aria-hidden="true">
+                  <span class="s-item-lock">
+                    <svg viewBox="0 0 24 24"><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10"/><path d="M7 10h10a1 1 0 0 1 1 1v8H6v-8a1 1 0 0 1 1-1Z"/></svg>
+                  </span>
+                  <span class="s-item-label">Cash &amp; Expenses</span>
+                </span>
+                <span class="anatomy-tag">Unavailable &middot; lock + dashed, out of tab order</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ============================ TOKEN LEDGER =========================== -->
+      <section class="ref-section" aria-labelledby="token-title" data-od-id="token-section">
+        <div class="ref-section-head">
+          <h2 id="token-title">Token consolidation proposed, not applied</h2>
+          <p>
+            Every value on this page comes from
+            <code>docs/design/tokens.json</code>. The audit found four semantic
+            roles where the shipped stylesheet carries a value that diverges
+            from, or duplicates, the token file. These are proposals for #179.
+            Nothing in the product has been restyled.
+          </p>
+        </div>
+
+        <div class="panel token-panel">
+          <table class="tbl tbl-tokens">
+            <caption class="vh">Divergent values found against tokens.json</caption>
+            <thead>
+              <tr>
+                <th scope="col">Semantic role</th>
+                <th scope="col">tokens.json</th>
+                <th scope="col">styles.css today</th>
+                <th scope="col">Proposal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Warning ink</th>
+                <td class="mono">oklch(41% 0.09 75)</td>
+                <td class="mono">oklch(39% 0.08 72)</td>
+                <td>Adopt the token value on <code>--warn-ink</code>.</td>
+              </tr>
+              <tr>
+                <th scope="row">Warning surface</th>
+                <td class="mono">oklch(97% 0.03 85)</td>
+                <td class="mono">oklch(97% 0.025 82)</td>
+                <td>Adopt the token value on <code>--warn-surface</code>.</td>
+              </tr>
+              <tr>
+                <th scope="row">Warning border</th>
+                <td class="mono">oklch(80% 0.08 80)</td>
+                <td class="mono">oklch(73% 0.09 78)</td>
+                <td>Adopt the token value on <code>--warn-border</code>.</td>
+              </tr>
+              <tr>
+                <th scope="row">Restock scale &times;4</th>
+                <td class="mono">restockUrgent / Low / BelowPar / Enough</td>
+                <td class="mono">4 literal oklch values in rules</td>
+                <td>Declare as <code>--restock-*</code> vars; values already agree.</td>
+              </tr>
+              <tr>
+                <th scope="row">Panel radius</th>
+                <td class="mono">radius.medium = 10px</td>
+                <td class="mono">literal <code>10px</code>, 29 rules</td>
+                <td>Declare <code>--radius-md</code> and substitute.</td>
+              </tr>
+              <tr>
+                <th scope="row">Touch target / field height</th>
+                <td class="mono">44px / 48px</td>
+                <td class="mono">literals throughout</td>
+                <td>Declare <code>--touch-min</code>, <code>--field-h</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="ref-foot">
+          No new token is proposed. Every consolidation above lands an existing
+          entry from <code>tokens.json</code> that the stylesheet has not yet
+          bound.
+        </p>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
