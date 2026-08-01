@@ -80,49 +80,55 @@ enum CashMovementKind {
 }
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  username     String   @unique
-  displayName  String   @map("display_name")
-  passwordHash String   @map("password_hash")
-  pinHash      String?  @map("pin_hash")
-  isActive     Boolean  @default(true) @map("is_active")
-  role         Role
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id                String             @id @default(uuid()) @db.Uuid
+  username          String             @unique
+  displayName       String             @map("display_name")
+  passwordHash      String             @map("password_hash")
+  pinHash           String?            @map("pin_hash")
+  isActive          Boolean            @default(true) @map("is_active")
+  role              Role
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  staffMember       StaffMember?
+  cashierSelections CashierSelection[] @relation("CashierSelectionSelectedBy")
 
   @@map("users")
 }
 
 model Location {
-  id             String          @id @default(uuid()) @db.Uuid
-  name           String
-  createdAt      DateTime        @default(now()) @map("created_at")
-  stockCounts    StockCount[]
-  stockMovements StockMovement[]
-  sales          Sale[]
-  staffMembers   StaffMember[]
-  tradingDays    TradingDay[]
+  id                String             @id @default(uuid()) @db.Uuid
+  name              String
+  createdAt         DateTime           @default(now()) @map("created_at")
+  stockCounts       StockCount[]
+  stockMovements    StockMovement[]
+  sales             Sale[]
+  staffMembers      StaffMember[]
+  tradingDays       TradingDay[]
+  cashierSelections CashierSelection[]
 
   @@map("locations")
 }
 
 model StaffMember {
-  id                     String          @id @default(uuid()) @db.Uuid
-  displayName            String          @map("display_name")
-  isActive               Boolean         @default(true) @map("is_active")
-  locationId             String?         @map("location_id") @db.Uuid
-  createdAt              DateTime        @default(now()) @map("created_at")
-  updatedAt              DateTime        @updatedAt @map("updated_at")
-  location               Location?       @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  openedTradingDays      TradingDay[]    @relation("TradingDayOpenedBy")
-  closedTradingDays      TradingDay[]    @relation("TradingDayClosedBy")
-  submittedStockCounts   StockCount[]    @relation("StockCountSubmittedBy")
-  ledStockCounts         StockCount[]    @relation("StockCountShiftLead")
-  recordedStockMovements StockMovement[] @relation("StockMovementRecordedBy")
-  recordedCashMovements  CashMovement[]  @relation("CashMovementRecordedBy")
+  id                     String             @id @default(uuid()) @db.Uuid
+  displayName            String             @map("display_name")
+  isActive               Boolean            @default(true) @map("is_active")
+  locationId             String?            @map("location_id") @db.Uuid
+  userId                 String?            @unique @map("user_id") @db.Uuid
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+  location               Location?          @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  user                   User?              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  openedTradingDays      TradingDay[]       @relation("TradingDayOpenedBy")
+  closedTradingDays      TradingDay[]       @relation("TradingDayClosedBy")
+  submittedStockCounts   StockCount[]       @relation("StockCountSubmittedBy")
+  ledStockCounts         StockCount[]       @relation("StockCountShiftLead")
+  recordedStockMovements StockMovement[]    @relation("StockMovementRecordedBy")
+  recordedCashMovements  CashMovement[]     @relation("CashMovementRecordedBy")
   cashCounts             CashCount[]
-  dayClosings            DayClosing[]    @relation("DayClosingClosedBy")
-  cashierSales           Sale[]          @relation("SaleCashier")
+  dayClosings            DayClosing[]       @relation("DayClosingClosedBy")
+  cashierSales           Sale[]             @relation("SaleCashier")
+  cashierSelections      CashierSelection[]
 
   @@index([locationId])
   @@map("staff_members")
@@ -389,6 +395,23 @@ model DayClosingLine {
 
   @@unique([dayClosingId, inventoryItemId])
   @@map("day_closing_lines")
+}
+
+// Append-only: changing or clearing the active cashier inserts a new row.
+// A null staffMemberId records a deliberate cleared selection.
+model CashierSelection {
+  id               String       @id @default(uuid()) @db.Uuid
+  deviceId         String       @map("device_id")
+  locationId       String?      @map("location_id") @db.Uuid
+  staffMemberId    String?      @map("staff_member_id") @db.Uuid
+  selectedByUserId String       @map("selected_by_user_id") @db.Uuid
+  selectedAt       DateTime     @default(now()) @map("selected_at")
+  location         Location?    @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  staffMember      StaffMember? @relation(fields: [staffMemberId], references: [id], onDelete: Restrict)
+  selectedByUser   User         @relation("CashierSelectionSelectedBy", fields: [selectedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([deviceId, selectedAt])
+  @@map("cashier_selections")
 }
 
 // Append-only and idempotent: clientGeneratedId is supplied by the register
