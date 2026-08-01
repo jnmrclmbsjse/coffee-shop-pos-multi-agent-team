@@ -16,7 +16,7 @@
     "e2e": "playwright test",
     "lint": "eslint .",
     "test": "pnpm test:scripts && pnpm --recursive --if-present run test",
-    "test:scripts": "bash scripts/tests/dependency-parsing.test.sh",
+    "test:scripts": "bash scripts/tests/dependency-parsing.test.sh && bash scripts/tests/po-intake-lock.test.sh",
     "typecheck": "pnpm --recursive --if-present run typecheck"
   },
   "devDependencies": {
