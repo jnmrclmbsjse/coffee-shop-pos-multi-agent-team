@@ -24,6 +24,8 @@
   --radius-md: 10px;
   --touch-min: 44px;
   --field-h: 48px;
+  --cashier-card-min-h: 88px;
+  --cashier-key-size: 68px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -4368,6 +4370,8 @@ button {
 
 .staff-inventory-nav a:focus-visible,
 .staff-workspace-day-context button:focus-visible,
+.cashier-shell-control button:focus-visible,
+.cashier-dialog button:focus-visible,
 .staff-inventory-button:focus-visible,
 .staff-inventory-field select:focus-visible,
 .staff-inventory-field input:focus-visible,
@@ -4375,6 +4379,367 @@ button {
 .staff-radio-option input:focus-visible + label {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
+}
+
+.cashier-shell-control {
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.cashier-indicator {
+  min-width: 0;
+  min-height: var(--field-h);
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cashier-indicator:hover {
+  border-color: color-mix(in oklch, var(--accent) 55%, var(--border-strong));
+  background: color-mix(in oklch, var(--accent) 4%, var(--surface));
+}
+
+.cashier-indicator-label,
+.cashier-indicator-action {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cashier-indicator strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cashier-indicator-action {
+  color: var(--focus);
+}
+
+.cashier-shell-clear,
+.cashier-refresh {
+  min-height: var(--touch-min);
+  flex: 0 0 auto;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cashier-refresh {
+  border-style: dashed;
+}
+
+.cashier-shell-clear:disabled,
+.cashier-dialog button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.cashier-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: oklch(18% 0.02 240 / 0.52);
+}
+
+.cashier-dialog {
+  z-index: var(--z-modal);
+  width: min(100%, 760px);
+  max-height: calc(100svh - var(--space-8));
+  overflow: auto;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 4px 8px oklch(18% 0.02 240 / 0.22);
+  animation: cashier-dialog-in 180ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes cashier-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.cashier-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border-bottom: 1px solid var(--border);
+}
+
+.cashier-dialog-header h2,
+.cashier-dialog-header p,
+.cashier-pin-copy h3,
+.cashier-pin-copy p {
+  margin: 0;
+}
+
+.cashier-dialog-header h2 {
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.cashier-dialog-header p,
+.cashier-pin-copy > p {
+  margin-top: var(--space-1);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.cashier-dialog-close {
+  width: var(--touch-min);
+  min-height: var(--touch-min);
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: var(--surface-subtle);
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cashier-dialog-body {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+
+.cashier-current-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.cashier-current-summary span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cashier-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.cashier-card,
+.cashier-card-skeleton {
+  min-height: var(--cashier-card-min-h);
+  border-radius: var(--radius-md);
+}
+
+.cashier-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border-strong);
+  color: var(--fg);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cashier-card:hover {
+  border-color: color-mix(in oklch, var(--accent) 58%, var(--border-strong));
+  background: color-mix(in oklch, var(--accent) 5%, var(--surface));
+}
+
+.cashier-card[aria-current='true'] {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 9%, var(--surface));
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
+.cashier-card > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.cashier-card strong {
+  overflow-wrap: anywhere;
+}
+
+.cashier-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.cashier-card > small {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.cashier-card-skeleton {
+  display: block;
+  background: var(--surface-subtle);
+}
+
+.cashier-picker-state {
+  min-height: 148px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  text-align: center;
+}
+
+.cashier-picker-state strong {
+  color: var(--fg);
+}
+
+.cashier-picker-state button,
+.cashier-dialog-actions button {
+  min-height: var(--touch-min);
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  background: var(--surface);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cashier-failure {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in oklch, var(--danger) 30%, var(--border));
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  background: var(--danger-surface);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.cashier-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.cashier-dialog-actions button.is-primary {
+  border-color: var(--accent);
+  color: var(--surface);
+  background: var(--accent);
+}
+
+.cashier-dialog-actions button.is-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.cashier-pin-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(270px, 0.8fr);
+  align-items: start;
+  gap: var(--space-8);
+}
+
+.cashier-pin-copy h3 {
+  font-size: 19px;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.cashier-pin-slots {
+  display: grid;
+  grid-template-columns: repeat(4, 42px);
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+
+.cashier-pin-slots span {
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.cashier-pin-slots span.is-filled::after {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--fg);
+  content: '';
+}
+
+.cashier-pin-copy .cashier-failure {
+  margin-top: var(--space-5);
+}
+
+.cashier-cooldown {
+  margin-top: var(--space-3) !important;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cashier-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(var(--cashier-key-size), 1fr));
+  gap: var(--space-2);
+}
+
+.cashier-keypad button {
+  min-height: var(--cashier-key-size);
+  padding: var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  background: var(--surface-subtle);
+  font-size: 18px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.cashier-keypad button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+}
+
+.cashier-pin-actions {
+  margin-top: var(--space-3);
 }
 
 .staff-inventory-workspace {
@@ -5422,6 +5787,56 @@ button {
     gap: var(--space-2);
   }
 
+  .cashier-shell-control {
+    flex-wrap: wrap;
+  }
+
+  .cashier-indicator {
+    flex-basis: 100%;
+    grid-template-columns: 1fr auto;
+  }
+
+  .cashier-indicator-label {
+    grid-column: 1 / -1;
+  }
+
+  .cashier-shell-clear,
+  .cashier-refresh {
+    flex: 1 1 140px;
+  }
+
+  .cashier-dialog-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .cashier-dialog {
+    width: 100%;
+    max-height: calc(100svh - var(--space-4));
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+
+  .cashier-dialog-header,
+  .cashier-dialog-body {
+    padding: var(--space-4);
+  }
+
+  .cashier-card-grid,
+  .cashier-pin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .cashier-current-summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .cashier-dialog-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .staff-workspace-day-context {
     min-width: 0;
     justify-content: space-between;
@@ -5475,6 +5890,12 @@ button {
 
   .staff-inventory-table-wrap {
     border-radius: var(--radius-sm);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cashier-dialog {
+    animation: none;
   }
 }
 
