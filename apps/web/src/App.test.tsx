@@ -396,6 +396,9 @@ describe('staff authentication routes', () => {
       if (path === '/inventory/counts/staff') {
         return response(200, []);
       }
+      if (path === '/sales/active-cashier') {
+        return response(200, { cashier: null });
+      }
       return response(500);
     });
 
@@ -427,7 +430,9 @@ describe('staff authentication routes', () => {
       'href',
       '/pos/close',
     );
-    expect(screen.queryByText(/cashier/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Active cashier/ }),
+    ).toHaveTextContent('No cashier selected');
 
     const navigation = screen.getByRole('navigation', {
       name: 'Staff workspace',

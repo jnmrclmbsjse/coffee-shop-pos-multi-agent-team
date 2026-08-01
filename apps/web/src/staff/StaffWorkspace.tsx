@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { DayType, type CurrentOpenBusinessDay } from '@coffee-shop/shared';
 import { useAuth } from '../auth/AuthContext';
+import { CashierControl } from '../cashier/CashierControl';
 import { getCurrentBusinessDay } from '../trading-day/api';
 
 const NO_OPEN_BUSINESS_DAY: CurrentOpenBusinessDay = {
@@ -231,6 +232,7 @@ export function StaffWorkspaceLayout() {
                 onRetry={() => setLoadVersion((version) => version + 1)}
               />
             </div>
+            <CashierControl />
             <nav
               className="staff-inventory-nav"
               aria-label="Staff workspace"
