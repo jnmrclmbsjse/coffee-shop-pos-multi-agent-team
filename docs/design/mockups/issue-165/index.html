@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="UCM Coffee Studio active cashier selection staff POS prototype">
+  <title>Sell | UCM Coffee Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to sell</a>
+
+  <header class="shell-header" data-od-id="staff-header">
+    <div class="header-bar">
+      <div class="brand">
+        <span>UCM Coffee Studio</span>
+        <span class="brand-role">Staff</span>
+      </div>
+      <div class="header-meta" aria-label="Current workspace context">
+        <span class="meta-user" id="signed-in-user">Marilou Bagtas</span>
+        <span>UCM Main</span>
+        <span class="chip chip--open">Day open</span>
+        <span class="chip">Register 1</span>
+      </div>
+      <div class="cashier-control" data-od-id="active-cashier-control">
+        <button class="cashier-indicator" id="cashier-indicator" type="button" aria-haspopup="dialog" aria-controls="cashier-dialog">
+          <span class="cashier-indicator__label">Active cashier</span>
+          <span class="cashier-indicator__value" id="cashier-indicator-value">No cashier selected</span>
+          <span class="cashier-indicator__action">Change</span>
+        </button>
+        <button class="cashier-clear" id="cashier-clear" type="button" hidden>Clear</button>
+      </div>
+    </div>
+    <nav class="shell-nav" aria-label="Staff workspace">
+      <div class="nav-scroll">
+        <ul class="nav-list">
+          <li><a href="#/pos" aria-current="page">Sell</a></li>
+          <li class="nav-sep-item" aria-hidden="true"><span class="nav-sep"></span></li>
+          <li><a href="#/pos/open" aria-disabled="true" title="Not part of this prototype">Open Day</a></li>
+          <li class="nav-sep-item" aria-hidden="true"><span class="nav-sep"></span></li>
+          <li><a href="#/pos/opening" aria-disabled="true" title="Not part of this prototype">Opening</a></li>
+          <li><a href="#/pos/restock" aria-disabled="true" title="Not part of this prototype">Restock</a></li>
+          <li><a href="#/pos/movements" aria-disabled="true" title="Not part of this prototype">Deliveries &amp; Wastage</a></li>
+          <li><a href="#/pos/orders" aria-disabled="true" title="Not part of this prototype">Order History</a></li>
+          <li><a href="#/pos/cash" aria-disabled="true" title="Not part of this prototype">Cash &amp; Expenses</a></li>
+          <li><a href="#/pos/closing" aria-disabled="true" title="Not part of this prototype">Closing</a></li>
+          <li class="nav-sep-item" aria-hidden="true"><span class="nav-sep"></span></li>
+          <li><a href="#/pos/close" aria-disabled="true" title="Not part of this prototype">Close Day</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <main class="workspace" id="workspace" tabindex="-1" data-od-id="take-order-workspace">
+    <div class="page-head" data-od-id="take-order-heading">
+      <h1>Sell</h1>
+      <p>The order workspace is intentionally omitted. This shell demonstrates active cashier selection only.</p>
+    </div>
+
+    <section class="shell-context panel" aria-labelledby="context-title" data-od-id="shell-context-panel">
+      <div class="panel-head">
+        <h2 id="context-title">Order workspace context</h2>
+        <p>Cashier attribution is device-level context. The signed-in POS user remains separate.</p>
+      </div>
+      <dl class="context-list">
+        <div><dt>Signed-in POS user</dt><dd id="context-user">Marilou Bagtas</dd></div>
+        <div><dt>Active cashier</dt><dd id="context-cashier">No cashier selected</dd></div>
+        <div><dt>Device</dt><dd>UCM Main / Register 1</dd></div>
+      </dl>
+      <p class="neutral-note" id="cashier-state-note">Orders may be taken without selecting a cashier.</p>
+    </section>
+
+    <div id="app-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <section class="review-panel" aria-labelledby="review-title" data-od-id="review-states">
+      <header>
+        <h2 id="review-title">Review states</h2>
+        <span class="advisory-tag">Mockup only</span>
+      </header>
+      <p class="review-sub" id="review-note">Fixture controls for QA and design review. They sit outside the production UI.</p>
+      <div class="review-group">
+        <h3>Picker</h3>
+        <div class="review-buttons" role="group" aria-describedby="review-note">
+          <button type="button" data-review="picker-loading">Loading</button>
+          <button type="button" data-review="picker-empty">Empty</button>
+          <button type="button" data-review="picker-populated">Populated</button>
+        </div>
+      </div>
+      <div class="review-group">
+        <h3>PIN entry</h3>
+        <div class="review-buttons" role="group" aria-describedby="review-note">
+          <button type="button" data-review="pin-idle">Idle</button>
+          <button type="button" data-review="pin-partial">Partially entered</button>
+          <button type="button" data-review="pin-failure">Generic failure</button>
+          <button type="button" data-review="pin-cooldown">Cooldown / refused</button>
+        </div>
+      </div>
+      <div class="review-group">
+        <h3>Persistent selection</h3>
+        <div class="review-buttons" role="group" aria-describedby="review-note">
+          <button type="button" data-review="no-cashier">No cashier selected</button>
+          <button type="button" data-review="cashier-active">Cashier active</button>
+          <button type="button" data-review="cashier-deactivated">Active but since deactivated</button>
+          <button type="button" data-review="reload">Simulated reload</button>
+          <button type="button" data-review="signout">Simulated sign-out and back-in</button>
+        </div>
+      </div>
+      <p class="review-result" id="review-result" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <div class="modal-layer" id="cashier-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" hidden>
+    <div class="modal-backdrop" data-dismiss="true"></div>
+    <section class="modal-sheet" data-od-id="cashier-picker-dialog">
+      <header class="modal-head">
+        <div>
+          <h2 id="dialog-title">Select cashier</h2>
+          <p id="dialog-description">Choose who should be attributed to new orders on this register.</p>
+        </div>
+        <button class="icon-button" id="dialog-close" type="button" aria-label="Cancel cashier selection">Close</button>
+      </header>
+      <div id="dialog-content"></div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
