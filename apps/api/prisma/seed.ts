@@ -59,7 +59,7 @@ function readSeedUser(
   };
 }
 
-async function seedUser(user: SeedUser): Promise<void> {
+async function seedUser(user: SeedUser): Promise<string> {
   const passwordHash = await argon2.hash(user.password, {
     type: argon2.argon2id,
   });
@@ -67,7 +67,7 @@ async function seedUser(user: SeedUser): Promise<void> {
     ? await argon2.hash(user.pin, { type: argon2.argon2id })
     : null;
 
-  await prisma.user.upsert({
+  const seededUser = await prisma.user.upsert({
     where: { username: user.username },
     update: {
       displayName: user.displayName,
@@ -84,7 +84,10 @@ async function seedUser(user: SeedUser): Promise<void> {
       isActive: true,
       role: user.role,
     },
+    select: { id: true },
   });
+
+  return seededUser.id;
 }
 
 async function seedStockCategories(): Promise<void> {
@@ -109,21 +112,40 @@ async function seedStockCategories(): Promise<void> {
   }
 }
 
-async function seedStaffMember(displayName: string): Promise<string> {
+async function seedStaffMember(
+  displayName: string,
+  userId: string | null = null,
+): Promise<string> {
   const existing = await prisma.staffMember.findFirst({
-    where: {
-      displayName: { equals: displayName, mode: 'insensitive' },
-      locationId: null,
-    },
+    where: userId
+      ? {
+          OR: [
+            { userId },
+            {
+              displayName: { equals: displayName, mode: 'insensitive' },
+              locationId: null,
+              userId: null,
+            },
+          ],
+        }
+      : {
+          displayName: { equals: displayName, mode: 'insensitive' },
+          locationId: null,
+          userId: null,
+        },
     select: { id: true },
   });
 
   if (existing) {
+    await prisma.staffMember.update({
+      where: { id: existing.id },
+      data: { displayName, isActive: true, userId },
+    });
     return existing.id;
   }
 
   const staffMember = await prisma.staffMember.create({
-    data: { displayName },
+    data: { displayName, userId },
     select: { id: true },
   });
 
@@ -179,13 +201,15 @@ async function main(): Promise<void> {
   );
 
   await seedUser(admin);
-  await seedUser(staff);
+  const staffUserId = await seedUser(staff);
   await seedStockCategories();
-  const staffMemberId = await seedStaffMember(staff.displayName);
+  const staffMemberId = await seedStaffMember(staff.displayName, staffUserId);
+  await seedStaffMember('Unlinked Barista');
   await seedOpenTradingDay(staffMemberId);
 
   console.log(`Seeded administrator "${admin.username}"`);
   console.log(`Seeded staff user "${staff.username}"`);
+  console.log('Seeded linked and unlinked active roster members');
   console.log('Seeded initial stock categories');
   console.log('Ensured an open trading day exists');
 }
