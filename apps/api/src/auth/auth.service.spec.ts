@@ -9,6 +9,7 @@ import type { User } from '@prisma/client';
 import type { UsersService } from '../users/users.service';
 import { AuthAttemptThrottleService } from './auth-attempt-throttle.service';
 import {
+  INVALID_CASHIER_PIN_MESSAGE,
   INVALID_CREDENTIALS_MESSAGE,
   INVALID_STAFF_CREDENTIALS_MESSAGE,
 } from './auth.constants';
@@ -278,5 +279,89 @@ describe('AuthService', () => {
     ).rejects.toMatchObject({
       status: HttpStatus.TOO_MANY_REQUESTS,
     });
+  });
+
+  it('authorizes a cashier PIN without minting or rotating a session', async () => {
+    const foundUser = user(Role.STAFF);
+    const usersService = {
+      findByStaffMemberId: jest.fn().mockResolvedValue(foundUser),
+    } as unknown as UsersService;
+    const throttle = throttleMock();
+    const service = new AuthService(
+      usersService,
+      jwtService,
+      throttle as unknown as AuthAttemptThrottleService,
+    );
+
+    await expect(
+      service.authorizeCashierPin(
+        '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+        '1234',
+        'device-1',
+      ),
+    ).resolves.toBeUndefined();
+    expect(throttle.reset).toHaveBeenCalledWith('user-key');
+    expect(signAsync).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['wrong PIN', user(Role.STAFF), '9999'],
+    ['short PIN', user(Role.STAFF), '123'],
+    ['long PIN', user(Role.STAFF), '12345'],
+    ['non-numeric PIN', user(Role.STAFF), '12ab'],
+    ['non-string PIN', user(Role.STAFF), 1234],
+    ['unlinked member', null, '1234'],
+    ['account without PIN', user(Role.STAFF, { pinHash: null }), '1234'],
+    ['deactivated account', user(Role.STAFF, { isActive: false }), '1234'],
+  ])(
+    'returns the identical cashier authorization failure for %s',
+    async (_case, foundUser, pin) => {
+      const usersService = {
+        findByStaffMemberId: jest.fn().mockResolvedValue(foundUser),
+      } as unknown as UsersService;
+      const throttle = throttleMock();
+      const service = new AuthService(
+        usersService,
+        jwtService,
+        throttle as unknown as AuthAttemptThrottleService,
+      );
+
+      await expect(
+        service.authorizeCashierPin(
+          '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+          pin,
+          'device-1',
+        ),
+      ).rejects.toEqual(
+        new UnauthorizedException(INVALID_CASHIER_PIN_MESSAGE),
+      );
+      expect(throttle.recordFailure).toHaveBeenCalledTimes(1);
+      expect(signAsync).not.toHaveBeenCalled();
+    },
+  );
+
+  it('refuses cashier authorization with the shared throttle policy', async () => {
+    const usersService = {
+      findByStaffMemberId: jest.fn().mockResolvedValue(user(Role.STAFF)),
+    } as unknown as UsersService;
+    const throttle = throttleMock(9);
+    const service = new AuthService(
+      usersService,
+      jwtService,
+      throttle as unknown as AuthAttemptThrottleService,
+    );
+
+    await expect(
+      service.authorizeCashierPin(
+        '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+        '1234',
+        'device-1',
+      ),
+    ).rejects.toMatchObject({
+      status: HttpStatus.TOO_MANY_REQUESTS,
+      response: { retryAfterSeconds: 9 },
+    });
+    expect(throttle.recordFailure).not.toHaveBeenCalled();
+    expect(signAsync).not.toHaveBeenCalled();
   });
 });

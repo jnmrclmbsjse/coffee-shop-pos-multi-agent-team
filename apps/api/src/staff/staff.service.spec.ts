@@ -59,6 +59,67 @@ describe('StaffService', () => {
     });
   });
 
+  it('returns only the exact active selectable projection', async () => {
+    const prisma = createPrisma();
+    prisma.staffMember.findMany.mockResolvedValue([
+      {
+        id: staffId,
+        displayName: 'Alex Rivera',
+        user: { pinHash: 'argon-hash' },
+        userId: 'must-not-leak',
+        isActive: true,
+      },
+      {
+        id: '1b4f35af-a2c2-491d-88be-373c5efa4df4',
+        displayName: 'Bailey Cruz',
+        user: null,
+      },
+    ]);
+    const service = new StaffService(prisma as unknown as PrismaService);
+
+    await expect(service.listSelectable()).resolves.toEqual([
+      {
+        id: staffId,
+        displayName: 'Alex Rivera',
+        requiresPin: true,
+      },
+      {
+        id: '1b4f35af-a2c2-491d-88be-373c5efa4df4',
+        displayName: 'Bailey Cruz',
+        requiresPin: false,
+      },
+    ]);
+    expect(prisma.staffMember.findMany).toHaveBeenCalledWith({
+      where: { isActive: true },
+      select: {
+        id: true,
+        displayName: true,
+        user: { select: { pinHash: true } },
+      },
+      orderBy: { displayName: 'asc' },
+    });
+  });
+
+  it('keeps requiring a PIN when the linked account is deactivated', async () => {
+    const prisma = createPrisma();
+    prisma.staffMember.findMany.mockResolvedValue([
+      {
+        id: staffId,
+        displayName: 'Alex Rivera',
+        user: { pinHash: 'argon-hash', isActive: false },
+      },
+    ]);
+    const service = new StaffService(prisma as unknown as PrismaService);
+
+    await expect(service.listSelectable()).resolves.toEqual([
+      {
+        id: staffId,
+        displayName: 'Alex Rivera',
+        requiresPin: true,
+      },
+    ]);
+  });
+
   it('sorts inactive before active in ascending active order', async () => {
     const prisma = createPrisma();
     prisma.staffMember.findMany.mockResolvedValue([]);

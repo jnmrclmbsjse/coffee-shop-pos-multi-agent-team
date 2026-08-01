@@ -20,4 +20,10 @@ export class UsersService {
   findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
   }
+
+  findByStaffMemberId(staffMemberId: string): Promise<User | null> {
+    return this.prisma.user.findFirst({
+      where: { staffMember: { id: staffMemberId } },
+    });
+  }
 }

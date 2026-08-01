@@ -17,6 +17,7 @@ import { UsersService } from '../users/users.service';
 import { AuthAttemptThrottleService } from './auth-attempt-throttle.service';
 import {
   INVALID_CREDENTIALS_MESSAGE,
+  INVALID_CASHIER_PIN_MESSAGE,
   INVALID_STAFF_CREDENTIALS_MESSAGE,
   THROTTLED_MESSAGE,
 } from './auth.constants';
@@ -132,6 +133,37 @@ export class AuthService {
 
     this.throttle.reset(throttleKey);
     return this.staffLoginResult(user);
+  }
+
+  async authorizeCashierPin(
+    staffMemberId: string,
+    pin: unknown,
+    deviceId: string,
+  ): Promise<void> {
+    const user = UUID_PATTERN.test(staffMemberId)
+      ? await this.usersService.findByStaffMemberId(staffMemberId)
+      : null;
+    const suppliedPin = typeof pin === 'string' ? pin : '';
+    const pinHash = user?.pinHash ?? DUMMY_PIN_HASH;
+    const pinMatches = await this.verify(pinHash, suppliedPin);
+    const throttleKey = user
+      ? this.throttle.keyForUser(deviceId, user.id)
+      : this.throttle.keyForUnknown(deviceId, 'pin', staffMemberId);
+
+    this.throwIfThrottled(throttleKey);
+
+    if (
+      !user ||
+      !/^\d{4}$/.test(suppliedPin) ||
+      !user.pinHash ||
+      !pinMatches ||
+      !user.isActive
+    ) {
+      this.throttle.recordFailure(throttleKey);
+      throw new UnauthorizedException(INVALID_CASHIER_PIN_MESSAGE);
+    }
+
+    this.throttle.reset(throttleKey);
   }
 
   private async verify(hash: string, secret: string): Promise<boolean> {

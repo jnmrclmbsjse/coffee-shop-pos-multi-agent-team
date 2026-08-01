@@ -116,6 +116,31 @@ export interface StaffMember {
   updatedAt: string;
 }
 
+export interface SelectableStaffMember {
+  id: string;
+  displayName: string;
+  requiresPin: boolean;
+}
+
+export interface ActiveCashier {
+  id: string;
+  displayName: string;
+}
+
+export interface ActiveCashierResponse {
+  cashier: ActiveCashier | null;
+}
+
+export interface SelectActiveCashierInput {
+  deviceId: string;
+  staffMemberId: string;
+  pin?: string;
+}
+
+export interface ClearActiveCashierInput {
+  deviceId: string;
+}
+
 export type StaffMemberListSort = 'name' | 'active';
 
 export type SortDirection = 'asc' | 'desc';
