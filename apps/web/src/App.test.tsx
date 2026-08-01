@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -189,17 +189,20 @@ describe('staff authentication routes', () => {
     expect(readRememberedStaff()).toEqual([
       { id: staffUser.id, displayName: staffUser.displayName },
     ]);
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3000/auth/staff/login',
       expect.objectContaining({
         credentials: 'include',
         body: expect.stringContaining('"deviceId"'),
       }),
     );
+    const loginCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'http://localhost:3000/auth/staff/login',
+    );
     expect(
       JSON.parse(
         String(
-          (fetchMock.mock.calls.at(-1)?.[1] as RequestInit | undefined)?.body,
+          (loginCall?.[1] as RequestInit | undefined)?.body,
         ),
       ),
     ).toMatchObject({
@@ -240,7 +243,7 @@ describe('staff authentication routes', () => {
     expect(
       await screen.findByRole('heading', { name: 'Ready for the next order.' }),
     ).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3000/auth/staff/pin',
       expect.objectContaining({
         body: expect.stringContaining(`"staffId":"${staffUser.id}"`),
@@ -333,6 +336,16 @@ describe('staff authentication routes', () => {
           submittedCount: null,
         });
       }
+      if (path === '/trading-day/current') {
+        return response(200, {
+          isOpen: true,
+          businessDate: '2026-07-30',
+          dayType: 'NORMAL',
+          openingFloatCents: 50000,
+          openedByDisplayName: 'Maya Santos',
+          openedAt: '2026-07-30T07:00:00.000Z',
+        });
+      }
       if (path === '/inventory/counts/staff') {
         return response(200, []);
       }
@@ -368,6 +381,69 @@ describe('staff authentication routes', () => {
       '/pos/close',
     );
     expect(screen.queryByText(/cashier/i)).not.toBeInTheDocument();
+
+    const navigation = screen.getByRole('navigation', {
+      name: 'Staff workspace',
+    });
+    expect(
+      within(navigation).getAllByRole('link').map((item) => item.textContent),
+    ).toEqual([
+      'Sell',
+      'Open Day',
+      'Opening',
+      'Restock',
+      'Deliveries & Wastage',
+      'Order History',
+      'Cash & Expenses',
+      'Closing',
+      'Close Day',
+    ]);
+    expect(screen.getByLabelText('Business day context')).toHaveTextContent(
+      'Jul 30, 2026Normal day',
+    );
+  });
+
+  it('keeps unmet destinations visible and non-actionable when no day is open', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/auth/session') {
+        return response(200, { user: staffUser });
+      }
+      if (path === '/trading-day/current') {
+        return response(200, {
+          isOpen: false,
+          businessDate: null,
+          dayType: null,
+          openingFloatCents: null,
+          openedByDisplayName: null,
+          openedAt: null,
+        });
+      }
+      return response(500);
+    });
+
+    renderAt('/pos');
+
+    await screen.findByText('No business day open');
+    expect(screen.getByRole('link', { name: 'Sell' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByRole('link', { name: 'Open Day' })).toHaveAttribute(
+      'href',
+      '/pos/open',
+    );
+    expect(screen.getByRole('link', { name: 'Order History' })).toHaveAttribute(
+      'href',
+      '/pos/orders',
+    );
+
+    const unavailable = screen.getByRole('link', {
+      name: 'Opening, unavailable until a business day is open',
+    });
+    expect(unavailable).toHaveAttribute('aria-disabled', 'true');
+    expect(unavailable).not.toHaveAttribute('href');
+    expect(unavailable).not.toHaveAttribute('tabindex');
   });
 
   it('opens staff order history under the staff guard and marks its navigation current', async () => {
@@ -460,7 +536,7 @@ describe('staff authentication routes', () => {
       await screen.findByRole('heading', { name: 'Cash & Expenses' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'Cash & Expenses' }),
+      await screen.findByRole('link', { name: 'Cash & Expenses' }),
     ).toHaveAttribute('aria-current', 'page');
   });
 
@@ -518,7 +594,10 @@ describe('staff authentication routes', () => {
       expect(
         await screen.findByRole('heading', { name: heading }),
       ).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: activeLink })).toHaveAttribute(
+      const currentDestination = await screen.findByRole('link', {
+        name: new RegExp(`^${activeLink}`),
+      });
+      expect(currentDestination).toHaveAttribute(
         'aria-current',
         'page',
       );

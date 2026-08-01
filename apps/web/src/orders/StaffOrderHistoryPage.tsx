@@ -20,6 +20,7 @@ import {
   formatTimestamp,
 } from '../reporting/orderHistoryFormat';
 import { formatBusinessDate, formatMoney } from '../reporting/format';
+import { StaffPageHeading } from '../staff/StaffPageHeading';
 import { getStaffOrderLedger, listBusinessDays } from './api';
 
 const STATUSES: OrderHistoryStatus[] = ['Completed', 'Parked', 'Void'];
@@ -348,16 +349,11 @@ export function StaffOrderHistoryPage() {
       id="staff-main"
       className="staff-inventory-workspace staff-inventory-screen staff-order-history"
     >
-      <header className="staff-order-page-head">
-        <div>
-          <h1>Order History</h1>
-          <p>
-            Review recorded orders for one business day. This screen never
-            changes an order.
-          </p>
-        </div>
-        <span>Read only</span>
-      </header>
+      <StaffPageHeading
+        title="Order History"
+        description="Review recorded orders for one business day. This screen never changes an order."
+        badge="Read only"
+      />
 
       <section className="staff-order-filters" aria-labelledby="staff-order-filters-title">
         <div className="staff-order-filter-head">

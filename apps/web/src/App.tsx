@@ -24,10 +24,11 @@ import {
   ClosingCountPage,
   OpeningCountPage,
   RestockStatusPage,
-  StaffWorkspaceLayout,
   StockMovementsPage,
 } from './inventory/StaffInventoryPages';
 import { StaffPage } from './staff/StaffPage';
+import { StaffPageHeading } from './staff/StaffPageHeading';
+import { StaffWorkspaceLayout } from './staff/StaffWorkspace';
 import { DashboardPage } from './reporting/DashboardPage';
 import { ReportsPage } from './reporting/ReportsPage';
 import { OrderHistoryPage } from './pages/OrderHistoryPage';
@@ -449,9 +450,10 @@ function PointOfSalePage() {
 
   return (
     <main id="staff-main" className="pos-landing">
-      <p className="eyebrow">Point of Sale</p>
-      <h1>Ready for the next order.</h1>
-      <p>The sales workspace is ready for its upcoming workflow.</p>
+      <StaffPageHeading
+        title="Ready for the next order."
+        description="The sales workspace is ready for its upcoming workflow."
+      />
     </main>
   );
 }

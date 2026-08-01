@@ -15,6 +15,8 @@ import {
   type MoneyCents,
 } from '@coffee-shop/shared';
 import { formatMoney } from '../reporting/format';
+import { StaffPageHeading } from '../staff/StaffPageHeading';
+import { useStaffWorkspaceBusinessDay } from '../staff/StaffWorkspace';
 import {
   TradingDayApiError,
   getCurrentBusinessDay,
@@ -211,6 +213,8 @@ function NoOpenDay({ closedDuringSubmit }: { closedDuringSubmit: boolean }) {
 }
 
 export function CashAndExpensesPage() {
+  const { setBusinessDay: setWorkspaceBusinessDay } =
+    useStaffWorkspaceBusinessDay();
   const [businessDay, setBusinessDay] = useState<CurrentOpenBusinessDay | null>(null);
   const [staff, setStaff] = useState<InventoryStaffOption[]>([]);
   const [movements, setMovements] = useState<CashMovement[]>([]);
@@ -242,6 +246,7 @@ export function CashAndExpensesPage() {
       .then(async (day) => {
         if (!active) return;
         setBusinessDay(day);
+        setWorkspaceBusinessDay(day);
         if (!day.isOpen) {
           setMovements([]);
           setStaff([]);
@@ -253,6 +258,7 @@ export function CashAndExpensesPage() {
         ]);
         if (!active) return;
         setBusinessDay(ledger.businessDay);
+        setWorkspaceBusinessDay(ledger.businessDay);
         setMovements(ledger.movements);
         setStaff(activeStaff);
       })
@@ -265,7 +271,7 @@ export function CashAndExpensesPage() {
     return () => {
       active = false;
     };
-  }, [loadAttempt]);
+  }, [loadAttempt, setWorkspaceBusinessDay]);
 
   function changeKind(nextKind: CashMovementKind) {
     setKind(nextKind);
@@ -362,12 +368,10 @@ export function CashAndExpensesPage() {
 
   return (
     <main id="staff-main" className="staff-inventory-workspace staff-inventory-screen staff-cash-page">
-      <header className="staff-inventory-page-heading">
-        <div>
-          <h1>Cash &amp; Expenses</h1>
-          <p>Record permanent drawer movements, then review the current business day ledger.</p>
-        </div>
-      </header>
+      <StaffPageHeading
+        title="Cash & Expenses"
+        description="Record permanent drawer movements, then review the current business day ledger."
+      />
 
       {loadError ? (
         <div className="staff-inventory-blocking" role="alert">
