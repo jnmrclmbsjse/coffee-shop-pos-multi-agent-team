@@ -70,6 +70,14 @@ For an area you explored that v2 does not yet have a story for:
 - Check existing issues first (`gh issue list --search ...`) so you do not
   duplicate an existing story or one you filed on a previous run.
 - Call `./scripts/po-intake.sh "<requirement>"` — ONE call per coherent area.
+- `po-intake.sh` is a long-running nested agent. A tool yield, partial
+  transcript, or output without the final issue number does NOT mean it has
+  exited. Wait for that original command to reach a terminal exit and report
+  its final output. Never launch a recovery/retry intake for the same area.
+- If the wrapper returns exit 75 with `PO_INTAKE_BUSY`, another intake is still
+  inside its duplicate-check/create window. Do not retry it. If it is the
+  invocation you already launched, return to and wait for that invocation;
+  otherwise report that intake is already in progress.
 - Phrase the requirement in USER-FACING terms describing what v1 does, e.g.
   "Staff need to be able to add a product with a name, price, and category, and
   see a validation error if the price is negative — this is how v1 works."
