@@ -146,6 +146,53 @@ describe('administrator authentication routes', () => {
       screen.queryByRole('heading', { name: 'Sign in' }),
     ).not.toBeInTheDocument();
   });
+
+  it('groups admin destinations, distinguishes their icons, and marks the current page', async () => {
+    fetchMock.mockResolvedValueOnce(response(200, { user: adminUser }));
+
+    renderAt('/reports');
+
+    await screen.findByRole('heading', { name: 'Reports' });
+    const navigation = screen.getByRole('navigation', {
+      name: 'Administrator navigation',
+    });
+
+    expect(
+      within(navigation).getByRole('group', { name: 'Workspace' }),
+    ).toBeInTheDocument();
+    expect(
+      within(navigation).getByRole('group', { name: 'Catalog' }),
+    ).toBeInTheDocument();
+    expect(
+      within(navigation).getByRole('group', { name: 'Operations' }),
+    ).toBeInTheDocument();
+    expect(
+      within(navigation).getAllByRole('link').map((link) => link.textContent),
+    ).toEqual([
+      'Dashboard',
+      'Categories',
+      'Products',
+      'Inventory',
+      'Staff',
+      'Reports',
+      'Order History',
+    ]);
+    expect(
+      [...navigation.querySelectorAll<SVGElement>('svg[data-icon]')].map(
+        (icon) => icon.dataset.icon,
+      ),
+    ).toEqual([
+      'bars',
+      'folder',
+      'box',
+      'clipboard',
+      'users',
+      'document',
+      'receipt',
+    ]);
+    expect(within(navigation).getByRole('link', { name: 'Reports' }))
+      .toHaveAttribute('aria-current', 'page');
+  });
 });
 
 describe('staff authentication routes', () => {

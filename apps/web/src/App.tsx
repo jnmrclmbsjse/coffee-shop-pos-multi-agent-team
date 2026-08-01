@@ -43,6 +43,31 @@ import { StaffOrderHistoryPage } from './orders/StaffOrderHistoryPage';
 const DEFAULT_ADMIN_PATH = '/dashboard';
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
 
+const ADMIN_NAV_GROUPS = [
+  {
+    label: 'Workspace',
+    destinations: [
+      { to: '/dashboard', label: 'Dashboard', icon: 'bars' as const },
+    ],
+  },
+  {
+    label: 'Catalog',
+    destinations: [
+      { to: '/catalog/categories', label: 'Categories', icon: 'folder' as const },
+      { to: '/catalog/products', label: 'Products', icon: 'box' as const },
+    ],
+  },
+  {
+    label: 'Operations',
+    destinations: [
+      { to: '/inventory', label: 'Inventory', icon: 'clipboard' as const },
+      { to: '/staff', label: 'Staff', icon: 'users' as const },
+      { to: '/reports', label: 'Reports', icon: 'document' as const },
+      { to: '/order-history', label: 'Order History', icon: 'receipt' as const },
+    ],
+  },
+] as const;
+
 function requestedPath(pathname: string, search: string): string {
   return `${pathname}${search}`;
 }
@@ -375,37 +400,30 @@ function AdminLayout() {
       <aside className="admin-sidebar">
         <Brand />
         <nav ref={navigationRef} aria-label="Administrator navigation">
-          <span className="admin-nav-label">Workspace</span>
-          <NavLink to="/dashboard">
-            <Icon name="grid" />
-            Dashboard
-          </NavLink>
-          <span className="admin-nav-label">Catalog</span>
-          <NavLink to="/catalog/categories">
-            <Icon name="grid" />
-            Categories
-          </NavLink>
-          <NavLink to="/catalog/products">
-            <Icon name="box" />
-            Products
-          </NavLink>
-          <span className="admin-nav-label">Operations</span>
-          <NavLink to="/inventory">
-            <Icon name="box" />
-            Inventory
-          </NavLink>
-          <NavLink to="/staff">
-            <Icon name="grid" />
-            Staff
-          </NavLink>
-          <NavLink to="/reports">
-            <Icon name="grid" />
-            Reports
-          </NavLink>
-          <NavLink to="/order-history">
-            <Icon name="grid" />
-            Order History
-          </NavLink>
+          {ADMIN_NAV_GROUPS.map((group) => {
+            const labelId = `admin-nav-${group.label.toLowerCase()}`;
+
+            return (
+              <div
+                className="admin-nav-group"
+                role="group"
+                aria-labelledby={labelId}
+                key={group.label}
+              >
+                <span className="admin-nav-label" id={labelId}>
+                  {group.label}
+                </span>
+                <div className="admin-nav-group-links">
+                  {group.destinations.map((destination) => (
+                    <NavLink to={destination.to} key={destination.to}>
+                      <Icon name={destination.icon} />
+                      {destination.label}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
         <div className="admin-sidebar-user">
           <span aria-hidden="true">
