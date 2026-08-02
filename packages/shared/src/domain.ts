@@ -16,6 +16,7 @@ export interface CatalogCategory {
   name: string;
   sortWeight: number;
   active: boolean;
+  freeUpsizeEligible: boolean;
 }
 
 export interface CatalogCategorySummary extends CatalogCategory {
@@ -355,7 +356,15 @@ export enum ServiceType {
 
 export enum LineDiscountKind {
   NONE = 'NONE',
+  PWD = 'PWD',
   SENIOR = 'SENIOR',
+}
+
+export enum LinePreference {
+  SWEETER = 'SWEETER',
+  STRONGER = 'STRONGER',
+  LESS_SWEET = 'LESS_SWEET',
+  LESS_ICE = 'LESS_ICE',
 }
 
 export interface Order {
@@ -371,6 +380,7 @@ export interface Order {
   serviceType: ServiceType;
   subtotalCents: MoneyCents;
   discountCents: MoneyCents;
+  freeUpsizeCents: MoneyCents;
   taxCents: MoneyCents;
   totalCents: MoneyCents;
   cashTipCents: MoneyCents;
@@ -392,6 +402,11 @@ export interface LineItem {
   lineGrossCents: MoneyCents;
   discountKind: LineDiscountKind;
   discountCents: MoneyCents;
+  preferences: LinePreference[];
+  preferenceNote: string | null;
+  freeUpsizeCount: number;
+  freeUpsizeCents: MoneyCents;
+  freeUpsizeEligible: boolean;
   lineTotalCents: MoneyCents;
   productNameSnapshot: string;
   variantNameSnapshot: string;

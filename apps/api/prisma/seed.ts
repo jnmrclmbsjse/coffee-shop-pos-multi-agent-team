@@ -23,6 +23,11 @@ const initialStockCategories = [
   { name: 'Others', sortWeight: 4 },
 ] as const;
 
+const initialCatalogCategories = [
+  { name: 'Coffee', sortWeight: 0, freeUpsizeEligible: true },
+  { name: 'Other Drinks', sortWeight: 1, freeUpsizeEligible: false },
+] as const;
+
 function readSeedUser(
   usernameVariable: string,
   displayNameVariable: string,
@@ -108,6 +113,29 @@ async function seedStockCategories(): Promise<void> {
       await prisma.stockCategory.create({
         data: category,
       });
+    }
+  }
+}
+
+async function seedCatalogCategories(): Promise<void> {
+  for (const category of initialCatalogCategories) {
+    const existing = await prisma.category.findFirst({
+      where: {
+        name: { equals: category.name, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await prisma.category.update({
+        where: { id: existing.id },
+        data: {
+          sortWeight: category.sortWeight,
+          freeUpsizeEligible: category.freeUpsizeEligible,
+        },
+      });
+    } else {
+      await prisma.category.create({ data: category });
     }
   }
 }
@@ -202,6 +230,7 @@ async function main(): Promise<void> {
 
   await seedUser(admin);
   const staffUserId = await seedUser(staff);
+  await seedCatalogCategories();
   await seedStockCategories();
   const staffMemberId = await seedStaffMember(staff.displayName, staffUserId);
   await seedStaffMember('Unlinked Barista');
@@ -210,6 +239,7 @@ async function main(): Promise<void> {
   console.log(`Seeded administrator "${admin.username}"`);
   console.log(`Seeded staff user "${staff.username}"`);
   console.log('Seeded linked and unlinked active roster members');
+  console.log('Seeded initial catalog categories');
   console.log('Seeded initial stock categories');
   console.log('Ensured an open trading day exists');
 }
