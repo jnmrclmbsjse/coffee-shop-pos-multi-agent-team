@@ -1,7 +1,12 @@
 import type {
   BusinessDayList,
+  CreateOrderInput,
+  Order,
+  OrderLineInput,
   StaffOrderLedger,
   StaffOrderLedgerQuery,
+  UpdateOrderInput,
+  UpdateOrderLineInput,
 } from '@coffee-shop/shared';
 
 const API_ORIGIN = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
@@ -12,6 +17,15 @@ export class StaffOrderLedgerApiError extends Error {
     readonly messages: string[],
   ) {
     super(messages[0] ?? 'The order history request failed.');
+  }
+}
+
+export class OrderCaptureApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly messages: string[],
+  ) {
+    super(messages[0] ?? 'The order change could not be saved.');
   }
 }
 
@@ -41,6 +55,40 @@ async function request<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function captureRequest<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(`${API_ORIGIN}${path}`, {
+    ...init,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...init?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    let messages = ['The order change could not be saved. Try again.'];
+    try {
+      const body = (await response.json()) as { message?: unknown };
+      if (Array.isArray(body.message)) {
+        messages = body.message.filter(
+          (message): message is string => typeof message === 'string',
+        );
+      } else if (typeof body.message === 'string') {
+        messages = [body.message];
+      }
+    } catch {
+      // Keep the actionable fallback when a response has no JSON body.
+    }
+    throw new OrderCaptureApiError(response.status, messages);
+  }
+
+  if (response.status === 204) return undefined as T;
+  return (await response.json()) as T;
+}
+
 export function listBusinessDays(): Promise<BusinessDayList> {
   return request('/trading-day');
 }
@@ -61,5 +109,80 @@ export function getStaffOrderLedger(
     `/reporting/staff-order-ledger/${encodeURIComponent(businessDayId)}${
       queryString ? `?${queryString}` : ''
     }`,
+  );
+}
+
+export function createOrder(input: CreateOrderInput): Promise<Order> {
+  return captureRequest('/orders', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listParkedOrders(): Promise<Order[]> {
+  return captureRequest('/orders/parked');
+}
+
+export function updateOrder(
+  clientGeneratedId: string,
+  input: UpdateOrderInput,
+): Promise<Order> {
+  return captureRequest(`/orders/${encodeURIComponent(clientGeneratedId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function addOrderLine(
+  clientGeneratedId: string,
+  input: OrderLineInput,
+): Promise<Order> {
+  return captureRequest(
+    `/orders/${encodeURIComponent(clientGeneratedId)}/lines`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function updateOrderLine(
+  clientGeneratedId: string,
+  lineId: string,
+  input: UpdateOrderLineInput,
+): Promise<Order> {
+  return captureRequest(
+    `/orders/${encodeURIComponent(clientGeneratedId)}/lines/${encodeURIComponent(lineId)}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function incrementOrderLine(
+  clientGeneratedId: string,
+  lineId: string,
+): Promise<Order> {
+  return captureRequest(
+    `/orders/${encodeURIComponent(clientGeneratedId)}/lines/${encodeURIComponent(lineId)}/increment`,
+    { method: 'POST' },
+  );
+}
+
+export function decrementOrderLine(
+  clientGeneratedId: string,
+  lineId: string,
+): Promise<Order | null> {
+  return captureRequest(
+    `/orders/${encodeURIComponent(clientGeneratedId)}/lines/${encodeURIComponent(lineId)}/decrement`,
+    { method: 'POST' },
+  );
+}
+
+export function removeOrderLine(
+  clientGeneratedId: string,
+  lineId: string,
+): Promise<Order | null> {
+  return captureRequest(
+    `/orders/${encodeURIComponent(clientGeneratedId)}/lines/${encodeURIComponent(lineId)}`,
+    { method: 'DELETE' },
   );
 }

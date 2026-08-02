@@ -15,6 +15,9 @@ const NO_OPEN_BUSINESS_DAY: CurrentOpenBusinessDay = {
 };
 
 interface StaffWorkspaceContextValue {
+  businessDay: CurrentOpenBusinessDay | null;
+  businessDayLoadError: boolean;
+  retryBusinessDay: () => void;
   setBusinessDay: (businessDay: CurrentOpenBusinessDay) => void;
 }
 
@@ -33,7 +36,12 @@ interface StaffDestination {
 }
 
 const STAFF_DESTINATIONS: readonly StaffDestination[] = [
-  { label: 'Sell', to: '/pos', requiresOpenDay: false, separatorAfter: true },
+  {
+    label: 'Take Order',
+    to: '/pos/order',
+    requiresOpenDay: false,
+    separatorAfter: true,
+  },
   {
     label: 'Open Day',
     to: '/pos/open',
@@ -151,13 +159,15 @@ function BusinessDayContext({
 }
 
 function isCurrentDestination(pathname: string, destination: string): boolean {
-  if (destination === '/pos') return pathname === destination;
   return pathname === destination || pathname.startsWith(`${destination}/`);
 }
 
 export function useStaffWorkspaceBusinessDay() {
   const context = useContext(StaffWorkspaceContext);
   return {
+    businessDay: context?.businessDay ?? null,
+    businessDayLoadError: context?.businessDayLoadError ?? false,
+    retryBusinessDay: context?.retryBusinessDay ?? (() => undefined),
     setBusinessDay: context?.setBusinessDay ?? ignoreBusinessDayChange,
     clearBusinessDay: () => context?.setBusinessDay(NO_OPEN_BUSINESS_DAY),
   };
@@ -209,7 +219,14 @@ export function StaffWorkspaceLayout() {
   }, [location.pathname]);
 
   return (
-    <StaffWorkspaceContext.Provider value={{ setBusinessDay }}>
+    <StaffWorkspaceContext.Provider
+      value={{
+        businessDay,
+        businessDayLoadError: loadError,
+        retryBusinessDay: () => setLoadVersion((version) => version + 1),
+        setBusinessDay,
+      }}
+    >
       <div className="staff-inventory-shell">
         <a className="staff-skip-link" href="#staff-main">
           Skip to staff workspace

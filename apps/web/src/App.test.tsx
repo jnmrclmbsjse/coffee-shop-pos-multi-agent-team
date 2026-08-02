@@ -230,7 +230,7 @@ describe('staff authentication routes', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Ready for the next order.' }),
+      await screen.findByRole('link', { name: 'Take Order' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Signed in as Maya Santos')).toBeInTheDocument();
     expect(readRememberedStaff()).toEqual([
@@ -288,7 +288,7 @@ describe('staff authentication routes', () => {
     await user.click(submit);
 
     expect(
-      await screen.findByRole('heading', { name: 'Ready for the next order.' }),
+      await screen.findByRole('link', { name: 'Take Order' }),
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3000/auth/staff/pin',
@@ -358,7 +358,7 @@ describe('staff authentication routes', () => {
     renderAt('/reports');
 
     expect(
-      await screen.findByRole('heading', { name: 'Ready for the next order.' }),
+      await screen.findByRole('link', { name: 'Take Order' }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Reports' }),
@@ -440,7 +440,7 @@ describe('staff authentication routes', () => {
     expect(
       within(navigation).getAllByRole('link').map((item) => item.textContent),
     ).toEqual([
-      'Sell',
+      'Take Order',
       'Open Day',
       'Opening',
       'Restock',
@@ -476,8 +476,8 @@ describe('staff authentication routes', () => {
 
     renderAt('/pos');
 
-    await screen.findByText('No business day open');
-    expect(screen.getByRole('link', { name: 'Sell' })).toHaveAttribute(
+    await screen.findByRole('heading', { name: 'No business day is open' });
+    expect(screen.getByRole('link', { name: 'Take Order' })).toHaveAttribute(
       'aria-current',
       'page',
     );
