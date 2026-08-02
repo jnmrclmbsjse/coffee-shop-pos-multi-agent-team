@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Take Order | UCM Coffee Studio POS</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to order workspace</a>
+
+  <div class="app-shell" data-od-id="staff-workspace-shell">
+    <header class="staff-header" data-od-id="staff-header">
+      <div class="identity-row">
+        <div class="brand-lockup" aria-label="UCM Coffee Studio">
+          <span class="brand-mark" aria-hidden="true">UCM</span>
+          <span class="brand-name">Coffee Studio</span>
+          <span class="role-tag">Staff</span>
+        </div>
+        <dl class="shift-context" aria-label="Current staff context">
+          <div><dt>User</dt><dd>Mika Santos</dd></div>
+          <div><dt>Branch</dt><dd>UCM Taft</dd></div>
+          <div><dt>Business day</dt><dd id="day-context">Aug 2, 2026</dd></div>
+          <div><dt>Register</dt><dd>Front counter</dd></div>
+        </dl>
+        <button class="cashier-control" id="cashier-control" type="button" aria-haspopup="dialog" aria-controls="cashier-dialog">
+          <span class="control-kicker">Active cashier</span>
+          <strong id="cashier-label">No cashier selected</strong>
+        </button>
+      </div>
+
+      <nav class="staff-nav" aria-label="Staff workspace">
+        <a href="#" aria-current="page">Take Order</a>
+        <a href="#" data-review-target="orders">Orders</a>
+        <a href="#">Business Day</a>
+        <a href="#">Cashiers</a>
+        <a href="#">Menu</a>
+        <a href="#">Inventory</a>
+        <a href="#">Reports</a>
+      </nav>
+    </header>
+
+    <aside class="review-panel" data-od-id="review-states" aria-label="Mockup review states">
+      <div class="review-heading">
+        <strong>Mockup only</strong>
+        <span>Review states</span>
+      </div>
+      <div class="review-controls" role="group" aria-label="Select a state to review">
+        <button type="button" data-state="empty">Empty order</button>
+        <button type="button" data-state="loading">Loading order</button>
+        <button type="button" data-state="lines" aria-pressed="true">Order with lines</button>
+        <button type="button" data-state="worst">Worst-case line</button>
+        <button type="button" data-state="preferences">Preferences</button>
+        <button type="button" data-state="discount">Discount</button>
+        <button type="button" data-state="upsize">Free upsize</button>
+        <button type="button" data-state="soldout">Sold out</button>
+        <button type="button" data-state="nodayout">No day open</button>
+        <button type="button" data-state="cash">Cash charge</button>
+        <button type="button" data-state="online">Online charge</button>
+        <button type="button" data-state="split">Split charge</button>
+        <button type="button" data-state="changeowed">Change owed</button>
+        <button type="button" data-state="completed">Completed</button>
+        <button type="button" data-state="void">Void</button>
+        <button type="button" data-state="nocashier">No cashier</button>
+      </div>
+    </aside>
+
+    <main id="main-content" tabindex="-1">
+      <section class="workspace" id="order-workspace" data-od-id="take-order-workspace" aria-label="Take order workspace">
+        <div class="catalog-pane" data-od-id="product-catalog">
+          <div class="pane-heading">
+            <div>
+              <h1>Take order</h1>
+              <p>Select a size to add it to the current order.</p>
+            </div>
+            <label class="search-field">
+              <span class="sr-only">Search products</span>
+              <input id="catalog-search" type="search" placeholder="Search products" autocomplete="off">
+            </label>
+          </div>
+
+          <nav class="category-tabs" aria-label="Jump to product category">
+            <a href="#category-non-coffee" aria-current="location">Non Coffee</a>
+            <a href="#category-coffee">Coffee</a>
+          </nav>
+
+          <div class="catalog-scroll" id="catalog-scroll">
+            <section class="catalog-category" id="category-non-coffee" data-od-id="category-non-coffee">
+              <h2>Non Coffee</h2>
+              <article class="product-card" data-product="milky-choco" data-od-id="product-milky-choco">
+                <div class="product-summary">
+                  <div>
+                    <h3>Milky Choco</h3>
+                    <span class="availability available">Available</span>
+                  </div>
+                  <button class="stock-toggle" type="button" aria-pressed="false">Mark sold out</button>
+                </div>
+                <div class="size-actions" aria-label="Milky Choco sizes">
+                  <button type="button" data-add="milky-choco"><span>Medio</span><strong>₱158.00</strong></button>
+                </div>
+              </article>
+            </section>
+
+            <section class="catalog-category" id="category-coffee" data-od-id="category-coffee">
+              <h2>Coffee</h2>
+              <div class="product-grid">
+                <article class="product-card" data-product="house-blend" data-od-id="product-house-blend">
+                  <div class="product-summary">
+                    <div>
+                      <h3>House Blend</h3>
+                      <span class="availability available">Available</span>
+                    </div>
+                    <button class="stock-toggle" type="button" aria-pressed="false">Mark sold out</button>
+                  </div>
+                  <div class="size-actions" aria-label="House Blend sizes">
+                    <button type="button" data-add="house-blend"><span>M</span><strong>₱50.00</strong></button>
+                  </div>
+                </article>
+
+                <article class="product-card" data-product="signature-latte" data-od-id="product-signature-latte">
+                  <div class="product-summary">
+                    <div>
+                      <h3>Signature Latte</h3>
+                      <span class="availability available">Available</span>
+                    </div>
+                    <button class="stock-toggle" type="button" aria-pressed="false">Mark sold out</button>
+                  </div>
+                  <div class="size-actions" aria-label="Signature Latte sizes">
+                    <button type="button" data-add="signature-latte"><span>M</span><strong>₱150.00</strong></button>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="parked-orders" data-od-id="parked-orders">
+              <div class="section-heading-row">
+                <h2>Parked orders</h2>
+                <span>2 waiting</span>
+              </div>
+              <div class="parked-list">
+                <button type="button" class="parked-order">
+                  <span><strong>Walk-in</strong><small>Dine-in · Parked 10:42 AM</small></span>
+                  <span><strong>2 items</strong><small class="money">₱208.00</small></span>
+                  <b>Resume</b>
+                </button>
+                <button type="button" class="parked-order">
+                  <span><strong>Walk-in</strong><small>Take-out · Parked 10:47 AM</small></span>
+                  <span><strong>1 item</strong><small class="money">₱158.00</small></span>
+                  <b>Resume</b>
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <aside class="order-pane" data-od-id="current-order" aria-label="Current order">
+          <div class="order-header">
+            <div class="order-title-row">
+              <div>
+                <span class="label">Current order</span>
+                <h2 id="order-number">Order #1048</h2>
+              </div>
+              <span class="cashier-attribution" id="order-cashier">No cashier</span>
+            </div>
+            <p class="frozen-note">Cashier attribution was frozen when this order started.</p>
+
+            <label class="field-block" for="customer-name">
+              <span>Customer name <small>Optional</small></span>
+              <input id="customer-name" type="text" placeholder="Blank means walk-in" autocomplete="off">
+            </label>
+
+            <fieldset class="service-type">
+              <legend>Service type</legend>
+              <div class="segmented-control">
+                <button type="button" aria-pressed="true" data-service="dine-in">Dine-in</button>
+                <button type="button" aria-pressed="false" data-service="take-out">Take-out</button>
+              </div>
+            </fieldset>
+          </div>
+
+          <div class="line-list" id="line-list" aria-live="polite" data-od-id="order-line-list"></div>
+
+          <div class="totals-block" data-od-id="order-totals" aria-live="polite" aria-atomic="true">
+            <dl>
+              <div><dt>Pre-discount subtotal</dt><dd id="subtotal">₱0.00</dd></div>
+              <div class="promotion-total"><dt>Free upsize</dt><dd id="upsize-total">₱0.00</dd></div>
+              <div><dt>Line discounts</dt><dd id="discount-total">₱0.00</dd></div>
+              <div class="amount-due"><dt>Amount due</dt><dd id="amount-due">₱0.00</dd></div>
+            </dl>
+            <details class="worked-example">
+              <summary>Check the discount order</summary>
+              <p>₱150 eligible line - ₱30 free upsize = ₱120 discount base. Senior discount ₱24. Line total ₱96.</p>
+            </details>
+          </div>
+
+          <div class="order-actions" data-od-id="order-actions">
+            <button type="button" class="secondary" id="park-button">Park</button>
+            <button type="button" class="primary" id="charge-button">Charge <span id="charge-amount">₱0.00</span></button>
+            <button type="button" class="danger-quiet" id="void-button" disabled aria-describedby="void-disabled-help">Void</button>
+            <span id="void-disabled-help" class="sr-only">Only completed, not-yet-void orders can be voided.</span>
+          </div>
+        </aside>
+
+        <section class="day-closed" id="day-closed" hidden aria-labelledby="day-closed-title">
+          <div>
+            <span class="status-icon" aria-hidden="true">!</span>
+            <h2 id="day-closed-title">No business day is open</h2>
+            <p>An order cannot be started until today’s business day is open for this branch and register.</p>
+            <button type="button" class="primary">Open business day</button>
+          </div>
+        </section>
+      </section>
+
+      <section class="orders-review" id="orders-review" hidden data-od-id="staff-order-history">
+        <div class="orders-review-header">
+          <div><h1>Orders</h1><p>Completed orders that still need change follow-up.</p></div>
+          <button type="button" class="secondary" id="back-to-order">Back to Take Order</button>
+        </div>
+        <div class="history-table" role="table" aria-label="Orders with change status">
+          <div class="history-head" role="row"><span>Order</span><span>Payment</span><span>Change record</span><span>Status</span><span>Action</span></div>
+          <div class="history-row" role="row" id="unsettled-change-row">
+            <span><strong>#1042</strong><small>Walk-in · Take-out · 10:16 AM</small></span>
+            <span><strong class="money">₱350.00</strong><small>Cash</small></span>
+            <span><strong class="money">₱50.00</strong><small>Original amount owed</small></span>
+            <span><strong>Change still owed</strong><small>No settlement recorded</small></span>
+            <span><button class="primary compact" type="button" id="settle-change">Confirm handed over</button></span>
+          </div>
+          <div class="history-row" role="row">
+            <span><strong>#1038</strong><small>Althea · Dine-in · 9:54 AM</small></span>
+            <span><strong class="money">₱158.00</strong><small>Cash</small></span>
+            <span><strong class="money">₱20.00</strong><small>Original amount owed remains</small></span>
+            <span><strong>Settled</strong><small>Handed over 10:09 AM</small></span>
+            <span><span class="neutral-status">Complete</span></span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="cashier-dialog" aria-labelledby="cashier-title">
+    <form method="dialog" class="sheet-form">
+      <div class="sheet-header"><div><span class="label">Order attribution</span><h2 id="cashier-title">Active cashier</h2></div><button type="submit" value="cancel" class="icon-button" aria-label="Close">×</button></div>
+      <p>Selecting a cashier affects only orders started after this change. Existing orders keep their original attribution.</p>
+      <div class="choice-stack">
+        <button type="button" class="cashier-choice selected" data-cashier="">No cashier selected <small>Supported neutral state</small></button>
+        <button type="button" class="cashier-choice" data-cashier="Paolo Reyes">Paolo Reyes <small>Barista</small></button>
+        <button type="button" class="cashier-choice" data-cashier="Ina Villanueva">Ina Villanueva <small>Shift lead</small></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="preferences-dialog" aria-labelledby="preferences-title">
+    <form method="dialog" class="sheet-form" id="preferences-form">
+      <div class="sheet-header"><div><span class="label">Per-line preferences</span><h2 id="preferences-title">Signature Latte, M</h2></div><button type="submit" value="cancel" class="icon-button" aria-label="Close">×</button></div>
+      <fieldset><legend>Choose any that apply</legend><div class="check-grid">
+        <label><input type="checkbox" name="preference" value="Sweeter"> <span>Sweeter</span></label>
+        <label><input type="checkbox" name="preference" value="Stronger"> <span>Stronger</span></label>
+        <label><input type="checkbox" name="preference" value="Less sweet"> <span>Less sweet</span></label>
+        <label><input type="checkbox" name="preference" value="Less ice"> <span>Less ice</span></label>
+      </div></fieldset>
+      <p class="quiet-advice" id="sweet-pair-note" hidden>Sweeter and Less sweet can both be saved. Confirm this is intentional.</p>
+      <label class="field-block" for="preference-note"><span>Preparation note <small>Optional</small></span><textarea id="preference-note" maxlength="300" aria-describedby="note-help note-error" rows="3">Oat milk, warm not hot, please</textarea></label>
+      <div class="field-meta"><span id="note-help">Whitespace-only notes are ignored.</span><span id="note-counter" aria-live="polite">34 / 255</span></div>
+      <p class="field-error" id="note-error" role="alert" hidden>Keep the note to 255 characters or fewer.</p>
+      <div class="sheet-actions"><button type="submit" value="cancel" class="secondary">Cancel</button><button type="submit" value="default" class="primary" id="save-preferences">Save preferences</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="discount-dialog" aria-labelledby="discount-title">
+    <form method="dialog" class="sheet-form" id="discount-form">
+      <div class="sheet-header"><div><span class="label">Per-line discount</span><h2 id="discount-title">Line discount</h2></div><button type="submit" value="cancel" class="icon-button" aria-label="Close">×</button></div>
+      <fieldset><legend>Choose one</legend><div class="radio-stack">
+        <label><input type="radio" name="discount" value="none"><span><strong>None</strong><small>No line discount</small></span></label>
+        <label><input type="radio" name="discount" value="pwd"><span><strong>PWD</strong><small>20% after promotions</small></span></label>
+        <label><input type="radio" name="discount" value="senior" checked><span><strong>Senior</strong><small>20% after promotions</small></span></label>
+      </div></fieldset>
+      <div class="decision-note"><strong>No ID details are recorded.</strong><p>Confirm eligibility in person. This POS stores only the selected discount type.</p></div>
+      <div class="sheet-actions"><button type="submit" value="cancel" class="secondary">Cancel</button><button type="submit" value="default" class="primary" id="save-discount">Apply to this line</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="upsize-dialog" aria-labelledby="upsize-title">
+    <form method="dialog" class="sheet-form" id="upsize-form">
+      <div class="sheet-header"><div><span class="promotion-label">Promotion</span><h2 id="upsize-title">Free upsize</h2></div><button type="submit" value="cancel" class="icon-button" aria-label="Close">×</button></div>
+      <p>Each free upsize subtracts ₱30 before any PWD or Senior discount is calculated.</p>
+      <label class="field-block" for="upsize-count"><span>Free upsizes <small id="upsize-limit">Maximum 2 for quantity 2</small></span><input id="upsize-count" type="number" inputmode="numeric" min="0" max="2" value="2" aria-describedby="upsize-error"></label>
+      <p class="field-error" id="upsize-error" role="alert" hidden>The count must be from 0 through the line quantity.</p>
+      <div class="unavailable-example"><strong>Unavailable example</strong><p>Milky Choco is not in a category marked freeUpsizeEligible. A non-zero count is rejected.</p><button type="button" disabled aria-describedby="ineligible-help">Add free upsize</button><span id="ineligible-help" class="sr-only">Unavailable because this line’s category is not eligible.</span></div>
+      <div class="sheet-actions"><button type="submit" value="cancel" class="secondary">Cancel</button><button type="submit" value="default" class="primary" id="save-upsize">Apply promotion</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="charge-dialog" class="wide-dialog" aria-labelledby="charge-title">
+    <form method="dialog" class="sheet-form" id="charge-form">
+      <div class="sheet-header"><div><span class="label">Payment</span><h2 id="charge-title">Charge <span class="money">₱350.00</span></h2></div><button type="submit" value="cancel" class="icon-button" aria-label="Close">×</button></div>
+      <div class="payment-tabs" role="tablist" aria-label="Payment method">
+        <button type="button" role="tab" aria-selected="true" data-payment="cash">Cash</button>
+        <button type="button" role="tab" aria-selected="false" data-payment="online">Online</button>
+        <button type="button" role="tab" aria-selected="false" data-payment="split">Split</button>
+      </div>
+      <div id="payment-fields"></div>
+      <div class="payment-extra">
+        <label class="field-block" for="cash-tip"><span>Cash tip <small>Optional, cash-only</small></span><input id="cash-tip" class="money-input" type="number" inputmode="decimal" min="0" step="0.01" value="0.00" aria-describedby="tip-help tip-error"></label>
+        <p id="tip-help">A tip does not change amount due or sales revenue. It increases expected cash for the day. Allowed for fully Online orders.</p>
+        <p id="tip-error" class="field-error" role="alert" hidden>Cash tip cannot be negative.</p>
+        <label class="field-block" for="change-owed"><span>Change still owed <small>Deliberate choice, defaults to ₱0.00</small></span><input id="change-owed" class="money-input" type="number" inputmode="decimal" min="0" step="0.01" value="0.00" aria-describedby="owed-help owed-error"></label>
+        <p id="owed-help">Record only change that cannot be handed over now. The maximum is the calculated change due.</p>
+        <p id="owed-error" class="field-error" role="alert" hidden>Change still owed must be from ₱0.00 through the calculated change due.</p>
+      </div>
+      <div class="sheet-actions"><button type="submit" value="cancel" class="secondary">Cancel</button><button type="submit" value="default" class="primary" id="complete-payment">Complete payment</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="confirmation-dialog" class="wide-dialog" aria-labelledby="confirmation-title">
+    <div class="sheet-form confirmation">
+      <div class="confirmation-mark" aria-hidden="true">✓</div>
+      <span class="label">Order completed</span>
+      <h2 id="confirmation-title">Payment recorded</h2>
+      <dl class="receipt-breakdown">
+        <div><dt>Order</dt><dd>#1048</dd></div><div><dt>Amount due</dt><dd class="money">₱350.00</dd></div>
+        <div><dt id="confirm-method">Cash received</dt><dd class="money" id="confirm-paid">₱400.00</dd></div>
+        <div><dt>Cash tip</dt><dd class="money" id="confirm-tip">₱20.00</dd></div>
+        <div><dt>Change due</dt><dd class="money" id="confirm-change">₱50.00</dd></div>
+        <div><dt>Change still owed</dt><dd class="money" id="confirm-owed">₱0.00</dd></div>
+        <div><dt>Cashier attribution</dt><dd>No cashier</dd></div>
+      </dl>
+      <p>Sales revenue remains ₱350.00. Cash tips and change owed stay separate in the record.</p>
+      <div class="sheet-actions"><button type="button" class="secondary" id="review-completed">View completed order</button><button type="button" class="primary" id="new-order">Start new order</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="void-dialog" aria-labelledby="void-title">
+    <form method="dialog" class="sheet-form" id="void-form">
+      <div class="sheet-header"><div><span class="label">Completed order #1048</span><h2 id="void-title">Void order</h2></div><button type="submit" value="cancel" class="icon-button" aria-label="Close">×</button></div>
+      <div class="danger-notice"><strong>The original order stays visible as void.</strong><p>A void is not revenue. Enter any correction as a new order instead of editing this record.</p></div>
+      <label class="field-block" for="void-reason"><span>Reason <small>Required</small></span><textarea id="void-reason" rows="3" aria-describedby="void-error"></textarea></label>
+      <p id="void-error" class="field-error" role="alert" hidden>Enter a reason. Spaces alone do not count.</p>
+      <div class="unavailable-example"><strong>When Void is unavailable</strong><p>Parked orders are not completed. Already-void orders cannot be voided again.</p></div>
+      <div class="sheet-actions"><button type="submit" value="cancel" class="secondary">Keep order</button><button type="submit" value="default" class="danger" id="confirm-void">Void completed order</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
