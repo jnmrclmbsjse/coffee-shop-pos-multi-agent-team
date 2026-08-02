@@ -162,6 +162,9 @@ export function seedTradingDayFixture(fixture: TradingDayFixture): void {
                   lineGrossCents: line.lineGrossCents,
                   discountKind: line.discountKind,
                   discountCents: line.discountCents,
+                  // Required with no default since story #197's order-capture
+                  // schema; these fixtures predate the free-upsize promotion.
+                  freeUpsizeEligible: false,
                   lineTotalCents: line.lineTotalCents,
                   productNameSnapshot: line.productNameSnapshot,
                   variantNameSnapshot: line.variantNameSnapshot,

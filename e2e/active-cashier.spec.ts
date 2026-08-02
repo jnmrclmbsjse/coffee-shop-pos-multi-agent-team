@@ -149,7 +149,7 @@ async function signInAsStaff(page: Page): Promise<void> {
   await expect(username).toHaveValue(STAFF_USERNAME);
   await expect(password).toHaveValue(STAFF_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/pos$/);
+  await expect(page).toHaveURL(/\/pos(\/order)?$/);
   await expect(indicator(page)).toBeVisible();
 }
 
@@ -395,7 +395,7 @@ test('AC5/AC6: a PIN-gated member is prompted, and the correct PIN activates the
   expect((await serverActiveCashier(page))?.displayName).toBe(PIN_CASHIER);
 
   // AC6 — the POS session is untouched: same signed-in user, still on the POS.
-  await expect(page).toHaveURL(/\/pos$/);
+  await expect(page).toHaveURL(/\/pos(\/order)?$/);
   const sessionAfter = await page.request.get(`${API_BASE_URL}/auth/session`);
   expect(sessionAfter.ok()).toBe(true);
   expect(await sessionAfter.json()).toEqual(signedInBefore);
@@ -508,11 +508,11 @@ test('edge: a failed cashier PIN does not sign the till out', async ({ page }) =
   await expect(failure(page)).toHaveText(GENERIC_PIN_FAILURE);
 
   // Still signed in, still on the POS — not bounced to the staff sign-in screen.
-  await expect(page).toHaveURL(/\/pos$/);
+  await expect(page).toHaveURL(/\/pos(\/order)?$/);
   await dialog(page).getByRole('button', { name: 'Back' }).click();
   await dialog(page).getByRole('button', { name: 'Cancel' }).click();
   await page.reload();
-  await expect(page).toHaveURL(/\/pos$/);
+  await expect(page).toHaveURL(/\/pos(\/order)?$/);
   await expect(indicator(page)).toBeVisible();
   const session = await page.request.get(`${API_BASE_URL}/auth/session`);
   expect(session.ok()).toBe(true);

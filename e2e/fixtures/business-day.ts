@@ -348,6 +348,9 @@ export function seedSale(input: SeedSaleInput): string {
             lineGrossCents: 15000 * line.quantity,
             discountKind: 'NONE',
             discountCents: 0,
+            // Required with no default since story #197's order-capture schema;
+            // this fixture predates the free-upsize promotion.
+            freeUpsizeEligible: false,
             lineTotalCents: 15000 * line.quantity,
             productNameSnapshot: 'QA Latte',
             variantNameSnapshot: 'Regular',

@@ -162,7 +162,7 @@ async function signInAsStaff(page: Page): Promise<void> {
   await page.locator('#staff-username').fill(STAFF_USERNAME);
   await page.locator('#staff-password').fill(STAFF_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/pos$/);
+  await expect(page).toHaveURL(/\/pos(\/order)?$/);
 }
 
 /**

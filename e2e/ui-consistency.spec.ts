@@ -47,9 +47,14 @@ const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'replace-before-seeding
 
 const TAG = `qa174-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 
-/** The binding destination order from story #174's acceptance criteria. */
+/**
+ * The binding destination order from story #174's acceptance criteria.
+ *
+ * The first destination was labelled `Sell` until story #197 delivered the Take
+ * Order workspace and renamed it; the order and the count are unchanged.
+ */
 const STAFF_DESTINATIONS = [
-  'Sell',
+  'Take Order',
   'Open Day',
   'Opening',
   'Restock',
@@ -159,7 +164,7 @@ async function signInAsStaff(page: Page): Promise<void> {
   await page.locator('#staff-username').fill(STAFF_USERNAME);
   await page.locator('#staff-password').fill(STAFF_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/pos$/);
+  await expect(page).toHaveURL(/\/pos(\/order)?$/);
 }
 
 async function signInAsAdmin(page: Page): Promise<void> {
@@ -309,7 +314,7 @@ test.describe('staff POS strip — one coherent navigation experience', () => {
       ['Order History', '/pos/orders'],
       ['Cash & Expenses', '/pos/cash'],
       ['Closing', '/pos/closing'],
-      ['Sell', '/pos'],
+      ['Take Order', '/pos/order'],
     ] as const) {
       await staffNavItem(page, label).click();
       await expect(page).toHaveURL(new RegExp(`${path.replace('/', '\\/')}$`));
@@ -462,7 +467,7 @@ test.describe('staff POS strip — destinations with an unmet prerequisite', () 
 
     for (const label of ['Opening', 'Cash & Expenses', 'Close Day']) {
       await staffNavItem(page, label).click({ force: true });
-      await expect(page).toHaveURL(/\/pos$/);
+      await expect(page).toHaveURL(/\/pos(\/order)?$/);
     }
   });
 
@@ -550,7 +555,7 @@ test.describe('staff POS shell — keyboard and assistive-technology access', ()
       ...STAFF_DESTINATIONS,
     ]);
 
-    const outline = await staffNavItem(page, 'Sell').evaluate((element) => {
+    const outline = await staffNavItem(page, 'Take Order').evaluate((element) => {
       element.focus();
       const style = getComputedStyle(element);
       return {
@@ -700,7 +705,7 @@ test.describe('workspace separation from the staff side', () => {
     await signInAsStaff(page);
 
     await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/pos$/);
+    await expect(page).toHaveURL(/\/pos(\/order)?$/);
     await expect(page.locator('.admin-sidebar')).toHaveCount(0);
     await expect(staffNav(page)).toHaveCount(1);
   });
