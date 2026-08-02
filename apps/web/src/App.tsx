@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   BrowserRouter,
+  Link,
   Navigate,
   NavLink,
   Outlet,
@@ -236,7 +237,12 @@ function SignInPage() {
     <div className="app-shell">
       <header className="site-header">
         <Brand />
-        <span className="access-label">Administrator access</span>
+        <nav className="header-access" aria-label="Access options">
+          <span className="access-label">Administrator access</span>
+          <Link className="staff-sign-in-link" to="/staff/sign-in">
+            Staff sign-in
+          </Link>
+        </nav>
       </header>
 
       <main className="main-layout">

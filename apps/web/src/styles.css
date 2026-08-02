@@ -164,6 +164,12 @@ button {
   letter-spacing: 0.02em;
 }
 
+.header-access {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
 .main-layout {
   min-height: 600px;
   display: grid;
@@ -3650,6 +3656,7 @@ button {
 }
 
 .admin-sign-in-link,
+.staff-sign-in-link,
 .staff-text-button {
   min-height: var(--touch-min);
   display: inline-flex;
@@ -3668,11 +3675,13 @@ button {
 }
 
 .admin-sign-in-link:hover,
+.staff-sign-in-link:hover,
 .staff-text-button:hover:not(:disabled) {
   background: var(--surface-subtle);
 }
 
 .admin-sign-in-link:focus-visible,
+.staff-sign-in-link:focus-visible,
 .staff-text-button:focus-visible,
 .staff-picker-tile:focus-visible,
 .staff-key:focus-visible,
@@ -4146,7 +4155,8 @@ button {
     padding: 0 16px;
   }
 
-  .admin-sign-in-link {
+  .admin-sign-in-link,
+  .staff-sign-in-link {
     padding: 0 var(--space-2);
     font-size: 12px;
   }
