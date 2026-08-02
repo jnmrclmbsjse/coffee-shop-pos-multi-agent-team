@@ -265,7 +265,20 @@ test.describe('staff order history ledger (story #142, QA #148)', () => {
       const mutatingName = /create|edit|resume|complete|void|delete|change order/i;
       await expect(main.getByRole('button', { name: mutatingName })).toHaveCount(0);
       await expect(main.getByRole('link', { name: mutatingName })).toHaveCount(0);
-      await expect(page.getByRole('article').getByRole('button')).toHaveCount(0);
+
+      // Story #197 deliberately places one control on this ledger: its
+      // feasibility mapping reads "outstanding-change confirmation on the
+      // existing StaffOrderHistoryPage". Confirming that change owed was handed
+      // over settles a payment obligation; it does not alter the order, so
+      // #142's read-only intent is intact. Pin it by name so the exception
+      // cannot silently widen — every other in-card control stays absent.
+      const changeHandover = /confirm change handed over/i;
+      await expect(
+        page
+          .getByRole('article')
+          .getByRole('button')
+          .filter({ hasNotText: changeHandover }),
+      ).toHaveCount(0);
       await expect(page.getByRole('article').getByRole('link')).toHaveCount(0);
 
       const guidance = page.getByTestId('correction-guidance');
