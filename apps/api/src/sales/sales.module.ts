@@ -8,5 +8,6 @@ import { SalesService } from './sales.service';
   imports: [AuthModule],
   controllers: [SalesController],
   providers: [SalesService],
+  exports: [SalesService],
 })
 export class SalesModule {}

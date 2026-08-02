@@ -372,6 +372,8 @@ export interface Order {
   clientGeneratedId: string;
   locationId: string | null;
   tradingDayId: string;
+  cashierStaffMemberId: string | null;
+  cashierNameSnapshot: string | null;
   kind: 'PURCHASE' | 'VOID';
   correctsSaleId: string | null;
   dayOrderNumber: number;
@@ -410,6 +412,51 @@ export interface LineItem {
   lineTotalCents: MoneyCents;
   productNameSnapshot: string;
   variantNameSnapshot: string;
+}
+
+export interface OrderLineInput {
+  productVariantId: string;
+  quantity?: number;
+  discountKind?: LineDiscountKind;
+  preferences?: LinePreference[];
+  preferenceNote?: string | null;
+  freeUpsizeCount?: number;
+}
+
+export interface CreateOrderInput extends OrderLineInput {
+  clientGeneratedId: string;
+  deviceId: string;
+  customerName?: string | null;
+  serviceType?: ServiceType;
+}
+
+export interface UpdateOrderInput {
+  customerName?: string | null;
+  serviceType?: ServiceType;
+}
+
+export interface UpdateOrderLineInput {
+  quantity?: number;
+  discountKind?: LineDiscountKind;
+  preferences?: LinePreference[];
+  preferenceNote?: string | null;
+  freeUpsizeCount?: number;
+}
+
+export interface CompleteOrderInput {
+  payments: Array<{
+    method: PaymentMethod;
+    amountCents: MoneyCents;
+  }>;
+  cashReceivedCents?: MoneyCents | null;
+  cashTipCents?: MoneyCents;
+  changeOwedCents?: MoneyCents;
+}
+
+export interface VoidOrderInput {
+  clientGeneratedId: string;
+  deviceId: string;
+  voidReason: string;
 }
 
 export enum TradingDayStatus {
