@@ -705,6 +705,7 @@ export interface StaffOrderLedgerQuery {
 
 export interface StaffOrderLedgerOrder {
   id: string;
+  clientGeneratedId: string;
   dayOrderNumber: number;
   customerName: string | null;
   cashierName: string | null;
@@ -718,6 +719,7 @@ export interface StaffOrderLedgerOrder {
   voidReason: string | null;
   changeOwedCents: MoneyCents;
   changeSettled: boolean;
+  changeSettledAt: string | null;
 }
 
 export interface StaffOrderLedger {

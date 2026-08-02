@@ -1,5 +1,6 @@
 import type {
   BusinessDayList,
+  CompleteOrderInput,
   CreateOrderInput,
   Order,
   OrderLineInput,
@@ -7,6 +8,7 @@ import type {
   StaffOrderLedgerQuery,
   UpdateOrderInput,
   UpdateOrderLineInput,
+  VoidOrderInput,
 } from '@coffee-shop/shared';
 
 const API_ORIGIN = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
@@ -184,5 +186,34 @@ export function removeOrderLine(
   return captureRequest(
     `/orders/${encodeURIComponent(clientGeneratedId)}/lines/${encodeURIComponent(lineId)}`,
     { method: 'DELETE' },
+  );
+}
+
+export function completeOrder(
+  clientGeneratedId: string,
+  input: CompleteOrderInput,
+): Promise<Order> {
+  return captureRequest(
+    `/orders/${encodeURIComponent(clientGeneratedId)}/complete`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function voidOrder(
+  clientGeneratedId: string,
+  input: VoidOrderInput,
+): Promise<Order> {
+  return captureRequest(
+    `/orders/${encodeURIComponent(clientGeneratedId)}/void`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function settleOrderChange(
+  clientGeneratedId: string,
+): Promise<Order> {
+  return captureRequest(
+    `/orders/${encodeURIComponent(clientGeneratedId)}/change-settlement`,
+    { method: 'POST' },
   );
 }

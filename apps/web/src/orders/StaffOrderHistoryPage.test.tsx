@@ -33,6 +33,7 @@ function order(
     Pick<StaffOrderLedgerOrder, 'id' | 'dayOrderNumber' | 'status'>,
 ): StaffOrderLedgerOrder {
   return {
+    clientGeneratedId: `${input.id}-client`,
     customerName: 'Test Customer',
     cashierName: 'Mika Reyes',
     paymentMethod: 'Cash',
@@ -54,6 +55,7 @@ function order(
     voidReason: null,
     changeOwedCents: cents(0),
     changeSettled: false,
+    changeSettledAt: null,
     ...input,
   };
 }
@@ -337,6 +339,60 @@ describe('staff order history page', () => {
     expect(owed).not.toHaveTextContent('null');
   });
 
+  it('confirms change handover without changing the original amount owed', async () => {
+    const owedOrder = order({
+      id: '10000000-0000-4000-8000-000000000001',
+      clientGeneratedId: '20000000-0000-4000-8000-000000000001',
+      dayOrderNumber: 8,
+      status: 'Completed',
+      customerName: 'Change Guest',
+      changeOwedCents: cents(5_000),
+      changeSettled: false,
+      changeSettledAt: null,
+    });
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day') return response(200, businessDays);
+      if (path === '/reporting/staff-order-ledger/day-open') {
+        return response(200, ledger([owedOrder]));
+      }
+      if (
+        path ===
+          `/orders/${owedOrder.clientGeneratedId}/change-settlement` &&
+        init?.method === 'POST'
+      ) {
+        return response(200, {
+          ...owedOrder,
+          changeSettledAt: '2026-07-31T12:30:00.000Z',
+        });
+      }
+      return response(500);
+    });
+
+    renderPage();
+    const card = (await screen.findByRole('heading', {
+      name: 'Order #8 · Change Guest',
+    })).closest('article')!;
+    await userEvent.click(
+      within(card).getByRole('button', { name: 'Confirm change handed over' }),
+    );
+
+    await waitFor(() => {
+      expect(within(card).getByText('Change given')).toBeInTheDocument();
+      expect(within(card).getByText('₱50.00')).toBeInTheDocument();
+    });
+    expect(card).toHaveTextContent('Handed over');
+    expect(
+      screen.getByText(/original ₱50\.00 owed remains on the order/i),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        `/orders/${owedOrder.clientGeneratedId}/change-settlement`,
+      ),
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
   it('contains correction guidance but no order-mutating control', async () => {
     fetchMock.mockImplementation(async (url) => {
       const path = new URL(String(url)).pathname;
@@ -354,7 +410,7 @@ describe('staff order history page', () => {
     expect(guidance).toHaveTextContent(/voiding the original completed order/i);
     expect(guidance).toHaveTextContent(/entering the corrected order again/i);
     expect(guidance).toHaveTextContent(
-      /reviewing or filtering history never changes an order/i,
+      /confirming a change handover records its time without reducing the original amount owed/i,
     );
     expect(within(guidance).queryByRole('button')).not.toBeInTheDocument();
     expect(within(guidance).queryByRole('link')).not.toBeInTheDocument();

@@ -9,8 +9,10 @@ import { Link } from 'react-router-dom';
 import {
   LineDiscountKind,
   LinePreference,
+  OrderStatus,
   ServiceType,
   type CatalogCategorySummary,
+  type CompleteOrderInput,
   type LineItem,
   type Order,
   type Product,
@@ -26,6 +28,7 @@ import { formatPeso } from '../catalog/money';
 import { useStaffWorkspaceBusinessDay } from '../staff/StaffWorkspace';
 import {
   addOrderLine,
+  completeOrder,
   createOrder,
   decrementOrderLine,
   incrementOrderLine,
@@ -34,9 +37,16 @@ import {
   removeOrderLine,
   updateOrder,
   updateOrderLine,
+  voidOrder,
 } from './api';
+import {
+  ChargeSheet,
+  CompletedOrderDialog,
+  VoidOrderDialog,
+} from './OrderSettlementDialogs';
 
 type EditorKind = 'preferences' | 'discount' | 'upsize';
+type SettlementDialog = 'charge' | 'completed' | 'void' | null;
 
 interface EditorState {
   kind: EditorKind;
@@ -303,6 +313,8 @@ export function TakeOrderPage() {
     retryBusinessDay,
   } = useStaffWorkspaceBusinessDay();
   const deviceIdRef = useRef<string | null>(null);
+  const completionInFlightRef = useRef(false);
+  const voidClientGeneratedIdRef = useRef<string | null>(null);
   const [clientGeneratedId, setClientGeneratedId] = useState(
     newClientGeneratedId,
   );
@@ -315,6 +327,10 @@ export function TakeOrderPage() {
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [editor, setEditor] = useState<EditorState | null>(null);
+  const [settlementDialog, setSettlementDialog] =
+    useState<SettlementDialog>(null);
+  const [voidRecord, setVoidRecord] = useState<Order | null>(null);
+  const [settlementError, setSettlementError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -373,6 +389,10 @@ export function TakeOrderPage() {
     setCustomerName('');
     setServiceType(ServiceType.DINE_IN);
     setEditor(null);
+    setSettlementDialog(null);
+    setVoidRecord(null);
+    setSettlementError(null);
+    voidClientGeneratedIdRef.current = null;
     if (!reuseClientId) setClientGeneratedId(newClientGeneratedId());
   };
 
@@ -509,6 +529,62 @@ export function TakeOrderPage() {
     setServiceType(parkedOrder.serviceType);
     setMessage(`Order #${parkedOrder.dayOrderNumber} resumed.`);
     setErrorMessage(null);
+  };
+
+  const completeCurrentOrder = async (input: CompleteOrderInput) => {
+    if (
+      !order ||
+      order.lines.length === 0 ||
+      completionInFlightRef.current
+    ) {
+      return;
+    }
+    completionInFlightRef.current = true;
+    setPendingAction('complete-order');
+    setSettlementError(null);
+    try {
+      const completed = await completeOrder(order.clientGeneratedId, input);
+      setOrder(completed);
+      setCustomerName(completed.customerName ?? '');
+      setServiceType(completed.serviceType);
+      setSettlementDialog('completed');
+      setMessage(`Order #${completed.dayOrderNumber} completed.`);
+    } catch (error) {
+      setSettlementError(orderErrorMessage(error));
+    } finally {
+      completionInFlightRef.current = false;
+      setPendingAction(null);
+    }
+  };
+
+  const voidCurrentOrder = async (reason: string) => {
+    if (!order || pendingAction !== null) return;
+    const voidClientGeneratedId =
+      voidClientGeneratedIdRef.current ?? newClientGeneratedId();
+    voidClientGeneratedIdRef.current = voidClientGeneratedId;
+    setPendingAction('void-order');
+    setSettlementError(null);
+    try {
+      const correction = await voidOrder(order.clientGeneratedId, {
+        clientGeneratedId: voidClientGeneratedId,
+        deviceId: deviceIdRef.current!,
+        voidReason: reason,
+      });
+      setVoidRecord(correction);
+      setSettlementDialog('completed');
+      setMessage(
+        `Order #${order.dayOrderNumber} marked void. Enter a new order for any correction.`,
+      );
+    } catch (error) {
+      setSettlementError(orderErrorMessage(error));
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const startNewOrder = () => {
+    clearDraft(false);
+    setMessage('New walk-in order ready.');
   };
 
   if (businessDayLoadError) {
@@ -666,7 +742,11 @@ export function TakeOrderPage() {
                             <button
                               key={variant.id}
                               type="button"
-                              disabled={!product.available || pendingAction !== null}
+                              disabled={
+                                !product.available ||
+                                pendingAction !== null ||
+                                order?.status === OrderStatus.COMPLETED
+                              }
                               onClick={() => void addVariant(variant.id)}
                             >
                               <span>{variant.name}</span>
@@ -696,6 +776,11 @@ export function TakeOrderPage() {
             <h2 id="current-order-title">
               {order ? `Order #${order.dayOrderNumber}` : 'New order'}
             </h2>
+            {order?.status === OrderStatus.COMPLETED && (
+              <strong className={`current-order-status${voidRecord ? ' is-void' : ''}`}>
+                {voidRecord ? 'Void' : 'Completed'}
+              </strong>
+            )}
           </div>
           <p className="current-order-cashier">
             <span>Cashier</span>
@@ -711,7 +796,10 @@ export function TakeOrderPage() {
               value={customerName}
               maxLength={255}
               placeholder="Walk-in"
-              disabled={pendingAction === 'order-header'}
+              disabled={
+                pendingAction === 'order-header' ||
+                order?.status === OrderStatus.COMPLETED
+              }
               onChange={(event) => setCustomerName(event.target.value)}
               onBlur={() => void saveCustomerName()}
             />
@@ -722,7 +810,10 @@ export function TakeOrderPage() {
               <button
                 type="button"
                 aria-pressed={serviceType === ServiceType.DINE_IN}
-                disabled={pendingAction === 'order-header'}
+                disabled={
+                  pendingAction === 'order-header' ||
+                  order?.status === OrderStatus.COMPLETED
+                }
                 onClick={() => void chooseServiceType(ServiceType.DINE_IN)}
               >
                 Dine-in
@@ -730,7 +821,10 @@ export function TakeOrderPage() {
               <button
                 type="button"
                 aria-pressed={serviceType === ServiceType.TAKE_OUT}
-                disabled={pendingAction === 'order-header'}
+                disabled={
+                  pendingAction === 'order-header' ||
+                  order?.status === OrderStatus.COMPLETED
+                }
                 onClick={() => void chooseServiceType(ServiceType.TAKE_OUT)}
               >
                 Take-out
@@ -783,7 +877,11 @@ export function TakeOrderPage() {
                       type="button"
                       aria-label={`Decrease ${line.productNameSnapshot} quantity`}
                       aria-describedby={decrementWouldInvalidateUpsize ? `decrement-help-${line.id}` : undefined}
-                      disabled={pendingAction !== null || decrementWouldInvalidateUpsize}
+                      disabled={
+                        pendingAction !== null ||
+                        decrementWouldInvalidateUpsize ||
+                        order.status === OrderStatus.COMPLETED
+                      }
                       onClick={() => void changeLine('decrement', line)}
                     >
                       −
@@ -792,21 +890,25 @@ export function TakeOrderPage() {
                     <button
                       type="button"
                       aria-label={`Increase ${line.productNameSnapshot} quantity`}
-                      disabled={pendingAction !== null}
+                      disabled={pendingAction !== null || order.status === OrderStatus.COMPLETED}
                       onClick={() => void changeLine('increment', line)}
                     >
                       +
                     </button>
-                    <button type="button" disabled={pendingAction !== null} onClick={() => setEditor({ kind: 'preferences', lineId: line.id })}>
+                    <button type="button" disabled={pendingAction !== null || order.status === OrderStatus.COMPLETED} onClick={() => setEditor({ kind: 'preferences', lineId: line.id })}>
                       Preferences
                     </button>
-                    <button type="button" disabled={pendingAction !== null} onClick={() => setEditor({ kind: 'discount', lineId: line.id })}>
+                    <button type="button" disabled={pendingAction !== null || order.status === OrderStatus.COMPLETED} onClick={() => setEditor({ kind: 'discount', lineId: line.id })}>
                       Discount
                     </button>
                     <button
                       type="button"
                       className="is-promotion"
-                      disabled={pendingAction !== null || !line.freeUpsizeEligible}
+                      disabled={
+                        pendingAction !== null ||
+                        !line.freeUpsizeEligible ||
+                        order.status === OrderStatus.COMPLETED
+                      }
                       aria-describedby={!line.freeUpsizeEligible ? `upsize-help-${line.id}` : undefined}
                       onClick={() => setEditor({ kind: 'upsize', lineId: line.id })}
                     >
@@ -816,7 +918,7 @@ export function TakeOrderPage() {
                       type="button"
                       className="is-remove"
                       aria-label={`Remove ${line.productNameSnapshot}`}
-                      disabled={pendingAction !== null}
+                      disabled={pendingAction !== null || order.status === OrderStatus.COMPLETED}
                       onClick={() => void changeLine('remove', line)}
                     >
                       Remove
@@ -846,9 +948,39 @@ export function TakeOrderPage() {
         </dl>
 
         <div className="current-order-actions">
-          <button type="button" disabled={pendingAction !== null} onClick={() => void parkCurrentOrder()}>
-            {order ? 'Park order' : 'Discard empty order'}
-          </button>
+          {order?.status === OrderStatus.COMPLETED ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettlementError(null);
+                  setSettlementDialog('completed');
+                }}
+              >
+                Review completed order
+              </button>
+              <button className="is-primary" type="button" onClick={startNewOrder}>
+                Start new order
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" disabled={pendingAction !== null} onClick={() => void parkCurrentOrder()}>
+                {order ? 'Park order' : 'Discard empty order'}
+              </button>
+              <button
+                className="is-primary"
+                type="button"
+                disabled={!order || order.lines.length === 0 || pendingAction !== null}
+                onClick={() => {
+                  setSettlementError(null);
+                  setSettlementDialog('charge');
+                }}
+              >
+                Charge {formatPeso(order?.totalCents ?? 0)}
+              </button>
+            </>
+          )}
         </div>
 
         {otherParkedOrders.length > 0 && (
@@ -889,6 +1021,45 @@ export function TakeOrderPage() {
           isSaving={pendingAction === 'line-editor'}
           onClose={() => setEditor(null)}
           onSave={saveLineEditor}
+        />
+      )}
+
+      {settlementDialog === 'charge' && order && (
+        <ChargeSheet
+          order={order}
+          isSaving={pendingAction === 'complete-order'}
+          serverError={settlementError}
+          onClose={() => {
+            setSettlementError(null);
+            setSettlementDialog(null);
+          }}
+          onComplete={completeCurrentOrder}
+        />
+      )}
+
+      {settlementDialog === 'completed' && order && (
+        <CompletedOrderDialog
+          order={order}
+          voidReason={voidRecord?.voidReason ?? null}
+          onClose={() => setSettlementDialog(null)}
+          onStartNewOrder={startNewOrder}
+          onVoid={() => {
+            setSettlementError(null);
+            setSettlementDialog('void');
+          }}
+        />
+      )}
+
+      {settlementDialog === 'void' && order && !voidRecord && (
+        <VoidOrderDialog
+          order={order}
+          isSaving={pendingAction === 'void-order'}
+          serverError={settlementError}
+          onClose={() => {
+            setSettlementError(null);
+            setSettlementDialog('completed');
+          }}
+          onConfirm={voidCurrentOrder}
         />
       )}
     </main>

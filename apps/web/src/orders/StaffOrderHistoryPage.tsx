@@ -21,7 +21,12 @@ import {
 } from '../reporting/orderHistoryFormat';
 import { formatBusinessDate, formatMoney } from '../reporting/format';
 import { StaffPageHeading } from '../staff/StaffPageHeading';
-import { getStaffOrderLedger, listBusinessDays } from './api';
+import {
+  getStaffOrderLedger,
+  listBusinessDays,
+  OrderCaptureApiError,
+  settleOrderChange,
+} from './api';
 
 const STATUSES: OrderHistoryStatus[] = ['Completed', 'Parked', 'Void'];
 const PAYMENT_METHODS: OrderHistoryPaymentMethod[] = [
@@ -112,7 +117,15 @@ function PaymentBreakdown({ order }: { order: StaffOrderLedgerOrder }) {
   );
 }
 
-export function StaffOrderCard({ order }: { order: StaffOrderLedgerOrder }) {
+export function StaffOrderCard({
+  order,
+  isSettling = false,
+  onSettleChange,
+}: {
+  order: StaffOrderLedgerOrder;
+  isSettling?: boolean;
+  onSettleChange?: (order: StaffOrderLedgerOrder) => void;
+}) {
   const customerName = order.customerName ?? 'Walk-in';
   const showsCompletionFacts = order.status !== 'Parked';
 
@@ -183,16 +196,32 @@ export function StaffOrderCard({ order }: { order: StaffOrderLedgerOrder }) {
         </ul>
 
         {order.changeOwedCents > 0 && (
-          <p
+          <div
             className={`staff-order-change${
               order.changeSettled ? ' is-given' : ' is-owed'
             }`}
           >
-            <span>
-              {order.changeSettled ? 'Change given' : 'Change still owed'}
-            </span>
+            <div>
+              <span>
+                {order.changeSettled ? 'Change given' : 'Change still owed'}
+              </span>
+              {order.changeSettledAt && (
+                <small>Handed over {formatTimestamp(order.changeSettledAt)}</small>
+              )}
+            </div>
             <strong>{formatMoney(order.changeOwedCents)}</strong>
-          </p>
+            {!order.changeSettled &&
+              order.status === 'Completed' &&
+              onSettleChange && (
+                <button
+                  type="button"
+                  disabled={isSettling}
+                  onClick={() => onSettleChange(order)}
+                >
+                  {isSettling ? 'Confirming…' : 'Confirm change handed over'}
+                </button>
+              )}
+          </div>
         )}
 
         {order.status === 'Void' && order.voidReason && (
@@ -237,6 +266,9 @@ export function StaffOrderHistoryPage() {
   const [ledgerError, setLedgerError] = useState(false);
   const [daysAttempt, setDaysAttempt] = useState(0);
   const [ledgerAttempt, setLedgerAttempt] = useState(0);
+  const [settlingOrderId, setSettlingOrderId] = useState<string | null>(null);
+  const [settlementMessage, setSettlementMessage] = useState<string | null>(null);
+  const [settlementError, setSettlementError] = useState<string | null>(null);
   const paramsKey = searchParams.toString();
   const filters = useMemo(
     () => filtersFromParams(searchParams),
@@ -344,6 +376,43 @@ export function StaffOrderHistoryPage() {
     updateParams({ status: undefined, payment: undefined, search: undefined });
   }
 
+  async function confirmChangeHandover(order: StaffOrderLedgerOrder) {
+    if (settlingOrderId !== null) return;
+    setSettlingOrderId(order.id);
+    setSettlementMessage(null);
+    setSettlementError(null);
+    try {
+      const settled = await settleOrderChange(order.clientGeneratedId);
+      setLedger((current) =>
+        current
+          ? {
+              ...current,
+              orders: current.orders.map((candidate) =>
+                candidate.id === order.id
+                  ? {
+                      ...candidate,
+                      changeSettled: true,
+                      changeSettledAt: settled.changeSettledAt,
+                    }
+                  : candidate,
+              ),
+            }
+          : current,
+      );
+      setSettlementMessage(
+        `Change handover recorded for order #${order.dayOrderNumber}. The original ${formatMoney(order.changeOwedCents)} owed remains on the order.`,
+      );
+    } catch (error) {
+      setSettlementError(
+        error instanceof OrderCaptureApiError
+          ? error.message
+          : 'Change handover could not be recorded. Try again.',
+      );
+    } finally {
+      setSettlingOrderId(null);
+    }
+  }
+
   return (
     <main
       id="staff-main"
@@ -351,9 +420,14 @@ export function StaffOrderHistoryPage() {
     >
       <StaffPageHeading
         title="Order History"
-        description="Review recorded orders for one business day. This screen never changes an order."
-        badge="Read only"
+        description="Review recorded orders for one business day and follow up change still owed."
+        badge="Order record"
       />
+
+      <div className="staff-order-settlement-feedback" aria-live="polite" aria-atomic="true">
+        {settlementMessage && <p>{settlementMessage}</p>}
+        {settlementError && <p className="is-error" role="alert">{settlementError}</p>}
+      </div>
 
       <section className="staff-order-filters" aria-labelledby="staff-order-filters-title">
         <div className="staff-order-filter-head">
@@ -443,10 +517,11 @@ export function StaffOrderHistoryPage() {
           <p>
             Corrections are made by voiding the original completed order and
             entering the corrected order again from the order screen. Reviewing
-            or filtering history never changes an order.
+            or filtering history never changes an order. Confirming a change
+            handover records its time without reducing the original amount owed.
           </p>
         </div>
-        <span>History only</span>
+        <span>Append-only follow-up</span>
       </aside>
 
       {daysError ? (
@@ -466,7 +541,14 @@ export function StaffOrderHistoryPage() {
           {ledgerIsCurrent && ledger.orders.length > 0 ? (
             <ol className="staff-order-ledger">
               {ledger.orders.map((order) => (
-                <StaffOrderCard key={order.id} order={order} />
+                <StaffOrderCard
+                  key={order.id}
+                  order={order}
+                  isSettling={settlingOrderId === order.id}
+                  onSettleChange={(selectedOrder) => {
+                    void confirmChangeHandover(selectedOrder);
+                  }}
+                />
               ))}
             </ol>
           ) : (

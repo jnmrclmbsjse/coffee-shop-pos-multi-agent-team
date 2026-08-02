@@ -288,6 +288,7 @@ describe('order history read model', () => {
 
   const baseOrder = {
     id: 'b70f5635-4c68-444e-b659-9c087d36268c',
+    clientGeneratedId: '5dd5ac08-eb2b-43b8-ac52-50e61e58a83f',
     businessDay: new Date('2026-07-20T00:00:00.000Z'),
     dayOrderNumber: 4,
     storedStatus: OrderStatus.COMPLETED,
@@ -539,6 +540,7 @@ describe('order history read model', () => {
       orders: [
         {
           id: baseOrder.id,
+          clientGeneratedId: baseOrder.clientGeneratedId,
           dayOrderNumber: 4,
           customerName: null,
           cashierName: null,
@@ -562,6 +564,7 @@ describe('order history read model', () => {
           voidReason: null,
           changeOwedCents: 3_000,
           changeSettled: true,
+          changeSettledAt: '2026-07-20T06:30:00.000Z',
         },
       ],
     });
