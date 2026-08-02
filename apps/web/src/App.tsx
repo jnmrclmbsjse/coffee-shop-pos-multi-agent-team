@@ -27,7 +27,6 @@ import {
   StockMovementsPage,
 } from './inventory/StaffInventoryPages';
 import { StaffPage } from './staff/StaffPage';
-import { StaffPageHeading } from './staff/StaffPageHeading';
 import { StaffWorkspaceLayout } from './staff/StaffWorkspace';
 import { DashboardPage } from './reporting/DashboardPage';
 import { ReportsPage } from './reporting/ReportsPage';
@@ -39,6 +38,7 @@ import {
 } from './trading-day/StaffTradingDayPages';
 import { CashAndExpensesPage } from './trading-day/CashAndExpensesPage';
 import { StaffOrderHistoryPage } from './orders/StaffOrderHistoryPage';
+import { TakeOrderPage } from './orders/TakeOrderPage';
 
 const DEFAULT_ADMIN_PATH = '/dashboard';
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
@@ -461,21 +461,6 @@ function AdminPage({ title }: { title: string }) {
   );
 }
 
-function PointOfSalePage() {
-  useEffect(() => {
-    document.title = 'Point of Sale · UCM Coffee Studio';
-  }, []);
-
-  return (
-    <main id="staff-main" className="pos-landing">
-      <StaffPageHeading
-        title="Ready for the next order."
-        description="The sales workspace is ready for its upcoming workflow."
-      />
-    </main>
-  );
-}
-
 export function AppRoutes() {
   return (
     <AuthProvider>
@@ -539,7 +524,8 @@ export function AppRoutes() {
           }
         >
           <Route path="/pos" element={<StaffWorkspaceLayout />}>
-            <Route index element={<PointOfSalePage />} />
+            <Route index element={<Navigate replace to="order" />} />
+            <Route path="order" element={<TakeOrderPage />} />
             <Route path="open" element={<OpenBusinessDayPage />} />
             <Route path="opening" element={<OpeningCountPage />} />
             <Route path="closing" element={<ClosingCountPage />} />
