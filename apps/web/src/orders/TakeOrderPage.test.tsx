@@ -4,6 +4,7 @@ import {
   cents,
   LineDiscountKind,
   OrderStatus,
+  PaymentMethod,
   ServiceType,
   type CurrentOpenBusinessDay,
   type LineItem,
@@ -13,6 +14,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { TakeOrderPage } from './TakeOrderPage';
+import { OrderCaptureApiError } from './api';
 
 const mocks = vi.hoisted(() => ({
   businessDay: {
@@ -34,6 +36,8 @@ const mocks = vi.hoisted(() => ({
   incrementOrderLine: vi.fn(),
   decrementOrderLine: vi.fn(),
   removeOrderLine: vi.fn(),
+  completeOrder: vi.fn(),
+  voidOrder: vi.fn(),
 }));
 
 vi.mock('../staff/StaffWorkspace', () => ({
@@ -70,6 +74,8 @@ vi.mock('./api', async () => {
     incrementOrderLine: mocks.incrementOrderLine,
     decrementOrderLine: mocks.decrementOrderLine,
     removeOrderLine: mocks.removeOrderLine,
+    completeOrder: mocks.completeOrder,
+    voidOrder: mocks.voidOrder,
   };
 });
 
@@ -184,6 +190,26 @@ function recalculate(nextLines: LineItem[]): Order {
   return order(nextLines);
 }
 
+function completedOrder(
+  overrides: Partial<Order> = {},
+): Order {
+  return {
+    ...order(),
+    status: OrderStatus.COMPLETED,
+    cashReceivedCents: cents(15_000),
+    completedAt: '2026-08-02T02:00:00.000Z',
+    payments: [
+      {
+        id: '70000000-0000-4000-8000-000000000001',
+        saleId: '40000000-0000-4000-8000-000000000001',
+        method: PaymentMethod.CASH,
+        amountCents: cents(15_000),
+      },
+    ],
+    ...overrides,
+  };
+}
+
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/pos/order']}>
@@ -214,6 +240,8 @@ beforeEach(() => {
     openedAt: '2026-08-02T00:00:00.000Z',
   } as CurrentOpenBusinessDay;
   vi.clearAllMocks();
+  mocks.completeOrder.mockReset();
+  mocks.voidOrder.mockReset();
   mocks.listCategories.mockResolvedValue([category]);
   mocks.listProducts.mockResolvedValue([latte, mocha]);
   mocks.listParkedOrders.mockResolvedValue([]);
@@ -378,5 +406,209 @@ describe('Take Order workspace', () => {
     const cashier = screen.getByText('Cashier').closest('p')!;
     expect(cashier).toHaveTextContent('No cashier');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('treats blank cash received as exact and shows the completed breakdown', async () => {
+    const completed = completedOrder();
+    await startOrder();
+    mocks.completeOrder.mockResolvedValueOnce(completed);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Charge ₱150.00' }));
+    expect(screen.getByRole('textbox', { name: 'Cash received (optional)' })).toHaveValue('');
+    await userEvent.click(screen.getByRole('button', { name: 'Complete cash payment' }));
+
+    await screen.findByRole('heading', { name: 'Order #12 completed' });
+    expect(mocks.completeOrder).toHaveBeenCalledWith(
+      order().clientGeneratedId,
+      expect.objectContaining({
+        payments: [{ method: PaymentMethod.CASH, amountCents: cents(15_000) }],
+        cashReceivedCents: null,
+      }),
+    );
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent('Amount due₱150.00');
+    expect(dialog).toHaveTextContent('Cash payment₱150.00');
+  });
+
+  it('renders the server rejection when cash received is below tender', async () => {
+    await startOrder();
+    mocks.completeOrder.mockRejectedValueOnce(
+      new OrderCaptureApiError(400, [
+        'Cash received must be at least the cash tender amount',
+      ]),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Charge ₱150.00' }));
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Cash received (optional)' }),
+      '100.00',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Complete cash payment' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Cash received must be at least the cash tender amount',
+    );
+  });
+
+  it('hides cash fields for Online and keeps the cash tip separate from amount due', async () => {
+    const completed = completedOrder({
+      cashTipCents: cents(2_000),
+      cashReceivedCents: null,
+      payments: [
+        {
+          id: '70000000-0000-4000-8000-000000000002',
+          saleId: '40000000-0000-4000-8000-000000000001',
+          method: PaymentMethod.ONLINE,
+          amountCents: cents(15_000),
+        },
+      ],
+    });
+    await startOrder();
+    mocks.completeOrder.mockResolvedValueOnce(completed);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Charge ₱150.00' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Online' }));
+    expect(screen.queryByRole('textbox', { name: 'Cash received (optional)' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Change due')).not.toBeInTheDocument();
+    const tip = screen.getByRole('textbox', { name: 'Tip amount' });
+    await userEvent.clear(tip);
+    await userEvent.type(tip, '20.00');
+    await userEvent.click(screen.getByRole('button', { name: 'Complete online payment' }));
+
+    expect(mocks.completeOrder).toHaveBeenCalledWith(
+      order().clientGeneratedId,
+      {
+        payments: [{ method: PaymentMethod.ONLINE, amountCents: cents(15_000) }],
+        cashTipCents: cents(2_000),
+        changeOwedCents: cents(0),
+      },
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Amount due₱150.00');
+    expect(dialog).toHaveTextContent('Cash tip (separate)₱20.00');
+  });
+
+  it('rejects split portions that are negative or do not match the amount due', async () => {
+    await startOrder();
+    await userEvent.click(screen.getByRole('button', { name: 'Charge ₱150.00' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Split' }));
+    const cash = screen.getByRole('textbox', { name: 'Cash portion' });
+    const online = screen.getByRole('textbox', { name: 'Online portion' });
+
+    await userEvent.type(cash, '-1.00');
+    await userEvent.type(online, '151.00');
+    await userEvent.click(screen.getByRole('button', { name: 'Complete split payment' }));
+    expect(screen.getByText('Cash and Online portions cannot be negative.')).toBeInTheDocument();
+    expect(mocks.completeOrder).not.toHaveBeenCalled();
+
+    await userEvent.clear(cash);
+    await userEvent.type(cash, '50.00');
+    await userEvent.clear(online);
+    await userEvent.type(online, '50.00');
+    await userEvent.click(screen.getByRole('button', { name: 'Complete split payment' }));
+    expect(screen.getByText('₱50.00 remains to allocate.')).toBeInTheDocument();
+    expect(mocks.completeOrder).not.toHaveBeenCalled();
+
+    mocks.completeOrder.mockResolvedValueOnce(
+      completedOrder({
+        cashReceivedCents: cents(5_000),
+        payments: [
+          {
+            id: '70000000-0000-4000-8000-000000000003',
+            saleId: '40000000-0000-4000-8000-000000000001',
+            method: PaymentMethod.CASH,
+            amountCents: cents(5_000),
+          },
+          {
+            id: '70000000-0000-4000-8000-000000000004',
+            saleId: '40000000-0000-4000-8000-000000000001',
+            method: PaymentMethod.ONLINE,
+            amountCents: cents(10_000),
+          },
+        ],
+      }),
+    );
+    await userEvent.clear(online);
+    await userEvent.type(online, '100.00');
+    await userEvent.click(screen.getByRole('button', { name: 'Complete split payment' }));
+    const completedDialog = await screen.findByRole('dialog');
+    expect(completedDialog).toHaveTextContent('Cash payment₱50.00');
+    expect(completedDialog).toHaveTextContent('Online payment₱100.00');
+  });
+
+  it('records change owed deliberately and keeps it visible in completion', async () => {
+    const completed = completedOrder({
+      cashReceivedCents: cents(20_000),
+      changeOwedCents: cents(3_000),
+    });
+    await startOrder();
+    mocks.completeOrder.mockResolvedValueOnce(completed);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Charge ₱150.00' }));
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Cash received (optional)' }),
+      '200.00',
+    );
+    await userEvent.click(screen.getByRole('checkbox', { name: /Record change still owed/ }));
+    const owed = screen.getByRole('textbox', { name: /Amount still owed/ });
+    await userEvent.clear(owed);
+    await userEvent.type(owed, '30.00');
+    await userEvent.click(screen.getByRole('button', { name: 'Complete cash payment' }));
+
+    expect(mocks.completeOrder).toHaveBeenCalledWith(
+      order().clientGeneratedId,
+      expect.objectContaining({ changeOwedCents: cents(3_000) }),
+    );
+    expect(await screen.findByRole('dialog')).toHaveTextContent(
+      'Change still owed₱30.00',
+    );
+  });
+
+  it('requires a void reason and sends a stable idempotency id', async () => {
+    const completed = completedOrder();
+    const correction = completedOrder({
+      id: '80000000-0000-4000-8000-000000000001',
+      clientGeneratedId: '90000000-0000-4000-8000-000000000001',
+      kind: 'VOID',
+      correctsSaleId: completed.id,
+      dayOrderNumber: 13,
+      voidReason: 'Wrong drink',
+    });
+    await startOrder();
+    mocks.completeOrder.mockResolvedValueOnce(completed);
+    mocks.voidOrder.mockResolvedValueOnce(correction);
+    await userEvent.click(screen.getByRole('button', { name: 'Charge ₱150.00' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Complete cash payment' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Void order' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Void completed order' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a reason');
+    expect(mocks.voidOrder).not.toHaveBeenCalled();
+
+    await userEvent.type(screen.getByRole('textbox', { name: 'Reason for void' }), ' Wrong drink ');
+    await userEvent.click(screen.getByRole('button', { name: 'Void completed order' }));
+    expect(mocks.voidOrder).toHaveBeenCalledWith(
+      completed.clientGeneratedId,
+      expect.objectContaining({ voidReason: 'Wrong drink' }),
+    );
+    expect(await screen.findByRole('heading', { name: 'Order #12 is void' })).toBeInTheDocument();
+    expect(screen.getByText(/original remains visible as void/i)).toBeInTheDocument();
+  });
+
+  it('reuses the same client-generated order id when completion is retried', async () => {
+    await startOrder();
+    mocks.completeOrder
+      .mockRejectedValueOnce(new Error('connection lost'))
+      .mockResolvedValueOnce(completedOrder());
+    await userEvent.click(screen.getByRole('button', { name: 'Charge ₱150.00' }));
+    const completeButton = screen.getByRole('button', { name: 'Complete cash payment' });
+    await userEvent.click(completeButton);
+    await screen.findByText('The order change could not be saved. Try again.');
+    await userEvent.click(completeButton);
+    await screen.findByRole('heading', { name: 'Order #12 completed' });
+
+    expect(mocks.completeOrder).toHaveBeenCalledTimes(2);
+    expect(mocks.completeOrder.mock.calls[0]![0]).toBe(order().clientGeneratedId);
+    expect(mocks.completeOrder.mock.calls[1]![0]).toBe(order().clientGeneratedId);
   });
 });

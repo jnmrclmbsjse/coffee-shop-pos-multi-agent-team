@@ -72,6 +72,7 @@ interface DailyReadModel extends DailyReconciliation {
 
 interface OrderHistoryBaseRow {
   id: string;
+  clientGeneratedId: string;
   businessDay: Date;
   dayOrderNumber: number;
   storedStatus: StoredOrderStatus;
@@ -557,6 +558,7 @@ function orderHistoryCte(businessDayId?: string): Prisma.Sql {
     WITH order_history AS (
       SELECT
         sale.id,
+        sale.client_generated_id,
         day.business_date AS business_day,
         sale.day_order_number,
         sale.status AS stored_status,
@@ -606,6 +608,7 @@ function orderHistoryCte(businessDayId?: string): Prisma.Sql {
 function orderHistoryExpandedColumns(): Prisma.Sql {
   return Prisma.sql`
     history.id,
+    history.client_generated_id AS "clientGeneratedId",
     history.business_day AS "businessDay",
     history.day_order_number AS "dayOrderNumber",
     history.stored_status AS "storedStatus",
@@ -863,6 +866,7 @@ function toStaffOrderLedgerOrder(
 
   return {
     id: row.id,
+    clientGeneratedId: row.clientGeneratedId,
     dayOrderNumber: row.dayOrderNumber,
     customerName: row.customerName,
     cashierName: row.cashierNameSnapshot,
@@ -883,6 +887,7 @@ function toStaffOrderLedgerOrder(
     voidReason: status === 'Void' ? row.voidReason : null,
     changeOwedCents: cents(row.changeOwedCents),
     changeSettled: row.changeSettledAt !== null,
+    changeSettledAt: toIsoTimestamp(row.changeSettledAt),
   };
 }
 
