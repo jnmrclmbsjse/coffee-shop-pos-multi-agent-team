@@ -110,6 +110,14 @@ export function longDate(isoDate: string): string {
  * Remove every trading day and every record that hangs off one. Sales are
  * deleted newest-correction-first because `Sale.correctsSaleId` is
  * `onDelete: Restrict`.
+ *
+ * Every trading-day child is `onDelete: Restrict`, so the order here is load
+ * bearing: `day_closing_lines` before `day_closings`, and `day_closings` before
+ * `cash_counts` (a closing restricts its count). `cash_expenses` was dropped by
+ * the `20260731000000_add_business_day_close_foundation` migration and replaced
+ * by `cash_movements`; the old name lingered here and made this reset throw
+ * `42P01`, which failed the reporting, order-history and catalog specs before
+ * they ran an assertion.
  */
 export function resetTradingDays(): void {
   runPrisma(`
@@ -117,8 +125,10 @@ export function resetTradingDays(): void {
     await prisma.$executeRawUnsafe('DELETE FROM sale_lines');
     await prisma.$executeRawUnsafe('DELETE FROM sales WHERE corrects_sale_id IS NOT NULL');
     await prisma.$executeRawUnsafe('DELETE FROM sales');
+    await prisma.$executeRawUnsafe('DELETE FROM day_closing_lines');
+    await prisma.$executeRawUnsafe('DELETE FROM day_closings');
     await prisma.$executeRawUnsafe('DELETE FROM cash_counts');
-    await prisma.$executeRawUnsafe('DELETE FROM cash_expenses');
+    await prisma.$executeRawUnsafe('DELETE FROM cash_movements');
     await prisma.$executeRawUnsafe('DELETE FROM trading_days');
   `);
 }
