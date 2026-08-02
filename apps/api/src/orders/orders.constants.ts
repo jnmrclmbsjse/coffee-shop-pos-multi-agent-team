@@ -1,0 +1,2 @@
+export const STATUTORY_DISCOUNT_PERCENT = 20;
+export const FREE_UPSIZE_UNIT_CENTS = 3_000;

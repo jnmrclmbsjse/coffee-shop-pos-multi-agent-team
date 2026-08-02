@@ -5,6 +5,7 @@ import {
 import type { ActiveCashier } from '@coffee-shop/shared';
 import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import type { Prisma } from '@prisma/client';
 
 export const CASHIER_UNAVAILABLE_MESSAGE = 'Cashier cannot be selected.';
 const UUID_PATTERN =
@@ -17,8 +18,11 @@ export class SalesService {
     private readonly authService: AuthService,
   ) {}
 
-  async activeCashier(deviceId: string): Promise<ActiveCashier | null> {
-    const latest = await this.prisma.cashierSelection.findFirst({
+  async activeCashier(
+    deviceId: string,
+    client: PrismaService | Prisma.TransactionClient = this.prisma,
+  ): Promise<ActiveCashier | null> {
+    const latest = await client.cashierSelection.findFirst({
       where: { deviceId },
       select: {
         staffMember: {

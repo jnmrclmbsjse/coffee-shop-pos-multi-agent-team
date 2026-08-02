@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { SalesModule } from './sales/sales.module';
@@ -20,6 +21,7 @@ import { TradingDayModule } from './trading-day/trading-day.module';
     AuthModule,
     CatalogModule,
     InventoryModule,
+    OrdersModule,
     ReportingModule,
     SalesModule,
     StaffModule,
