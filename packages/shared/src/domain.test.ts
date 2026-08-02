@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { MovementType, StockLevel } from './domain.js';
+import {
+  LineDiscountKind,
+  LinePreference,
+  MovementType,
+  StockLevel,
+} from './domain.js';
 
 describe('inventory operation enums', () => {
   it('keeps stock levels in the count-sheet display order', () => {
@@ -18,5 +23,20 @@ describe('inventory operation enums', () => {
 
   it('only exposes delivery and wastage movement types', () => {
     expect(Object.values(MovementType)).toEqual(['DELIVERY', 'WASTAGE']);
+  });
+});
+
+describe('order capture enums', () => {
+  it('exposes both statutory line discount kinds', () => {
+    expect(Object.values(LineDiscountKind)).toEqual(['NONE', 'PWD', 'SENIOR']);
+  });
+
+  it('keeps line preferences in their canonical storage order', () => {
+    expect(Object.values(LinePreference)).toEqual([
+      'SWEETER',
+      'STRONGER',
+      'LESS_SWEET',
+      'LESS_ICE',
+    ]);
   });
 });

@@ -375,6 +375,7 @@ describeWithDatabase('Order History queries against Postgres', () => {
         lineGrossCents: 10_000,
         discountKind: LineDiscountKind.SENIOR,
         discountCents: 2_000,
+        freeUpsizeEligible: false,
         lineTotalCents: 8_000,
         productNameSnapshot: 'Ledger Latte',
         variantNameSnapshot: 'Regular',

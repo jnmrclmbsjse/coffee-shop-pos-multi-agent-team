@@ -39,7 +39,15 @@ enum ServiceType {
 
 enum LineDiscountKind {
   NONE
+  PWD
   SENIOR
+}
+
+enum LinePreference {
+  SWEETER
+  STRONGER
+  LESS_SWEET
+  LESS_ICE
 }
 
 enum Role {
@@ -151,13 +159,14 @@ model Product {
 }
 
 model Category {
-  id         String    @id @default(uuid()) @db.Uuid
-  name       String
-  sortWeight Int       @map("sort_weight")
-  active     Boolean   @default(true)
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  products   Product[]
+  id                 String    @id @default(uuid()) @db.Uuid
+  name               String
+  sortWeight         Int       @map("sort_weight")
+  active             Boolean   @default(true)
+  freeUpsizeEligible Boolean   @default(false) @map("free_upsize_eligible")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  products           Product[]
 
   @@index([sortWeight])
   @@map("categories")
@@ -432,6 +441,7 @@ model Sale {
   serviceType          ServiceType   @map("service_type")
   subtotalCents        Int           @map("subtotal_cents")
   discountCents        Int           @default(0) @map("discount_cents")
+  freeUpsizeCents      Int           @default(0) @map("free_upsize_cents")
   taxCents             Int           @map("tax_cents")
   totalCents           Int           @map("total_cents")
   cashTipCents         Int           @default(0) @map("cash_tip_cents")
@@ -476,6 +486,11 @@ model SaleLine {
   lineGrossCents      Int              @map("line_gross_cents")
   discountKind        LineDiscountKind @map("discount_kind")
   discountCents       Int              @default(0) @map("discount_cents")
+  preferences         LinePreference[] @default([])
+  preferenceNote      String?          @map("preference_note")
+  freeUpsizeCount     Int              @default(0) @map("free_upsize_count")
+  freeUpsizeCents     Int              @default(0) @map("free_upsize_cents")
+  freeUpsizeEligible  Boolean          @map("free_upsize_eligible")
   lineTotalCents      Int              @map("line_total_cents")
   productNameSnapshot String           @map("product_name_snapshot")
   variantNameSnapshot String           @map("variant_name_snapshot")
