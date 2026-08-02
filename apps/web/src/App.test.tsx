@@ -82,6 +82,31 @@ describe('administrator authentication routes', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('opens staff sign-in without carrying an administrator destination', async () => {
+    fetchMock.mockResolvedValueOnce(response(401));
+    const user = userEvent.setup();
+
+    renderAt('/sign-in?returnTo=%2Finventory');
+
+    const staffSignInLink = await screen.findByRole('link', {
+      name: 'Staff sign-in',
+    });
+    expect(staffSignInLink).toHaveAttribute('href', '/staff/sign-in');
+
+    staffSignInLink.focus();
+    expect(staffSignInLink).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'No staff remembered on this device',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Administrator sign-in' }),
+    ).toHaveAttribute('href', '/sign-in');
+  });
+
   it('shows the generic error for refused credentials and preserves password spaces', async () => {
     fetchMock
       .mockResolvedValueOnce(response(401))
