@@ -33,6 +33,7 @@ export class ProductsController {
   constructor(private readonly catalogService: CatalogService) {}
 
   @Get()
+  @Roles(Role.ADMIN, Role.STAFF)
   list(@Query() query: ProductListQueryDto): Promise<Product[]> {
     return this.catalogService.listProducts(query);
   }

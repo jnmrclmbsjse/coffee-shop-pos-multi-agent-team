@@ -14,15 +14,20 @@ import {
   reorderCategories,
   updateCategory,
 } from './api';
-import { Icon, LoadingRows, Notice, StateBadge } from './components';
+import { Icon, LoadingRows, Notice, StateBadge, Switch } from './components';
 
 interface CategoryDraft {
   id?: string;
   name: string;
   active: boolean;
+  freeUpsizeEligible: boolean;
 }
 
-const EMPTY_DRAFT: CategoryDraft = { name: '', active: true };
+const EMPTY_DRAFT: CategoryDraft = {
+  name: '',
+  active: true,
+  freeUpsizeEligible: false,
+};
 
 function moveItem<T>(items: T[], from: number, to: number): T[] {
   const next = [...items];
@@ -64,7 +69,12 @@ export function CategoriesPage() {
   function openForm(category?: CatalogCategorySummary) {
     setDraft(
       category
-        ? { id: category.id, name: category.name, active: category.active }
+        ? {
+            id: category.id,
+            name: category.name,
+            active: category.active,
+            freeUpsizeEligible: category.freeUpsizeEligible,
+          }
         : EMPTY_DRAFT,
     );
     setNameError('');
@@ -106,6 +116,7 @@ export function CategoriesPage() {
         const updated = await updateCategory(draft.id, {
           name,
           active: draft.active,
+          freeUpsizeEligible: draft.freeUpsizeEligible,
         });
         setCategories((current) =>
           current.map((category) =>
@@ -117,6 +128,7 @@ export function CategoriesPage() {
         const created = await createCategory({
           name,
           active: draft.active,
+          freeUpsizeEligible: draft.freeUpsizeEligible,
           sortWeight: (categories.length + 1) * 10,
         });
         setCategories((current) => [...current, created]);
@@ -261,6 +273,26 @@ export function CategoriesPage() {
               Inactive categories stay out of the POS.
             </p>
           </div>
+          <div className="catalog-field category-upsize-field">
+            <span className="catalog-field-label">Free upsize</span>
+            <div className="category-upsize-control">
+              <Switch
+                checked={draft.freeUpsizeEligible}
+                label="Category qualifies for free upsize"
+                disabled={saving}
+                onChange={(freeUpsizeEligible) =>
+                  setDraft({ ...draft, freeUpsizeEligible })
+                }
+              />
+              <span>
+                {draft.freeUpsizeEligible ? 'Qualifies' : 'Does not qualify'}
+              </span>
+            </div>
+            <p className="catalog-field-help">
+              Drinks in this category can receive the free upsize on future
+              orders.
+            </p>
+          </div>
           <div className="catalog-form-actions">
             <button
               className="catalog-button primary"
@@ -296,6 +328,7 @@ export function CategoriesPage() {
                 <th scope="col">Category name</th>
                 <th scope="col">Stored weight</th>
                 <th scope="col">Status</th>
+                <th scope="col">Free upsize</th>
                 <th scope="col">Products</th>
                 <th scope="col">
                   <span className="sr-only">Actions</span>
@@ -304,10 +337,10 @@ export function CategoriesPage() {
             </thead>
             <tbody>
               {loading ? (
-                <LoadingRows columns={6} />
+                <LoadingRows columns={7} />
               ) : categories.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="catalog-empty">
                       <Icon name="grid" />
                       <h3>No categories yet</h3>
@@ -360,6 +393,13 @@ export function CategoriesPage() {
                         active={category.active}
                         trueLabel="Active"
                         falseLabel="Inactive"
+                      />
+                    </td>
+                    <td data-label="Free upsize">
+                      <StateBadge
+                        active={category.freeUpsizeEligible}
+                        trueLabel="Qualifies"
+                        falseLabel="Not eligible"
                       />
                     </td>
                     <td data-label="Products" className="numeric">

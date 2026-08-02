@@ -1,7 +1,11 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CreateCategoryDto, CreateProductDto } from './catalog.dto';
+import {
+  CreateCategoryDto,
+  CreateProductDto,
+  UpdateCategoryDto,
+} from './catalog.dto';
 
 describe('Catalog DTO validation', () => {
   const validProduct = {
@@ -26,11 +30,42 @@ describe('Catalog DTO validation', () => {
       name: '   ',
       sortWeight: 0,
       active: true,
+      freeUpsizeEligible: false,
     });
 
     expect(await validate(category)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ property: 'name' }),
+      ]),
+    );
+  });
+
+  it('accepts a boolean free-upsize choice on category create and update', async () => {
+    const create = plainToInstance(CreateCategoryDto, {
+      name: 'Coffee',
+      sortWeight: 0,
+      active: true,
+      freeUpsizeEligible: true,
+    });
+    const update = plainToInstance(UpdateCategoryDto, {
+      freeUpsizeEligible: false,
+    });
+
+    expect(await validate(create)).toHaveLength(0);
+    expect(await validate(update)).toHaveLength(0);
+  });
+
+  it('rejects a non-boolean free-upsize choice', async () => {
+    const category = plainToInstance(CreateCategoryDto, {
+      name: 'Coffee',
+      sortWeight: 0,
+      active: true,
+      freeUpsizeEligible: 'yes',
+    });
+
+    expect(await validate(category)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ property: 'freeUpsizeEligible' }),
       ]),
     );
   });

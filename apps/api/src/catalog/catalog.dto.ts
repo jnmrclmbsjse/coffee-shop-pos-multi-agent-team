@@ -33,6 +33,9 @@ export class CreateCategoryDto {
 
   @IsBoolean()
   active!: boolean;
+
+  @IsBoolean()
+  freeUpsizeEligible!: boolean;
 }
 
 export class UpdateCategoryDto {
@@ -49,6 +52,10 @@ export class UpdateCategoryDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  freeUpsizeEligible?: boolean;
 }
 
 export class ReorderItemDto {
