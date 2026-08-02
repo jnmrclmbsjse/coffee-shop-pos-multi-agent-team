@@ -60,6 +60,7 @@ async function request<T>(path: string): Promise<T> {
 async function captureRequest<T>(
   path: string,
   init?: RequestInit,
+  emptyResponse?: T,
 ): Promise<T> {
   const response = await fetch(`${API_ORIGIN}${path}`, {
     ...init,
@@ -87,8 +88,9 @@ async function captureRequest<T>(
     throw new OrderCaptureApiError(response.status, messages);
   }
 
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+  const body = await response.text();
+  if (body.trim() === '') return emptyResponse as T;
+  return JSON.parse(body) as T;
 }
 
 export function listBusinessDays(): Promise<BusinessDayList> {
@@ -173,9 +175,10 @@ export function decrementOrderLine(
   clientGeneratedId: string,
   lineId: string,
 ): Promise<Order | null> {
-  return captureRequest(
+  return captureRequest<Order | null>(
     `/orders/${encodeURIComponent(clientGeneratedId)}/lines/${encodeURIComponent(lineId)}/decrement`,
     { method: 'POST' },
+    null,
   );
 }
 
@@ -183,9 +186,10 @@ export function removeOrderLine(
   clientGeneratedId: string,
   lineId: string,
 ): Promise<Order | null> {
-  return captureRequest(
+  return captureRequest<Order | null>(
     `/orders/${encodeURIComponent(clientGeneratedId)}/lines/${encodeURIComponent(lineId)}`,
     { method: 'DELETE' },
+    null,
   );
 }
 
