@@ -363,6 +363,10 @@ export function seedTradingDay(
               lineGrossCents: line.lineGrossCents ?? line.lineTotalCents,
               discountKind: line.discountKind ?? 'NONE',
               discountCents: line.discountCents ?? 0,
+              // Required with no default since story #197's order-capture
+              // schema. These fixtures predate the free-upsize promotion, so
+              // every seeded line is an ineligible, un-upsized one.
+              freeUpsizeEligible: false,
               lineTotalCents: line.lineTotalCents,
               productNameSnapshot: line.variant.productName,
               variantNameSnapshot: line.variant.variantName,

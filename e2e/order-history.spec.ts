@@ -1668,15 +1668,15 @@ test.describe('Order History is read-only (story #93)', () => {
     await expect(username).toHaveValue(STAFF_USERNAME);
     await expect(password).toHaveValue(STAFF_PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL(/\/pos$/);
+    await expect(page).toHaveURL(/\/pos(\/order)?$/);
 
     // Both views bounce back to the POS.
     await page.goto('/order-history');
-    await expect(page).toHaveURL(/\/pos$/);
+    await expect(page).toHaveURL(/\/pos(\/order)?$/);
     await expect(page.getByRole('heading', { name: 'Order History' })).toHaveCount(0);
 
     await page.goto(`/order-history/${ids.split}`);
-    await expect(page).toHaveURL(/\/pos$/);
+    await expect(page).toHaveURL(/\/pos(\/order)?$/);
     await expect(page.locator('.order-detail-head')).toHaveCount(0);
 
     // And the API hands a staff session no order-history data.

@@ -91,7 +91,7 @@ async function rememberStaffOnDevice(page: Page, context: BrowserContext) {
   await page.goto(STAFF_SIGN_IN_PATH);
   await openPasswordForm(page);
   await submitPassword(page, STAFF_USERNAME, STAFF_PASSWORD);
-  await expect(page).toHaveURL(/\/pos$/);
+  await expect(page).toHaveURL(/\/pos(\/order)?$/);
 
   await signOut(context);
   await page.goto(STAFF_SIGN_IN_PATH);
@@ -125,9 +125,11 @@ test.describe('Staff POS sign-in (story #18)', () => {
     await openPasswordForm(page);
     await submitPassword(page, STAFF_USERNAME, STAFF_PASSWORD);
 
-    await expect(page).toHaveURL(/\/pos$/);
+    await expect(page).toHaveURL(/\/pos(\/order)?$/);
+    // Story #197 replaced the POS placeholder home with the Take Order
+    // workspace, which is now the staff landing screen.
     await expect(
-      page.getByRole('heading', { name: 'Ready for the next order.' }),
+      page.getByRole('heading', { name: 'Take order' }),
     ).toBeVisible();
     await expect(
       page.getByText(`Signed in as ${STAFF_DISPLAY_NAME}`),
@@ -154,7 +156,7 @@ test.describe('Staff POS sign-in (story #18)', () => {
     await expect(filledPinCells(page)).toHaveCount(4);
     await pinSubmit(page).click();
 
-    await expect(page).toHaveURL(/\/pos$/);
+    await expect(page).toHaveURL(/\/pos(\/order)?$/);
     await expect(
       page.getByText(`Signed in as ${STAFF_DISPLAY_NAME}`),
     ).toBeVisible();
@@ -264,7 +266,7 @@ test.describe('Staff POS sign-in (story #18)', () => {
     await pinSubmit(page).click();
 
     await expect(status(page)).toHaveText(GENERIC_FAILURE);
-    await expect(page).not.toHaveURL(/\/pos$/);
+    await expect(page).not.toHaveURL(/\/pos(\/order)?$/);
 
     // A refused attempt cannot then reach the POS by direct URL.
     await page.goto('/pos');
@@ -284,7 +286,7 @@ test.describe('Staff POS sign-in (story #18)', () => {
     await submitPassword(page, ADMIN_USERNAME, ADMIN_PASSWORD);
 
     await expect(status(page)).toHaveText(GENERIC_FAILURE);
-    await expect(page).not.toHaveURL(/\/pos$/);
+    await expect(page).not.toHaveURL(/\/pos(\/order)?$/);
 
     await page.goto('/pos');
     await expect(page).toHaveURL(new RegExp(STAFF_SIGN_IN_PATH));
@@ -305,14 +307,14 @@ test.describe('Staff POS sign-in (story #18)', () => {
     await submitPassword(page, 'no-such-staff', 'whatever-password');
     await expect(status(page)).toBeVisible();
     const unknownUserMessage = (await status(page).textContent())?.trim();
-    await expect(page).not.toHaveURL(/\/pos$/);
+    await expect(page).not.toHaveURL(/\/pos(\/order)?$/);
 
     await usernameField(page).fill('');
     await passwordField(page).fill('');
     await submitPassword(page, STAFF_USERNAME, `${STAFF_PASSWORD}-wrong`);
     await expect(status(page)).toBeVisible();
     const wrongPasswordMessage = (await status(page).textContent())?.trim();
-    await expect(page).not.toHaveURL(/\/pos$/);
+    await expect(page).not.toHaveURL(/\/pos(\/order)?$/);
 
     expect(unknownUserMessage).toBe(GENERIC_FAILURE);
     expect(wrongPasswordMessage).toBe(GENERIC_FAILURE);
@@ -376,6 +378,6 @@ test.describe('Staff POS sign-in (story #18)', () => {
     expect(throttleMessage.toLowerCase()).not.toContain(
       STAFF_USERNAME.toLowerCase(),
     );
-    await expect(page).not.toHaveURL(/\/pos$/);
+    await expect(page).not.toHaveURL(/\/pos(\/order)?$/);
   });
 });
