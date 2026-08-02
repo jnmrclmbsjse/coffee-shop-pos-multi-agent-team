@@ -29,6 +29,7 @@ export class CategoriesController {
   constructor(private readonly catalogService: CatalogService) {}
 
   @Get()
+  @Roles(Role.ADMIN, Role.STAFF)
   list(): Promise<CatalogCategorySummary[]> {
     return this.catalogService.listCategories();
   }

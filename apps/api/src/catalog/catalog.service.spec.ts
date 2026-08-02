@@ -27,6 +27,7 @@ describe('CatalogService', () => {
         name: 'Coffee',
         sortWeight: 0,
         active: true,
+        freeUpsizeEligible: true,
         createdAt: now,
         updatedAt: now,
       },
@@ -90,6 +91,7 @@ describe('CatalogService', () => {
         name: 'Coffee',
         sortWeight: 0,
         active: true,
+        freeUpsizeEligible: true,
         createdAt: now,
         updatedAt: now,
         _count: { products: 3 },
@@ -100,7 +102,11 @@ describe('CatalogService', () => {
     );
 
     await expect(service.listCategories()).resolves.toEqual([
-      expect.objectContaining({ name: 'Coffee', productCount: 3 }),
+      expect.objectContaining({
+        name: 'Coffee',
+        freeUpsizeEligible: true,
+        productCount: 3,
+      }),
     ]);
     expect(prisma.category.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -121,11 +127,70 @@ describe('CatalogService', () => {
         name: 'coffee',
         sortWeight: 0,
         active: true,
+        freeUpsizeEligible: false,
       }),
     ).rejects.toEqual(
       new ConflictException('A category with this name already exists'),
     );
     expect(prisma.category.create).not.toHaveBeenCalled();
+  });
+
+  it('persists the category free-upsize choice', async () => {
+    const prisma = createPrisma();
+    prisma.category.create.mockResolvedValue({
+      id: categoryId,
+      name: 'Coffee',
+      sortWeight: 0,
+      active: true,
+      freeUpsizeEligible: true,
+      createdAt: now,
+      updatedAt: now,
+      _count: { products: 0 },
+    });
+    const service = new CatalogService(prisma as unknown as PrismaService);
+
+    await expect(
+      service.createCategory({
+        name: 'Coffee',
+        sortWeight: 0,
+        active: true,
+        freeUpsizeEligible: true,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({ freeUpsizeEligible: true, productCount: 0 }),
+    );
+    expect(prisma.category.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ freeUpsizeEligible: true }),
+      }),
+    );
+  });
+
+  it('updates the category free-upsize choice', async () => {
+    const prisma = createPrisma();
+    prisma.category.update.mockResolvedValue({
+      id: categoryId,
+      name: 'Coffee',
+      sortWeight: 0,
+      active: true,
+      freeUpsizeEligible: false,
+      createdAt: now,
+      updatedAt: now,
+      _count: { products: 3 },
+    });
+    const service = new CatalogService(prisma as unknown as PrismaService);
+
+    await expect(
+      service.updateCategory(categoryId, { freeUpsizeEligible: false }),
+    ).resolves.toEqual(
+      expect.objectContaining({ freeUpsizeEligible: false, productCount: 3 }),
+    );
+    expect(prisma.category.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: categoryId },
+        data: { freeUpsizeEligible: false },
+      }),
+    );
   });
 
   it('creates a product with integer-cent sizes and active mappings', async () => {

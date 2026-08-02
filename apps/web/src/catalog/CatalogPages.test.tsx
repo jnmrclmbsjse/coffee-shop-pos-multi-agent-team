@@ -18,6 +18,7 @@ const categories = [
     name: 'Coffee',
     sortWeight: 10,
     active: true,
+    freeUpsizeEligible: true,
     productCount: 2,
   },
   {
@@ -25,6 +26,7 @@ const categories = [
     name: 'Pastries',
     sortWeight: 20,
     active: true,
+    freeUpsizeEligible: false,
     productCount: 1,
   },
 ];
@@ -101,6 +103,48 @@ describe('catalog management pages', () => {
       ),
     );
     expect(screen.getByText('Category order saved.')).toBeInTheDocument();
+  });
+
+  it('shows and updates which categories qualify for the free upsize', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(200, categories))
+      .mockResolvedValueOnce(
+        response(200, {
+          ...categories[0],
+          freeUpsizeEligible: false,
+        }),
+      );
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <CategoriesPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Qualifies')).toBeInTheDocument();
+    expect(screen.getByText('Not eligible')).toBeInTheDocument();
+    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!);
+    const eligibility = screen.getByRole('switch', {
+      name: 'Category qualifies for free upsize',
+    });
+    expect(eligibility).toHaveAttribute('aria-checked', 'true');
+    await user.click(eligibility);
+    await user.click(screen.getByRole('button', { name: 'Save category' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        `http://localhost:3000/catalog/categories/${categories[0]!.id}`,
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: 'Coffee',
+            active: true,
+            freeUpsizeEligible: false,
+          }),
+        }),
+      ),
+    );
   });
 
   it('creates a product with a zero-price size sent as integer cents', async () => {

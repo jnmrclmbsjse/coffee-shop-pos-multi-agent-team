@@ -11,6 +11,7 @@ export interface CategoryInput {
   name: string;
   sortWeight: number;
   active: boolean;
+  freeUpsizeEligible: boolean;
 }
 
 export interface ProductSizeInput {
