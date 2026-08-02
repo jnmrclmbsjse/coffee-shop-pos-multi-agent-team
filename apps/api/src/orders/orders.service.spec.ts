@@ -2,15 +2,123 @@ import { BadRequestException } from '@nestjs/common';
 import {
   LineDiscountKind,
   LinePreference,
+  OrderStatus,
   PaymentMethod,
+  SaleKind,
 } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { SalesService } from '../sales/sales.service';
 import type { CompleteOrderDto } from './orders.dto';
 import {
   calculateLineAmounts,
   isPlainMergeableLine,
   normalizePreferences,
+  ORDER_FROZEN_MESSAGE,
+  type OrderRecord,
+  OrdersService,
   validateTender,
 } from './orders.service';
+
+function orderForLineMutation(status: OrderStatus): OrderRecord {
+  return {
+    id: '10000000-0000-4000-8000-000000000001',
+    clientGeneratedId: '20000000-0000-4000-8000-000000000001',
+    tradingDayId: '30000000-0000-4000-8000-000000000001',
+    kind: SaleKind.PURCHASE,
+    status,
+    lines: [
+      {
+        id: '40000000-0000-4000-8000-000000000001',
+        quantity: 1,
+      },
+    ],
+    payments: [],
+  } as unknown as OrderRecord;
+}
+
+function lineMutationHarness(status: OrderStatus = OrderStatus.PARKED) {
+  const order = orderForLineMutation(status);
+  const transaction = {
+    sale: {
+      findUnique: jest
+        .fn()
+        .mockResolvedValueOnce({ id: order.id, kind: order.kind })
+        .mockResolvedValueOnce(order),
+      delete: jest.fn().mockResolvedValue(order),
+    },
+    saleLine: {
+      delete: jest.fn().mockResolvedValue(order.lines[0]),
+      count: jest.fn().mockResolvedValue(0),
+    },
+    tradingDay: {
+      findFirst: jest.fn().mockResolvedValue({ id: order.tradingDayId }),
+    },
+    $queryRaw: jest.fn().mockResolvedValue([]),
+  };
+  const prisma = {
+    $transaction: jest.fn(
+      (callback: (client: typeof transaction) => Promise<unknown>) =>
+        callback(transaction),
+    ),
+  };
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    {} as SalesService,
+  );
+  return { order, service, transaction };
+}
+
+describe('orders final-line discard', () => {
+  it.each(['remove', 'decrement'] as const)(
+    '%ss the final line and its parked order in one transaction',
+    async (action) => {
+      const { order, service, transaction } = lineMutationHarness();
+
+      const result =
+        action === 'remove'
+          ? await service.removeLine(
+              order.clientGeneratedId,
+              order.lines[0]!.id,
+            )
+          : await service.decrementLine(
+              order.clientGeneratedId,
+              order.lines[0]!.id,
+            );
+
+      expect(result).toBeNull();
+      expect(transaction.saleLine.delete).toHaveBeenCalledWith({
+        where: { id: order.lines[0]!.id },
+      });
+      expect(transaction.sale.delete).toHaveBeenCalledWith({
+        where: { id: order.id },
+      });
+      expect(transaction.saleLine.delete.mock.invocationCallOrder[0]).toBeLessThan(
+        transaction.sale.delete.mock.invocationCallOrder[0]!,
+      );
+    },
+  );
+
+  it.each(['remove', 'decrement'] as const)(
+    'does not let %s delete a completed order or line',
+    async (action) => {
+      const { order, service, transaction } = lineMutationHarness(
+        OrderStatus.COMPLETED,
+      );
+
+      const mutation =
+        action === 'remove'
+          ? service.removeLine(order.clientGeneratedId, order.lines[0]!.id)
+          : service.decrementLine(
+              order.clientGeneratedId,
+              order.lines[0]!.id,
+            );
+
+      await expect(mutation).rejects.toThrow(ORDER_FROZEN_MESSAGE);
+      expect(transaction.saleLine.delete).not.toHaveBeenCalled();
+      expect(transaction.sale.delete).not.toHaveBeenCalled();
+    },
+  );
+});
 
 describe('orders money engine', () => {
   it('applies the free upsize before Senior discount in the ADR example', () => {

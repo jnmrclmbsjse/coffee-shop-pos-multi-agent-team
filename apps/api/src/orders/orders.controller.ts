@@ -83,7 +83,7 @@ export class OrdersController {
   decrementLine(
     @Param('clientGeneratedId', new ParseUUIDPipe()) id: string,
     @Param('lineId', new ParseUUIDPipe()) lineId: string,
-  ): Promise<OrderRecord> {
+  ): Promise<OrderRecord | null> {
     return this.ordersService.decrementLine(id, lineId);
   }
 
@@ -91,7 +91,7 @@ export class OrdersController {
   removeLine(
     @Param('clientGeneratedId', new ParseUUIDPipe()) id: string,
     @Param('lineId', new ParseUUIDPipe()) lineId: string,
-  ): Promise<OrderRecord> {
+  ): Promise<OrderRecord | null> {
     return this.ordersService.removeLine(id, lineId);
   }
 

@@ -33,6 +33,9 @@ describeWithDatabase('Order capture against Postgres', () => {
   const productId = randomUUID();
   const variantId = randomUUID();
   const clientGeneratedId = randomUUID();
+  const removedOrderClientGeneratedId = randomUUID();
+  const replacementOrderClientGeneratedId = randomUUID();
+  const decrementedOrderClientGeneratedId = randomUUID();
   const voidClientGeneratedId = randomUUID();
   let prisma: PrismaService;
   let service: OrdersService;
@@ -102,7 +105,13 @@ describeWithDatabase('Order capture against Postgres', () => {
     const sales = await prisma.sale.findMany({
       where: {
         clientGeneratedId: {
-          in: [clientGeneratedId, voidClientGeneratedId],
+          in: [
+            clientGeneratedId,
+            removedOrderClientGeneratedId,
+            replacementOrderClientGeneratedId,
+            decrementedOrderClientGeneratedId,
+            voidClientGeneratedId,
+          ],
         },
       },
       select: { id: true },
@@ -174,6 +183,77 @@ describeWithDatabase('Order capture against Postgres', () => {
     );
   });
 
+  it('removes the final line and its parked order, then safely recreates it under the same client ID', async () => {
+    const discardedOrder = await service.create({
+      ...createInput,
+      clientGeneratedId: removedOrderClientGeneratedId,
+    });
+    const discarded = await service.removeLine(
+      removedOrderClientGeneratedId,
+      discardedOrder.lines[0]!.id,
+    );
+
+    expect(discarded).toBeNull();
+    await expect(
+      prisma.sale.findUnique({
+        where: { clientGeneratedId: removedOrderClientGeneratedId },
+      }),
+    ).resolves.toBeNull();
+    await expect(service.listParked()).resolves.not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          clientGeneratedId: removedOrderClientGeneratedId,
+        }),
+      ]),
+    );
+
+    const replacementOrder = await service.create({
+      ...createInput,
+      clientGeneratedId: replacementOrderClientGeneratedId,
+    });
+    const recreated = await service.create({
+      ...createInput,
+      clientGeneratedId: removedOrderClientGeneratedId,
+    });
+    const replay = await service.create({
+      ...createInput,
+      clientGeneratedId: removedOrderClientGeneratedId,
+    });
+
+    expect(recreated.id).not.toBe(discardedOrder.id);
+    expect(recreated.dayOrderNumber).toBe(replacementOrder.dayOrderNumber + 1);
+    expect(replay).toEqual(
+      expect.objectContaining({
+        id: recreated.id,
+        dayOrderNumber: recreated.dayOrderNumber,
+      }),
+    );
+    await expect(
+      prisma.sale.count({
+        where: { clientGeneratedId: removedOrderClientGeneratedId },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('decrements the final unit and discards the parked order', async () => {
+    const order = await service.create({
+      ...createInput,
+      clientGeneratedId: decrementedOrderClientGeneratedId,
+    });
+
+    await expect(
+      service.decrementLine(
+        decrementedOrderClientGeneratedId,
+        order.lines[0]!.id,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.sale.findUnique({
+        where: { clientGeneratedId: decrementedOrderClientGeneratedId },
+      }),
+    ).resolves.toBeNull();
+  });
+
   it('completes without a cashier, replays without another payment, and freezes mutations', async () => {
     const settlement: CompleteOrderDto = {
       payments: [
@@ -198,6 +278,15 @@ describeWithDatabase('Order capture against Postgres', () => {
         serviceType: ServiceType.TAKE_OUT,
       }),
     ).rejects.toThrow(ORDER_FROZEN_MESSAGE);
+    await expect(
+      service.removeLine(clientGeneratedId, completed.lines[0]!.id),
+    ).rejects.toThrow(ORDER_FROZEN_MESSAGE);
+    await expect(
+      service.decrementLine(clientGeneratedId, completed.lines[0]!.id),
+    ).rejects.toThrow(ORDER_FROZEN_MESSAGE);
+    await expect(
+      prisma.saleLine.count({ where: { saleId: completed.id } }),
+    ).resolves.toBe(1);
   });
 
   it('settles change through the narrow completed-row exception without changing the amount owed', async () => {

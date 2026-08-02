@@ -411,24 +411,48 @@ export class OrdersService {
     clientGeneratedId: string,
     lineId: string,
   ): Promise<OrderRecord> {
-    return this.changeQuantity(clientGeneratedId, lineId, 1);
+    return this.mutateParked(clientGeneratedId, async (transaction, order) => {
+      const line = this.requireOwnedLine(order, lineId);
+      const quantity = line.quantity + 1;
+      await transaction.saleLine.update({
+        where: { id: line.id },
+        data: { quantity, ...calculateLineAmounts({ ...line, quantity }) },
+      });
+    });
   }
 
   async decrementLine(
     clientGeneratedId: string,
     lineId: string,
-  ): Promise<OrderRecord> {
-    return this.changeQuantity(clientGeneratedId, lineId, -1);
+  ): Promise<OrderRecord | null> {
+    return this.mutateParkedWithDiscard(
+      clientGeneratedId,
+      async (transaction, order) => {
+        const line = this.requireOwnedLine(order, lineId);
+        const quantity = line.quantity - 1;
+        if (quantity === 0) {
+          await transaction.saleLine.delete({ where: { id: line.id } });
+          return;
+        }
+        await transaction.saleLine.update({
+          where: { id: line.id },
+          data: { quantity, ...calculateLineAmounts({ ...line, quantity }) },
+        });
+      },
+    );
   }
 
   async removeLine(
     clientGeneratedId: string,
     lineId: string,
-  ): Promise<OrderRecord> {
-    return this.mutateParked(clientGeneratedId, async (transaction, order) => {
-      this.requireOwnedLine(order, lineId);
-      await transaction.saleLine.delete({ where: { id: lineId } });
-    });
+  ): Promise<OrderRecord | null> {
+    return this.mutateParkedWithDiscard(
+      clientGeneratedId,
+      async (transaction, order) => {
+        this.requireOwnedLine(order, lineId);
+        await transaction.saleLine.delete({ where: { id: lineId } });
+      },
+    );
   }
 
   async complete(
@@ -601,25 +625,6 @@ export class OrdersService {
     });
   }
 
-  private async changeQuantity(
-    clientGeneratedId: string,
-    lineId: string,
-    delta: number,
-  ): Promise<OrderRecord> {
-    return this.mutateParked(clientGeneratedId, async (transaction, order) => {
-      const line = this.requireOwnedLine(order, lineId);
-      const quantity = line.quantity + delta;
-      if (quantity === 0) {
-        await transaction.saleLine.delete({ where: { id: line.id } });
-        return;
-      }
-      await transaction.saleLine.update({
-        where: { id: line.id },
-        data: { quantity, ...calculateLineAmounts({ ...line, quantity }) },
-      });
-    });
-  }
-
   private async mutateParked(
     clientGeneratedId: string,
     mutation: (
@@ -637,6 +642,37 @@ export class OrdersService {
       }
       await this.requireOrderDayOpen(transaction, order.tradingDayId);
       await mutation(transaction, order);
+      await this.recalculateOrder(transaction, order.id);
+      return this.requireOrder(clientGeneratedId, transaction);
+    });
+  }
+
+  private async mutateParkedWithDiscard(
+    clientGeneratedId: string,
+    mutation: (
+      transaction: Prisma.TransactionClient,
+      order: OrderRecord,
+    ) => Promise<void>,
+  ): Promise<OrderRecord | null> {
+    return this.prisma.$transaction(async (transaction) => {
+      const order = await this.lockAndRequireOrder(
+        clientGeneratedId,
+        transaction,
+      );
+      if (order.status !== OrderStatus.PARKED) {
+        throw new ConflictException(ORDER_FROZEN_MESSAGE);
+      }
+      await this.requireOrderDayOpen(transaction, order.tradingDayId);
+      await mutation(transaction, order);
+
+      const remainingLines = await transaction.saleLine.count({
+        where: { saleId: order.id },
+      });
+      if (remainingLines === 0) {
+        await transaction.sale.delete({ where: { id: order.id } });
+        return null;
+      }
+
       await this.recalculateOrder(transaction, order.id);
       return this.requireOrder(clientGeneratedId, transaction);
     });
