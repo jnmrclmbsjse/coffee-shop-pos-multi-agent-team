@@ -375,10 +375,38 @@ cash-only in v1.
 
 - A `Sale` row is created **on the first line added**, inside the transaction
   that allocates `dayOrderNumber` under the trading-day row lock (ADR 0005 §3).
-  Before that, the order exists only in the browser. This is what makes the
-  story's "attempting to park an empty order discards it" true structurally:
-  an empty order has no row to discard, so no empty parked order can exist and
-  no order number is consumed by one.
+  Before that, the order exists only in the browser. This is half of what makes
+  the story's "attempting to park an empty order discards it" true structurally:
+  an order that never had a line has no row to discard. The other half is the
+  next bullet — the row must also go away when its last line is removed.
+- **An order row does not outlive its last line.** Removing the only remaining
+  line — whether by `removeLine`, or by decrementing the last unit of the only
+  line, which deletes that line — **deletes the `PARKED` `Sale` row** in the
+  same transaction, instead of leaving a zero-total row behind. "No empty order
+  exists" is therefore an invariant along every path, not just the create path.
+  Without this, ordinary line removal strands a `PARKED` row that still holds a
+  `dayOrderNumber`, is returned by `GET /orders/parked`, can never be completed
+  (`complete()` rejects an empty order), and has no route that can remove it.
+  - This is a **cascade of line removal**, not the abandon route the last bullet
+    still declines. It is reachable only by emptying an order line by line; a
+    parked order that still has lines cannot be deleted.
+  - `complete()`'s empty-order rejection **stays** as a backstop. It should now
+    be unreachable through the API, and that is the point.
+  - **Idempotency is unaffected, but the order number is not stable across a
+    discard.** The browser may re-add a line under the same `clientGeneratedId`
+    (ADR 0001); because the previous row is gone, that creates a **new** row and
+    allocates a **new** `dayOrderNumber`. Staff who empty an order and then
+    refill it are starting a genuinely new order and may see a different number.
+    The web app (#204) must therefore treat the order number as server-owned and
+    re-read it after a discard rather than caching the first value it saw.
+  - **Interaction with ADR 0005 §3's "numbers are never reassigned".** Because
+    allocation is `MAX(day_order_number) + 1`, discarding the row that currently
+    holds the day's highest number lets the next order draw that same number.
+    This does not weaken §3: §3 forbids renumbering or recycling across rows
+    that **exist**, and no two surviving records ever share a number. A
+    discarded row leaves no history to collide with, so reuse here is not
+    observable. Discarding a row that is *not* the highest still leaves a
+    permanent gap, which §3 already calls legitimate history.
 - The order is created with `status = PARKED`. Parking is therefore a save, not
   a state change, and resuming is a read. The `PARKED → COMPLETED` transition
   freezes the row permanently (ADR 0005 §2): **application code must not
@@ -397,10 +425,13 @@ cash-only in v1.
   required `voidReason`, its own `dayOrderNumber` and negative-signed payments
   (ADR 0005 §2). Only a `COMPLETED` order can be voided. A corrected purchase is
   a new order.
-- **Abandoning a parked order still has no representation** — ADR 0005 flagged
-  this as a gap for the capture story. This story does not add one: a parked
-  order that is never resumed simply stays parked, and no delete route exists.
-  Restated as a revisit trigger.
+- **Abandoning a *non-empty* parked order still has no representation** — ADR
+  0005 flagged this as a gap for the capture story. This story does not add one:
+  a parked order that still has lines and is never resumed simply stays parked,
+  and no delete route exists for it. Emptying an order line by line is not that
+  route; it discards the row as a consequence of removing the lines, and staff
+  cannot use it to dismiss an order they want to keep the contents of. Restated
+  as a revisit trigger.
 
 ### 7. Cashier attribution is fixed when the order row is created
 
@@ -507,6 +538,16 @@ new permission.
 - `Sale` gains one more column and `SaleLine` gains five. The order tables are
   getting wide; a future reader needs ADR 0001, 0004, 0005 and this one to
   understand them.
+- §6's discard-on-empty means a `PARKED` `Sale` row is the one order record that
+  can be **deleted** rather than only appended to. The append-only guarantee
+  (ADR 0001) is unchanged for everything that matters — it covers `COMPLETED`
+  rows and their payments, none of which this touches — but "sales rows are
+  never deleted" is no longer literally true of every row, and anyone reading
+  the schema needs §6 to know why.
+- An order number staff have already seen can change if they empty and refill
+  the order. Nothing today prints or announces the number before completion, so
+  this is currently invisible; it becomes a real problem the day something does,
+  which is why it is a revisit trigger below.
 
 ## Revisit triggers
 
@@ -543,8 +584,16 @@ new permission.
   fixed* value by migration does **not** fire this trigger; the set is still
   closed, just longer.
   Either of the two above → move `LinePreference[]` to a join table.
-- **An abandoned parked order needs to disappear from the board** → §6 has no
-  answer today; re-decide alongside ADR 0005 §2's same trigger.
+- **An abandoned *non-empty* parked order needs to disappear from the board** →
+  §6 has no answer today; emptying it line by line is the only path that removes
+  a row, and that is deliberately not an abandon route. Re-decide alongside
+  ADR 0005 §2's same trigger.
+- **A parked order needs a `dayOrderNumber` that survives being emptied** —
+  e.g. the number gets printed, called out, or written on a cup before the order
+  is completed, so staff cannot tolerate it changing. §6's discard-and-reallocate
+  stops being acceptable at that point; the alternatives are reserving the
+  number against the `clientGeneratedId` rather than the row, or refusing to
+  remove the final line. Re-decide with ADR 0005 §3.
 - **Attribution is wanted for who *completed* an order as distinct from who
   started it** → §7 records one cashier per row; a second column, or an event
   log, is the change.
