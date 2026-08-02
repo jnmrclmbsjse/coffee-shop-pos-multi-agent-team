@@ -1543,3 +1543,63 @@ existed for the open day.
   Should v2 retain a scrollable navigation strip, or make every primary
   destination discoverable without horizontal scrolling at the intended
   landscape-tablet width?
+
+---
+
+## 2026-08-02 — Shared system authentication and workspace access
+
+Explored unauthenticated access to the admin workspace at `/admin` and the
+staff POS at `/pos/order`, then signed in with the supplied shared system
+credentials and visited both workspaces in the same browser session.
+Exploration was read-only: no operational or master data was created, changed,
+or deleted. Invalid credentials, sign-out, and session-persistence behaviour
+were not exercised.
+
+### Unauthenticated access
+
+- Visiting `/admin` without an authenticated session ended at
+  `/admin/login` with HTTP status 200.
+- Visiting `/pos/order` in a separate fresh browser context also ended at the
+  same `/admin/login` page with HTTP status 200. The staff workspace did not
+  present a separate staff login page.
+- The login page browser title was **"Login - UCM Coffee Studio POS"**. Its
+  visible content was the product name, a **Sign in** heading, the credential
+  form, and a **Sign in** button.
+- The form contained **Username** and **Password** fields, both visibly marked
+  required and carrying native required-input constraints.
+- The Username input was a plain text field with browser autocomplete set to
+  `username`. The Password input was a password field with autocomplete set to
+  `current-password`. Neither field displayed placeholder text.
+- A **Remember me** checkbox was present, optional, and unchecked on initial
+  load.
+- The login page contained no links. In particular, no password-recovery,
+  self-registration, help, admin-workspace, or staff-workspace link was shown.
+
+### Authenticated workspace access
+
+- Submitting the supplied valid username and password from `/admin/login`
+  opened the admin dashboard at `/admin`.
+- The authenticated admin dashboard identified the signed-in system user as
+  **Administrator** and exposed a **Sign out** action.
+- Without another credential prompt, navigating in that same authenticated
+  browser session to `/pos/order` opened the staff **Take order** workspace.
+  The authentication established through the admin-namespaced login therefore
+  granted access to both observed workspaces.
+- The staff POS header showed **Set cashier** while the authenticated session
+  was active. The visible page did not identify **Administrator** as the
+  cashier and did not show a system **Sign out** action.
+- Returning to the staff workspace did not automatically select an active
+  cashier; shared system authentication and cashier attribution appeared as
+  separate states in the observed session.
+
+### Not observable in this run
+
+- The message and behaviour for an unknown username, incorrect password, or
+  empty submitted form. Invalid sign-in attempts were not made.
+- How long an ordinary session lasts, what **Remember me** changes, and whether
+  either session survives closing and reopening the browser.
+- What **Sign out** does to open tabs in the admin and staff workspaces. It was
+  not pressed because ending the supplied session was unnecessary for the
+  read-only observation.
+- Whether a signed-in user other than the supplied administrator sees different
+  admin navigation or is prevented from entering either workspace.
