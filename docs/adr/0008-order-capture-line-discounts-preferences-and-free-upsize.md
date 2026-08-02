@@ -104,19 +104,24 @@ enum LineDiscountKind {
 }
 ```
 
-PWD and Senior are **both 20% of the line's gross**, computed and rounded
-identically to ADR 0005 §4:
+PWD and Senior are **both 20%**, rounded half-up exactly as ADR 0005 §4
+requires. What they are 20% *of* is stated here rather than assumed: the flat
+free upsize (§4) is subtracted **first**, and the percentage is taken on what
+remains.
 
 ```
-lineGrossCents = unitPriceCents × quantity
-discountCents  = round_half_up(lineGrossCents × 20 / 100)   # PWD or SENIOR
-discountCents  = 0                                          # NONE
-lineTotalCents = lineGrossCents - discountCents - freeUpsizeCents
+lineGrossCents    = unitPriceCents × quantity
+discountBaseCents = lineGrossCents - freeUpsizeCents        # §4, flat, 0 on most lines
+discountCents     = round_half_up(discountBaseCents × 20 / 100)   # PWD or SENIOR
+discountCents     = 0                                             # NONE
+lineTotalCents    = discountBaseCents - discountCents
+                  = lineGrossCents - freeUpsizeCents - discountCents
 ```
 
 `freeUpsizeCents` is the flat promotion term decided in §4; it is 0 on every
-line that carries no free upsize, which is the case ADR 0005 §4 already
-described.
+line that carries no free upsize, in which case `discountBaseCents =
+lineGrossCents` and this reduces exactly to ADR 0005 §4's formula. The
+composition order is argued in §4 and is binding.
 
 ADR 0005's revisit trigger anticipated a discount **table with a stored rate per
 line**. We deliberately do not take that step, because the second kind arrived
@@ -233,12 +238,34 @@ New column on `Sale`:
   story's "shown separately from PWD or Senior discounts" is satisfied by them
   being separate columns and separate figures on screen, not by putting the
   upsize somewhere other than the line.
-- **Composition order on a line is binding**: the percentage discount is computed
-  on the line's **gross**, and the flat upsize is subtracted **after** it. The
-  upsize never reduces the base the 20% is taken from, and it is never itself
-  discounted. Because the upsize is a whole number of ₱30 units it introduces no
-  rounding: ADR 0005 §4's half-up rounding remains the only rounding in the
-  system and still applies to the percentage term alone.
+- **Composition order on a line is binding: the flat ₱30 comes off first, then
+  the 20% is taken on what remains.** The upsize reduces the base the percentage
+  is computed on; it is never itself discounted, because it is already gone from
+  the base by the time the percentage applies.
+
+  ```
+  discountBaseCents = lineGrossCents - freeUpsizeCents
+  discountCents     = round_half_up(discountBaseCents × 20 / 100)
+  lineTotalCents    = discountBaseCents - discountCents
+  ```
+
+  The reasoning is that the ₱30 is the **shop's own promotion** and the 20% is a
+  **statutory entitlement on the amount the customer is actually charged**. The
+  customer is not being charged the ₱30, so it is not part of what the 20%
+  applies to. Netting the promotion first and applying the statutory discount to
+  the net is also the ordering Philippine practice expects for PWD and Senior
+  discounts, so this is the ordering the shop can defend on a receipt.
+
+  Worked example, one ₱150 coffee with a free upsize and Senior:
+  `discountBase = 15000 - 3000 = 12000`; `discount = 2400`;
+  `lineTotal = 9600`. The other ordering would have charged `9000` — the
+  customer is ₱6 worse off per upsized discounted line under this rule, and that
+  is the intended outcome, not an artefact.
+
+  Because the upsize is a whole number of ₱30 units, the base stays an integer
+  number of cents and the flat term introduces no rounding of its own: ADR 0005
+  §4's single half-up rounding remains the only rounding in the system, applied
+  once per line to the percentage term.
 - `Sale.discountCents` keeps its ADR 0005 §4 meaning — **Σ of the lines'
   `discountCents`, PWD/Senior only.** The upsize is summed into its own
   `Sale.freeUpsizeCents` and never enters `discountCents`. Any report or view
@@ -285,37 +312,45 @@ New column on `Sale`:
 upsize per cup is the only bound the story's own model supports — an upsize is a
 bigger drink, so it cannot exceed the drinks on that line — and it keeps the
 promotion from being used as an unbounded discount field. Additionally,
-`lineTotalCents` must be **≥ 0**: an upsize on a line cheaper than ₱30 per unit
-is rejected rather than clamped, because a clamp would silently record a value
-the staff member did not choose. Order-level `totalCents` is then ≥ 0 by
-construction.
+**`freeUpsizeCents` must not exceed `lineGrossCents`** — an upsize on a line
+cheaper than ₱30 per unit is rejected rather than clamped, because a clamp would
+silently record a value the staff member did not choose. Because the percentage
+is now taken on the already-reduced base, that one bound is enough:
+`discountBaseCents ≥ 0` implies `lineTotalCents = 0.8 × discountBaseCents ≥ 0`,
+so no separate non-negativity rule is needed on the line total and order-level
+`totalCents` is ≥ 0 by construction.
 
 ### 5. Order totals (binding). Amends ADR 0005 §4
 
 ```
 Sale.subtotalCents    = Σ line lineGrossCents             (pre-discount gross)
-Sale.discountCents    = Σ line discountCents              (PWD/Senior only)
 Sale.freeUpsizeCents  = Σ line freeUpsizeCents            (₱30 × upsizes, §4)
+Sale.discountCents    = Σ line discountCents              (PWD/Senior only, §2)
 Sale.taxCents         = 0                                 (v1, unchanged)
 Sale.totalCents       = subtotalCents
-                        - discountCents
                         - freeUpsizeCents
+                        - discountCents
                         + taxCents
 ```
 
+The two deductions are written in the order §4 applies them — upsize first, then
+the percentage — because `discountCents` is now computed on the post-upsize base
+and the formula should read the way the money is actually taken off.
+
 Every term is a sum over the lines, so the story's "the visible line amounts add
 up to the visible order amount" holds exactly:
-`Σ lineTotalCents = subtotalCents - discountCents - freeUpsizeCents =
+`Σ lineTotalCents = subtotalCents - freeUpsizeCents - discountCents =
 totalCents`, with no residual (ADR 0005 §4's per-line rounding, plus §4's flat
 upsize which rounds nothing). Making the upsize a line term rather than an
 order-level deduction is what preserves that property rather than merely leaving
 it undisturbed.
 
-The four figures the story requires on screen — pre-discount subtotal, line
-discounts, free-upsize value, amount due — are the four terms above, in order,
-and the screen must show them as such rather than netting any of them together.
-Each line additionally shows its own upsize separately from its own PWD/Senior
-discount.
+The four figures the story requires on screen — pre-discount subtotal,
+free-upsize value, line discounts, amount due — are the four terms above, in
+that order, and the screen must show them as such rather than netting any of
+them together. Showing them in deduction order is what lets a customer or an
+auditor check the ₱30-then-20% arithmetic off the screen itself. Each line
+additionally shows its own upsize separately from its own PWD/Senior discount.
 
 `totalCents` is the **amount due**. The cash tip is not part of it: `cashTipCents`
 stays a separate column excluded from sales revenue (ADR 0004), and is
@@ -421,6 +456,10 @@ new permission.
   exactly, records which drink was upgraded, and still keeps ADR 0005 §4's
   rounding as the only rounding in the system (the ₱30 is flat). Keeping it out
   of `discountCents` means the merged reporting read model needs no change.
+- Taking the ₱30 off before the 20% means the statutory discount is computed on
+  the amount actually charged, which is the defensible reading for PWD and
+  Senior and the one the shop can show on a receipt. It also collapses the
+  line's non-negativity guard into a single bound on the upsize.
 - A `Category.freeUpsizeEligible` flag makes eligibility explicit and
   maintainable in the catalog UI, and `SaleLine.freeUpsizeEligible` freezes the
   answer, so neither a rename nor a later re-flagging can rewrite whether a past
@@ -452,10 +491,15 @@ new permission.
 - Two rates now live as constants in the `orders` module (20% and ₱30). They
   are not configurable, and changing either is a code change with a migration
   question about in-flight parked orders.
-- Rejecting rather than clamping a negative line total means staff can construct
-  a line the API refuses to accept — an upsize on a drink cheaper than ₱30.
-  Preferable to recording a number nobody chose, but it is a dead end the UI
-  must prevent reaching.
+- Rejecting rather than clamping means staff can construct a line the API
+  refuses to accept — an upsize worth more than the line's gross. Preferable to
+  recording a number nobody chose, but it is a dead end the UI must prevent
+  reaching.
+- The composition order costs the customer ₱6 per upsized PWD/Senior line
+  against the alternative ordering (20% of ₱3000). It is a deliberate choice of
+  the legally defensible ordering over the more generous one, and it means the
+  two reductions are **not** independent: changing either rate changes the other
+  term's effect, so §2 and §4 have to be revisited together.
 - Widening two catalog reads to STAFF is a real permission change. Small and
   read-only, but it means product cost-free data (names, prices, availability)
   is now visible to every signed-in staff account, which was previously
@@ -471,8 +515,14 @@ new permission.
   per line, as ADR 0005 originally anticipated, and re-decide whether
   order-level discounts allocate to lines.
 - **The free upsize stops being a flat ₱30 or becomes percentage-based** → §4's
-  "the flat term rounds nothing" stops holding; re-decide the composition order
-  in §2 and the rounding rule together.
+  "the flat term rounds nothing" stops holding, and §2's `discountBaseCents`
+  gains a second rounding step ahead of the percentage; re-decide the
+  composition order and the rounding rule together.
+- **A promotion appears that must not reduce the statutory discount base** →
+  §4's single ordering (promotion first, then 20%) stops being sufficient;
+  promotions would need a per-promotion flag saying whether they precede the
+  statutory discount, which is the point at which the promotions table in the
+  trigger below becomes mandatory rather than merely tidier.
 - **A second promotion appears** → `freeUpsizeCount`/`freeUpsizeCents` stop
   being a general mechanism; move to a promotions table before adding a second
   pair of promotion columns to `SaleLine`.
