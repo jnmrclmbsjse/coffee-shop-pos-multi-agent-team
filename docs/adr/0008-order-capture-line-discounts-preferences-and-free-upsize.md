@@ -37,16 +37,15 @@ appears** → `discountKind` stops being sufficient; move to a discount table wi
 a stored rate per line" — fires exactly here. The board currently contradicts
 itself and cannot be broken down until it does not.
 
-**2. The free upsize is an amount off, not a percentage, and it is not a line
-discount.** The story requires one or more free upsizes when the order contains
-a product from a category whose name contains "coffee"; each reduces the amount
-due by ₱30 and must be "shown separately from PWD or Senior discounts". ADR
-0005's second revisit trigger — "**A discount is ever expressed as an amount off
-rather than a percentage** → §4's single rounding rule is no longer the whole
-story; re-decide before mixing the two" — fires here. It is also the first
-figure that reduces the order total without belonging to any single line, which
-collides with ADR 0005 §4's stated property that per-line rounding makes the
-displayed line totals sum to the order total exactly.
+**2. The free upsize is an amount off, not a percentage.** The story requires one
+or more free upsizes when the order contains a coffee product; each reduces the
+amount due by ₱30 and must be "shown separately from PWD or Senior discounts".
+ADR 0005's second revisit trigger — "**A discount is ever expressed as an amount
+off rather than a percentage** → §4's single rounding rule is no longer the whole
+story; re-decide before mixing the two" — fires here. It is the first money
+reduction in the system that is not a percentage of a line's gross, so how it
+composes with the percentage discount on the same line, and how eligibility is
+determined, both have to be decided rather than left to a dev task.
 
 **3. Per-line preferences have no representation.** Each line can independently
 carry any combination of Sweeter, Stronger, Less sweet, Less ice, plus an
@@ -112,8 +111,12 @@ identically to ADR 0005 §4:
 lineGrossCents = unitPriceCents × quantity
 discountCents  = round_half_up(lineGrossCents × 20 / 100)   # PWD or SENIOR
 discountCents  = 0                                          # NONE
-lineTotalCents = lineGrossCents - discountCents
+lineTotalCents = lineGrossCents - discountCents - freeUpsizeCents
 ```
+
+`freeUpsizeCents` is the flat promotion term decided in §4; it is 0 on every
+line that carries no free upsize, which is the case ADR 0005 §4 already
+described.
 
 ADR 0005's revisit trigger anticipated a discount **table with a stored rate per
 line**. We deliberately do not take that step, because the second kind arrived
@@ -183,8 +186,13 @@ size increments an existing line's quantity **if and only if** every one of
 these matches an existing line on the open order:
 
 ```
-productVariantId  AND  discountKind = NONE  AND  preferences = []  AND  preferenceNote IS NULL
+productVariantId       AND  discountKind = NONE   AND  preferences = []
+AND  preferenceNote IS NULL  AND  freeUpsizeCount = 0
 ```
+
+`freeUpsizeCount = 0` joins the key because §4 makes the upsize a line-level
+term: a line carrying an upsize is a specific upgraded cup, and merging a plain
+cup into it would silently change how many drinks the ₱30 applied to.
 
 Otherwise a new line is created. This is the literal reading of the story's
 "the same **undiscounted** product and size" and it is the only rule that cannot
@@ -193,72 +201,101 @@ adding a preference or a discount to a line does not retro-merge or split it,
 and two lines that become identical through editing stay two lines. Merging on
 edit would change quantities under the staff member's hands; we do not do it.
 
-### 4. The free upsize is an order-level amount-off, not a line discount
+### 4. The free upsize is a **line** discount — a flat ₱30 off, attached only to eligible coffee lines
 
-New columns on `Sale`:
-
-| Column | Type | Notes |
-|---|---|---|
-| `freeUpsizeCount` | `Int`, default 0 | Number of free upsizes applied. |
-| `freeUpsizeCents` | `Int`, default 0 | Total value deducted. Stored, never recomputed. |
-
-New column on `SaleLine`:
+New columns on `SaleLine`:
 
 | Column | Type | Notes |
 |---|---|---|
-| `categoryNameSnapshot` | `String`, required | Category name as at capture. See eligibility below. |
+| `freeUpsizeCount` | `Int`, default 0 | Number of free upsizes on this line. |
+| `freeUpsizeCents` | `Int`, default 0 | `freeUpsizeCount × 3000`. Stored, never recomputed. |
+| `freeUpsizeEligible` | `Boolean`, required | Eligibility snapshot at capture. See below. |
+
+New column on `Sale`:
+
+| Column | Type | Notes |
+|---|---|---|
+| `freeUpsizeCents` | `Int`, default 0 | Σ of the lines' `freeUpsizeCents`. Stored, shown as its own figure. |
 
 - **The rate is ₱30 = `3000` cents per upsize**, a capture-path constant in the
   `orders` module, in the same place as the 20% discount rate.
   `freeUpsizeCents = freeUpsizeCount × 3000`, computed once at capture and
   **stored**. Changing the promotion later must not restate a past order, which
   is the same rule ADR 0005 §4 set for `discountCents`.
-- It is **not** allocated across lines and **not** a `LineDiscountKind`. The
-  story requires it "shown separately from PWD or Senior discounts", and it is
-  a whole-order promotion whose count is not tied to any particular line. An
-  allocation would have to invent a rule for which line absorbs it and would
-  reintroduce exactly the rounding residue ADR 0005 §4 removed.
-- Because it is not divided, it needs **no rounding rule**. ADR 0005 §4's
-  half-up rounding remains the only rounding in the system and still applies to
-  percentage line discounts only. Mixing an amount-off with a percentage is safe
-  here precisely because the two never apply to the same figure.
+- The upsize **attaches to the line it upgrades**, not to the order. An upsize is
+  a bigger cup of a specific drink; the record should say which drink got it.
+  This also means the promotion cannot be applied to an order that merely
+  *contains* a coffee — it can only be applied to the coffee line itself, which
+  is the behaviour the shop actually operates.
+- It is a line discount but **not** a `LineDiscountKind`. `discountKind` stays a
+  single-valued enum carrying the customer's statutory category; the upsize is a
+  promotion on the product and the two apply to the same line independently. The
+  story's "shown separately from PWD or Senior discounts" is satisfied by them
+  being separate columns and separate figures on screen, not by putting the
+  upsize somewhere other than the line.
+- **Composition order on a line is binding**: the percentage discount is computed
+  on the line's **gross**, and the flat upsize is subtracted **after** it. The
+  upsize never reduces the base the 20% is taken from, and it is never itself
+  discounted. Because the upsize is a whole number of ₱30 units it introduces no
+  rounding: ADR 0005 §4's half-up rounding remains the only rounding in the
+  system and still applies to the percentage term alone.
 - `Sale.discountCents` keeps its ADR 0005 §4 meaning — **Σ of the lines'
-  `discountCents`, and nothing else.** The free upsize never enters it. Any
-  report or view that reads `discountCents` as "line discounts" stays correct
-  without change.
+  `discountCents`, PWD/Senior only.** The upsize is summed into its own
+  `Sale.freeUpsizeCents` and never enters `discountCents`. Any report or view
+  that reads `discountCents` as "line discounts" stays correct without change.
 
-**Eligibility.** At least one line on the order must have a
-`categoryNameSnapshot` containing the substring `coffee`, case-insensitively.
+**Eligibility is a catalog flag, not a name match.** New column in Catalog:
 
-- Evaluated against the **snapshot on the line**, not a live join to
-  `Category`. Category names are editable, and eligibility must be judged by
-  what was true when the order was taken — the same freezing rule as prices and
-  names. This is why `categoryNameSnapshot` is added; it also gives the order
-  history a category to display without a join.
-- A **name-substring** rule is genuinely what the story specifies, and it is
-  the rule the shop already operates. It is fragile — renaming a category
-  breaks eligibility for future orders — and that fragility is called out as a
-  revisit trigger rather than hidden behind a flag the catalog does not have.
-  Introducing a `promoEligible` boolean on `Category` would be a catalog schema
-  and UI change this story did not ask for.
-- When no line qualifies, the free upsize is unavailable: `freeUpsizeCount`
-  must be 0 and the API rejects a non-zero count.
+| Table | Column | Type | Notes |
+|---|---|---|---|
+| `Category` | `freeUpsizeEligible` | `Boolean`, default `false` | Admin-maintained. Products inherit it from their category. |
 
-**Bound on multiple upsizes.** `0 ≤ freeUpsizeCount ≤ Σ quantity of qualifying
-lines`. One upsize per qualifying cup is the only bound the story's own model
-supports (an upsize is a bigger drink, so it cannot exceed the drinks on the
-order), and it is what keeps the promotion from being used as an unbounded
-discount field. Additionally, `totalCents` must be **≥ 0** after the deduction;
-an upsize count that would drive the order negative is rejected rather than
-clamped, because a clamp would silently record a value the staff member did not
-choose.
+- A line is eligible if its product's category had `freeUpsizeEligible = true`
+  **at capture time**; that answer is frozen onto the line as
+  `SaleLine.freeUpsizeEligible`. Eligibility is judged from the frozen record,
+  never from a live join — the same freezing rule as prices and names, so
+  re-flagging a category later cannot rewrite whether a past order qualified.
+- This replaces the "category name contains `coffee`" substring rule that an
+  earlier draft of this ADR proposed. A name-substring rule silently changes
+  which drinks qualify on a rename, is invisible in the catalog UI, and forces
+  every consumer to re-implement the same string test. An explicit flag is one
+  boolean, maintained where the rest of the category is maintained.
+- The flag lives on `Category`, not `Product`, because the promotion is
+  category-shaped in the shop's own terms ("coffee drinks") and one toggle per
+  category is far less to maintain than one per product. A product-level
+  override is a revisit trigger, not a v1 column.
+- **Scope consequence:** this is a Catalog schema change plus an admin toggle in
+  the category form, which story #197 did not itself ask for. It is small, but
+  it is a real addition to the breakdown and gets its own dev task, sequenced
+  before the capture work that reads the flag. The seed/migration sets
+  `freeUpsizeEligible = true` for the shop's existing coffee categories so
+  current behaviour is preserved on day one.
+- On an ineligible line, `freeUpsizeCount` must be 0 and the API rejects a
+  non-zero count. When no line on the order is eligible, the free upsize is
+  unavailable at all, which is what the story requires.
+- **Acceptance-criteria impact.** Story #197's criterion is written per-order
+  ("staff can apply one or more free upsizes when the order contains a product
+  from a category whose name contains 'coffee'"). This decision makes it
+  per-line and eligibility flag-driven. The observable outcome for an order of
+  coffee only is identical; what changes is that on a mixed order the upsize
+  attaches to a chosen coffee line rather than to the order. The criterion needs
+  rewording by the PO during breakdown — flagged rather than reinterpreted here.
+
+**Bound on multiple upsizes.** Per line, `0 ≤ freeUpsizeCount ≤ quantity`. One
+upsize per cup is the only bound the story's own model supports — an upsize is a
+bigger drink, so it cannot exceed the drinks on that line — and it keeps the
+promotion from being used as an unbounded discount field. Additionally,
+`lineTotalCents` must be **≥ 0**: an upsize on a line cheaper than ₱30 per unit
+is rejected rather than clamped, because a clamp would silently record a value
+the staff member did not choose. Order-level `totalCents` is then ≥ 0 by
+construction.
 
 ### 5. Order totals (binding). Amends ADR 0005 §4
 
 ```
-Sale.subtotalCents    = Σ lineGrossCents                  (pre-discount gross)
+Sale.subtotalCents    = Σ line lineGrossCents             (pre-discount gross)
 Sale.discountCents    = Σ line discountCents              (PWD/Senior only)
-Sale.freeUpsizeCents  = freeUpsizeCount × 3000
+Sale.freeUpsizeCents  = Σ line freeUpsizeCents            (₱30 × upsizes, §4)
 Sale.taxCents         = 0                                 (v1, unchanged)
 Sale.totalCents       = subtotalCents
                         - discountCents
@@ -266,14 +303,19 @@ Sale.totalCents       = subtotalCents
                         + taxCents
 ```
 
-The story's "the visible line amounts add up to the visible order amount" is
-satisfied at the line-discount level: `Σ lineTotalCents = subtotalCents -
-discountCents`, exactly, with no residual (ADR 0005 §4's per-line rounding).
-The free upsize is then a separately displayed order-level deduction between
-that figure and the amount due. The four figures the story requires on screen —
-pre-discount subtotal, line discounts, free-upsize value, amount due — are the
-four terms above, in order, and the screen must show them as such rather than
-netting any of them together.
+Every term is a sum over the lines, so the story's "the visible line amounts add
+up to the visible order amount" holds exactly:
+`Σ lineTotalCents = subtotalCents - discountCents - freeUpsizeCents =
+totalCents`, with no residual (ADR 0005 §4's per-line rounding, plus §4's flat
+upsize which rounds nothing). Making the upsize a line term rather than an
+order-level deduction is what preserves that property rather than merely leaving
+it undisturbed.
+
+The four figures the story requires on screen — pre-discount subtotal, line
+discounts, free-upsize value, amount due — are the four terms above, in order,
+and the screen must show them as such rather than netting any of them together.
+Each line additionally shows its own upsize separately from its own PWD/Senior
+discount.
 
 `totalCents` is the **amount due**. The cash tip is not part of it: `cashTipCents`
 stays a separate column excluded from sales revenue (ADR 0004), and is
@@ -375,12 +417,14 @@ new permission.
 - Keeping `discountKind` an enum means no join on the hot read path and no
   per-row rate that can drift, and the stored-not-recomputed rule already
   protects history from a future rate change.
-- Making the free upsize order-level keeps ADR 0005 §4's rounding as the only
-  rounding in the system, and keeps `Sale.discountCents` meaning exactly what
-  the merged reporting read model already assumes it means.
-- `categoryNameSnapshot` makes promotion eligibility judgeable from the frozen
-  record alone, so a category rename cannot rewrite whether a past order
-  qualified — and gives order history a category without a join.
+- Making the free upsize a line term keeps `Σ lineTotalCents = totalCents`
+  exactly, records which drink was upgraded, and still keeps ADR 0005 §4's
+  rounding as the only rounding in the system (the ₱30 is flat). Keeping it out
+  of `discountCents` means the merged reporting read model needs no change.
+- A `Category.freeUpsizeEligible` flag makes eligibility explicit and
+  maintainable in the catalog UI, and `SaleLine.freeUpsizeEligible` freezes the
+  answer, so neither a rename nor a later re-flagging can rewrite whether a past
+  order qualified.
 - Creating the row on first line rather than on order start makes "an empty
   parked order cannot exist" structural, and stops empty orders from consuming
   day order numbers.
@@ -390,11 +434,14 @@ new permission.
   rather than infer it from the UI's behaviour.
 
 **Negative / accepted trade-offs**
-- A "category name contains coffee" eligibility rule is genuinely fragile.
-  Renaming a category silently changes which future orders qualify, and there
-  is no place in the catalog UI that warns about it. Accepted because it is the
-  shop's actual rule and the alternative is catalog schema this story did not
-  ask for — but it is the trigger most likely to fire.
+- The eligibility flag is a **Catalog** change made by a Sales/Orders story. It
+  adds a migration, a column on `Category`, an admin toggle, and a seed step that
+  must flag the existing coffee categories or the promotion silently disappears
+  on deploy. That is more work than a substring test would have been, and it is
+  worth it: the rule becomes visible and editable instead of hiding in a string
+  comparison.
+- Eligibility is per **category**, so a shop that wants one non-coffee drink
+  eligible has to either move it or flag its whole category. Accepted for v1.
 - `LinePreference[]` as an array column means preferences cannot be filtered or
   aggregated efficiently. v1 never does either; if reporting ever wants "how
   many Less ice drinks", this becomes a join table.
@@ -405,14 +452,15 @@ new permission.
 - Two rates now live as constants in the `orders` module (20% and ₱30). They
   are not configurable, and changing either is a code change with a migration
   question about in-flight parked orders.
-- Rejecting rather than clamping a negative total means staff can construct an
-  order that the API refuses to complete. Preferable to recording a number
-  nobody chose, but it is a dead end the UI must prevent reaching.
+- Rejecting rather than clamping a negative line total means staff can construct
+  a line the API refuses to accept — an upsize on a drink cheaper than ₱30.
+  Preferable to recording a number nobody chose, but it is a dead end the UI
+  must prevent reaching.
 - Widening two catalog reads to STAFF is a real permission change. Small and
   read-only, but it means product cost-free data (names, prices, availability)
   is now visible to every signed-in staff account, which was previously
   admin-only by accident rather than by decision.
-- `Sale` gains two more columns and `SaleLine` gains three. The order tables are
+- `Sale` gains one more column and `SaleLine` gains five. The order tables are
   getting wide; a future reader needs ADR 0001, 0004, 0005 and this one to
   understand them.
 
@@ -422,17 +470,29 @@ new permission.
   the enum stops being sufficient; move to a discount table with a stored rate
   per line, as ADR 0005 originally anticipated, and re-decide whether
   order-level discounts allocate to lines.
-- **The free upsize stops being a flat ₱30, becomes percentage-based, or needs
-  to name the line it upgraded** → §4's "not allocated to lines" is no longer
-  tenable; re-decide allocation and rounding together.
+- **The free upsize stops being a flat ₱30 or becomes percentage-based** → §4's
+  "the flat term rounds nothing" stops holding; re-decide the composition order
+  in §2 and the rounding rule together.
 - **A second promotion appears** → `freeUpsizeCount`/`freeUpsizeCents` stop
-  being a general mechanism; move to a promotions table before adding a third
-  pair of columns to `Sale`.
-- **Promotion eligibility needs to survive a category rename, or a
-  non-"coffee" category becomes eligible** → replace the substring rule with an
-  explicit catalog flag; this is the most likely trigger in the list.
-- **Preferences need to be reported on, or the set stops being closed (staff can
-  add their own)** → move `LinePreference[]` to a join table with its own rows.
+  being a general mechanism; move to a promotions table before adding a second
+  pair of promotion columns to `SaleLine`.
+- **Eligibility needs to be per product rather than per category, or a
+  promotion needs to apply to an order rather than a line** → §4's
+  `Category.freeUpsizeEligible` becomes insufficient; add the product-level
+  override or an order-level promotion row rather than overloading the flag.
+- **Preferences need to be reported on** — i.e. someone asks a question that
+  requires filtering or counting *across* orders, such as "how many Less-ice
+  drinks did we sell in July" or "which products most often get a note". The
+  array column stores preferences fine but cannot answer those efficiently;
+  a join table with one row per preference is what makes them queryable.
+- **The preference set stops being closed** — i.e. the four values
+  (`SWEETER`, `STRONGER`, `LESS_SWEET`, `LESS_ICE`) stop being the complete
+  list, either because staff can type their own or because an admin screen
+  starts maintaining them. A Postgres enum is fixed at migration time, so a
+  user-editable set has to become rows in a table instead. Adding a *fifth
+  fixed* value by migration does **not** fire this trigger; the set is still
+  closed, just longer.
+  Either of the two above → move `LinePreference[]` to a join table.
 - **An abandoned parked order needs to disappear from the board** → §6 has no
   answer today; re-decide alongside ADR 0005 §2's same trigger.
 - **Attribution is wanted for who *completed* an order as distinct from who
