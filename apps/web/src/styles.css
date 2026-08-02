@@ -5943,6 +5943,7 @@ button {
   min-height: 540px;
   display: grid;
   grid-template-columns: minmax(0, 58fr) minmax(360px, 42fr);
+  grid-template-rows: minmax(0, 1fr);
   margin: 0 auto;
   overflow: clip;
   background: var(--surface);
