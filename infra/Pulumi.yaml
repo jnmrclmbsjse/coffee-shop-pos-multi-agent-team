@@ -1,0 +1,10 @@
+
+name: coffee-shop-pos-infra
+runtime: nodejs
+description: >-
+  Single-EC2 + CloudFront/WAF AWS deployment for the Coffee Shop POS.
+  See infra/DEPLOYMENT.md and docs/adr/0009-deployment-architecture.md.
+# aws:region is set per-stack in Pulumi.<stack>.yaml, not here — a project-level
+# `value:` for a provider-namespaced key can't be overridden per stack, which
+# defeats the point of a stack file. (Pulumi will error on `default:` here for
+# the same reason: "not namespaced by the project".)
