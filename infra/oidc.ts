@@ -200,6 +200,13 @@ new aws.iam.RolePolicy("github-infra-policy", {
         ],
         Resource: "*",
       },
+      {
+        Sid: "ReadAmazonLinuxArm64AmiParameter",
+        Effect: "Allow",
+        Action: "ssm:GetParameter",
+        Resource:
+          "arn:aws:ssm:*::parameter/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64",
+      },
     ],
   }),
 });
