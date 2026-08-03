@@ -6,6 +6,7 @@ config:
   # by this choice.
   aws:region: ap-southeast-1
   coffee-shop-pos:githubRepo: jnmrclmbsjse/coffee-shop-pos-multi-agent-team
+  coffee-shop-pos:githubOidcSubjectPrefix: repo:jnmrclmbsjse@18332309/coffee-shop-pos-multi-agent-team@1309298876
   coffee-shop-pos:githubDeployBranch: master
   coffee-shop-pos:ssmParamPath: /coffee-shop-pos/prod
   coffee-shop-pos:instanceType: t4g.small
