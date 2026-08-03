@@ -1,0 +1,51 @@
+# Runs `pulumi preview`/`up` for infra/ in CI, using GitHub OIDC — no AWS keys
+# stored anywhere. See infra/DEPLOYMENT.md §5a for why the very FIRST apply
+# cannot use this workflow (it's what creates the OIDC provider this workflow
+# then assumes a role through) and must run once from AWS CloudShell instead.
+# After that one-time bootstrap, every infra change goes through this workflow.
+#
+# Requires these repository variables (set once, right after the bootstrap
+# apply, from `pulumi stack output`):
+#   AWS_REGION          e.g. ap-southeast-1
+#   AWS_INFRA_ROLE_ARN  githubInfraRoleArn output
+# And this repository secret:
+#   PULUMI_ACCESS_TOKEN  a Pulumi Cloud access token (app.pulumi.com/account/tokens)
+name: Infra
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "pulumi action to run"
+        type: choice
+        options: [preview, up]
+        default: preview
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  pulumi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_INFRA_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: pulumi/actions@v6
+        with:
+          command: ${{ inputs.action }}
+          stack-name: prod
+          work-dir: infra
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}

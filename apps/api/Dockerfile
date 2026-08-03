@@ -7,6 +7,7 @@ COPY packages/shared/package.json packages/shared/package.json
 RUN pnpm install --frozen-lockfile
 COPY apps/api apps/api
 COPY packages/shared packages/shared
+RUN pnpm --filter @coffee-shop/api exec prisma generate
 RUN pnpm --filter @coffee-shop/api... build
 
 FROM node:24-alpine AS runtime
@@ -16,6 +17,7 @@ COPY --from=build /workspace/node_modules /workspace/node_modules
 COPY --from=build /workspace/packages/shared /workspace/packages/shared
 COPY --from=build /workspace/apps/api/node_modules ./node_modules
 COPY --from=build /workspace/apps/api/dist ./dist
+COPY --from=build /workspace/apps/api/prisma ./prisma
 COPY --from=build /workspace/apps/api/package.json ./package.json
 USER node
 EXPOSE 3000

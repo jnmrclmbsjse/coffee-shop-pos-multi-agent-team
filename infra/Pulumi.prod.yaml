@@ -1,0 +1,12 @@
+config:
+  # ap-southeast-1 (Singapore) — closest mature AWS region to a Philippines-
+  # based shop, materially lower latency for dynamic API calls than a US
+  # region. The WAF WebACL still pins to us-east-1 regardless (a CloudFront-
+  # only AWS quirk), via its own provider alias in infra/edge.ts — unaffected
+  # by this choice.
+  aws:region: ap-southeast-1
+  coffee-shop-pos:githubRepo: jnmrclmbsjse/coffee-shop-pos-multi-agent-team
+  coffee-shop-pos:githubDeployBranch: master
+  coffee-shop-pos:ssmParamPath: /coffee-shop-pos/prod
+  coffee-shop-pos:instanceType: t4g.small
+  coffee-shop-pos:wafRateLimit: "1000"

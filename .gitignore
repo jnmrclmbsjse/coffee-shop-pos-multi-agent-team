@@ -9,6 +9,7 @@ apps/api/src/generated/prisma/
 .env
 .env.*
 !.env.example
+!deploy/.env.prod.example
 
 # IDE and operating system
 .idea/
@@ -26,6 +27,10 @@ pnpm-debug.log*
 logs/
 .poll-state/
 .poll-stop
+
+# Pulumi local state / plugin cache
+infra/bin/
+infra/.pulumi/
 
 # Playwright browser profile / cache from the discovery agent
 .playwright/
