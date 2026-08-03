@@ -1,5 +1,4 @@
 import * as aws from "@pulumi/aws";
-import * as pulumi from "@pulumi/pulumi";
 import { wafRateLimitPerFiveMin } from "./config";
 import { originDomainName } from "./compute";
 

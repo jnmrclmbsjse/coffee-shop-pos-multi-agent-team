@@ -1,5 +1,4 @@
 import * as aws from "@pulumi/aws";
-import * as pulumi from "@pulumi/pulumi";
 
 // Deliberately the default VPC — no custom networking, no NAT gateway. See
 // docs/adr/0009-deployment-architecture.md: this app never needs a private

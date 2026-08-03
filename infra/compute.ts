@@ -1,5 +1,4 @@
 import * as aws from "@pulumi/aws";
-import * as pulumi from "@pulumi/pulumi";
 import { instanceType } from "./config";
 import { instanceProfile } from "./iam";
 import { originSecurityGroup, subnetId } from "./network";
