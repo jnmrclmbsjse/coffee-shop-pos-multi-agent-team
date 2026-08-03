@@ -244,9 +244,21 @@ aws s3 sync \
   --delete \
   --no-cli-pager
 
+# The deployment process uses a restrictive umask for generated secret files.
+# Static SPA files must remain readable and directories traversable by nginx.
+find "$SPA_DIR" -type d -exec chmod 0755 {} +
+find "$SPA_DIR" -type f -exec chmod 0644 {} +
+
 test -s "${SPA_DIR}/index.html"
 
-echo "spa_index=present"
+curl \
+  --fail \
+  --silent \
+  --show-error \
+  --output /dev/null \
+  "http://127.0.0.1/"
+
+echo "spa_origin=healthy"
 
 echo
 echo "== Verify local origin health =="
