@@ -12,6 +12,10 @@ export const githubRepo = infraConfig.require("githubRepo");
 // Branch allowed to trigger a deploy — direct-to-production per ADR 0009.
 export const githubDeployBranch = infraConfig.get("githubDeployBranch") ?? "master";
 
+// GitHub's immutable repository OIDC subject prefix. Newer repositories include
+// the immutable owner and repository IDs rather than only the mutable names.
+export const githubOidcSubjectPrefix = infraConfig.require("githubOidcSubjectPrefix");
+
 // SSM Parameter Store path prefix this app's secrets live under (see
 // infra/DEPLOYMENT.md §3). The instance role and the deploy role are both
 // scoped to read/write only under this path — never broader.

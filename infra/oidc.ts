@@ -1,7 +1,7 @@
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
 import * as tls from "@pulumi/tls";
-import { githubDeployBranch, githubRepo, ssmParamPath } from "./config";
+import { githubDeployBranch, githubOidcSubjectPrefix, ssmParamPath } from "./config";
 import { instanceId } from "./compute";
 import { spaBucket } from "./storage";
 import { apiRepository } from "./registry";
@@ -38,7 +38,7 @@ export const deployRole = new aws.iam.Role("github-deploy-role", {
           Condition: {
             StringEquals: { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
             StringLike: {
-              "token.actions.githubusercontent.com:sub": `repo:${githubRepo}:ref:refs/heads/${githubDeployBranch}`,
+              "token.actions.githubusercontent.com:sub": `${githubOidcSubjectPrefix}:ref:refs/heads/${githubDeployBranch}`,
             },
           },
         },
@@ -164,7 +164,7 @@ export const infraRole = new aws.iam.Role("github-infra-role", {
           Condition: {
             StringEquals: { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
             StringLike: {
-              "token.actions.githubusercontent.com:sub": `repo:${githubRepo}:ref:refs/heads/${githubDeployBranch}`,
+              "token.actions.githubusercontent.com:sub": `${githubOidcSubjectPrefix}:ref:refs/heads/${githubDeployBranch}`,
             },
           },
         },
