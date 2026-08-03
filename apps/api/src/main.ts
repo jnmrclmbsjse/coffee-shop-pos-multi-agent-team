@@ -1,9 +1,13 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+
+  app.use(helmet());
+
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -11,6 +15,7 @@ async function bootstrap(): Promise<void> {
       forbidNonWhitelisted: true,
     }),
   );
+
   const allowedOrigins = (
     process.env.WEB_ORIGIN ?? 'http://localhost:5173'
   )
@@ -22,6 +27,7 @@ async function bootstrap(): Promise<void> {
     origin: allowedOrigins,
     credentials: true,
   });
+
   await app.listen(process.env.API_PORT ?? 3000);
 }
 
