@@ -327,8 +327,8 @@ Set these as **GitHub repo variables** (Settings → Secrets and variables →
 Actions → Variables): `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN` (=
 `githubDeployRoleArn`), `AWS_INFRA_ROLE_ARN` (= `githubInfraRoleArn`),
 `EC2_INSTANCE_ID` (= `ec2InstanceId`), `SPA_BUCKET` (= `spaBucketName`),
-`SITE_URL` (= `siteUrl`). And one **secret**: `PULUMI_ACCESS_TOKEN` (the same
-token from step B).
+`API_REPOSITORY_URL` (= `apiRepositoryUrl`), `SITE_URL` (= `siteUrl`). And one
+**secret**: `PULUMI_ACCESS_TOKEN` (the same token from step B).
 
 **G. Tear down the bootstrap credential**
 
@@ -399,7 +399,8 @@ character inside a string literal (not just em dashes) — none found.
 | `bootstrap-admin` IAM user created | done | 2026-08-03 |
 | Pulumi Cloud account / token created | done | 2026-08-03 |
 | `pulumi up` applied successfully | done — via `infra/Dockerfile.bootstrap` | 2026-08-03 |
-| GitHub repo variables set | done — `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `AWS_INFRA_ROLE_ARN`, `EC2_INSTANCE_ID`, `SPA_BUCKET`, `SITE_URL` | 2026-08-03 |
+| Existing GitHub repo variables set | done — `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `AWS_INFRA_ROLE_ARN`, `EC2_INSTANCE_ID`, `SPA_BUCKET`, `SITE_URL` | 2026-08-03 |
+| `API_REPOSITORY_URL` repo variable set | pending — set from `apiRepositoryUrl` after the ECR Pulumi update is applied | — |
 | `PULUMI_ACCESS_TOKEN` secret set | done | 2026-08-03 |
 | Bootstrap access key deleted (step G) | done | 2026-08-03 |
 
@@ -455,20 +456,28 @@ Triggered by the deploy agent via `gh workflow run deploy.yml --ref master`
 (also available as manual `workflow_dispatch`). Steps:
 
 1. Assume the AWS deployer IAM role via **GitHub OIDC** — no stored AWS keys.
-2. Build the API image; push to **GHCR** (free; ECR is the AWS-native
-   alternative, noted here as the option if you want everything in one cloud —
-   small storage/transfer cost).
-3. Build the SPA with `VITE_API_URL=/api`; upload the static bundle to the
-   private S3 bucket.
-4. **AWS SSM Run Command** against the EC2 instance (migrations must run on the
-   box — Postgres is intentionally not publicly reachable):
-   - `docker compose pull`
-   - `docker compose run --rm api npx prisma migrate deploy` (migrations are
-     additive/append-only per ADR 0001 — no destructive migrations expected)
-   - `docker compose up -d`
-   - `aws s3 sync s3://<spa-bucket>/ /var/www/spa` (nginx web root)
-5. Post-deploy health gate: `curl -f https://<cloudfront-domain>/health` — the
-   existing unauthenticated `GET /health` endpoint (`apps/api/src/app.controller.ts`).
+2. Authenticate to the private Amazon ECR registry and build the API image for
+   `linux/arm64`.
+3. Push the image to the private ECR repository using the immutable Git commit
+   SHA as its tag.
+4. Build the SPA with `VITE_API_URL=/api`; upload the static bundle to
+   `s3://<spa-bucket>/spa/`.
+5. Upload `docker-compose.yml`, `deploy/nginx.conf`, and
+   `deploy/remote-deploy.sh` to `s3://<spa-bucket>/deploy-config/`.
+6. Run `deploy/remote-deploy.sh` on the EC2 instance using **AWS SSM Run
+   Command**. The script:
+   - downloads the deployment configuration from S3;
+   - renders Compose and API environment files from SSM SecureString
+     parameters;
+   - authenticates Docker to private ECR using the EC2 instance role;
+   - validates the Compose configuration;
+   - runs `docker compose pull`;
+   - runs `docker compose run --rm api npm run db:migrate:deploy`;
+   - starts the services with `docker compose up --wait`;
+   - syncs `s3://<spa-bucket>/spa/` to `/var/www/spa`; and
+   - verifies the local nginx `/health` endpoint.
+7. Fail the workflow unless the SSM command explicitly reaches `Success`, then
+   verify the live uncached endpoint at `<site-url>/api/health`.
 
 **Rollback:** every image is tagged by git sha. Rolling back is one SSM Run
 Command re-running compose with the previous sha's image tag, then re-syncing

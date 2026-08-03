@@ -23,10 +23,13 @@ export function attachAppPolicy(
   roleName: pulumi.Input<string>,
   spaBucketArn: pulumi.Input<string>,
   backupsBucketArn: pulumi.Input<string>,
+  apiRepositoryArn: pulumi.Input<string>,
 ) {
   return new aws.iam.RolePolicy("ec2-app-policy", {
     role: roleName,
-    policy: pulumi.all([spaBucketArn, backupsBucketArn]).apply(([spaArn, backupsArn]) =>
+    policy: pulumi
+      .all([spaBucketArn, backupsBucketArn, apiRepositoryArn])
+      .apply(([spaArn, backupsArn, repositoryArn]) =>
       JSON.stringify({
         Version: "2012-10-17",
         Statement: [
@@ -35,6 +38,22 @@ export function attachAppPolicy(
             Effect: "Allow",
             Action: ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"],
             Resource: `arn:aws:ssm:*:*:parameter${ssmParamPath}/*`,
+          },
+          {
+            Sid: "AuthenticateToEcr",
+            Effect: "Allow",
+            Action: ["ecr:GetAuthorizationToken"],
+            Resource: "*",
+          },
+          {
+            Sid: "PullApiImage",
+            Effect: "Allow",
+            Action: [
+              "ecr:BatchCheckLayerAvailability",
+              "ecr:BatchGetImage",
+              "ecr:GetDownloadUrlForLayer",
+            ],
+            Resource: repositoryArn,
           },
           {
             Sid: "ReadSpaBuild",

@@ -33,7 +33,7 @@ export const originSecurityGroup = new aws.ec2.SecurityGroup("origin-sg", {
   ],
   egress: [
     {
-      description: "Outbound for package installs, SSM, ECR/GHCR pulls, S3",
+      description: "Outbound for package installs, SSM, ECR pulls, S3",
       protocol: "-1",
       fromPort: 0,
       toPort: 0,

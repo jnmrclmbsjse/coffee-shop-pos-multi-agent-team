@@ -55,6 +55,7 @@ delete the bootstrap IAM access key (see `DEPLOYMENT.md` §5a step G), and use
 - `siteUrl` — the CloudFront URL the app will be live at
 - `ec2InstanceId` — target for SSM Run Command / Session Manager
 - `spaBucketName`, `backupsBucketName`
+- `apiRepositoryUrl` — private ECR repository URL used by `deploy.yml`
 - `githubDeployRoleArn` — used by `deploy.yml` (app deploys)
 - `githubInfraRoleArn` — used by `infra.yml` (infra changes, from now on)
 - `wafWebAclArn`

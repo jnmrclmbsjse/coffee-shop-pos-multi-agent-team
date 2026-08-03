@@ -4,6 +4,7 @@ import * as tls from "@pulumi/tls";
 import { githubDeployBranch, githubRepo, ssmParamPath } from "./config";
 import { instanceId } from "./compute";
 import { spaBucket } from "./storage";
+import { apiRepository } from "./registry";
 
 // GitHub's OIDC token issuer thumbprint, fetched live from the actual TLS
 // certificate chain at apply time — the same value AWS's docs describe
@@ -49,7 +50,9 @@ export const deployRole = new aws.iam.Role("github-deploy-role", {
 
 new aws.iam.RolePolicy("github-deploy-policy", {
   role: deployRole.id,
-  policy: pulumi.all([spaBucket.arn, instanceId]).apply(([spaArn, instId]) =>
+  policy: pulumi
+    .all([spaBucket.arn, instanceId, apiRepository.arn])
+    .apply(([spaArn, instId, repositoryArn]) =>
     JSON.stringify({
       Version: "2012-10-17",
       Statement: [
@@ -85,6 +88,26 @@ new aws.iam.RolePolicy("github-deploy-policy", {
           Effect: "Allow",
           Action: ["s3:DeleteObject"],
           Resource: `${spaArn}/spa/*`,
+        },
+        {
+          Sid: "AuthenticateToEcr",
+          Effect: "Allow",
+          Action: ["ecr:GetAuthorizationToken"],
+          Resource: "*",
+        },
+        {
+          Sid: "PushApiImage",
+          Effect: "Allow",
+          Action: [
+            "ecr:BatchCheckLayerAvailability",
+            "ecr:BatchGetImage",
+            "ecr:CompleteLayerUpload",
+            "ecr:DescribeImages",
+            "ecr:InitiateLayerUpload",
+            "ecr:PutImage",
+            "ecr:UploadLayerPart",
+          ],
+          Resource: repositoryArn,
         },
         {
           Sid: "RunDeployCommand",
@@ -162,6 +185,7 @@ new aws.iam.RolePolicy("github-infra-policy", {
         Action: [
           "ec2:*",
           "s3:*",
+          "ecr:*",
           "cloudfront:*",
           "wafv2:*",
           "iam:*Role*",
