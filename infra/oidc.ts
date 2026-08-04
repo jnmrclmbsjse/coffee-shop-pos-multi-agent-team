@@ -174,7 +174,7 @@ export const infraRole = new aws.iam.Role("github-infra-role", {
   tags: { Project: "coffee-shop-pos" },
 });
 
-new aws.iam.RolePolicy("github-infra-policy", {
+export const infraRolePolicy = new aws.iam.RolePolicy("github-infra-policy", {
   role: infraRole.id,
   policy: JSON.stringify({
     Version: "2012-10-17",
@@ -188,6 +188,7 @@ new aws.iam.RolePolicy("github-infra-policy", {
           "ecr:*",
           "cloudfront:*",
           "wafv2:*",
+          "acm:*",
           "iam:*Role*",
           "iam:*InstanceProfile*",
           "iam:CreateOpenIDConnectProvider",
