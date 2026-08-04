@@ -2,6 +2,8 @@ import * as pulumi from "@pulumi/pulumi";
 
 const infraConfig = new pulumi.Config("coffee-shop-pos");
 
+export const customDomain = infraConfig.require("customDomain");
+
 // EC2 sizing — see docs/adr/0009-deployment-architecture.md for why a single
 // small Graviton instance is deliberately enough for ≤3 users.
 export const instanceType = infraConfig.get("instanceType") ?? "t4g.small";
