@@ -8,7 +8,7 @@ import { infraRolePolicy } from "./oidc";
 const usEast1 = new aws.Provider("us-east-1", { region: "us-east-1" });
 
 export const appCertificate = new aws.acm.Certificate(
-  "app-certificate",
+  "app-certificate-v2",
   {
     domainName: customDomain,
     validationMethod: "DNS",
