@@ -1,10 +1,42 @@
 import * as aws from "@pulumi/aws";
-import { wafRateLimitPerFiveMin } from "./config";
+import { customDomain, wafRateLimitPerFiveMin } from "./config";
 import { originDomainName } from "./compute";
 
 // WAF WebACLs scoped to CLOUDFRONT must be created in us-east-1 regardless of
 // which region everything else lives in — a CloudFront-specific AWS quirk.
 const usEast1 = new aws.Provider("us-east-1", { region: "us-east-1" });
+
+export const appCertificate = new aws.acm.Certificate(
+  "app-certificate",
+  {
+    domainName: customDomain,
+    validationMethod: "DNS",
+    tags: { Project: "coffee-shop-pos" },
+  },
+  { provider: usEast1 },
+);
+
+const certificateValidationOption =
+  appCertificate.domainValidationOptions.apply((options) => {
+    const option = options.find(({ domainName }) => domainName === customDomain);
+
+    if (!option) {
+      throw new Error(
+        `ACM did not return a DNS validation option for ${customDomain}`,
+      );
+    }
+
+    return option;
+  });
+
+export const certificateValidationRecordName =
+  certificateValidationOption.apply(({ resourceRecordName }) => resourceRecordName);
+
+export const certificateValidationRecordType =
+  certificateValidationOption.apply(({ resourceRecordType }) => resourceRecordType);
+
+export const certificateValidationRecordValue =
+  certificateValidationOption.apply(({ resourceRecordValue }) => resourceRecordValue);
 
 export const webAcl = new aws.wafv2.WebAcl(
   "cloudfront-waf",

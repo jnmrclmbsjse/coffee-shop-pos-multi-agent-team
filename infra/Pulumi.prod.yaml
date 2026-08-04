@@ -11,3 +11,4 @@ config:
   coffee-shop-pos:ssmParamPath: /coffee-shop-pos/prod
   coffee-shop-pos:instanceType: t4g.small
   coffee-shop-pos:wafRateLimit: "1000"
+  coffee-shop-pos:customDomain: app.knostra.fun
