@@ -1,6 +1,7 @@
 import * as aws from "@pulumi/aws";
 import { customDomain, wafRateLimitPerFiveMin } from "./config";
 import { originDomainName } from "./compute";
+import { infraRolePolicy } from "./oidc";
 
 // WAF WebACLs scoped to CLOUDFRONT must be created in us-east-1 regardless of
 // which region everything else lives in — a CloudFront-specific AWS quirk.
@@ -13,7 +14,10 @@ export const appCertificate = new aws.acm.Certificate(
     validationMethod: "DNS",
     tags: { Project: "coffee-shop-pos" },
   },
-  { provider: usEast1 },
+  {
+    provider: usEast1,
+    dependsOn: [infraRolePolicy],
+  },
 );
 
 const certificateValidationOption =
