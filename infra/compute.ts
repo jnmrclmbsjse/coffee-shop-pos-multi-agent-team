@@ -1,14 +1,7 @@
 import * as aws from "@pulumi/aws";
-import { instanceType } from "./config";
+import { amiId, instanceType } from "./config";
 import { instanceProfile } from "./iam";
 import { originSecurityGroup, subnetId } from "./network";
-
-// Amazon Linux 2023, arm64 (Graviton) — resolved via AWS's public SSM
-// parameter rather than a hardcoded AMI ID, so it always picks up the latest
-// patched image for the region without us tracking AMI IDs by hand.
-const al2023Arm64Ami = aws.ssm.getParameterOutput({
-  name: "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64",
-});
 
 // Installs Docker + the Compose plugin + AWS CLI. Does NOT deploy the app —
 // docker-compose.yml, nginx config, and the actual containers are pushed by
@@ -35,7 +28,7 @@ mkdir -p /opt/coffee-shop-pos /var/www/spa
 
 export const appInstance = new aws.ec2.Instance("app-instance", {
   instanceType,
-  ami: al2023Arm64Ami.value,
+  ami: amiId,
   subnetId,
   vpcSecurityGroupIds: [originSecurityGroup.id],
   iamInstanceProfile: instanceProfile.name,

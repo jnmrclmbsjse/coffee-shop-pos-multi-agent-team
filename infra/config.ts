@@ -8,6 +8,10 @@ export const customDomain = infraConfig.require("customDomain");
 // small Graviton instance is deliberately enough for ≤3 users.
 export const instanceType = infraConfig.get("instanceType") ?? "t4g.small";
 
+// Pin the production AMI explicitly. Updating this value is an intentional
+// instance-replacement operation and must be reviewed separately.
+export const amiId = infraConfig.require("amiId");
+
 // "org/repo" that GitHub OIDC is allowed to assume the deploy role from.
 export const githubRepo = infraConfig.require("githubRepo");
 
