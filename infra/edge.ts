@@ -42,6 +42,15 @@ export const certificateValidationRecordType =
 export const certificateValidationRecordValue =
   certificateValidationOption.apply(({ resourceRecordValue }) => resourceRecordValue);
 
+export const appCertificateValidation = new aws.acm.CertificateValidation(
+  "app-certificate-validation",
+  {
+    certificateArn: appCertificate.arn,
+    validationRecordFqdns: [certificateValidationRecordName],
+  },
+  { provider: usEast1 },
+);
+
 export const webAcl = new aws.wafv2.WebAcl(
   "cloudfront-waf",
   {
@@ -111,6 +120,7 @@ const originId = "coffee-shop-pos-origin";
 
 export const distribution = new aws.cloudfront.Distribution("app-distribution", {
   enabled: true,
+  aliases: [customDomain],
   webAclId: webAcl.arn,
   defaultRootObject: "index.html",
   origins: [
@@ -150,7 +160,11 @@ export const distribution = new aws.cloudfront.Distribution("app-distribution", 
     },
   ],
   restrictions: { geoRestriction: { restrictionType: "none" } },
-  viewerCertificate: { cloudfrontDefaultCertificate: true },
+  viewerCertificate: {
+    acmCertificateArn: appCertificateValidation.certificateArn,
+    sslSupportMethod: "sni-only",
+    minimumProtocolVersion: "TLSv1.2_2021",
+  },
   tags: { Project: "coffee-shop-pos" },
 });
 
