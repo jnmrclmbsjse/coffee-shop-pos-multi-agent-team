@@ -10,5 +10,6 @@ config:
   coffee-shop-pos:githubDeployBranch: master
   coffee-shop-pos:ssmParamPath: /coffee-shop-pos/prod
   coffee-shop-pos:instanceType: t4g.small
+  coffee-shop-pos:amiId: ami-08a1c724df9764ad0
   coffee-shop-pos:wafRateLimit: "1000"
   coffee-shop-pos:customDomain: app.knostra.fun
