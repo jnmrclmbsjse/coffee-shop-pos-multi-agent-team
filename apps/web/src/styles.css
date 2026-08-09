@@ -30,6 +30,12 @@
   --field-h: 48px;
   --cashier-card-min-h: 88px;
   --cashier-key-size: 68px;
+  --logo-inline: 32px;
+  --logo-sidebar: 40px;
+  --logo-staff-sign-in: 40px;
+  --logo-hero: 72px;
+  --logo-mobile-nav: 40px;
+  --logo-mobile-nav-rail: 56px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -114,47 +120,35 @@ button {
   letter-spacing: -0.01em;
 }
 
-.brand-mark {
-  width: 28px;
-  height: 28px;
-  position: relative;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: inset 0 0 0 1px oklch(35% 0.1 145 / 0.18);
-}
-
-.brand-mark::before,
-.brand-mark::after,
-.brand-mark span {
-  content: '';
-  position: absolute;
+.ucm-logo {
   display: block;
-  border-radius: 2px;
-  background: var(--surface);
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 
-.brand-mark::before {
-  width: 3px;
-  height: 13px;
+.ucm-logo--inline {
+  width: var(--logo-inline);
+  height: var(--logo-inline);
 }
 
-.brand-mark::after {
-  width: 13px;
-  height: 3px;
+.ucm-logo--sidebar {
+  width: var(--logo-sidebar);
+  height: var(--logo-sidebar);
 }
 
-.brand-mark span:first-child {
-  width: 3px;
-  height: 5px;
-  transform: translate(-5px, -5px);
+.ucm-logo--staff-sign-in {
+  width: var(--logo-staff-sign-in);
+  height: var(--logo-staff-sign-in);
 }
 
-.brand-mark span:last-child {
-  width: 3px;
-  height: 5px;
-  transform: translate(5px, 5px);
+.ucm-logo--hero {
+  width: var(--logo-hero);
+  height: var(--logo-hero);
+}
+
+.ucm-logo--mobile-nav {
+  width: var(--logo-mobile-nav);
+  height: var(--logo-mobile-nav);
 }
 
 .access-label {
@@ -2031,20 +2025,42 @@ button {
     inset: auto 0 0;
     width: 100%;
     height: 80px;
-    display: block;
+    display: flex;
+    flex-direction: row;
+    gap: 0;
     padding: 6px 8px;
     border-top: 1px solid var(--border);
     border-right: 0;
   }
 
-  .admin-sidebar > .brand,
   .admin-sidebar-user {
     display: none;
   }
 
+  .admin-sidebar > .brand {
+    width: var(--logo-mobile-nav-rail);
+    min-height: 100%;
+    display: flex;
+    flex: 0 0 var(--logo-mobile-nav-rail);
+    justify-content: center;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .admin-sidebar > .brand .ucm-logo {
+    width: var(--logo-mobile-nav);
+    height: var(--logo-mobile-nav);
+  }
+
+  .admin-sidebar > .brand .brand-name {
+    display: none;
+  }
+
   .admin-sidebar nav {
+    min-width: 0;
     height: 100%;
     display: flex;
+    flex: 1 1 auto;
     gap: 2px;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
@@ -3641,20 +3657,6 @@ button {
   font-weight: 550;
 }
 
-.staff-brand-mark {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border: 1px solid color-mix(in oklch, var(--accent) 34%, var(--border));
-  border-radius: 50%;
-  color: var(--focus);
-  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-
 .admin-sign-in-link,
 .staff-sign-in-link,
 .staff-text-button {
@@ -4259,9 +4261,16 @@ button {
 
 .staff-workspace-brand {
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .staff-workspace-brand > div {
+  min-width: 0;
+}
+
+.staff-workspace-brand-title {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -4272,7 +4281,7 @@ button {
   letter-spacing: -0.01em;
 }
 
-.staff-workspace-brand span {
+.staff-workspace-brand-role {
   padding: 3px 7px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);

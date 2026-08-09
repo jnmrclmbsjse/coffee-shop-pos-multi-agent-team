@@ -21,6 +21,7 @@ import { ProductsPage } from './catalog/ProductsPage';
 import { Icon } from './catalog/components';
 import { InventoryItemEditorPage } from './inventory/InventoryItemEditorPage';
 import { InventoryPage } from './inventory/InventoryPage';
+import { UcmLogo, type UcmLogoSize } from './Logo';
 import {
   ClosingCountPage,
   OpeningCountPage,
@@ -109,13 +110,10 @@ function destinationName(path: string): string {
   return names[pathname] ?? 'the requested admin page';
 }
 
-function Brand() {
+function Brand({ logoSize = 'inline' }: { logoSize?: UcmLogoSize }) {
   return (
-    <div className="brand" aria-label="UCM Coffee Studio">
-      <span className="brand-mark" aria-hidden="true">
-        <span />
-        <span />
-      </span>
+    <div className="brand">
+      <UcmLogo size={logoSize} />
       <span className="brand-name">UCM Coffee Studio</span>
     </div>
   );
@@ -124,7 +122,7 @@ function Brand() {
 function SessionLoading() {
   return (
     <main className="session-loading" aria-live="polite">
-      <Brand />
+      <Brand logoSize="hero" />
       <span className="spinner spinner-dark" aria-hidden="true" />
       <p>Checking administrator access…</p>
     </main>
@@ -404,7 +402,7 @@ function AdminLayout() {
   return (
     <div className="admin-shell catalog-admin-shell">
       <aside className="admin-sidebar">
-        <Brand />
+        <Brand logoSize="sidebar" />
         <nav ref={navigationRef} aria-label="Administrator navigation">
           {ADMIN_NAV_GROUPS.map((group) => {
             const labelId = `admin-nav-${group.label.toLowerCase()}`;
