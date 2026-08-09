@@ -107,6 +107,39 @@ Note that the mobile brand rail shows the **logo only**, no wordmark. At 390px, 
 wordmark would consume roughly a third of the bar and push nav links further into the
 scroll, which works against AC #6's reachability requirement.
 
+## Clear space, alignment, and contrast
+
+**Clear space.** The artwork carries its own breathing room — the badge is a circle inside a
+square canvas, so roughly 7% padding is already baked into the asset on each edge. On top of
+that, keep a minimum external clear space of `var(--space-2)` (8px) at inline sizes and
+`var(--space-3)` (12px) at the sidebar and hero sizes. In practice the existing lockups
+already satisfy this: `.brand` and `.staff-brand` both use `gap: var(--space-3)`, which is
+the logo↔wordmark clear space and needs no change.
+
+**Vertical alignment.** Optically center the square against the adjacent text rather than
+baseline-aligning it. The existing `align-items: center` on `.brand`, `.staff-brand`, and
+`.staff-workspace-brand > div` already does this and should be kept. At the staff sign-in
+and staff workspace placements the adjacent text is a two-line stack (`strong` over `small`);
+centering the 40px/32px square against the full stack is correct and is what the mockup shows
+— do not align it to the first line only.
+
+**Contrast: the existing color tokens work as-is; no new surface or background treatment is
+needed.** Every placement sits on `--surface` (pure white) or `--surface-subtle`. The badge is
+a solid `oklch`-green disc with white knockout artwork and a thin white outer stroke, so it
+carries its own internal contrast and does not depend on what is behind it. Two consequences
+worth stating:
+
+- Do **not** add a circular background, border, ring, or tinted plate behind the logo. The old
+  `.staff-brand-mark` had a `color-mix` tint and a 1px accent border because it was type in a
+  box; the official badge does not need them, and adding one would double the ring.
+- The badge green is close to but not identical to `--accent`. That is fine and intentional —
+  the artwork must not be recolored to match the token. Do not attempt to tint, filter, or
+  `currentColor` the image.
+
+The logo is never the sole carrier of information at any placement; a visible "UCM Coffee
+Studio" wordmark accompanies it everywhere except the 390×844 nav rail, where it is
+identity only and not an interactive control.
+
 ## Non-distortion rules
 
 The square-into-horizontal risk is handled by making every logo box a 1:1 square:
