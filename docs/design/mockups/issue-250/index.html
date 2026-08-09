@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UCM Coffee Studio logo placement sheet</title>
+  <style>
+    :root {
+      --bg: oklch(98% 0.005 250); --surface: oklch(100% 0 0); --fg: oklch(22% 0.02 240);
+      --muted: oklch(50% 0.018 240); --border: oklch(90% 0.008 240); --border-strong: oklch(76% 0.012 240);
+      --accent: oklch(58% 0.16 145); --focus: oklch(43% 0.14 145); --ink-soft: oklch(36% 0.018 240);
+      --surface-subtle: oklch(96.5% 0.007 240);
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+      --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+      --radius-sm: 6px; --radius-md: 10px; --touch-min: 44px;
+      --logo-inline: 32px; --logo-sidebar: 40px; --logo-staff-signin: 40px;
+      --logo-hero: 72px; --logo-mobile-nav: 40px;
+      font-family: -apple-system, BlinkMacSystemFont, Inter, "Segoe UI", system-ui, sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body { margin: 0; background: var(--bg); color: var(--fg); }
+    button, input { font: inherit; }
+    button, a { color: inherit; }
+
+    .sheet {
+      width: max-content;
+      min-width: 1438px;
+      margin: 0 auto;
+      padding: var(--space-12) 0;
+    }
+
+    .sheet-header { width: 1438px; margin-bottom: var(--space-10); }
+    .sheet-header h1 {
+      margin: 0 0 var(--space-3);
+      font-size: 32px;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      font-weight: 600;
+    }
+    .sheet-header p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; max-width: 70ch; }
+
+    .reference-grid {
+      width: 1438px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-6);
+      margin-bottom: var(--space-12);
+    }
+    .reference-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-6);
+    }
+    .reference-panel h2 { margin: 0 0 var(--space-5); font-size: 18px; line-height: 1.2; letter-spacing: -0.01em; }
+    .specimens { min-height: 134px; display: flex; align-items: end; gap: var(--space-10); }
+    .specimen { display: grid; justify-items: center; gap: var(--space-2); color: var(--muted); font-size: 12px; letter-spacing: .01em; }
+    .specimen img { display: block; object-fit: contain; flex: 0 0 auto; }
+    .specimen-note { margin: var(--space-5) 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+
+    .comparison { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+    .comparison-item { min-width: 0; }
+    .comparison-item strong { display: block; margin-bottom: var(--space-2); font-size: 13px; font-weight: 600; }
+    .comparison-box {
+      height: 82px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-subtle);
+    }
+    .comparison-box img { display: block; flex: 0 0 auto; }
+    .comparison-box.do img { width: 56px; height: 56px; object-fit: contain; }
+    .comparison-box.stretch img { width: 96px; height: 48px; object-fit: fill; }
+    .comparison-box.crop img { width: 56px; height: 56px; object-fit: cover; transform: scale(1.5); }
+    .comparison-item code { display: block; margin-top: var(--space-2); color: var(--muted); font-size: 11px; line-height: 1.45; }
+
+    .favicon-spec {
+      width: 1438px;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: var(--space-6);
+      align-items: start;
+      margin-bottom: var(--space-12);
+      padding: var(--space-6);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+    }
+    .favicon-spec h2 { margin: 0 0 var(--space-2); font-size: 18px; letter-spacing: -0.01em; }
+    .favicon-spec p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    pre { margin: 0; padding: var(--space-4); overflow: auto; border-radius: var(--radius-sm); background: var(--surface-subtle); color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+
+    .placement { width: 1438px; margin-bottom: 64px; }
+    .placement-heading { margin: 0 0 var(--space-4); font-size: 20px; line-height: 1.2; letter-spacing: -0.01em; }
+    .frame-row { display: grid; grid-template-columns: 1024px 390px; gap: var(--space-6); align-items: start; }
+    .frame-wrap { min-width: 0; }
+    .frame-caption {
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--space-3);
+      border: 1px solid var(--border-strong);
+      border-bottom: 0;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      background: var(--surface-subtle);
+      color: var(--ink-soft);
+      font-size: 12px;
+      letter-spacing: .01em;
+    }
+    .device {
+      position: relative;
+      overflow: hidden;
+      background: var(--bg);
+      border: 1px solid var(--border-strong);
+    }
+    .device.desktop { width: 1024px; height: 768px; }
+    .device.mobile { width: 390px; height: 844px; }
+
+    .logo {
+      display: block;
+      aspect-ratio: 1 / 1;
+      object-fit: contain;
+      flex: 0 0 auto;
+    }
+    .logo-inline { width: var(--logo-inline); height: var(--logo-inline); }
+    .logo-sidebar { width: var(--logo-sidebar); height: var(--logo-sidebar); }
+    .logo-staff-signin { width: var(--logo-staff-signin); height: var(--logo-staff-signin); }
+    .logo-hero { width: var(--logo-hero); height: var(--logo-hero); }
+    .logo-mobile-nav { width: var(--logo-mobile-nav); height: var(--logo-mobile-nav); }
+
+    .brand { min-height: var(--touch-min); display: inline-flex; align-items: center; gap: var(--space-3); }
+    .brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+    .admin-header {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--space-6);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .admin-actions { display: flex; align-items: center; gap: var(--space-4); font-size: 14px; }
+    .admin-actions span { color: var(--muted); }
+    .admin-actions a { color: var(--focus); font-weight: 600; text-decoration: none; }
+    .admin-body { min-height: calc(100% - 72px); display: grid; place-content: center; color: var(--muted); font-size: 14px; }
+    .mobile .admin-header { padding: 0 var(--space-4); }
+    .mobile .admin-actions span { display: none; }
+
+    .session-loading { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: var(--space-4); background: var(--surface); }
+    .session-loading .brand { min-height: auto; display: grid; justify-items: center; gap: var(--space-3); }
+    .session-loading .brand-name { font-size: 18px; }
+    .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--focus); border-radius: 50%; }
+    .session-loading p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .admin-shell { width: 100%; height: 100%; display: grid; grid-template-columns: 224px 1fr; background: var(--bg); }
+    .sidebar { display: flex; flex-direction: column; padding: var(--space-4); border-right: 1px solid var(--border); background: var(--surface); }
+    .sidebar .brand { padding: var(--space-1) var(--space-2) var(--space-5); border-bottom: 1px solid var(--border); }
+    .sidebar-nav { display: grid; gap: var(--space-5); padding-top: var(--space-4); }
+    .nav-group { display: grid; gap: var(--space-1); }
+    .nav-label { padding: 0 var(--space-3) var(--space-1); color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+    .nav-link { min-height: var(--touch-min); display: flex; align-items: center; padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--ink-soft); font-size: 14px; text-decoration: none; white-space: nowrap; }
+    .nav-link.active { color: var(--focus); background: var(--surface-subtle); font-weight: 600; }
+    .admin-canvas { padding: var(--space-8); }
+    .admin-canvas h3 { margin: 0 0 var(--space-2); font-size: 24px; letter-spacing: -0.01em; }
+    .admin-canvas p { margin: 0; color: var(--muted); font-size: 14px; }
+    .mobile .admin-shell { display: block; padding-bottom: 80px; }
+    .mobile .sidebar { display: none; }
+    .mobile .admin-canvas { padding: var(--space-5) var(--space-4); }
+
+    .signin-screen { width: 100%; height: 100%; display: grid; place-content: center; background: var(--bg); }
+    .signin-card { width: 360px; padding: var(--space-8); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+    .staff-brand { display: inline-flex; align-items: center; gap: var(--space-3); }
+    .staff-brand-text { display: grid; gap: 2px; }
+    .staff-brand-text strong { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+    .staff-brand-text small { color: var(--muted); font-size: 12px; }
+    .signin-card form { display: grid; gap: var(--space-4); margin-top: var(--space-8); }
+    .field { display: grid; gap: var(--space-2); }
+    .field label { color: var(--ink-soft); font-size: 13px; font-weight: 600; }
+    .field input { height: var(--touch-min); padding: 0 var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--fg); }
+    .primary-button { min-height: var(--touch-min); border: 0; border-radius: var(--radius-sm); background: var(--focus); color: var(--surface); font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+    .mobile .signin-card { width: calc(100% - 32px); padding: var(--space-6); }
+
+    .workspace { width: 100%; height: 100%; display: grid; grid-template-rows: 72px 1fr; background: var(--bg); }
+    .workspace-header { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-6); border-bottom: 1px solid var(--border); background: var(--surface); }
+    .staff-workspace-brand { display: grid; gap: 2px; }
+    .workspace-brand-row { display: flex; align-items: center; gap: var(--space-3); }
+    .workspace-brand-row strong { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+    .staff-pill { padding: 4px 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); color: var(--ink-soft); font-size: 11px; font-weight: 600; }
+    .staff-workspace-brand small { margin-left: 44px; color: var(--muted); font-size: 12px; }
+    .workspace-header button { min-width: 96px; min-height: var(--touch-min); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink-soft); font-weight: 600; }
+    .workspace-body { display: grid; grid-template-columns: 1fr 320px; gap: var(--space-6); padding: var(--space-6); }
+    .workspace-panel { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+    .mobile .workspace { grid-template-rows: 88px 1fr; }
+    .mobile .workspace-header { align-items: center; padding: 0 var(--space-4); }
+    .mobile .workspace-header button { min-width: 72px; }
+    .mobile .workspace-brand-row { gap: var(--space-2); }
+    .mobile .workspace-brand-row strong { max-width: 118px; white-space: normal; line-height: 1.15; }
+    .mobile .staff-workspace-brand small { margin-left: 40px; }
+    .mobile .workspace-body { grid-template-columns: 1fr; padding: var(--space-4); }
+    .mobile .workspace-panel:first-child { min-height: 420px; }
+    .mobile .workspace-panel:last-child { min-height: 180px; }
+
+    .mobile-admin-demo { width: 100%; height: 100%; position: relative; background: var(--bg); }
+    .mobile-admin-demo .admin-canvas { padding: var(--space-5) var(--space-4) 100px; }
+    .mobile-bottom-nav {
+      position: absolute;
+      inset: auto 0 0;
+      height: 80px;
+      display: flex;
+      align-items: stretch;
+      padding: 6px 8px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .mobile-logo-rail { flex: 0 0 auto; width: 56px; display: grid; place-items: center; border-right: 1px solid var(--border); }
+    .mobile-nav-scroller { min-width: 0; flex: 1 1 auto; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+    .mobile-nav-scroller nav { width: max-content; height: 100%; display: flex; align-items: stretch; }
+    .mobile-nav-link { flex: 0 0 auto; min-width: 82px; min-height: 68px; display: grid; place-content: center; padding: 0 var(--space-3); color: var(--ink-soft); font-size: 12px; text-align: center; text-decoration: none; white-space: nowrap; }
+    .mobile-nav-link.active { color: var(--focus); font-weight: 600; }
+    .desktop-bottom-demo { width: 100%; height: 100%; display: grid; grid-template-columns: 224px 1fr; }
+    .desktop-bottom-demo .sidebar { height: 100%; }
+
+    .annotation {
+      position: absolute;
+      z-index: 2;
+      padding: 6px 8px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--ink-soft);
+      font-size: 11px;
+      line-height: 1.35;
+      box-shadow: 0 4px 12px color-mix(in oklch, var(--fg) 8%, transparent);
+    }
+    .annotation code { font-size: 11px; }
+    .note-top-right { top: 92px; right: 20px; }
+    .note-bottom-right { right: 18px; bottom: 98px; }
+    .note-bottom-left { left: 18px; bottom: 98px; }
+  </style>
+</head>
+<body>
+  <main class="sheet" data-od-id="logo-placement-sheet">
+    <header class="sheet-header" data-od-id="sheet-heading">
+      <h1>UCM Coffee Studio logo placement sheet</h1>
+      <p>Preserve-mode implementation reference. Only the official square badge replaces legacy marks. Product layout, controls, labels, and navigation behavior remain unchanged.</p>
+    </header>
+
+    <section class="reference-grid" data-od-id="logo-reference">
+      <div class="reference-panel">
+        <h2>Logo specimen</h2>
+        <div class="specimens">
+          <figure class="specimen"><img src="assets/ucm-coffee-logo.png" alt="" aria-hidden="true" width="72" height="72" style="width:72px;height:72px;object-fit:contain;flex:0 0 auto"><figcaption>72px</figcaption></figure>
+          <figure class="specimen"><img src="assets/ucm-coffee-logo.png" alt="" aria-hidden="true" width="40" height="40" style="width:40px;height:40px;object-fit:contain;flex:0 0 auto"><figcaption>40px</figcaption></figure>
+          <figure class="specimen"><img src="assets/ucm-coffee-logo.png" alt="" aria-hidden="true" width="32" height="32" style="width:32px;height:32px;object-fit:contain;flex:0 0 auto"><figcaption>32px</figcaption></figure>
+          <figure class="specimen"><img src="assets/ucm-coffee-logo.png" alt="" aria-hidden="true" width="24" height="24" style="width:24px;height:24px;object-fit:contain;flex:0 0 auto"><figcaption>24px</figcaption></figure>
+        </div>
+        <p class="specimen-note">Below about 28px, the badge reads as a mark rather than readable text. This is why 32px is the inline floor.</p>
+      </div>
+      <div class="reference-panel" data-od-id="containment-guidance">
+        <h2>Do / Don't</h2>
+        <div class="comparison">
+          <div class="comparison-item"><strong>Do: contain square</strong><div class="comparison-box do"><img src="assets/ucm-coffee-logo.png" alt="" aria-hidden="true"></div><code>1:1 + object-fit: contain</code></div>
+          <div class="comparison-item"><strong>Don't: stretch</strong><div class="comparison-box stretch"><img src="assets/ucm-coffee-logo.png" alt="" aria-hidden="true"></div><code>horizontal distortion</code></div>
+          <div class="comparison-item"><strong>Don't: crop</strong><div class="comparison-box crop"><img src="assets/ucm-coffee-logo.png" alt="" aria-hidden="true"></div><code>object-fit: cover</code></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="favicon-spec" data-od-id="favicon-specification">
+      <div><h2>Favicon</h2><p>In <code>apps/web/index.html</code>. Keep the existing title. Resize the same artwork uniformly to 512 by 512 with no crop, recolor, redraw, or substitution.</p></div>
+      <pre><code>&lt;link rel="icon" type="image/png" href="/favicon.png"&gt;</code></pre>
+    </section>
+
+    <section class="placement" data-od-id="administrator-signin-header">
+      <h2 class="placement-heading">Administrator sign-in header</h2>
+      <div class="frame-row">
+        <div class="frame-wrap"><div class="frame-caption"><span>Desktop</span><span>1024 x 768</span></div><div class="device desktop">
+          <header class="admin-header"><div class="brand"><img class="logo logo-inline" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="32" height="32"><span class="brand-name">UCM Coffee Studio</span></div><div class="admin-actions"><span>Administrator access</span><a href="#staff-signin">Staff sign-in</a></div></header>
+          <div class="admin-body">Administrator sign-in content remains unchanged.</div>
+          <aside class="annotation note-top-right">Remove the wrapper <code>aria-label</code>.<br>Image alt: <code>UCM Coffee logo</code></aside>
+        </div></div>
+        <div class="frame-wrap"><div class="frame-caption"><span>Mobile</span><span>390 x 844</span></div><div class="device mobile">
+          <header class="admin-header"><div class="brand"><img class="logo logo-inline" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="32" height="32"><span class="brand-name">UCM Coffee Studio</span></div><div class="admin-actions"><span>Administrator access</span><a href="#staff-signin">Staff sign-in</a></div></header>
+          <div class="admin-body">Administrator sign-in content remains unchanged.</div>
+        </div></div>
+      </div>
+    </section>
+
+    <section class="placement" data-od-id="administrator-session-loading">
+      <h2 class="placement-heading">Administrator session-loading view</h2>
+      <div class="frame-row">
+        <div class="frame-wrap"><div class="frame-caption"><span>Desktop</span><span>1024 x 768</span></div><div class="device desktop"><div class="session-loading"><div class="brand"><img class="logo logo-hero" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="72" height="72"><span class="brand-name">UCM Coffee Studio</span></div><span class="spinner" aria-hidden="true"></span><p>Checking administrator access...</p></div></div></div>
+        <div class="frame-wrap"><div class="frame-caption"><span>Mobile</span><span>390 x 844</span></div><div class="device mobile"><div class="session-loading"><div class="brand"><img class="logo logo-hero" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="72" height="72"><span class="brand-name">UCM Coffee Studio</span></div><span class="spinner" aria-hidden="true"></span><p>Checking administrator access...</p></div></div></div>
+      </div>
+    </section>
+
+    <section class="placement" data-od-id="administrator-sidebar">
+      <h2 class="placement-heading">Administrator sidebar</h2>
+      <div class="frame-row">
+        <div class="frame-wrap"><div class="frame-caption"><span>Desktop</span><span>1024 x 768</span></div><div class="device desktop"><div class="admin-shell">
+          <aside class="sidebar"><div class="brand"><img class="logo logo-sidebar" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="40" height="40"><span class="brand-name">UCM Coffee Studio</span></div><nav class="sidebar-nav"><div class="nav-group"><span class="nav-label">Overview</span><a class="nav-link active" href="#">Dashboard</a><a class="nav-link" href="#">Orders</a><a class="nav-link" href="#">Sessions</a></div><div class="nav-group"><span class="nav-label">Catalog</span><a class="nav-link" href="#">Products</a><a class="nav-link" href="#">Inventory</a></div><div class="nav-group"><span class="nav-label">Manage</span><a class="nav-link" href="#">Staff</a><a class="nav-link" href="#">Settings</a></div></nav></aside>
+          <main class="admin-canvas"><h3>Dashboard</h3><p>Administrator content remains unchanged.</p></main>
+        </div></div></div>
+        <div class="frame-wrap"><div class="frame-caption"><span>Mobile</span><span>390 x 844</span></div><div class="device mobile"><div class="mobile-admin-demo"><main class="admin-canvas"><h3>Dashboard</h3><p>The sidebar collapses below 760px. See the fixed bottom navigation specification below.</p></main><div class="mobile-bottom-nav"><div class="mobile-logo-rail"><img class="logo logo-mobile-nav" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="40" height="40"></div><div class="mobile-nav-scroller"><nav><a class="mobile-nav-link active" href="#">Dashboard</a><a class="mobile-nav-link" href="#">Orders</a><a class="mobile-nav-link" href="#">Sessions</a><a class="mobile-nav-link" href="#">Products</a><a class="mobile-nav-link" href="#">Inventory</a><a class="mobile-nav-link" href="#">Staff</a><a class="mobile-nav-link" href="#">Settings</a></nav></div></div></div></div></div>
+      </div>
+    </section>
+
+    <section class="placement" id="staff-signin" data-od-id="staff-signin">
+      <h2 class="placement-heading">Staff sign-in</h2>
+      <div class="frame-row">
+        <div class="frame-wrap"><div class="frame-caption"><span>Desktop</span><span>1024 x 768</span></div><div class="device desktop"><div class="signin-screen"><section class="signin-card"><div class="staff-brand"><img class="logo logo-staff-signin" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="40" height="40"><span class="staff-brand-text"><strong>UCM Coffee Studio</strong><small>Staff sign-in</small></span></div><form><div class="field"><label for="desktop-pin">Staff PIN</label><input id="desktop-pin" inputmode="numeric" value=""></div><button class="primary-button" type="button">Sign in</button></form></section></div></div></div>
+        <div class="frame-wrap"><div class="frame-caption"><span>Mobile</span><span>390 x 844</span></div><div class="device mobile"><div class="signin-screen"><section class="signin-card"><div class="staff-brand"><img class="logo logo-staff-signin" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="40" height="40"><span class="staff-brand-text"><strong>UCM Coffee Studio</strong><small>Staff sign-in</small></span></div><form><div class="field"><label for="mobile-pin">Staff PIN</label><input id="mobile-pin" inputmode="numeric" value=""></div><button class="primary-button" type="button">Sign in</button></form></section></div></div></div>
+      </div>
+    </section>
+
+    <section class="placement" data-od-id="staff-workspace-header">
+      <h2 class="placement-heading">Staff workspace / POS header</h2>
+      <div class="frame-row">
+        <div class="frame-wrap"><div class="frame-caption"><span>Desktop</span><span>1024 x 768</span></div><div class="device desktop"><div class="workspace"><header class="workspace-header"><div class="staff-workspace-brand"><div class="workspace-brand-row"><img class="logo logo-inline" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="32" height="32"><strong>UCM Coffee Studio</strong><span class="staff-pill">Staff</span></div><small>Signed in as Mika</small></div><button type="button">Sign out</button></header><main class="workspace-body"><section class="workspace-panel"></section><aside class="workspace-panel"></aside></main></div></div></div>
+        <div class="frame-wrap"><div class="frame-caption"><span>Mobile</span><span>390 x 844</span></div><div class="device mobile"><div class="workspace"><header class="workspace-header"><div class="staff-workspace-brand"><div class="workspace-brand-row"><img class="logo logo-inline" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="32" height="32"><strong>UCM Coffee Studio</strong><span class="staff-pill">Staff</span></div><small>Signed in as Mika</small></div><button type="button">Sign out</button></header><main class="workspace-body"><section class="workspace-panel"></section><aside class="workspace-panel"></aside></main></div></div></div>
+      </div>
+    </section>
+
+    <section class="placement" data-od-id="administrator-mobile-bottom-navigation">
+      <h2 class="placement-heading">Administrator bottom navigation</h2>
+      <div class="frame-row">
+        <div class="frame-wrap"><div class="frame-caption"><span>Desktop reference</span><span>1024 x 768</span></div><div class="device desktop"><div class="desktop-bottom-demo"><aside class="sidebar"><div class="brand"><img class="logo logo-sidebar" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="40" height="40"><span class="brand-name">UCM Coffee Studio</span></div><nav class="sidebar-nav"><div class="nav-group"><span class="nav-label">Overview</span><a class="nav-link active" href="#">Dashboard</a><a class="nav-link" href="#">Orders</a><a class="nav-link" href="#">Sessions</a></div><div class="nav-group"><span class="nav-label">Catalog</span><a class="nav-link" href="#">Products</a><a class="nav-link" href="#">Inventory</a></div><div class="nav-group"><span class="nav-label">Manage</span><a class="nav-link" href="#">Staff</a><a class="nav-link" href="#">Settings</a></div></nav></aside><main class="admin-canvas"><h3>Dashboard</h3><p>Desktop keeps the existing left sidebar.</p></main></div></div></div>
+        <div class="frame-wrap"><div class="frame-caption"><span>Mobile target</span><span>390 x 844</span></div><div class="device mobile"><div class="mobile-admin-demo"><main class="admin-canvas"><h3>Dashboard</h3><p>All seven destinations remain inside the horizontal scroller.</p></main><aside class="annotation note-bottom-left">Fixed 56px rail<br>40px square logo</aside><aside class="annotation note-bottom-right">Scroller uses remaining width<br>All links remain reachable</aside><div class="mobile-bottom-nav"><div class="mobile-logo-rail"><img class="logo logo-mobile-nav" src="assets/ucm-coffee-logo.png" alt="UCM Coffee logo" width="40" height="40"></div><div class="mobile-nav-scroller"><nav><a class="mobile-nav-link active" href="#">Dashboard</a><a class="mobile-nav-link" href="#">Orders</a><a class="mobile-nav-link" href="#">Sessions</a><a class="mobile-nav-link" href="#">Products</a><a class="mobile-nav-link" href="#">Inventory</a><a class="mobile-nav-link" href="#">Staff</a><a class="mobile-nav-link" href="#">Settings</a></nav></div></div></div></div></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
