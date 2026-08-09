@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { DayType, type CurrentOpenBusinessDay } from '@coffee-shop/shared';
 import { useAuth } from '../auth/AuthContext';
 import { CashierControl } from '../cashier/CashierControl';
+import { UcmLogo } from '../Logo';
 import { getCurrentBusinessDay } from '../trading-day/api';
 
 const NO_OPEN_BUSINESS_DAY: CurrentOpenBusinessDay = {
@@ -235,13 +236,16 @@ export function StaffWorkspaceLayout() {
           <div className="staff-workspace-header-inner">
             <div className="staff-workspace-context-row">
               <div className="staff-workspace-brand">
+                <UcmLogo size="inline" />
                 <div>
-                  <strong>UCM Coffee Studio</strong>
-                  <span>Staff</span>
+                  <div className="staff-workspace-brand-title">
+                    <strong>UCM Coffee Studio</strong>
+                    <span className="staff-workspace-brand-role">Staff</span>
+                  </div>
+                  <small>
+                    Signed in as {auth.user?.displayName ?? auth.user?.username}
+                  </small>
                 </div>
-                <small>
-                  Signed in as {auth.user?.displayName ?? auth.user?.username}
-                </small>
               </div>
               <BusinessDayContext
                 businessDay={businessDay}

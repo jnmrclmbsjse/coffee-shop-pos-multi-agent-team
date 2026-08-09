@@ -14,6 +14,7 @@ import {
   rememberStaff,
   type RememberedStaff,
 } from './auth/device';
+import { UcmLogo } from './Logo';
 
 const GENERIC_FAILURE =
   'We could not sign you in. Check your details and try again.';
@@ -38,10 +39,8 @@ function throttleMessage(seconds: number): string {
 
 function StaffBrand() {
   return (
-    <div className="staff-brand" aria-label="UCM Coffee Studio, staff sign-in">
-      <span className="staff-brand-mark" aria-hidden="true">
-        UCM
-      </span>
+    <div className="staff-brand">
+      <UcmLogo size="staff-sign-in" />
       <span>
         <strong>UCM Coffee Studio</strong>
         <small>Staff sign-in</small>
