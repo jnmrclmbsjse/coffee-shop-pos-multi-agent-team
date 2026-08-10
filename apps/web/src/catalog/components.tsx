@@ -155,6 +155,15 @@ export function StateBadge({
   );
 }
 
+export function PromotionBadge({ children }: { children: ReactNode }) {
+  return (
+    <span className="state-badge promotion">
+      <span aria-hidden="true" />
+      {children}
+    </span>
+  );
+}
+
 export function Switch({
   checked,
   label,

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CategoriesPage } from './CategoriesPage';
 import { ProductEditorPage } from './ProductEditorPage';
+import { ProductsPage } from './ProductsPage';
 
 function response(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -161,6 +162,9 @@ describe('catalog management pages', () => {
     renderEditor();
 
     await screen.findByRole('heading', { name: 'Create product' });
+    expect(
+      screen.getByLabelText(/Drinks handed over per item sold/),
+    ).toHaveValue(1);
     await user.selectOptions(
       screen.getByLabelText(/Category/),
       categories[0]!.id,
@@ -181,6 +185,7 @@ describe('catalog management pages', () => {
     ).toMatchObject({
       categoryId: categories[0]!.id,
       name: 'Espresso',
+      packagingServings: 1,
       sizes: [
         {
           name: 'Solo',
@@ -201,6 +206,7 @@ describe('catalog management pages', () => {
       name: 'Spanish Latte',
       categoryId: categories[0]!.id,
       category: categories[0]!,
+      packagingServings: 1,
       active: true,
       available: true,
       variants: [
@@ -247,5 +253,149 @@ describe('catalog management pages', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue('Large')).toBeInTheDocument();
+  });
+
+  it('loads and saves a product servings count', async () => {
+    const productId = '9bbf25dd-dfe1-449a-b613-86662980f6b2';
+    const product = {
+      id: productId,
+      sku: 'B1T1-LATTE',
+      name: 'Buy One Take One Latte',
+      categoryId: categories[0]!.id,
+      category: categories[0]!,
+      packagingServings: 1,
+      active: true,
+      available: true,
+      variants: [
+        {
+          id: '8d404c23-4b1f-41f5-9e60-eeed8510ac13',
+          name: 'Regular',
+          priceCents: 19000,
+          sortWeight: 10,
+          active: true,
+          cupInventoryItemId: null,
+          lidInventoryItemId: null,
+        },
+      ],
+    };
+    const updatedProduct = { ...product, packagingServings: 2 };
+    fetchMock
+      .mockResolvedValueOnce(response(200, categories))
+      .mockResolvedValueOnce(response(200, inventoryItems))
+      .mockResolvedValueOnce(response(200, product))
+      .mockResolvedValueOnce(response(200, updatedProduct));
+    const user = userEvent.setup();
+
+    const firstRender = renderEditor(`/catalog/products/${productId}/edit`);
+
+    const servings = await screen.findByLabelText(
+      /Drinks handed over per item sold/,
+    );
+    expect(servings).toHaveValue(1);
+    await user.clear(servings);
+    await user.type(servings, '2');
+    expect(screen.getByText('2 drinks / sale')).toBeInTheDocument();
+    await user.click(screen.getAllByRole('button', { name: 'Save product' })[0]!);
+
+    await screen.findByText('Product list');
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `http://localhost:3000/catalog/products/${productId}`,
+      expect.objectContaining({
+        method: 'PATCH',
+        body: expect.stringContaining('"packagingServings":2'),
+      }),
+    );
+
+    firstRender.unmount();
+    fetchMock
+      .mockResolvedValueOnce(response(200, categories))
+      .mockResolvedValueOnce(response(200, inventoryItems))
+      .mockResolvedValueOnce(response(200, updatedProduct));
+
+    renderEditor(`/catalog/products/${productId}/edit`);
+
+    expect(
+      await screen.findByLabelText(/Drinks handed over per item sold/),
+    ).toHaveValue(2);
+    expect(screen.getByText('2 drinks / sale')).toBeInTheDocument();
+  });
+
+  it.each(['', '0', '-1', '1.5'])(
+    'rejects an invalid product servings count of %j',
+    async (value) => {
+      fetchMock
+        .mockResolvedValueOnce(response(200, categories))
+        .mockResolvedValueOnce(response(200, inventoryItems));
+      const user = userEvent.setup();
+
+      renderEditor();
+
+      const servings = await screen.findByLabelText(
+        /Drinks handed over per item sold/,
+      );
+      await user.clear(servings);
+      if (value) await user.type(servings, value);
+      await user.click(
+        screen.getAllByRole('button', { name: 'Save product' })[0]!,
+      );
+
+      expect(
+        await screen.findByText('Enter a whole number of 1 or greater.'),
+      ).toBeInTheDocument();
+      expect(servings).toHaveAttribute('aria-invalid', 'true');
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) =>
+            String(url).endsWith('/catalog/products') &&
+            (init as RequestInit | undefined)?.method === 'POST',
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it('marks products that hand over more than one drink', async () => {
+    const products = [
+      {
+        id: 'product-1',
+        sku: 'ESPRESSO',
+        name: 'Espresso',
+        categoryId: categories[0]!.id,
+        category: categories[0]!,
+        packagingServings: 1,
+        active: true,
+        available: true,
+        variants: [],
+      },
+      {
+        id: 'product-2',
+        sku: 'B1T1-LATTE',
+        name: 'Buy One Take One Latte',
+        categoryId: categories[0]!.id,
+        category: categories[0]!,
+        packagingServings: 2,
+        active: true,
+        available: true,
+        variants: [],
+      },
+    ];
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/catalog/categories')) {
+        return response(200, categories);
+      }
+      if (url.includes('/catalog/products')) {
+        return response(200, products);
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    render(
+      <MemoryRouter>
+        <ProductsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('2 drinks / sale')).toBeInTheDocument();
+    expect(screen.queryByText('1 drinks / sale')).not.toBeInTheDocument();
   });
 });

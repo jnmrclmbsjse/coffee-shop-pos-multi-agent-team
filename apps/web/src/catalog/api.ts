@@ -26,6 +26,7 @@ export interface ProductSizeInput {
 export interface ProductInput {
   categoryId: string;
   name: string;
+  packagingServings: number;
   active: boolean;
   available: boolean;
   sizes: ProductSizeInput[];
