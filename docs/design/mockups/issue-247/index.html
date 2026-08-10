@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Story #247 - Packaging servings implementation sheet</title>
+  <style>
+    :root {
+      --bg: oklch(98% 0.005 250);
+      --surface: oklch(100% 0 0);
+      --fg: oklch(22% 0.02 240);
+      --muted: oklch(50% 0.018 240);
+      --border: oklch(90% 0.008 240);
+      --border-strong: oklch(76% 0.012 240);
+      --accent: oklch(58% 0.16 145);
+      --focus: oklch(43% 0.14 145);
+      --danger: oklch(48% 0.18 28);
+      --ink-soft: oklch(36% 0.018 240);
+      --surface-subtle: oklch(96.5% 0.007 240);
+      --warn-ink: oklch(41% 0.09 75);
+      --warn-surface: oklch(97% 0.03 85);
+      --warn-border: oklch(80% 0.08 80);
+      --promotion-ink: oklch(40% 0.09 250);
+      --promotion-surface: oklch(96% 0.025 250);
+      --promotion-border: oklch(78% 0.06 250);
+      --font-body: -apple-system, BlinkMacSystemFont, Inter, "Segoe UI", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); color: var(--fg); }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    input, select, button { font: inherit; color: inherit; }
+    .sheet {
+      width: min(1100px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 40px 0 48px;
+    }
+
+    .document-header {
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border-strong);
+    }
+    .document-kicker,
+    .specimen-caption,
+    .code-label,
+    .decision-label {
+      margin: 0;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 8px 0 8px;
+      max-width: 760px;
+      font-size: clamp(28px, 4vw, 38px);
+      line-height: 1.12;
+      letter-spacing: -0.02em;
+      font-weight: 650;
+    }
+    .lede {
+      max-width: 72ch;
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 16px;
+    }
+    .binding-note {
+      margin-top: 20px;
+      padding: 12px 16px;
+      border: 1px solid var(--warn-border);
+      border-radius: 6px;
+      background: var(--warn-surface);
+      color: var(--warn-ink);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .doc-section {
+      padding: 40px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .doc-section:last-child { border-bottom: 0; }
+    .section-title-row {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 16px;
+    }
+    .section-number {
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      background: var(--surface);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 650;
+    }
+    .doc-section h2 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      font-weight: 650;
+    }
+    .section-summary,
+    .rationale {
+      max-width: 76ch;
+      margin: 8px 0 0;
+      color: var(--ink-soft);
+    }
+    .rationale { margin: 16px 0 20px; }
+    .rationale strong { color: var(--fg); }
+
+    .surface {
+      margin-top: 20px;
+      padding: 20px;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .surface > .specimen-caption { margin-bottom: 16px; }
+    .surface-subtle {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface-subtle);
+    }
+
+    /* Existing production contracts */
+    .form-section { padding: 0; }
+    .section-heading { margin-bottom: 20px; }
+    .section-heading h2 {
+      margin: 0 0 4px;
+      font-size: 19px;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+      font-weight: 650;
+    }
+    .section-heading p { margin: 0; color: var(--muted); font-size: 14px; }
+    .product-detail-grid {
+      display: grid;
+      grid-template-columns: 0.8fr 1.2fr;
+      gap: 16px;
+    }
+    .catalog-field label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--ink-soft);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .catalog-field label span[aria-hidden="true"] { color: var(--danger); }
+    .catalog-field input,
+    .catalog-field select {
+      width: 100%;
+      min-height: 44px;
+      padding: 9px 11px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+    .catalog-field input:hover,
+    .catalog-field select:hover,
+    .catalog-field.is-hover input { border-color: var(--muted); }
+    .catalog-field input:focus-visible,
+    .catalog-field select:focus-visible,
+    .catalog-field.is-focus input {
+      outline: 0;
+      border-color: var(--focus);
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--focus) 22%, transparent);
+    }
+    .catalog-field input[aria-invalid="true"] { border-color: var(--danger); }
+    .catalog-field-error,
+    .catalog-field-help {
+      margin: 5px 0 0;
+      font-size: 12px;
+    }
+    .catalog-field-error { color: var(--danger); font-weight: 600; }
+    .catalog-field-help { color: var(--muted); }
+    .servings-field {
+      width: min(100%, 360px);
+      margin-top: 16px;
+    }
+    .servings-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .servings-input-row input { width: 112px; flex: 0 0 112px; }
+
+    .state-settings {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .state-setting {
+      min-height: 112px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .state-setting strong { display: block; font-size: 14px; }
+    .state-setting > p { margin: 4px 0 12px; color: var(--muted); font-size: 13px; }
+    .toggle-row { display: flex; gap: 9px; align-items: center; font-size: 13px; font-weight: 600; }
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      border: 1px solid var(--focus);
+      border-radius: 999px;
+      background: var(--accent);
+    }
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--surface);
+    }
+
+    .state-badge {
+      min-height: 25px;
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 650;
+      background: var(--surface-subtle);
+      color: var(--ink-soft);
+      white-space: nowrap;
+    }
+    .state-badge > span[aria-hidden] {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--border-strong);
+    }
+    .state-badge.positive {
+      color: var(--focus);
+      background: color-mix(in oklch, var(--accent) 9%, var(--surface));
+    }
+    .state-badge.positive > span[aria-hidden] { background: var(--accent); }
+    .state-badge.promotion {
+      color: var(--promotion-ink);
+      background: var(--promotion-surface);
+      box-shadow: inset 0 0 0 1px var(--promotion-border);
+    }
+    .state-badge.promotion > span[aria-hidden] { background: var(--promotion-ink); }
+
+    .state-specimens {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .state-specimen {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .state-specimen .specimen-caption { margin-bottom: 12px; }
+
+    .mobile-frame {
+      width: 390px;
+      max-width: 100%;
+      margin-top: 20px;
+      padding: 16px;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .mobile-frame .product-detail-grid,
+    .mobile-frame .state-settings { grid-template-columns: 1fr; }
+    .mobile-frame .servings-field { width: 100%; }
+
+    .copy-table,
+    .catalog-table,
+    .balance-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .copy-table th,
+    .copy-table td,
+    .catalog-table th,
+    .catalog-table td,
+    .balance-table th,
+    .balance-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+    .copy-table th,
+    .catalog-table th,
+    .balance-table th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+    }
+    .copy-table th:first-child { width: 22%; }
+    .copy-table tr:last-child td,
+    .catalog-table tr:last-child td,
+    .balance-table tr:last-child td { border-bottom: 0; }
+    .product-name-cell { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .action-link { color: var(--fg); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+
+    .decision-box {
+      margin: 16px 0 20px;
+      padding: 16px;
+      border: 1px solid var(--promotion-border);
+      border-radius: 10px;
+      background: var(--promotion-surface);
+      color: var(--promotion-ink);
+    }
+    .decision-box p { margin: 6px 0 0; max-width: 76ch; }
+
+    .annotation {
+      margin: 12px 0 16px;
+      padding: 12px 16px;
+      border-left: 3px solid var(--promotion-border);
+      background: var(--promotion-surface);
+      color: var(--promotion-ink);
+      font-size: 13px;
+    }
+    .numeric { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    .unknown { color: var(--muted); }
+
+    pre {
+      margin: 20px 0 0;
+      overflow: auto;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface-subtle);
+      color: var(--fg);
+      font: 12px/1.6 var(--font-mono);
+      white-space: pre;
+    }
+    code { font-family: var(--font-mono); }
+    .code-label { margin-top: 20px; }
+
+    .notes-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .note-block {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .note-block h3 { margin: 0 0 8px; font-size: 15px; }
+    .note-block p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+    .note-block code { font-size: 12px; }
+
+    @media (max-width: 899px) {
+      .catalog-table thead { display: none; }
+      .catalog-table,
+      .catalog-table tbody,
+      .catalog-table tr,
+      .catalog-table td { display: block; width: 100%; }
+      .catalog-table tr {
+        margin-bottom: 12px;
+        padding: 4px 16px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+      }
+      .catalog-table td {
+        display: grid;
+        grid-template-columns: 140px minmax(0, 1fr);
+        gap: 12px;
+        padding: 10px 0;
+      }
+      .catalog-table td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .catalog-table tr:last-child td { border-bottom: 1px solid var(--border); }
+      .catalog-table tr:last-child td:last-child { border-bottom: 0; }
+    }
+
+    @media (max-width: 700px) {
+      .sheet { width: min(100% - 32px, 1100px); padding-top: 24px; }
+      .doc-section { padding: 32px 0; }
+      .surface { padding: 16px; }
+      .product-detail-grid,
+      .state-settings,
+      .state-specimens,
+      .notes-grid { grid-template-columns: 1fr; }
+      .servings-field { width: 100%; }
+      .copy-table th:first-child { width: auto; }
+      .copy-table th,
+      .copy-table td { display: block; width: 100%; padding-left: 0; padding-right: 0; }
+      .copy-table th { border-bottom: 0; padding-bottom: 2px; }
+      .copy-table td { padding-top: 2px; }
+    }
+
+    @media (max-width: 460px) {
+      .sheet { width: min(100% - 24px, 1100px); }
+      .section-title-row { grid-template-columns: 40px minmax(0, 1fr); gap: 12px; }
+      .catalog-table td { grid-template-columns: 112px minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main class="sheet" data-od-id="packaging-servings-spec-sheet">
+    <header class="document-header" data-od-id="document-header">
+      <p class="document-kicker">GitHub story #247 · ADR 0010 · implementation sheet</p>
+      <h1 data-od-id="document-title">Count the drinks handed over, without changing the sale</h1>
+      <p class="lede">A preserve-mode specification for adding <code>Product.packagingServings</code> to the existing product editor and reconciliation flow.</p>
+      <div class="binding-note"><strong>Binding:</strong> this integer affects cup and lid counting only. It never changes price, discount, tax, or the order total.</div>
+    </header>
+
+    <section class="doc-section" data-od-id="section-editor-field">
+      <div class="section-title-row">
+        <div class="section-number" aria-hidden="true">1</div>
+        <div>
+          <h2>The servings field in the product editor</h2>
+          <p class="section-summary">Add one plain number input after the existing details grid and before the existing state settings.</p>
+        </div>
+      </div>
+
+      <div class="decision-box" data-od-id="field-treatment-decision">
+        <p class="decision-label">Decision</p>
+        <p><strong>Use a native number input, not a stepper or disclosure.</strong> Default it to 1. The common case is already resolved, while the visible field keeps a consequential value auditable. A value above 1 gains an existing badge that states the counted drinks per sale.</p>
+      </div>
+
+      <div class="surface" data-od-id="product-details-complete-specimen">
+        <p class="specimen-caption">complete editor · after change</p>
+        <div class="form-section">
+          <div class="section-heading">
+            <h2>Product details</h2>
+            <p>Basic catalog information and selling state.</p>
+          </div>
+
+          <div class="product-detail-grid">
+            <div class="catalog-field">
+              <label for="category">Category <span aria-hidden="true">*</span></label>
+              <select id="category"><option>Coffee</option></select>
+            </div>
+            <div class="catalog-field">
+              <label for="product-name">Product name <span aria-hidden="true">*</span></label>
+              <input id="product-name" type="text" value="Buy One Take One Latte">
+            </div>
+          </div>
+
+          <div class="catalog-field servings-field">
+            <label for="drinks-per-sale">Drinks handed over per item sold <span aria-hidden="true">*</span></label>
+            <div class="servings-input-row">
+              <input id="drinks-per-sale" name="packagingServings" type="number" min="1" step="1" value="2" aria-describedby="drinks-per-sale-help">
+              <span class="state-badge promotion"><span aria-hidden="true"></span>2 drinks / sale</span>
+            </div>
+            <p class="catalog-field-help" id="drinks-per-sale-help">Used only to count cups and lids. It does not change the product price, discounts, tax, or order total.</p>
+          </div>
+
+          <div class="state-settings">
+            <div class="state-setting">
+              <strong>Catalog state</strong>
+              <p>Controls whether this product appears in the POS catalog.</p>
+              <div class="toggle-row"><span class="toggle" aria-hidden="true"></span><span>Active</span></div>
+            </div>
+            <div class="state-setting">
+              <strong>Service availability</strong>
+              <p>Controls whether this product can be added to an order now.</p>
+              <div class="toggle-row"><span class="toggle" aria-hidden="true"></span><span>Available</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="rationale"><strong>Placement rationale:</strong> Category and Product name keep their exact 0.8fr/1.2fr grid. The new operational field sits directly below as a compact third <code>.catalog-field</code>, so it is visible without disrupting the stable editor rhythm. It remains above catalog and service state because it describes what one sold item means, not whether the item can be sold.</p>
+
+      <div class="surface" data-od-id="field-state-specimens">
+        <p class="specimen-caption">field states · static reference</p>
+        <div class="state-specimens">
+          <div class="state-specimen">
+            <p class="specimen-caption">rest · default</p>
+            <div class="catalog-field">
+              <label for="state-default">Drinks handed over per item sold <span aria-hidden="true">*</span></label>
+              <div class="servings-input-row"><input id="state-default" type="number" min="1" step="1" value="1" aria-describedby="state-default-help"></div>
+              <p class="catalog-field-help" id="state-default-help">Used only to count cups and lids. It does not change the product price, discounts, tax, or order total.</p>
+            </div>
+          </div>
+
+          <div class="state-specimen">
+            <p class="specimen-caption">rest · non-default</p>
+            <div class="catalog-field">
+              <label for="state-two">Drinks handed over per item sold <span aria-hidden="true">*</span></label>
+              <div class="servings-input-row">
+                <input id="state-two" type="number" min="1" step="1" value="2" aria-describedby="state-two-help">
+                <span class="state-badge promotion"><span aria-hidden="true"></span>2 drinks / sale</span>
+              </div>
+              <p class="catalog-field-help" id="state-two-help">Used only to count cups and lids. It does not change the product price, discounts, tax, or order total.</p>
+            </div>
+          </div>
+
+          <div class="state-specimen">
+            <p class="specimen-caption">hover</p>
+            <div class="catalog-field is-hover">
+              <label for="state-hover">Drinks handed over per item sold <span aria-hidden="true">*</span></label>
+              <div class="servings-input-row"><input id="state-hover" type="number" min="1" step="1" value="1" aria-describedby="state-hover-help"></div>
+              <p class="catalog-field-help" id="state-hover-help">Used only to count cups and lids. It does not change the product price, discounts, tax, or order total.</p>
+            </div>
+          </div>
+
+          <div class="state-specimen">
+            <p class="specimen-caption">focus-visible</p>
+            <div class="catalog-field is-focus">
+              <label for="state-focus">Drinks handed over per item sold <span aria-hidden="true">*</span></label>
+              <div class="servings-input-row"><input id="state-focus" type="number" min="1" step="1" value="1" aria-describedby="state-focus-help"></div>
+              <p class="catalog-field-help" id="state-focus-help">Used only to count cups and lids. It does not change the product price, discounts, tax, or order total.</p>
+            </div>
+          </div>
+
+          <div class="state-specimen">
+            <p class="specimen-caption">invalid</p>
+            <div class="catalog-field">
+              <label for="state-invalid">Drinks handed over per item sold <span aria-hidden="true">*</span></label>
+              <div class="servings-input-row"><input id="state-invalid" type="number" min="1" step="1" value="0" aria-invalid="true" aria-describedby="state-invalid-error"></div>
+              <p class="catalog-field-error" id="state-invalid-error">Enter a whole number of 1 or greater.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mobile-frame" data-od-id="mobile-field-specimen">
+          <p class="specimen-caption">390px viewport</p>
+          <div class="product-detail-grid">
+            <div class="catalog-field">
+              <label for="mobile-category">Category <span aria-hidden="true">*</span></label>
+              <select id="mobile-category"><option>Coffee</option></select>
+            </div>
+            <div class="catalog-field">
+              <label for="mobile-product">Product name <span aria-hidden="true">*</span></label>
+              <input id="mobile-product" value="Buy One Take One Latte">
+            </div>
+          </div>
+          <div class="catalog-field servings-field">
+            <label for="mobile-servings">Drinks handed over per item sold <span aria-hidden="true">*</span></label>
+            <div class="servings-input-row">
+              <input id="mobile-servings" type="number" min="1" step="1" value="2" aria-describedby="mobile-servings-help">
+              <span class="state-badge promotion"><span aria-hidden="true"></span>2 drinks / sale</span>
+            </div>
+            <p class="catalog-field-help" id="mobile-servings-help">Used only to count cups and lids. It does not change the product price, discounts, tax, or order total.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="surface" data-od-id="production-copy-table">
+        <p class="specimen-caption">production copy · exact strings</p>
+        <table class="copy-table">
+          <tbody>
+            <tr><th scope="row">Label</th><td>Drinks handed over per item sold</td></tr>
+            <tr><th scope="row">Help</th><td>Used only to count cups and lids. It does not change the product price, discounts, tax, or order total.</td></tr>
+            <tr><th scope="row">Error</th><td>Enter a whole number of 1 or greater.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="code-label">Exact editor markup</p>
+      <pre><code>&lt;div class="catalog-field servings-field"&gt;
+  &lt;label for="packaging-servings"&gt;
+    Drinks handed over per item sold &lt;span aria-hidden="true"&gt;*&lt;/span&gt;
+  &lt;/label&gt;
+  &lt;div class="servings-input-row"&gt;
+    &lt;input id="packaging-servings" name="packagingServings" type="number"
+      min="1" step="1" value="2" aria-describedby="packaging-servings-help"&gt;
+    &lt;span class="state-badge promotion"&gt;
+      &lt;span aria-hidden="true"&gt;&lt;/span&gt;2 drinks / sale
+    &lt;/span&gt;
+  &lt;/div&gt;
+  &lt;p class="catalog-field-help" id="packaging-servings-help"&gt;
+    Used only to count cups and lids. It does not change the product price,
+    discounts, tax, or order total.
+  &lt;/p&gt;
+&lt;/div&gt;</code></pre>
+    </section>
+
+    <section class="doc-section" data-od-id="section-products-list">
+      <div class="section-title-row">
+        <div class="section-number" aria-hidden="true">2</div>
+        <div>
+          <h2>Products list: show the exception at a glance</h2>
+          <p class="section-summary">Keep the five columns. Put one promotion-colored badge beside Product name only when the value is greater than 1.</p>
+        </div>
+      </div>
+
+      <div class="decision-box" data-od-id="list-indicator-decision">
+        <p class="decision-label">Decision</p>
+        <p><strong>Show the non-default value in the Product name cell.</strong> A separate column would spend permanent width on a rare exception. The badge makes an accidental 2 visible during routine catalog scans and disappears entirely for the default value of 1.</p>
+      </div>
+
+      <div class="surface" data-od-id="products-table-specimen">
+        <p class="specimen-caption">products list · desktop and responsive contract</p>
+        <table class="catalog-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Product name</th>
+              <th>Catalog state</th>
+              <th>Current availability</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Category">Coffee</td>
+              <td data-label="Product name"><div class="product-name-cell"><strong>Americano</strong></div></td>
+              <td data-label="Catalog state"><span class="state-badge positive"><span aria-hidden="true"></span>Active</span></td>
+              <td data-label="Current availability"><span class="state-badge positive"><span aria-hidden="true"></span>Available</span></td>
+              <td data-label="Actions"><span class="action-link">Edit</span></td>
+            </tr>
+            <tr>
+              <td data-label="Category">Promotions</td>
+              <td data-label="Product name">
+                <div class="product-name-cell"><strong>Buy One Take One Latte</strong><span class="state-badge promotion"><span aria-hidden="true"></span>2 drinks / sale</span></div>
+              </td>
+              <td data-label="Catalog state"><span class="state-badge positive"><span aria-hidden="true"></span>Active</span></td>
+              <td data-label="Current availability"><span class="state-badge positive"><span aria-hidden="true"></span>Available</span></td>
+              <td data-label="Actions"><span class="action-link">Edit</span></td>
+            </tr>
+            <tr>
+              <td data-label="Category">Tea</td>
+              <td data-label="Product name"><div class="product-name-cell"><strong>Iced Tea</strong></div></td>
+              <td data-label="Catalog state"><span class="state-badge"><span aria-hidden="true"></span>Archived</span></td>
+              <td data-label="Current availability"><span class="state-badge"><span aria-hidden="true"></span>Unavailable</span></td>
+              <td data-label="Actions"><span class="action-link">Edit</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="rationale"><strong>Responsive behavior:</strong> below 900px the existing <code>td[data-label]</code> collapse remains unchanged. Because the marker lives inside the Product name cell, it stays beside the name in that card row. There is no sixth row, no new label, and no value shown for products at 1.</p>
+
+      <p class="code-label">Exact list-cell markup</p>
+      <pre><code>&lt;td data-label="Product name"&gt;
+  &lt;div class="product-name-cell"&gt;
+    &lt;strong&gt;Buy One Take One Latte&lt;/strong&gt;
+    {product.packagingServings &gt; 1 &amp;&amp; (
+      &lt;span className="state-badge promotion"&gt;
+        &lt;span aria-hidden="true" /&gt;
+        {product.packagingServings} drinks / sale
+      &lt;/span&gt;
+    )}
+  &lt;/div&gt;
+&lt;/td&gt;</code></pre>
+    </section>
+
+    <section class="doc-section" data-od-id="section-close-of-day">
+      <div class="section-title-row">
+        <div class="section-number" aria-hidden="true">3</div>
+        <div>
+          <h2>Close-of-day cup and lid balance</h2>
+          <p class="section-summary">No visual change. The story changes only the arithmetic that supplies Expected.</p>
+        </div>
+      </div>
+
+      <div class="decision-box" data-od-id="closing-ui-decision">
+        <p class="decision-label">Decision</p>
+        <p><strong>Add no cashier-facing annotation.</strong> Expected already represents packaging usage, not order-line count. Explaining promotion arithmetic here would add end-of-shift reading cost and reopen a regression-prone layout for information the cashier cannot act on.</p>
+      </div>
+
+      <div class="surface" data-od-id="balance-table-specimen">
+        <p class="specimen-caption">cup / lid balance · unchanged UI</p>
+        <div class="section-heading">
+          <h2>Cup / lid balance</h2>
+          <p>Compare expected packaging use with the closing count.</p>
+        </div>
+        <div class="annotation"><strong>Developer annotation, not product UI:</strong> multiply each sold order line quantity by <code>Product.packagingServings</code> when deriving Expected. Actual, Var, labels, table structure, and the unknown-count treatment do not change.</div>
+        <table class="balance-table">
+          <thead>
+            <tr><th>Item</th><th>Expected</th><th>Actual</th><th>Var</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>12 oz cup</td><td class="numeric">86</td><td class="numeric">84</td><td class="numeric">-2</td></tr>
+            <tr><td>12 oz lid</td><td class="numeric">86</td><td class="numeric">86</td><td class="numeric">0</td></tr>
+            <tr><td>16 oz cup</td><td class="numeric">42</td><td class="numeric unknown" aria-label="Unknown">—</td><td class="numeric unknown" aria-label="Unknown">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="rationale"><strong>Arithmetic boundary:</strong> the multiplier belongs in the packaging projection only. Price, discount, tax, and order total continue to use the sold line quantity exactly as they do today.</p>
+
+      <p class="code-label">Exact reconciliation markup</p>
+      <pre><code>&lt;td data-label="Expected"&gt;{row.expectedPackagingCount}&lt;/td&gt;
+&lt;td data-label="Actual"&gt;
+  {row.actualCount ?? &lt;span aria-label="Unknown"&gt;—&lt;/span&gt;}
+&lt;/td&gt;
+&lt;td data-label="Var"&gt;
+  {row.actualCount == null ? &lt;span aria-label="Unknown"&gt;—&lt;/span&gt; : row.variance}
+&lt;/td&gt;</code></pre>
+    </section>
+
+    <section class="doc-section" data-od-id="section-accessibility-tokens">
+      <div class="section-title-row">
+        <div class="section-number" aria-hidden="true">4</div>
+        <div>
+          <h2>Accessibility and token notes</h2>
+          <p class="section-summary">Use the existing field semantics and tokens. No new token is needed.</p>
+        </div>
+      </div>
+
+      <div class="surface" data-od-id="accessibility-notes">
+        <p class="specimen-caption">implementation checks</p>
+        <div class="notes-grid">
+          <div class="note-block">
+            <h3>Label and description</h3>
+            <p>The visible <code>&lt;label&gt;</code> targets the input. In the valid state, <code>aria-describedby</code> points to help. In the invalid state, it points only to the rendered error.</p>
+          </div>
+          <div class="note-block">
+            <h3>Validation state</h3>
+            <p>Set <code>aria-invalid="true"</code> only after validation fails. Accept integers of 1 or greater. Use the same error for blank, zero, negative, and fractional values.</p>
+          </div>
+          <div class="note-block">
+            <h3>Native number behavior</h3>
+            <p><code>type="number"</code> supplies keyboard increment and decrement through Arrow Up and Arrow Down. Browser spinner styling varies, the wheel may alter a focused value, and decimal separators follow locale conventions. Server validation remains authoritative.</p>
+          </div>
+          <div class="note-block">
+            <h3>Touch and keyboard</h3>
+            <p>The input keeps the production 44px minimum height. No custom buttons are added, so there are no extra tab stops or touch targets. Tab, Shift+Tab, Arrow Up, Arrow Down, and direct entry cover operation.</p>
+          </div>
+          <div class="note-block">
+            <h3>Badge contrast</h3>
+            <p>The exception marker uses <code>--promotion-ink</code> on <code>--promotion-surface</code> with <code>--promotion-border</code>. Text carries the meaning; the 7px dot is decorative and hidden from assistive technology.</p>
+          </div>
+          <div class="note-block">
+            <h3>Tokens</h3>
+            <p><strong>New tokens: none.</strong> The input uses existing field tokens and the rare non-default marker uses the existing promotion token family.</p>
+          </div>
+        </div>
+      </div>
+
+      <p class="rationale"><strong>Implementation note:</strong> prevent accidental wheel changes if production has observed them, but do not globally blur number inputs. Prefer saving only after explicit form submission and validate the integer again at the API boundary.</p>
+
+      <p class="code-label">Exact invalid-state markup</p>
+      <pre><code>&lt;div class="catalog-field"&gt;
+  &lt;label for="packaging-servings"&gt;
+    Drinks handed over per item sold &lt;span aria-hidden="true"&gt;*&lt;/span&gt;
+  &lt;/label&gt;
+  &lt;input id="packaging-servings" name="packagingServings" type="number"
+    min="1" step="1" value="0" aria-invalid="true"
+    aria-describedby="packaging-servings-error"&gt;
+  &lt;p class="catalog-field-error" id="packaging-servings-error"&gt;
+    Enter a whole number of 1 or greater.
+  &lt;/p&gt;
+&lt;/div&gt;</code></pre>
+    </section>
+  </main>
+</body>
+</html>
