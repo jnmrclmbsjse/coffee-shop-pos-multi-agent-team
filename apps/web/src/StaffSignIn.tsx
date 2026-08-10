@@ -15,6 +15,7 @@ import {
   type RememberedStaff,
 } from './auth/device';
 import { UcmLogo } from './Logo';
+import { SessionNotice } from './auth/SessionNotice';
 
 const GENERIC_FAILURE =
   'We could not sign you in. Check your details and try again.';
@@ -242,6 +243,7 @@ export function StaffSignInPage() {
 
       <main className="staff-workspace">
         <section className="staff-auth-surface" aria-label="Staff sign-in">
+          <SessionNotice />
           {view === 'picker' && (
             <>
               <header className="staff-view-header">

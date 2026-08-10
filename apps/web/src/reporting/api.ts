@@ -5,8 +5,7 @@ import type {
   ReportingDashboard,
   SalesRangeReport,
 } from '@coffee-shop/shared';
-
-const API_ORIGIN = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+import { sessionFetch } from '../auth/session-fetch';
 
 export class ReportingApiError extends Error {
   constructor(readonly status: number) {
@@ -15,8 +14,7 @@ export class ReportingApiError extends Error {
 }
 
 async function request<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_ORIGIN}${path}`, {
-    credentials: 'include',
+  const response = await sessionFetch(path, {
     headers: { Accept: 'application/json' },
   });
 
@@ -70,10 +68,9 @@ export async function downloadReportCsv(
   from: string,
   to: string,
 ): Promise<void> {
-  const response = await fetch(
-    `${API_ORIGIN}/reporting/report.csv?${rangeQuery(from, to)}`,
+  const response = await sessionFetch(
+    `/reporting/report.csv?${rangeQuery(from, to)}`,
     {
-      credentials: 'include',
       headers: { Accept: 'text/csv' },
     },
   );

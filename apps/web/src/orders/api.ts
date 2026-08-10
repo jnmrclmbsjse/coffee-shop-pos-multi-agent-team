@@ -10,8 +10,7 @@ import type {
   UpdateOrderLineInput,
   VoidOrderInput,
 } from '@coffee-shop/shared';
-
-const API_ORIGIN = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+import { sessionFetch } from '../auth/session-fetch';
 
 export class StaffOrderLedgerApiError extends Error {
   constructor(
@@ -32,8 +31,7 @@ export class OrderCaptureApiError extends Error {
 }
 
 async function request<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_ORIGIN}${path}`, {
-    credentials: 'include',
+  const response = await sessionFetch(path, {
     headers: { 'Content-Type': 'application/json' },
   });
 
@@ -62,9 +60,8 @@ async function captureRequest<T>(
   init?: RequestInit,
   emptyResponse?: T,
 ): Promise<T> {
-  const response = await fetch(`${API_ORIGIN}${path}`, {
+  const response = await sessionFetch(path, {
     ...init,
-    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...init?.headers,

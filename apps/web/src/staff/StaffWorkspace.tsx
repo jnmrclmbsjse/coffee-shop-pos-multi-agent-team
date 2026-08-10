@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { DayType, type CurrentOpenBusinessDay } from '@coffee-shop/shared';
 import { useAuth } from '../auth/AuthContext';
+import { StaffLogoutControl } from '../auth/LogoutControls';
 import { CashierControl } from '../cashier/CashierControl';
 import { UcmLogo } from '../Logo';
 import { getCurrentBusinessDay } from '../trading-day/api';
@@ -247,11 +248,14 @@ export function StaffWorkspaceLayout() {
                   </small>
                 </div>
               </div>
-              <BusinessDayContext
-                businessDay={businessDay}
-                loadError={loadError}
-                onRetry={() => setLoadVersion((version) => version + 1)}
-              />
+              <div className="staff-context-actions">
+                <BusinessDayContext
+                  businessDay={businessDay}
+                  loadError={loadError}
+                  onRetry={() => setLoadVersion((version) => version + 1)}
+                />
+                <StaffLogoutControl />
+              </div>
             </div>
             <CashierControl />
             <nav
