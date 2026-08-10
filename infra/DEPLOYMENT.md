@@ -327,7 +327,8 @@ Set these as **GitHub repo variables** (Settings → Secrets and variables →
 Actions → Variables): `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN` (=
 `githubDeployRoleArn`), `AWS_INFRA_ROLE_ARN` (= `githubInfraRoleArn`),
 `EC2_INSTANCE_ID` (= `ec2InstanceId`), `SPA_BUCKET` (= `spaBucketName`),
-`API_REPOSITORY_URL` (= `apiRepositoryUrl`), `SITE_URL` (= `siteUrl`). And one
+`API_REPOSITORY_URL` (= `apiRepositoryUrl`), `SITE_URL` (= `siteUrl`),
+`CLOUDFRONT_DISTRIBUTION_ID` (= `cloudfrontDistributionId`). And one
 **secret**: `PULUMI_ACCESS_TOKEN` (the same token from step B).
 
 **G. Tear down the bootstrap credential**
@@ -401,6 +402,7 @@ character inside a string literal (not just em dashes) — none found.
 | `pulumi up` applied successfully | done — via `infra/Dockerfile.bootstrap` | 2026-08-03 |
 | Existing GitHub repo variables set | done — `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `AWS_INFRA_ROLE_ARN`, `EC2_INSTANCE_ID`, `SPA_BUCKET`, `SITE_URL` | 2026-08-03 |
 | `API_REPOSITORY_URL` repo variable set | pending — set from `apiRepositoryUrl` after the ECR Pulumi update is applied | — |
+| `CLOUDFRONT_DISTRIBUTION_ID` repo variable set | pending — set from `cloudfrontDistributionId` after the CloudFront-invalidation Pulumi update is applied | — |
 | `PULUMI_ACCESS_TOKEN` secret set | done | 2026-08-03 |
 | Bootstrap access key deleted (step G) | done | 2026-08-03 |
 

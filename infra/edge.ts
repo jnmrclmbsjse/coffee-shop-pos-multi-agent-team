@@ -169,3 +169,5 @@ export const distribution = new aws.cloudfront.Distribution("app-distribution", 
 });
 
 export const distributionDomainName = distribution.domainName;
+export const distributionId = distribution.id;
+export const distributionArn = distribution.arn;

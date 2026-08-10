@@ -12,6 +12,7 @@
 #   SPA_BUCKET            spaBucketName output
 #   API_REPOSITORY_URL    apiRepositoryUrl output
 #   SITE_URL              siteUrl output (CloudFront domain, https://...)
+#   CLOUDFRONT_DISTRIBUTION_ID  cloudfrontDistributionId output
 #
 # No AWS access keys are stored anywhere — auth is via GitHub OIDC, scoped in
 # infra/oidc.ts to this repo + the master branch only.
@@ -251,6 +252,21 @@ jobs:
           fi
 
           echo "ssm_deployment=passed"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          set -euo pipefail
+
+          # The SPA origin (nginx on the EC2 instance) sets no Cache-Control
+          # headers, so CloudFront's CachingOptimized policy falls back to its
+          # default 24h TTL for index.html — without this, a successful
+          # deploy can sit invisible behind the edge cache for up to a day.
+          # Only index.html needs invalidating: Vite content-hashes every
+          # other build asset, so old and new filenames never collide.
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/index.html" "/" \
+            --no-cli-pager
 
       - name: Health check
         run: |

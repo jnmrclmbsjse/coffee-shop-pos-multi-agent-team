@@ -136,6 +136,7 @@ new aws.iam.RolePolicy("github-deploy-policy", {
 });
 
 export const deployRoleArn = deployRole.arn;
+export const deployRoleId = deployRole.id;
 
 // ---------------------------------------------------------------------------
 // Infra-apply role — lets .github/workflows/infra.yml run `pulumi preview`/
