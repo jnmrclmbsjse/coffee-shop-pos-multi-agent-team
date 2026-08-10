@@ -6,6 +6,7 @@ import {
   listSelectableCashiers,
   selectActiveCashier,
 } from './api';
+import { setUnauthorizedHandler } from '../auth/session-fetch';
 
 function response(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -16,6 +17,7 @@ function response(status: number, body?: unknown): Response {
 
 describe('cashier API', () => {
   afterEach(() => {
+    setUnauthorizedHandler(null);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -89,6 +91,33 @@ describe('cashier API', () => {
     ).rejects.toEqual(
       new CashierApiError(429, 'Unable to authorize cashier.', 9),
     );
+  });
+
+  it('keeps a cashier PIN 401 local while reporting protected read 401s', async () => {
+    const onUnauthorized = vi.fn();
+    setUnauthorizedHandler(onUnauthorized);
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        response(401, { message: 'Unable to authorize cashier.' }),
+      )
+      .mockResolvedValueOnce(response(401));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      selectActiveCashier('register-1', 'staff-1', '9999'),
+    ).rejects.toEqual(
+      new CashierApiError(401, 'Unable to authorize cashier.'),
+    );
+    expect(onUnauthorized).not.toHaveBeenCalled();
+
+    await expect(getActiveCashier('register-1')).rejects.toEqual(
+      new CashierApiError(
+        401,
+        'Cashier selection could not be completed. Try again.',
+      ),
+    );
+    expect(onUnauthorized).toHaveBeenCalledOnce();
   });
 
   it('clears through the append-only server endpoint with no PIN', async () => {
