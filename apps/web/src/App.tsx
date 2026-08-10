@@ -13,6 +13,8 @@ import {
 } from 'react-router-dom';
 import { Role } from '@coffee-shop/shared';
 import { AuthProvider, useAuth } from './auth/AuthContext';
+import { AdminLogoutControl } from './auth/LogoutControls';
+import { SessionNotice } from './auth/SessionNotice';
 import { login } from './auth/api';
 import { StaffSignInPage } from './StaffSignIn';
 import { CategoriesPage } from './catalog/CategoriesPage';
@@ -153,6 +155,15 @@ function ProtectedRoute({
   }
 
   if (auth.status === 'signedOut') {
+    if (auth.notice) {
+      return (
+        <Navigate
+          replace
+          to={auth.signedOutPath ?? signInPath}
+          state={{ authNotice: auth.notice }}
+        />
+      );
+    }
     const returnTo = requestedPath(location.pathname, location.search);
     return (
       <Navigate
@@ -272,6 +283,8 @@ function SignInPage() {
               <h2 id="sign-in-title">Sign in</h2>
               <p>Use your administrator username and password.</p>
             </div>
+
+            <SessionNotice />
 
             {cameFromProtectedRoute && (
               <div className="destination-context">
@@ -430,13 +443,16 @@ function AdminLayout() {
           })}
         </nav>
         <div className="admin-sidebar-user">
-          <span aria-hidden="true">
-            {(auth.user?.username ?? 'A').slice(0, 1).toUpperCase()}
-          </span>
-          <div>
-            <strong>{auth.user?.username}</strong>
-            <small>Administrator</small>
+          <div className="admin-identity">
+            <span aria-hidden="true">
+              {(auth.user?.username ?? 'A').slice(0, 1).toUpperCase()}
+            </span>
+            <div>
+              <strong>{auth.user?.username}</strong>
+              <small>Administrator</small>
+            </div>
           </div>
+          <AdminLogoutControl />
         </div>
       </aside>
       <div className="admin-workspace">

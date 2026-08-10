@@ -7,8 +7,7 @@ import type {
   StaffPasswordLoginRequest,
   StaffPinLoginRequest,
 } from '@coffee-shop/shared';
-
-const API_ORIGIN = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+import { sessionFetch } from './session-fetch';
 
 export class AuthenticationError extends Error {
   constructor(
@@ -20,14 +19,13 @@ export class AuthenticationError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_ORIGIN}${path}`, {
+  const response = await sessionFetch(path, {
     ...init,
-    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...init?.headers,
     },
-  });
+  }, { handleUnauthorized: false });
 
   if (!response.ok) {
     let retryAfterSeconds: number | null = null;
@@ -47,7 +45,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new AuthenticationError(response.status, retryAfterSeconds);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return (await response.json()) as T;
+}
+
+export function logout(): Promise<void> {
+  return request('/auth/logout', { method: 'POST' });
 }
 
 export async function login(

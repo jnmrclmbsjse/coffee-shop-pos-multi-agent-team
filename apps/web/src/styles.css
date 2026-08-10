@@ -607,14 +607,22 @@ button {
 
 .admin-sidebar-user {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 10px;
   margin-top: auto;
   padding: var(--space-3) var(--space-2) 0;
   border-top: 1px solid var(--border);
 }
 
-.admin-sidebar-user > span {
+.admin-identity {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-identity > span {
   width: 34px;
   height: 34px;
   display: grid;
@@ -626,7 +634,7 @@ button {
   font-weight: 700;
 }
 
-.admin-sidebar-user div {
+.admin-identity > div {
   min-width: 0;
 }
 
@@ -641,6 +649,94 @@ button {
 .admin-sidebar-user small {
   color: var(--muted);
   font-size: 12px;
+}
+
+.admin-sign-out,
+.admin-sign-out .sign-out-button {
+  width: 100%;
+}
+
+.admin-sign-out > p {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.sign-out-button {
+  min-width: 124px;
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 160ms ease-out,
+    border-color 160ms ease-out,
+    background-color 160ms ease-out;
+}
+
+.sign-out-button:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--surface-subtle);
+}
+
+.sign-out-button:focus-visible,
+.logout-dialog button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.sign-out-button:disabled {
+  color: var(--muted);
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.sign-out-button-content {
+  min-width: 94px;
+  display: inline-grid;
+  grid-template-columns: 18px auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sign-out-button-content .spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.sign-out-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.session-notice {
+  min-height: var(--touch-min);
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: var(--surface-subtle);
+  font-size: 14px;
+  font-weight: 650;
 }
 
 .admin-workspace {
@@ -2034,7 +2130,24 @@ button {
   }
 
   .admin-sidebar-user {
+    min-width: 118px;
+    display: flex;
+    flex: 0 0 auto;
+    justify-content: center;
+    margin: 0;
+    padding: 0 0 0 var(--space-2);
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+
+  .admin-sidebar-user .admin-identity,
+  .admin-sign-out > p {
     display: none;
+  }
+
+  .admin-sidebar-user .sign-out-button {
+    min-width: 110px;
+    padding-inline: var(--space-2);
   }
 
   .admin-sidebar > .brand {
@@ -4259,6 +4372,94 @@ button {
   gap: var(--space-6);
 }
 
+.staff-context-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin-left: auto;
+}
+
+.logout-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: oklch(18% 0.02 240 / 0.52);
+}
+
+.logout-dialog {
+  z-index: var(--z-modal);
+  width: min(100%, 420px);
+  padding: var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 4px 8px oklch(18% 0.02 240 / 0.22);
+  animation: cashier-dialog-in 180ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.logout-dialog h2,
+.logout-dialog p {
+  margin: 0;
+}
+
+.logout-dialog h2 {
+  font-size: 20px;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.logout-dialog > p {
+  margin-top: var(--space-2);
+  color: var(--ink-soft);
+}
+
+.logout-dialog .logout-dialog-error {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  background: var(--danger-surface);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.logout-dialog-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.logout-dialog-actions button {
+  min-height: calc(var(--touch-min) + var(--space-1));
+  flex: 1;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  background: var(--surface);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.logout-dialog-actions button.is-primary {
+  border-color: var(--accent);
+  color: var(--surface);
+  background: var(--accent);
+}
+
+.logout-dialog-actions button.is-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.logout-dialog-actions button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .staff-workspace-brand {
   min-width: 0;
   display: flex;
@@ -5849,6 +6050,28 @@ button {
     gap: var(--space-2);
   }
 
+  .staff-context-actions {
+    width: 100%;
+    align-items: stretch;
+    gap: var(--space-3);
+    margin-left: 0;
+  }
+
+  .staff-context-actions .staff-workspace-day-context {
+    flex: 1 1 auto;
+  }
+
+  .logout-dialog-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .logout-dialog {
+    width: 100%;
+    padding: var(--space-5) var(--space-4);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+
   .cashier-shell-control {
     flex-wrap: wrap;
   }
@@ -5952,6 +6175,16 @@ button {
 
   .staff-inventory-table-wrap {
     border-radius: var(--radius-sm);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sign-out-button {
+    transition: none;
+  }
+
+  .logout-dialog {
+    animation: none;
   }
 }
 
@@ -7146,7 +7379,7 @@ button {
 
 @media (min-width: 768px) {
   .staff-workspace-header-inner {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.58fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .staff-inventory-nav {

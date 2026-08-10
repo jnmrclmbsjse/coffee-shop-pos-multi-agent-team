@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -680,6 +680,196 @@ describe('staff authentication routes', () => {
       );
     },
   );
+});
+
+describe('session logout', () => {
+  const fetchMock = vi.fn<typeof fetch>();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('BroadcastChannel', undefined);
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('logs an administrator out through the server and shows the admin landing notice', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/auth/session') return response(200, { user: adminUser });
+      if (path === '/auth/logout') return response(204);
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderAt('/admin-placeholder');
+
+    await screen.findByRole('heading', { name: 'Administrator workspace' });
+    await user.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Sign in' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'You have been signed out.',
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/auth/logout',
+      expect.objectContaining({ method: 'POST', credentials: 'include' }),
+    );
+    expect(screen.queryByText('Administrator workspace')).not.toBeInTheDocument();
+  });
+
+  it('keeps the administrator signed in and offers retry feedback when logout fails', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/auth/session') return response(200, { user: adminUser });
+      if (path === '/auth/logout') throw new TypeError('network unavailable');
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderAt('/admin-placeholder');
+
+    await screen.findByRole('heading', { name: 'Administrator workspace' });
+    await user.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Sign out failed. Check the connection and try again.',
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Administrator workspace' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled();
+  });
+
+  it('confirms staff logout, keeps all remembered staff, and leaves cashier selection untouched', async () => {
+    const otherStaff = {
+      id: 'fd62804f-bf65-4570-9ecf-521fd3d17708',
+      username: 'ben.alonzo',
+      displayName: 'Ben Alonzo',
+      role: Role.STAFF,
+    } as const;
+    rememberStaff(otherStaff);
+    rememberStaff(staffUser);
+    const rememberedBeforeLogout = readRememberedStaff();
+
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/auth/session') return response(200, { user: staffUser });
+      if (path === '/auth/logout') return response(204);
+      if (path === '/trading-day/current') {
+        return response(200, {
+          isOpen: true,
+          businessDate: '2026-08-10',
+          dayType: 'NORMAL',
+          openingFloatCents: 50000,
+          openedByDisplayName: 'Maya Santos',
+          openedAt: '2026-08-10T00:00:00.000Z',
+        });
+      }
+      if (path === '/inventory/counts/opening-sheet') {
+        return response(200, {
+          businessDay: {
+            isOpen: true,
+            businessDate: '2026-08-10',
+            dayType: 'NORMAL',
+          },
+          phase: 'open',
+          items: [],
+          submittedCount: null,
+        });
+      }
+      if (path === '/inventory/counts/staff') return response(200, []);
+      if (path === '/sales/active-cashier') {
+        return response(200, { cashier: null });
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderAt('/pos/opening');
+
+    await screen.findByRole('heading', { name: 'Opening count' });
+    await user.click(screen.getByRole('button', { name: 'Sign out' }));
+    const dialog = screen.getByRole('dialog', {
+      name: 'Sign out of this session?',
+    });
+    expect(dialog).toHaveTextContent(
+      'The active cashier on this till stays as it is.',
+    );
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus(),
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Sign out' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Who’s signing in?' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'You have been signed out.',
+    );
+    expect(screen.getByRole('button', { name: /Maya Santos/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ben Alonzo/ })).toBeInTheDocument();
+    expect(readRememberedStaff()).toEqual(rememberedBeforeLogout);
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          new URL(String(url)).pathname === '/sales/active-cashier' &&
+          (init as RequestInit | undefined)?.method === 'DELETE',
+      ),
+    ).toBe(false);
+  });
+
+  it('ends an authenticated session when a protected request returns 401', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/auth/session') return response(200, { user: adminUser });
+      if (path === '/reporting/dashboard') return response(401);
+      return response(500);
+    });
+
+    renderAt('/dashboard');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Sign in' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Your session ended. Sign in to continue.',
+    );
+    expect(screen.queryByRole('heading', { name: 'Dashboard' }))
+      .not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['a cross-tab storage message', () => window.dispatchEvent(new StorageEvent('storage', {
+      key: 'ucm.auth.logout-event.v1',
+      newValue: String(Date.now()),
+    }))],
+    ['a Back-navigation pageshow', () => window.dispatchEvent(new PageTransitionEvent('pageshow', {
+      persisted: true,
+    }))],
+  ])('revalidates on %s before showing protected content again', async (_label, trigger) => {
+    fetchMock
+      .mockResolvedValueOnce(response(200, { user: adminUser }))
+      .mockResolvedValueOnce(response(401));
+
+    renderAt('/admin-placeholder');
+
+    await screen.findByRole('heading', { name: 'Administrator workspace' });
+    trigger();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Sign in' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Your session ended. Sign in to continue.',
+    );
+  });
 });
 
 describe('remembered staff storage', () => {

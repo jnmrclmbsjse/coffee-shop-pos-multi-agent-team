@@ -3,8 +3,7 @@ import type {
   ActiveCashierResponse,
   SelectableStaffMember,
 } from '@coffee-shop/shared';
-
-const API_ORIGIN = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+import { sessionFetch } from '../auth/session-fetch';
 
 export class CashierApiError extends Error {
   constructor(
@@ -17,9 +16,8 @@ export class CashierApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_ORIGIN}${path}`, {
+  const response = await sessionFetch(path, {
     ...init,
-    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...init?.headers,
