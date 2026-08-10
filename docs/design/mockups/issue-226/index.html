@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UCM Coffee Studio - Logout extension</title>
+  <style>
+    :root {
+      --bg: oklch(98% 0.005 250); --surface: oklch(100% 0 0); --fg: oklch(22% 0.02 240);
+      --muted: oklch(50% 0.018 240); --border: oklch(90% 0.008 240);
+      --accent: oklch(58% 0.16 145); --accent-hover: oklch(52% 0.16 145); --accent-pressed: oklch(46% 0.14 145);
+      --danger: oklch(48% 0.18 28); --danger-surface: oklch(97% 0.018 28);
+      --warn-ink: oklch(41% 0.09 75); --warn-surface: oklch(97% 0.03 85); --warn-border: oklch(80% 0.08 80);
+      --focus: oklch(43% 0.14 145); --ink-soft: oklch(36% 0.018 240);
+      --surface-subtle: oklch(96.5% 0.007 240); --border-strong: oklch(76% 0.012 240);
+      --radius-sm: 6px; --radius-md: 10px; --touch-min: 44px; --field-h: 48px;
+      --logo-inline: 32px; --logo-sidebar: 40px;
+      --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px; --space-8:32px;
+      --z-modal-backdrop: 30; --z-modal: 40;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); color: var(--fg); }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, Inter, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.5; }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    svg { display: block; flex: 0 0 auto; }
+    .doc-page { width: min(100% - 32px, 1504px); margin: 0 auto; padding: 40px 0 80px; }
+    .doc-header { max-width: 760px; margin-bottom: 36px; }
+    .doc-header h1 { margin: 0 0 10px; font-size: clamp(28px, 4vw, 42px); line-height: 1.08; letter-spacing: -0.02em; }
+    .doc-header p { margin: 0; max-width: 65ch; color: var(--muted); font-size: 16px; }
+    .doc-panel { margin: 0 0 32px; }
+    .doc-caption { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; padding: 0 2px 8px; color: var(--ink-soft); }
+    .doc-caption strong { font-size: 14px; font-weight: 750; }
+    .doc-caption span { color: var(--muted); font-size: 12px; letter-spacing: .01em; text-align: right; }
+    .product-frame { overflow: hidden; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); box-shadow: 0 8px 28px color-mix(in oklch, var(--fg) 7%, transparent); }
+    .product-frame.compact { padding: var(--space-6); }
+    .annotation { margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-subtle); color: var(--ink-soft); font-size: 13px; }
+    .annotation strong { color: var(--fg); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    .brand-mark { width: var(--logo-sidebar); height: var(--logo-sidebar); color: var(--accent); }
+    .brand-mark.inline { width: var(--logo-inline); height: var(--logo-inline); }
+    .brand-mark .cup { fill: color-mix(in oklch, var(--accent) 12%, var(--surface)); stroke: currentColor; }
+    .brand-mark .steam { fill: none; stroke: currentColor; stroke-linecap: round; }
+
+    .signout-button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--touch-min); min-width: 124px; padding: 0 var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--ink-soft); font-weight: 650; letter-spacing: .02em; white-space: nowrap; transition: background-color 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out; }
+    .signout-button.full { width: 100%; }
+    .signout-button:hover, .signout-button.is-hover { background: var(--surface-subtle); color: var(--fg); }
+    .signout-button:focus-visible, .signout-button.is-focus { outline: 3px solid color-mix(in oklch, var(--focus) 55%, transparent); outline-offset: 2px; }
+    .signout-button:disabled { cursor: wait; opacity: .72; }
+    .signout-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .button-content { display: inline-grid; grid-template-columns: 18px auto; align-items: center; gap: var(--space-2); min-width: 94px; }
+    .spinner { width: 16px; height: 16px; border: 2px solid color-mix(in oklch, currentColor 24%, transparent); border-top-color: currentColor; border-radius: 50%; }
+
+    .admin-shell.catalog-admin-shell { display: grid; grid-template-columns: 228px minmax(0,1fr); min-height: 660px; background: var(--bg); font-size: 14px; }
+    .admin-sidebar { position: sticky; top: 0; height: 660px; display: flex; flex-direction: column; gap: var(--space-6); padding: var(--space-5) var(--space-3); border-right: 1px solid var(--border); background: var(--surface); }
+    .admin-sidebar .brand { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-1) var(--space-2) var(--space-5); border-bottom: 1px solid var(--border); font-weight: 750; line-height: 1.2; }
+    .admin-nav { min-height: 0; overflow: auto; }
+    .admin-nav-group + .admin-nav-group { margin-top: var(--space-5); }
+    .admin-nav-label { margin: 0 0 var(--space-2); padding: 0 var(--space-3); color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .admin-nav a { display: flex; align-items: center; min-height: var(--touch-min); padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--ink-soft); text-decoration: none; }
+    .admin-nav a.active { background: color-mix(in oklch, var(--accent) 10%, var(--surface)); box-shadow: inset 3px 0 0 currentColor; color: var(--fg); font-weight: 750; }
+    .admin-sidebar-user { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding: var(--space-3) var(--space-2) 0; border-top: 1px solid var(--border); }
+    .admin-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .admin-avatar { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; background: var(--fg); color: var(--surface); font-weight: 750; }
+    .admin-identity-copy { min-width: 0; line-height: 1.25; }
+    .admin-identity strong, .admin-identity small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .admin-identity small { color: var(--muted); }
+    .admin-main { min-width: 0; }
+    .admin-topbar { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: 0 var(--space-6); border-bottom: 1px solid var(--border); background: var(--surface); }
+    .admin-topbar strong { font-weight: 750; }
+    .admin-topbar span { color: var(--muted); }
+    .admin-content { padding: var(--space-6); }
+    .admin-content h2 { margin: 0 0 4px; font-size: 24px; line-height: 1.2; letter-spacing: -.01em; }
+    .admin-content > p { margin: 0 0 var(--space-6); color: var(--muted); }
+    .catalog-toolbar { display: flex; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+    .field-look, .product-row, .inventory-card { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+    .field-look { min-height: var(--field-h); display: flex; align-items: center; width: min(340px, 100%); padding: 0 var(--space-4); color: var(--muted); }
+    .primary-button { min-height: var(--touch-min); padding: 0 var(--space-4); border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent); color: var(--surface); font-weight: 700; white-space: nowrap; }
+    .product-list { display: grid; gap: var(--space-3); }
+    .product-row { display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-4); align-items: center; padding: var(--space-4); }
+    .product-row small { display: block; color: var(--muted); }
+    .stock-ok { color: var(--accent-pressed); font-weight: 700; }
+
+    .state-strip { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: var(--space-3); overflow-x: auto; padding: 4px 4px 10px; }
+    .state-strip.four { grid-template-columns: repeat(4, minmax(170px, 1fr)); }
+    .state-cell { min-width: 0; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+    .state-cell > small { display: block; margin-bottom: var(--space-3); color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .mini-user { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; min-width: 0; }
+    .mini-user .admin-identity-copy { min-width: 0; }
+
+    .admin-narrow-shell { background: var(--bg); }
+    .admin-top-rail { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3); border-bottom: 1px solid var(--border); background: var(--surface); }
+    .admin-top-rail .brand { display: flex; gap: var(--space-2); align-items: center; font-weight: 750; white-space: nowrap; }
+    .admin-rail-nav { display: flex; gap: var(--space-2); min-width: 0; overflow-x: auto; padding: 2px; }
+    .admin-rail-nav a { display: inline-flex; align-items: center; min-height: calc(var(--touch-min) + var(--space-3)); padding: 0 var(--space-4); border-radius: var(--radius-sm); color: var(--ink-soft); text-decoration: none; white-space: nowrap; }
+    .admin-rail-nav a.active { background: color-mix(in oklch, var(--accent) 10%, var(--surface)); box-shadow: inset 0 -3px 0 currentColor; color: var(--fg); font-weight: 750; }
+    .rail-account { display: flex; gap: var(--space-2); align-items: center; padding-left: var(--space-3); border-left: 1px solid var(--border); }
+    .rail-account-copy { max-width: 120px; line-height: 1.2; }
+    .rail-account-copy strong, .rail-account-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rail-account-copy small { color: var(--muted); }
+    .narrow-content { min-height: 330px; padding: var(--space-6); }
+
+    .staff-inventory-shell { min-height: 540px; background: var(--bg); }
+    .staff-workspace-header { position: sticky; top: 0; border-bottom: 1px solid var(--border); background: color-mix(in oklch, var(--surface) 96%, transparent); box-shadow: 0 2px 5px color-mix(in oklch, var(--fg) 5%, transparent); }
+    .staff-workspace-header-inner { width: min(100%, 1504px); min-height: 72px; display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-8); margin: 0 auto; }
+    .staff-workspace-context-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); }
+    .staff-workspace-brand { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+    .staff-brand-copy { min-width: 0; }
+    .staff-brand-line { display: flex; align-items: center; gap: var(--space-2); font-weight: 750; }
+    .staff-pill { padding: 2px 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); color: var(--ink-soft); font-size: 12px; font-weight: 650; }
+    .staff-workspace-brand small { display: block; color: var(--muted); overflow-wrap: anywhere; }
+    .staff-context-right { display: flex; align-items: center; gap: var(--space-8); margin-left: auto; }
+    .staff-workspace-day-context { min-width: 175px; text-align: right; line-height: 1.3; }
+    .staff-workspace-day-context strong, .staff-workspace-day-context small { display: block; }
+    .staff-workspace-day-context small { color: var(--muted); }
+    .cashier-shell-control { display: flex; align-items: stretch; gap: var(--space-2); }
+    .cashier-indicator { min-height: var(--touch-min); display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: var(--space-3); min-width: 320px; padding: 0 var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); text-align: left; }
+    .cashier-indicator span:first-child { color: var(--muted); font-size: 12px; }
+    .cashier-indicator span:last-child { justify-self: end; color: var(--accent-pressed); font-weight: 700; }
+    .neutral-button { min-height: var(--touch-min); padding: 0 var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink-soft); font-weight: 650; }
+    .staff-inventory-nav { min-width: 0; overflow-x: auto; }
+    .staff-inventory-nav ul { display: flex; align-items: center; gap: var(--space-2); width: max-content; margin: 0; padding: 0; list-style: none; }
+    .staff-nav-item { min-height: var(--touch-min); display: inline-flex; align-items: center; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink-soft); font-weight: 650; white-space: nowrap; }
+    .staff-nav-item.current { border-color: color-mix(in oklch, var(--accent) 40%, var(--border)); background: color-mix(in oklch, var(--accent) 11%, var(--surface)); box-shadow: inset 0 -3px 0 currentColor; color: var(--fg); }
+    .staff-nav-item.unavailable { border-style: dashed; color: var(--muted); }
+    .nav-separator { width: 1px; height: 28px; margin: 0 2px; background: var(--border); }
+    .staff-workarea { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, .8fr); gap: var(--space-5); padding: var(--space-6) var(--space-8); }
+    .staff-workarea h2 { margin: 0 0 var(--space-4); font-size: 22px; letter-spacing: -.01em; }
+    .inventory-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--space-3); }
+    .inventory-card { padding: var(--space-4); }
+    .inventory-card strong, .inventory-card small { display: block; }
+    .inventory-card small { color: var(--muted); }
+    .order-summary { padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+
+    .modal-composition { position: relative; min-height: 500px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+    .modal-composition .staff-workspace-header { filter: grayscale(.2); }
+    .modal-backdrop { position: absolute; z-index: var(--z-modal-backdrop); inset: 0; background: color-mix(in oklch, var(--fg) 42%, transparent); }
+    .confirm-dialog { position: absolute; z-index: var(--z-modal); top: 50%; left: 50%; width: min(420px, calc(100% - 32px)); transform: translate(-50%,-50%); padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: 0 18px 48px color-mix(in oklch, var(--fg) 24%, transparent); }
+    .confirm-dialog h3 { margin: 0 0 var(--space-2); font-size: 20px; letter-spacing: -.01em; }
+    .confirm-dialog p { margin: 0 0 var(--space-5); color: var(--ink-soft); }
+    .dialog-actions { display: flex; flex-direction: row-reverse; gap: var(--space-3); }
+    .dialog-actions button { min-height: calc(var(--touch-min) + var(--space-1)); flex: 1; }
+    .dialog-actions .cancel-default { outline: 3px solid color-mix(in oklch, var(--focus) 55%, transparent); outline-offset: 2px; }
+
+    .staff-tablet .staff-workspace-header-inner { padding: var(--space-3) var(--space-4); }
+    .staff-tablet .staff-context-right { gap: var(--space-4); }
+    .staff-tablet .staff-workspace-context-row { align-items: flex-start; gap: var(--space-4); }
+    .staff-tablet .staff-context-right { align-items: flex-start; }
+    .staff-tablet .staff-workspace-day-context { min-width: 0; max-width: 175px; }
+    .staff-tablet .cashier-indicator { min-width: min(100%, 320px); }
+    .staff-tablet .staff-workarea { grid-template-columns: 1fr; padding: var(--space-5) var(--space-4); }
+
+    .auth-frame { min-height: 600px; background: var(--bg); }
+    .auth-topbar, .staff-topbar { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: 0 var(--space-8); border-bottom: 1px solid var(--border); background: var(--surface); }
+    .auth-brand { display: flex; align-items: center; gap: var(--space-3); font-weight: 750; }
+    .text-link { color: var(--accent-pressed); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+    .admin-auth-body { min-height: 536px; display: grid; grid-template-columns: minmax(260px, .85fr) minmax(360px, 1.15fr); }
+    .auth-context { display: flex; flex-direction: column; justify-content: flex-end; padding: 48px; background: var(--fg); color: var(--surface); }
+    .auth-context h2 { margin: 0 0 var(--space-3); max-width: 11ch; font-size: 34px; line-height: 1.08; letter-spacing: -.02em; }
+    .auth-context p { margin: 0; max-width: 38ch; color: color-mix(in oklch, var(--surface) 76%, transparent); }
+    .auth-card-wrap { display: grid; place-items: center; padding: var(--space-8); }
+    .auth-card { width: min(100%, 420px); padding: var(--space-8); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: 0 10px 30px color-mix(in oklch, var(--fg) 8%, transparent); }
+    .auth-card h2 { margin: 0 0 var(--space-5); font-size: 24px; letter-spacing: -.01em; }
+    .status-line { display: flex; align-items: center; min-height: var(--touch-min); margin-bottom: var(--space-5); padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-subtle); color: var(--ink-soft); }
+    .field-group { display: grid; gap: var(--space-2); margin-bottom: var(--space-4); }
+    .field-group label { color: var(--fg); font-weight: 650; }
+    .field-group input { width: 100%; height: var(--field-h); padding: 0 var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--fg); }
+    .password-meta { display: flex; justify-content: flex-end; margin-top: calc(var(--space-2) * -1); margin-bottom: var(--space-4); }
+    .text-button { min-height: var(--touch-min); padding: 0; border: 0; background: transparent; color: var(--accent-pressed); font-weight: 650; }
+    .submit-button { width: 100%; min-height: var(--field-h); border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent); color: var(--surface); font-weight: 750; }
+    .form-note { margin: var(--space-4) 0 0; color: var(--muted); font-size: 13px; }
+
+    .staff-auth-app { min-height: 600px; background: var(--bg); }
+    .staff-picker-content { width: min(100% - 32px, 980px); margin: 0 auto; padding: 44px 0; }
+    .staff-picker-content h2 { margin: 0 0 var(--space-2); font-size: 28px; letter-spacing: -.02em; }
+    .staff-picker-content > p { margin: 0 0 var(--space-6); color: var(--muted); }
+    .staff-picker-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: var(--space-4); }
+    .staff-picker-tile { min-height: 150px; display: grid; place-items: center; align-content: center; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); font-weight: 700; text-align: center; }
+    .staff-avatar { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; background: var(--fg); color: var(--surface); font-size: 17px; font-weight: 750; }
+    .staff-alternate-path { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--border); }
+    .staff-text-button { min-height: var(--touch-min); border: 0; background: transparent; color: var(--accent-pressed); font-weight: 700; }
+    .picker-callout { margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-subtle); color: var(--fg); font-weight: 750; }
+
+    .transition-pair { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--space-4); padding: var(--space-4); background: var(--bg); }
+    .transition-step { min-width: 0; }
+    .transition-label { display: block; margin: 0 0 var(--space-2); color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .transition-step .mini-frame { min-height: 420px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+    .protected-mini .admin-topbar { min-height: 48px; padding: 0 var(--space-4); }
+    .protected-mini .admin-content { padding: var(--space-4); }
+    .protected-form { display: grid; gap: var(--space-3); margin-top: var(--space-5); }
+    .protected-form .field-look { width: 100%; color: var(--fg); }
+    .protected-form textarea { min-height: 110px; resize: none; padding: var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); color: var(--fg); font: inherit; }
+    .redirect-mini { padding: var(--space-6); background: var(--bg); }
+    .redirect-mini .auth-card { margin: 28px auto 0; padding: var(--space-5); box-shadow: none; }
+
+    @media (max-width: 900px) {
+      .admin-shell.catalog-admin-shell { grid-template-columns: 1fr; }
+      .admin-shell .admin-sidebar { position: static; height: auto; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: var(--space-3); padding: var(--space-3); border-right: 0; border-bottom: 1px solid var(--border); }
+      .admin-shell .admin-sidebar .brand { padding: 0; border: 0; }
+      .admin-shell .admin-nav { display: flex; overflow-x: auto; }
+      .admin-shell .admin-nav-group { display: flex; margin: 0; }
+      .admin-shell .admin-nav-label { display: none; }
+      .admin-shell .admin-nav-group a { min-height: calc(var(--touch-min) + var(--space-3)); white-space: nowrap; }
+      .admin-shell .admin-sidebar-user { width: 180px; margin: 0; padding: 0 0 0 var(--space-3); border-top: 0; border-left: 1px solid var(--border); }
+    }
+    @media (max-width: 760px) {
+      .doc-page { width: min(100% - 20px, 1504px); padding-top: 24px; }
+      .doc-caption { display: block; }
+      .doc-caption span { display: block; text-align: left; }
+      .product-frame.compact { padding: var(--space-4); }
+      .transition-pair, .admin-auth-body, .staff-workarea { grid-template-columns: 1fr; }
+      .auth-context { min-height: 240px; padding: var(--space-6); }
+      .auth-card-wrap { padding: var(--space-4); }
+      .auth-topbar, .staff-topbar { padding: 0 var(--space-4); }
+      .staff-picker-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .staff-workspace-context-row { align-items: flex-start; }
+      .staff-context-right { align-items: flex-end; flex-direction: column-reverse; gap: var(--space-2); }
+      .staff-workspace-day-context { max-width: 160px; }
+      .cashier-shell-control { flex-wrap: wrap; }
+      .cashier-indicator { min-width: min(100%, 320px); }
+      .admin-top-rail { grid-template-columns: 1fr auto; }
+      .admin-rail-nav { grid-column: 1 / -1; grid-row: 2; }
+    }
+    @media (max-width: 520px) {
+      .staff-workspace-header-inner { padding: var(--space-3); }
+      .staff-workspace-context-row { display: grid; }
+      .staff-context-right { width: 100%; flex-direction: row; justify-content: space-between; align-items: center; }
+      .staff-workspace-day-context { text-align: left; }
+      .inventory-grid { grid-template-columns: 1fr; }
+      .staff-picker-grid { grid-template-columns: 1fr; }
+      .staff-alternate-path { align-items: flex-start; flex-direction: column; }
+      .dialog-actions { flex-direction: column; }
+      .product-row { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="doc-page" data-od-id="logout-documentation">
+    <header class="doc-header" data-od-id="documentation-header">
+      <h1>Logout extension reference</h1>
+      <p>Issue #226. Static implementation guidance for administrator and staff session logout, role-correct landing screens, and stale-tab redirects.</p>
+    </header>
+
+    <section class="doc-panel" data-od-id="panel-admin-desktop">
+      <div class="doc-caption"><strong>Admin shell, desktop</strong><span>Full shell context. Existing pinned account block extended in place.</span></div>
+      <div class="product-frame">
+        <div class="admin-shell catalog-admin-shell">
+          <aside class="admin-sidebar" aria-label="Administrator sidebar">
+            <div class="brand">
+              <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><rect class="cup" x="6" y="9" width="22" height="21" rx="6"/><path class="cup" d="M28 14h2a5 5 0 0 1 0 10h-2"/><path class="steam" d="M14 7c-2-2 2-3 0-5M21 7c-2-2 2-3 0-5"/></svg>
+              <span>UCM Coffee<br>Studio</span>
+            </div>
+            <nav class="admin-nav" aria-label="Back office">
+              <div class="admin-nav-group"><p class="admin-nav-label">Catalog</p><a class="active" href="#">Products</a><a href="#">Categories</a><a href="#">Modifiers</a></div>
+              <div class="admin-nav-group"><p class="admin-nav-label">Inventory</p><a href="#">Stock items</a><a href="#">Counts</a></div>
+              <div class="admin-nav-group"><p class="admin-nav-label">Reports</p><a href="#">Sales</a><a href="#">Cash</a></div>
+            </nav>
+            <div class="admin-sidebar-user" data-od-id="admin-account-footer">
+              <div class="admin-identity"><span class="admin-avatar">MS</span><span class="admin-identity-copy"><strong>maria.santos</strong><small>Administrator</small></span></div>
+              <button class="signout-button full" type="button" aria-label="Sign out"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button>
+            </div>
+          </aside>
+          <div class="admin-main">
+            <header class="admin-topbar"><strong>UCM Coffee Studio / Back office</strong><span>Signed in as maria.santos</span></header>
+            <div class="admin-content"><h2>Products</h2><p>Manage the catalog available to the point of sale.</p><div class="catalog-toolbar"><div class="field-look">Search products</div><button class="primary-button">Add product</button></div><div class="product-list"><div class="product-row"><span><strong>Spanish Latte</strong><small>Espresso drinks</small></span><strong>PHP 155</strong><span class="stock-ok">Available</span></div><div class="product-row"><span><strong>Cold Brew</strong><small>Cold coffee</small></span><strong>PHP 145</strong><span class="stock-ok">Available</span></div><div class="product-row"><span><strong>Butter Croissant</strong><small>Pastries</small></span><strong>PHP 95</strong><span class="stock-ok">Available</span></div></div></div>
+          </div>
+        </div>
+      </div>
+      <p class="annotation"><strong>Placement:</strong> the identity row is unchanged. The new control sits directly beneath it inside the existing `.admin-sidebar-user` footer.</p>
+    </section>
+
+    <section class="doc-panel" data-od-id="panel-admin-states">
+      <div class="doc-caption"><strong>Admin sidebar footer states</strong><span>Fixed button footprint prevents label or spinner shift.</span></div>
+      <div class="product-frame compact"><div class="state-strip">
+        <div class="state-cell"><small>Rest</small><div class="mini-user"><span class="admin-avatar">MS</span><span class="admin-identity-copy"><strong>maria.santos</strong><small>Administrator</small></span></div><button class="signout-button full"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button></div>
+        <div class="state-cell"><small>Hover</small><div class="mini-user"><span class="admin-avatar">MS</span><span class="admin-identity-copy"><strong>maria.santos</strong><small>Administrator</small></span></div><button class="signout-button full is-hover"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button></div>
+        <div class="state-cell"><small>Focus-visible</small><div class="mini-user"><span class="admin-avatar">MS</span><span class="admin-identity-copy"><strong>maria.santos</strong><small>Administrator</small></span></div><button class="signout-button full is-focus"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button></div>
+        <div class="state-cell"><small>In-flight</small><div class="mini-user"><span class="admin-avatar">MS</span><span class="admin-identity-copy"><strong>maria.santos</strong><small>Administrator</small></span></div><button class="signout-button full" disabled aria-busy="true"><span class="button-content"><span class="spinner" aria-hidden="true"></span><span>Signing out…</span></span></button></div>
+        <div class="state-cell"><small>Long username</small><div class="mini-user"><span class="admin-avatar">MT</span><span class="admin-identity-copy"><strong>maria.theresa.santos-operations</strong><small>Administrator</small></span></div><button class="signout-button full"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button></div>
+      </div></div>
+    </section>
+
+    <section class="doc-panel" data-od-id="panel-admin-narrow">
+      <div class="doc-caption"><strong>Admin shell, narrow breakpoint</strong><span>Account cluster stays outside the horizontal navigation.</span></div>
+      <div class="product-frame admin-narrow-shell">
+        <div class="admin-top-rail"><div class="brand"><svg class="brand-mark inline" viewBox="0 0 40 40" aria-hidden="true"><rect class="cup" x="6" y="9" width="22" height="21" rx="6"/><path class="cup" d="M28 14h2a5 5 0 0 1 0 10h-2"/></svg><span>UCM Coffee Studio</span></div><nav class="admin-rail-nav" aria-label="Back office"><a class="active" href="#">Products</a><a href="#">Categories</a><a href="#">Modifiers</a><a href="#">Stock items</a><a href="#">Counts</a><a href="#">Sales</a><a href="#">Cash</a></nav><div class="rail-account"><span class="admin-avatar">MS</span><span class="rail-account-copy"><strong>maria.santos</strong><small>Administrator</small></span><button class="signout-button"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button></div></div>
+        <div class="narrow-content"><h2>Products</h2><p>Navigation targets are taller in the collapsed top rail. The session action remains stable at the rail edge.</p></div>
+      </div>
+    </section>
+
+    <section class="doc-panel" data-od-id="panel-staff-desktop">
+      <div class="doc-caption"><strong>Staff shell, desktop</strong><span>Three distinct rows: session context, cashier control, operational navigation.</span></div>
+      <div class="product-frame"><div class="staff-inventory-shell">
+        <header class="staff-workspace-header"><div class="staff-workspace-header-inner">
+          <div class="staff-workspace-context-row"><div class="staff-workspace-brand"><svg class="brand-mark inline" viewBox="0 0 40 40" aria-hidden="true"><rect class="cup" x="6" y="9" width="22" height="21" rx="6"/><path class="cup" d="M28 14h2a5 5 0 0 1 0 10h-2"/></svg><div class="staff-brand-copy"><div class="staff-brand-line">UCM Coffee Studio <span class="staff-pill">Staff</span></div><small>Signed in as Maria Santos</small></div></div><div class="staff-context-right"><div class="staff-workspace-day-context"><strong>Friday, 8 August 2026</strong><small>Regular day</small></div><button class="signout-button"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button></div></div>
+          <div class="cashier-shell-control"><button class="cashier-indicator"><span>Active cashier</span><strong>Ben Alonzo</strong><span>Change</span></button><button class="neutral-button">Clear</button></div>
+          <nav class="staff-inventory-nav" aria-label="Staff workspace"><ul><li><span class="staff-nav-item">Take Order</span></li><li class="nav-separator" aria-hidden="true"></li><li><span class="staff-nav-item">Open Day</span></li><li class="nav-separator" aria-hidden="true"></li><li><span class="staff-nav-item current">Opening</span></li><li><span class="staff-nav-item">Restock</span></li><li><span class="staff-nav-item">Deliveries &amp; Wastage</span></li><li><span class="staff-nav-item">Order History</span></li><li><span class="staff-nav-item">Cash &amp; Expenses</span></li><li><span class="staff-nav-item unavailable" aria-disabled="true">Closing</span></li><li class="nav-separator" aria-hidden="true"></li><li><span class="staff-nav-item unavailable" aria-disabled="true">End Day</span></li></ul></nav>
+        </div></header>
+        <div class="staff-workarea"><div><h2>Opening inventory</h2><div class="inventory-grid"><div class="inventory-card"><strong>Coffee beans</strong><small>Record opening count</small></div><div class="inventory-card"><strong>Fresh milk</strong><small>Record opening count</small></div><div class="inventory-card"><strong>Oat milk</strong><small>Record opening count</small></div><div class="inventory-card"><strong>Pastries</strong><small>Record opening count</small></div></div></div><aside class="order-summary"><strong>Business day</strong><p>Opening checks are in progress for Friday, 8 August 2026.</p></aside></div>
+      </div></div>
+      <p class="annotation"><strong>Separation:</strong> `Sign out` is in row 1, far from row 2 cashier actions and outside row 3 ordering navigation.</p>
+    </section>
+
+    <section class="doc-panel" data-od-id="panel-staff-states-dialog">
+      <div class="doc-caption"><strong>Staff logout states and confirmation</strong><span>Confirmation is deliberate for a shared touch till.</span></div>
+      <div class="product-frame compact"><div class="state-strip four">
+        <div class="state-cell"><small>Rest</small><button class="signout-button"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button></div>
+        <div class="state-cell"><small>Hover</small><button class="signout-button is-hover"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button></div>
+        <div class="state-cell"><small>Focus-visible</small><button class="signout-button is-focus"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button></div>
+        <div class="state-cell"><small>In-flight</small><button class="signout-button" disabled aria-busy="true"><span class="button-content"><span class="spinner" aria-hidden="true"></span><span>Signing out…</span></span></button></div>
+      </div>
+      <div class="modal-composition" aria-label="Static staff logout confirmation composition">
+        <header class="staff-workspace-header"><div class="staff-workspace-header-inner"><div class="staff-workspace-context-row"><div class="staff-workspace-brand"><svg class="brand-mark inline" viewBox="0 0 40 40" aria-hidden="true"><rect class="cup" x="6" y="9" width="22" height="21" rx="6"/><path class="cup" d="M28 14h2a5 5 0 0 1 0 10h-2"/></svg><div class="staff-brand-copy"><div class="staff-brand-line">UCM Coffee Studio <span class="staff-pill">Staff</span></div><small>Signed in as Maria Santos</small></div></div><div class="staff-context-right"><div class="staff-workspace-day-context"><strong>Friday, 8 August 2026</strong><small>Regular day</small></div><button class="signout-button">Sign out</button></div></div><div class="cashier-shell-control"><button class="cashier-indicator"><span>Active cashier</span><strong>Ben Alonzo</strong><span>Change</span></button><button class="neutral-button">Clear</button></div></div></header>
+        <div class="modal-backdrop"></div>
+        <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-body"><h3 id="confirm-title">Sign out of this session?</h3><p id="confirm-body">Signing out ends your session on this browser. The active cashier on this till stays as it is.</p><div class="dialog-actions"><button class="primary-button">Sign out</button><button class="neutral-button cancel-default">Cancel</button></div></section>
+      </div></div>
+    </section>
+
+    <section class="doc-panel" data-od-id="panel-staff-tablet">
+      <div class="doc-caption"><strong>Staff shell, tablet and narrow width</strong><span>Long identity wraps; the session control remains outside nav overflow.</span></div>
+      <div class="product-frame"><div class="staff-inventory-shell staff-tablet"><header class="staff-workspace-header"><div class="staff-workspace-header-inner">
+        <div class="staff-workspace-context-row"><div class="staff-workspace-brand"><svg class="brand-mark inline" viewBox="0 0 40 40" aria-hidden="true"><rect class="cup" x="6" y="9" width="22" height="21" rx="6"/><path class="cup" d="M28 14h2a5 5 0 0 1 0 10h-2"/></svg><div class="staff-brand-copy"><div class="staff-brand-line">UCM Coffee Studio <span class="staff-pill">Staff</span></div><small>Signed in as Maria Theresa Santos Villanueva</small></div></div><div class="staff-context-right"><div class="staff-workspace-day-context"><strong>Friday, 8 August 2026</strong><small>Regular day</small></div><button class="signout-button"><span class="button-content"><svg class="signout-icon" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 3H3.5v12H7M10.5 5.5 14 9l-3.5 3.5M6 9h8"/></svg><span>Sign out</span></span></button></div></div>
+        <div class="cashier-shell-control"><button class="cashier-indicator"><span>Active cashier</span><strong>Ben Alonzo</strong><span>Change</span></button><button class="neutral-button">Clear</button></div>
+        <nav class="staff-inventory-nav" aria-label="Staff workspace"><ul><li><span class="staff-nav-item">Take Order</span></li><li class="nav-separator"></li><li><span class="staff-nav-item">Open Day</span></li><li class="nav-separator"></li><li><span class="staff-nav-item current">Opening</span></li><li><span class="staff-nav-item">Restock</span></li><li><span class="staff-nav-item">Deliveries &amp; Wastage</span></li><li><span class="staff-nav-item">Order History</span></li><li><span class="staff-nav-item">Cash &amp; Expenses</span></li><li><span class="staff-nav-item unavailable" aria-disabled="true">Closing</span></li></ul></nav>
+      </div></header><div class="staff-workarea"><div><h2>Opening inventory</h2><div class="inventory-grid"><div class="inventory-card"><strong>Coffee beans</strong><small>Opening count</small></div><div class="inventory-card"><strong>Fresh milk</strong><small>Opening count</small></div></div></div></div></div></div>
+    </section>
+
+    <section class="doc-panel" data-od-id="panel-admin-signed-out">
+      <div class="doc-caption"><strong>Post-logout landing: administrator</strong><span>Route: /sign-in. Neutral status confirms success.</span></div>
+      <div class="product-frame auth-frame"><header class="auth-topbar"><div class="auth-brand"><svg class="brand-mark inline" viewBox="0 0 40 40" aria-hidden="true"><rect class="cup" x="6" y="9" width="22" height="21" rx="6"/><path class="cup" d="M28 14h2a5 5 0 0 1 0 10h-2"/></svg>UCM Coffee Studio</div><a class="text-link" href="#">Staff sign-in</a></header><div class="admin-auth-body"><aside class="auth-context"><h2>Back office access</h2><p>Manage catalog, inventory, reports, and cash records for UCM Coffee Studio.</p></aside><div class="auth-card-wrap"><form class="auth-card"><h2>Administrator sign-in</h2><div class="status-line" role="status" aria-live="polite">You have been signed out.</div><div class="field-group"><label for="admin-user">Username</label><input id="admin-user" autocomplete="username"></div><div class="field-group"><label for="admin-password">Password</label><input id="admin-password" type="password" autocomplete="current-password"></div><div class="password-meta"><button class="text-button" type="button">Show password</button></div><button class="submit-button" type="submit">Sign in</button><p class="form-note">Access is limited to active administrator accounts.</p></form></div></div></div>
+    </section>
+
+    <section class="doc-panel" data-od-id="panel-staff-signed-out">
+      <div class="doc-caption"><strong>Post-logout landing: staff</strong><span>Route: /staff/sign-in. Remembered-staff state is intentionally retained.</span></div>
+      <div class="product-frame staff-auth-app"><header class="staff-topbar"><div class="auth-brand"><svg class="brand-mark inline" viewBox="0 0 40 40" aria-hidden="true"><rect class="cup" x="6" y="9" width="22" height="21" rx="6"/><path class="cup" d="M28 14h2a5 5 0 0 1 0 10h-2"/></svg>UCM Coffee Studio</div><a class="text-link" href="#">Administrator sign-in</a></header><div class="staff-picker-content"><div class="status-line" role="status" aria-live="polite">You have been signed out.</div><div class="picker-callout">REMEMBERED-STAFF PICKER REMAINS FULLY POPULATED</div><h2>Who is signing in?</h2><p>Choose your staff profile to continue.</p><div class="staff-picker-grid"><button class="staff-picker-tile"><span class="staff-avatar">MS</span><span>Maria Santos</span></button><button class="staff-picker-tile"><span class="staff-avatar">BA</span><span>Ben Alonzo</span></button><button class="staff-picker-tile"><span class="staff-avatar">CR</span><span>Chelsea Reyes</span></button><button class="staff-picker-tile"><span class="staff-avatar">DV</span><span>Dan Villanueva</span></button></div><div class="staff-alternate-path"><span>Not listed here?</span><button class="staff-text-button">Sign in as someone else</button></div></div></div>
+      <p class="annotation"><strong>State contract:</strong> Maria Santos is still present and has no special styling. No remembered name is added, removed, or marked as recent.</p>
+    </section>
+
+    <section class="doc-panel" data-od-id="panel-stale-tab">
+      <div class="doc-caption"><strong>Stale-tab transition</strong><span>Immediate role-correct redirect. No interstitial and no draft-restore claim.</span></div>
+      <div class="product-frame"><div class="transition-pair">
+        <div class="transition-step"><span class="transition-label">Before: protected page still painted</span><div class="mini-frame protected-mini"><header class="admin-topbar"><strong>Back office / Products</strong><span>Signed in as maria.santos</span></header><div class="admin-content"><h2>Edit product</h2><p>Unsaved input is present when another tab ends the session.</p><div class="protected-form"><div class="field-group"><label>Product name</label><div class="field-look">Seasonal Calamansi Cold Brew</div></div><div class="field-group"><label>Description</label><textarea>Cold brew with calamansi syrup and tonic. Draft copy has not been submitted.</textarea></div><button class="primary-button">Save product</button></div></div></div></div>
+        <div class="transition-step"><span class="transition-label">After: immediate redirect to /sign-in</span><div class="mini-frame redirect-mini"><div class="auth-brand"><svg class="brand-mark inline" viewBox="0 0 40 40" aria-hidden="true"><rect class="cup" x="6" y="9" width="22" height="21" rx="6"/><path class="cup" d="M28 14h2a5 5 0 0 1 0 10h-2"/></svg>UCM Coffee Studio</div><form class="auth-card"><h2>Administrator sign-in</h2><div class="status-line" role="status" aria-live="polite">Your session ended. Sign in to continue.</div><div class="field-group"><label for="stale-user">Username</label><input id="stale-user"></div><div class="field-group"><label for="stale-password">Password</label><input id="stale-password" type="password"></div><button class="submit-button">Sign in</button><p class="form-note">Unsaved input is not preserved after a session ends.</p></form></div></div>
+      </div></div>
+    </section>
+  </main>
+</body>
+</html>
