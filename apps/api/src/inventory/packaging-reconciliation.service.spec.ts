@@ -79,9 +79,11 @@ describe('PackagingReconciliationService', () => {
     quantity: number,
     cupInventoryItemId: string | null = 'cup-id',
     lidInventoryItemId: string | null = null,
+    packagingServingsSnapshot = 1,
   ) {
     return {
       quantity,
+      packagingServingsSnapshot,
       productVariant: {
         cupInventoryItemId,
         lidInventoryItemId,
@@ -137,6 +139,55 @@ describe('PackagingReconciliationService', () => {
         actualQty: 7,
         varianceQty: -1,
       }),
+    ]);
+  });
+
+  it('counts every included serving for a multi-serving sale line', async () => {
+    const { prisma, service } = createService();
+    prisma.stockCount.findMany.mockResolvedValue([
+      count('open', StockCountPhase.OPEN, 10),
+    ]);
+    prisma.saleLine.findMany.mockResolvedValue([
+      saleLine(1, 'cup-id', null, 2),
+    ]);
+
+    await expect(service.getForTradingDay(day)).resolves.toEqual([
+      expect.objectContaining({ expectedQty: 8 }),
+    ]);
+    expect(prisma.saleLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          packagingServingsSnapshot: true,
+        }),
+      }),
+    );
+  });
+
+  it('multiplies line quantity by the captured servings count', async () => {
+    const { prisma, service } = createService();
+    prisma.stockCount.findMany.mockResolvedValue([
+      count('open', StockCountPhase.OPEN, 10),
+    ]);
+    prisma.saleLine.findMany.mockResolvedValue([
+      saleLine(2, 'cup-id', null, 2),
+    ]);
+
+    await expect(service.getForTradingDay(day)).resolves.toEqual([
+      expect.objectContaining({ expectedQty: 6 }),
+    ]);
+  });
+
+  it('keeps ordinary one-serving line arithmetic unchanged', async () => {
+    const { prisma, service } = createService();
+    prisma.stockCount.findMany.mockResolvedValue([
+      count('open', StockCountPhase.OPEN, 10),
+    ]);
+    prisma.saleLine.findMany.mockResolvedValue([
+      saleLine(3, 'cup-id', null, 1),
+    ]);
+
+    await expect(service.getForTradingDay(day)).resolves.toEqual([
+      expect.objectContaining({ expectedQty: 7 }),
     ]);
   });
 
@@ -225,11 +276,11 @@ describe('PackagingReconciliationService', () => {
       count('open', StockCountPhase.OPEN, 10),
     ]);
     prisma.saleLine.findMany.mockResolvedValue([
-      saleLine(2, 'cup-id', 'cup-id'),
+      saleLine(2, 'cup-id', 'cup-id', 2),
     ]);
 
     await expect(service.getForTradingDay(day)).resolves.toEqual([
-      expect.objectContaining({ expectedQty: 6 }),
+      expect.objectContaining({ expectedQty: 2 }),
     ]);
   });
 

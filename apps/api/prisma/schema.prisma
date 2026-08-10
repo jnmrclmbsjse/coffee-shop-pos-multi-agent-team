@@ -143,16 +143,17 @@ model StaffMember {
 }
 
 model Product {
-  id         String           @id @default(uuid()) @db.Uuid
-  sku        String           @unique
-  name       String
-  categoryId String           @map("category_id") @db.Uuid
-  active     Boolean          @default(true)
-  available  Boolean          @default(true)
-  createdAt  DateTime         @default(now()) @map("created_at")
-  updatedAt  DateTime         @updatedAt @map("updated_at")
-  category   Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  variants   ProductVariant[]
+  id                String           @id @default(uuid()) @db.Uuid
+  sku               String           @unique
+  name              String
+  categoryId        String           @map("category_id") @db.Uuid
+  packagingServings Int              @default(1) @map("packaging_servings")
+  active            Boolean          @default(true)
+  available         Boolean          @default(true)
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  category          Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  variants          ProductVariant[]
 
   @@index([categoryId])
   @@map("products")
@@ -478,24 +479,25 @@ model SalePayment {
 }
 
 model SaleLine {
-  id                  String           @id @default(uuid()) @db.Uuid
-  saleId              String           @map("sale_id") @db.Uuid
-  productVariantId    String           @map("product_variant_id") @db.Uuid
-  quantity            Int
-  unitPriceCents      Int              @map("unit_price_cents")
-  lineGrossCents      Int              @map("line_gross_cents")
-  discountKind        LineDiscountKind @map("discount_kind")
-  discountCents       Int              @default(0) @map("discount_cents")
-  preferences         LinePreference[] @default([])
-  preferenceNote      String?          @map("preference_note")
-  freeUpsizeCount     Int              @default(0) @map("free_upsize_count")
-  freeUpsizeCents     Int              @default(0) @map("free_upsize_cents")
-  freeUpsizeEligible  Boolean          @map("free_upsize_eligible")
-  lineTotalCents      Int              @map("line_total_cents")
-  productNameSnapshot String           @map("product_name_snapshot")
-  variantNameSnapshot String           @map("variant_name_snapshot")
-  sale                Sale             @relation(fields: [saleId], references: [id], onDelete: Restrict)
-  productVariant      ProductVariant   @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  id                        String           @id @default(uuid()) @db.Uuid
+  saleId                    String           @map("sale_id") @db.Uuid
+  productVariantId          String           @map("product_variant_id") @db.Uuid
+  quantity                  Int
+  packagingServingsSnapshot Int              @default(1) @map("packaging_servings_snapshot")
+  unitPriceCents            Int              @map("unit_price_cents")
+  lineGrossCents            Int              @map("line_gross_cents")
+  discountKind              LineDiscountKind @map("discount_kind")
+  discountCents             Int              @default(0) @map("discount_cents")
+  preferences               LinePreference[] @default([])
+  preferenceNote            String?          @map("preference_note")
+  freeUpsizeCount           Int              @default(0) @map("free_upsize_count")
+  freeUpsizeCents           Int              @default(0) @map("free_upsize_cents")
+  freeUpsizeEligible        Boolean          @map("free_upsize_eligible")
+  lineTotalCents            Int              @map("line_total_cents")
+  productNameSnapshot       String           @map("product_name_snapshot")
+  variantNameSnapshot       String           @map("variant_name_snapshot")
+  sale                      Sale             @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  productVariant            ProductVariant   @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
 
   @@map("sale_lines")
 }

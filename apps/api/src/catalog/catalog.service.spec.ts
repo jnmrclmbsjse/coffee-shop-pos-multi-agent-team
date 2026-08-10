@@ -18,6 +18,7 @@ describe('CatalogService', () => {
       sku: `PRODUCT-${productId}`,
       name: 'Latte',
       categoryId,
+      packagingServings: 2,
       active: true,
       available,
       createdAt: now,
@@ -193,7 +194,7 @@ describe('CatalogService', () => {
     );
   });
 
-  it('creates a product with integer-cent sizes and active mappings', async () => {
+  it('creates a product with packaging servings, integer-cent sizes and active mappings', async () => {
     const prisma = createPrisma();
     prisma.inventoryItem.count.mockResolvedValue(1);
     prisma.product.create.mockResolvedValue(productRecord());
@@ -206,6 +207,7 @@ describe('CatalogService', () => {
       name: 'Latte',
       active: true,
       available: true,
+      packagingServings: 2,
       sizes: [
         {
           name: 'Regular',
@@ -227,6 +229,7 @@ describe('CatalogService', () => {
           categoryId,
           name: 'Latte',
           available: true,
+          packagingServings: 2,
           variants: {
             create: [
               expect.objectContaining({
@@ -238,7 +241,56 @@ describe('CatalogService', () => {
         }),
       }),
     );
+    expect(product.packagingServings).toBe(2);
     expect(product.variants[0]!.priceCents).toBe(15000);
+  });
+
+  it('defaults new products to one packaging serving', async () => {
+    const prisma = createPrisma();
+    prisma.product.create.mockResolvedValue({
+      ...productRecord(),
+      packagingServings: 1,
+    });
+    const service = new CatalogService(prisma as unknown as PrismaService);
+
+    await service.createProduct({
+      categoryId,
+      name: 'Latte',
+      active: true,
+      available: true,
+      sizes: [
+        {
+          name: 'Regular',
+          priceCents: 15000,
+          sortWeight: 0,
+          active: true,
+          cupInventoryItemId: null,
+          lidInventoryItemId: null,
+        },
+      ],
+    });
+
+    expect(prisma.product.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ packagingServings: 1 }),
+      }),
+    );
+  });
+
+  it('updates and returns the product packaging servings value', async () => {
+    const prisma = createPrisma();
+    prisma.product.findUnique
+      .mockResolvedValueOnce({ id: productId })
+      .mockResolvedValueOnce(productRecord());
+    const service = new CatalogService(prisma as unknown as PrismaService);
+
+    await expect(
+      service.updateProduct(productId, { packagingServings: 2 }),
+    ).resolves.toEqual(expect.objectContaining({ packagingServings: 2 }));
+    expect(prisma.product.update).toHaveBeenCalledWith({
+      where: { id: productId },
+      data: { packagingServings: 2 },
+    });
   });
 
   it('rejects inactive or unknown Cup/Lid mappings', async () => {

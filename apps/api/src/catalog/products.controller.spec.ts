@@ -29,6 +29,23 @@ function contextFor(
 
 describe('ProductsController', () => {
   const guard = new RolesGuard(new Reflector());
+  const productInput = {
+    categoryId: '56fe72cc-5c03-466c-bd87-7c5d2d732bbe',
+    name: 'Buy One Take One Latte',
+    active: true,
+    available: true,
+    packagingServings: 2,
+    sizes: [
+      {
+        name: 'Regular',
+        priceCents: 15_000,
+        sortWeight: 0,
+        active: true,
+        cupInventoryItemId: null,
+        lidInventoryItemId: null,
+      },
+    ],
+  };
 
   it('allows a STAFF session to use the product list override', () => {
     expect(
@@ -68,5 +85,29 @@ describe('ProductsController', () => {
     });
 
     expect(updateAvailability).toHaveBeenCalledWith('product-id', false);
+  });
+
+  it('passes packaging servings through product creation', async () => {
+    const createProduct = jest.fn().mockResolvedValue({ id: 'product-id' });
+    const controller = new ProductsController({
+      createProduct,
+    } as unknown as CatalogService);
+
+    await controller.create(productInput);
+
+    expect(createProduct).toHaveBeenCalledWith(productInput);
+  });
+
+  it('passes packaging servings through product updates', async () => {
+    const updateProduct = jest.fn().mockResolvedValue({ id: 'product-id' });
+    const controller = new ProductsController({
+      updateProduct,
+    } as unknown as CatalogService);
+
+    await controller.update('product-id', { packagingServings: 3 });
+
+    expect(updateProduct).toHaveBeenCalledWith('product-id', {
+      packagingServings: 3,
+    });
   });
 });

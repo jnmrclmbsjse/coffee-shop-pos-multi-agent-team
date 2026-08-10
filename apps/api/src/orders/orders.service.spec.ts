@@ -68,6 +68,77 @@ function lineMutationHarness(status: OrderStatus = OrderStatus.PARKED) {
   return { order, service, transaction };
 }
 
+function addLineHarness(withExistingLine: boolean) {
+  const variantId = '50000000-0000-4000-8000-000000000001';
+  const existingLine = {
+    id: '40000000-0000-4000-8000-000000000001',
+    productVariantId: variantId,
+    quantity: 1,
+    packagingServingsSnapshot: 1,
+    unitPriceCents: 15_000,
+    lineGrossCents: 15_000,
+    discountKind: LineDiscountKind.NONE,
+    discountCents: 0,
+    preferences: [] as LinePreference[],
+    preferenceNote: null,
+    freeUpsizeCount: 0,
+    freeUpsizeCents: 0,
+    freeUpsizeEligible: false,
+    lineTotalCents: 15_000,
+    productNameSnapshot: 'Latte',
+    variantNameSnapshot: 'Regular',
+  };
+  const order = {
+    ...orderForLineMutation(OrderStatus.PARKED),
+    lines: withExistingLine ? [existingLine] : [],
+  } as OrderRecord;
+  const transaction = {
+    sale: {
+      findUnique: jest
+        .fn()
+        .mockResolvedValueOnce({ id: order.id, kind: order.kind })
+        .mockResolvedValueOnce(order)
+        .mockResolvedValue(order),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    saleLine: {
+      create: jest.fn(),
+      update: jest.fn(),
+      findMany: jest.fn().mockResolvedValue(
+        withExistingLine ? [existingLine] : [],
+      ),
+    },
+    productVariant: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: variantId,
+        name: 'Regular',
+        priceCents: 15_000,
+        product: {
+          name: 'Latte',
+          packagingServings: 2,
+          category: { freeUpsizeEligible: false },
+        },
+      }),
+    },
+    tradingDay: {
+      findFirst: jest.fn().mockResolvedValue({ id: order.tradingDayId }),
+    },
+    $queryRaw: jest.fn().mockResolvedValue([]),
+  };
+  const prisma = {
+    $transaction: jest.fn(
+      (callback: (client: typeof transaction) => Promise<unknown>) =>
+        callback(transaction),
+    ),
+  };
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    {} as SalesService,
+  );
+
+  return { existingLine, order, service, transaction, variantId };
+}
+
 describe('orders final-line discard', () => {
   it.each(['remove', 'decrement'] as const)(
     '%ss the final line and its parked order in one transaction',
@@ -118,6 +189,53 @@ describe('orders final-line discard', () => {
       expect(transaction.sale.delete).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('orders packaging servings snapshot', () => {
+  it('writes the product servings value without changing line money', async () => {
+    const { order, service, transaction, variantId } = addLineHarness(false);
+
+    await service.addLine(order.clientGeneratedId, {
+      productVariantId: variantId,
+      quantity: 1,
+      discountKind: LineDiscountKind.NONE,
+      preferences: [],
+      freeUpsizeCount: 0,
+    });
+
+    expect(transaction.saleLine.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        saleId: order.id,
+        packagingServingsSnapshot: 2,
+        unitPriceCents: 15_000,
+        lineGrossCents: 15_000,
+        lineTotalCents: 15_000,
+      }),
+    });
+  });
+
+  it('keeps the original snapshot when a matching line is merged', async () => {
+    const { existingLine, order, service, transaction, variantId } =
+      addLineHarness(true);
+
+    await service.addLine(order.clientGeneratedId, {
+      productVariantId: variantId,
+      quantity: 1,
+      discountKind: LineDiscountKind.NONE,
+      preferences: [],
+      freeUpsizeCount: 0,
+    });
+
+    expect(transaction.saleLine.create).not.toHaveBeenCalled();
+    expect(transaction.saleLine.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: existingLine.id },
+        data: expect.objectContaining({ quantity: 2 }),
+      }),
+    );
+    const updateData = transaction.saleLine.update.mock.calls[0]![0].data;
+    expect(updateData).not.toHaveProperty('packagingServingsSnapshot');
+  });
 });
 
 describe('orders money engine', () => {

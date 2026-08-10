@@ -6,6 +6,7 @@ export interface Product {
   name: string;
   categoryId: string;
   category: CatalogCategory;
+  packagingServings: number;
   active: boolean;
   available: boolean;
   variants: ProductVariant[];
