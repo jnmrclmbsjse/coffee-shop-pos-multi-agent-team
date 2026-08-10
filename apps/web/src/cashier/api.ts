@@ -15,14 +15,22 @@ export class CashierApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await sessionFetch(path, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...init?.headers,
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  options?: { handleUnauthorized?: boolean },
+): Promise<T> {
+  const response = await sessionFetch(
+    path,
+    {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...init?.headers,
+      },
     },
-  });
+    options,
+  );
 
   if (!response.ok) {
     let message = 'Cashier selection could not be completed. Try again.';
@@ -75,14 +83,18 @@ export function selectActiveCashier(
   staffMemberId: string,
   pin?: string,
 ): Promise<ActiveCashier> {
-  return request('/sales/active-cashier', {
-    method: 'POST',
-    body: JSON.stringify({
-      deviceId,
-      staffMemberId,
-      ...(pin === undefined ? {} : { pin }),
-    }),
-  });
+  return request(
+    '/sales/active-cashier',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId,
+        staffMemberId,
+        ...(pin === undefined ? {} : { pin }),
+      }),
+    },
+    { handleUnauthorized: false },
+  );
 }
 
 export async function clearActiveCashier(
