@@ -3,6 +3,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Post,
   Req,
   Res,
@@ -16,7 +18,7 @@ import type {
   StaffPasswordLoginRequest,
   StaffPinLoginRequest,
 } from '@coffee-shop/shared';
-import type { Response } from 'express';
+import type { CookieOptions, Response } from 'express';
 import {
   AUTH_COOKIE_MAX_AGE_MS,
   AUTH_COOKIE_NAME,
@@ -48,6 +50,17 @@ function cookieIsSecure(sameSite: SameSite): boolean {
   );
 }
 
+function sessionCookieOptions(): CookieOptions {
+  const sameSite = cookieSameSite();
+
+  return {
+    httpOnly: true,
+    secure: cookieIsSecure(sameSite),
+    sameSite,
+    path: '/',
+  };
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -57,6 +70,12 @@ export class AuthController {
   @Roles(Role.ADMIN, Role.STAFF)
   session(@Req() request: AuthenticatedRequest): LoginResponse {
     return { user: request.user! };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  logout(@Res({ passthrough: true }) response: Response): void {
+    response.clearCookie(AUTH_COOKIE_NAME, sessionCookieOptions());
   }
 
   @Post('login')
@@ -116,13 +135,9 @@ export class AuthController {
   }
 
   private setSessionCookie(response: Response, token: string): void {
-    const sameSite = cookieSameSite();
     response.cookie(AUTH_COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: cookieIsSecure(sameSite),
-      sameSite,
+      ...sessionCookieOptions(),
       maxAge: AUTH_COOKIE_MAX_AGE_MS,
-      path: '/',
     });
   }
 }

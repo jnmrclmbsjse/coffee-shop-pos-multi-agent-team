@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Role } from '@coffee-shop/shared';
 import type { Response } from 'express';
 import {
@@ -50,7 +51,8 @@ describe('AuthController', () => {
     staffPinLogin,
   } as unknown as AuthService;
   const cookie = jest.fn();
-  const response = { cookie } as unknown as Response;
+  const clearCookie = jest.fn();
+  const response = { clearCookie, cookie } as unknown as Response;
   const controller = new AuthController(authService);
 
   beforeEach(() => {
@@ -58,6 +60,7 @@ describe('AuthController', () => {
     staffPasswordLogin.mockClear();
     staffPinLogin.mockClear();
     cookie.mockClear();
+    clearCookie.mockClear();
     delete process.env.AUTH_COOKIE_SECURE;
     delete process.env.AUTH_COOKIE_SAME_SITE;
   });
@@ -99,6 +102,49 @@ describe('AuthController', () => {
         displayName: 'Casey Barista',
         role: Role.STAFF,
       },
+    });
+  });
+
+  it('clears the session cookie and returns no content on logout', () => {
+    const result = controller.logout(response);
+
+    expect(result).toBeUndefined();
+    expect(clearCookie).toHaveBeenCalledWith(AUTH_COOKIE_NAME, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+    });
+    expect(
+      Reflect.getMetadata(HTTP_CODE_METADATA, controller.logout),
+    ).toBe(204);
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, controller.logout),
+    ).toBeUndefined();
+  });
+
+  it('uses the same environment-derived attributes to set and clear the cookie', async () => {
+    process.env.AUTH_COOKIE_SECURE = 'false';
+    process.env.AUTH_COOKIE_SAME_SITE = 'none';
+
+    await controller.login(
+      { username: 'admin', password: 'password' },
+      response,
+    );
+    controller.logout(response);
+
+    expect(cookie).toHaveBeenCalledWith(AUTH_COOKIE_NAME, 'signed-token', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+      maxAge: AUTH_COOKIE_MAX_AGE_MS,
+    });
+    expect(clearCookie).toHaveBeenCalledWith(AUTH_COOKIE_NAME, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
     });
   });
 
