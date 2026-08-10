@@ -720,6 +720,7 @@ export class OrdersService {
       preferenceNote: input.preferenceNote ?? null,
       freeUpsizeCount: input.freeUpsizeCount ?? 0,
       freeUpsizeEligible: variant.product.category.freeUpsizeEligible,
+      packagingServingsSnapshot: variant.product.packagingServings,
       productNameSnapshot: variant.product.name,
       variantNameSnapshot: variant.name,
     };
@@ -742,6 +743,7 @@ export class OrdersService {
         product: {
           select: {
             name: true,
+            packagingServings: true,
             category: { select: { freeUpsizeEligible: true } },
           },
         },

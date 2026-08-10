@@ -10,6 +10,7 @@ import {
   IsString,
   IsUUID,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -118,6 +119,15 @@ export class CreateProductDto {
   @IsBoolean()
   available!: boolean;
 
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @IsInt({
+    message: 'packagingServings must be a whole number of 1 or greater',
+  })
+  @Min(1, {
+    message: 'packagingServings must be a whole number of 1 or greater',
+  })
+  packagingServings?: number;
+
   @IsArray()
   @ArrayMinSize(1, { message: 'a product must have at least one size' })
   @ValidateNested({ each: true })
@@ -143,6 +153,15 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   available?: boolean;
+
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @IsInt({
+    message: 'packagingServings must be a whole number of 1 or greater',
+  })
+  @Min(1, {
+    message: 'packagingServings must be a whole number of 1 or greater',
+  })
+  packagingServings?: number;
 
   @IsOptional()
   @IsArray()

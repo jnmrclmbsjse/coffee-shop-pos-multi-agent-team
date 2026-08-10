@@ -150,6 +150,7 @@ export class CatalogService {
           name: input.name,
           active: input.active,
           available: input.available,
+          packagingServings: input.packagingServings ?? 1,
           variants: {
             create: input.sizes.map(
               ({
@@ -418,6 +419,7 @@ export class CatalogService {
       name: record.name,
       categoryId: record.categoryId,
       category: record.category,
+      packagingServings: record.packagingServings,
       active: record.active,
       available: record.available,
       variants: record.variants.map((variant) => ({

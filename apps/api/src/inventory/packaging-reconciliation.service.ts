@@ -110,6 +110,7 @@ export class PackagingReconciliationService {
         },
         select: {
           quantity: true,
+          packagingServingsSnapshot: true,
           productVariant: {
             select: {
               cupInventoryItemId: true,
@@ -141,15 +142,17 @@ export class PackagingReconciliationService {
     }
 
     for (const line of saleLines) {
+      const packagingQuantity =
+        line.quantity * line.packagingServingsSnapshot;
       this.add(
         sold,
         line.productVariant.cupInventoryItemId,
-        line.quantity,
+        packagingQuantity,
       );
       this.add(
         sold,
         line.productVariant.lidInventoryItemId,
-        line.quantity,
+        packagingQuantity,
       );
     }
 

@@ -100,6 +100,7 @@ function product(
     name,
     categoryId: category.id,
     category: { ...category, freeUpsizeEligible },
+    packagingServings: 1,
     active: true,
     available,
     variants: [

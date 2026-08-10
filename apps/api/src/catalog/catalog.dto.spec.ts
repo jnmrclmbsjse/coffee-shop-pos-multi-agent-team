@@ -5,6 +5,7 @@ import {
   CreateCategoryDto,
   CreateProductDto,
   UpdateCategoryDto,
+  UpdateProductDto,
 } from './catalog.dto';
 
 describe('Catalog DTO validation', () => {
@@ -78,6 +79,41 @@ describe('Catalog DTO validation', () => {
 
     expect(await validate(product)).toHaveLength(0);
   });
+
+  it('accepts an omitted or positive whole-number packaging servings value', async () => {
+    const defaultedCreate = plainToInstance(CreateProductDto, validProduct);
+    const explicitCreate = plainToInstance(CreateProductDto, {
+      ...validProduct,
+      packagingServings: 2,
+    });
+    const update = plainToInstance(UpdateProductDto, {
+      packagingServings: 3,
+    });
+
+    await expect(validate(defaultedCreate)).resolves.toHaveLength(0);
+    await expect(validate(explicitCreate)).resolves.toHaveLength(0);
+    await expect(validate(update)).resolves.toHaveLength(0);
+  });
+
+  it.each([0, -1, 1.5, '', null])(
+    'rejects an invalid packaging servings value: %s',
+    async (packagingServings) => {
+      const product = plainToInstance(CreateProductDto, {
+        ...validProduct,
+        packagingServings,
+      });
+
+      const errors = await validate(product);
+
+      const servingsError = errors.find(
+        ({ property }) => property === 'packagingServings',
+      );
+      expect(servingsError).toBeDefined();
+      expect(Object.values(servingsError?.constraints ?? {})).toContain(
+        'packagingServings must be a whole number of 1 or greater',
+      );
+    },
+  );
 
   it.each([-1, 12.5, undefined])(
     'rejects an invalid required size price: %s',
