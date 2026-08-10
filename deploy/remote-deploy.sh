@@ -244,6 +244,16 @@ aws s3 sync \
   --delete \
   --no-cli-pager
 
+# index.html is the same byte size on every build (Vite's asset hashes are a
+# fixed 8 chars), so sync's size-based diff can spuriously call it unchanged
+# and skip it even though its content (the asset filenames it references)
+# really did change. Force it unconditionally so the origin never serves a
+# stale entry point while every hashed asset underneath it is current.
+aws s3 cp \
+  "s3://${SPA_BUCKET}/spa/index.html" \
+  "$SPA_DIR/index.html" \
+  --no-cli-pager
+
 # The deployment process uses a restrictive umask for generated secret files.
 # Static SPA files must remain readable and directories traversable by nginx.
 find "$SPA_DIR" -type d -exec chmod 0755 {} +
