@@ -26,6 +26,7 @@ interface AuthContextValue {
   signedOutPath: string | null;
   completeLogin: (user: AuthenticatedUser) => void;
   completeLogout: (notice?: AuthNotice) => void;
+  consumeNotice: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -89,6 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     transitionToSignedOut('sessionEnded');
   }, [setAuthenticated, transitionToSignedOut]);
+
+  const consumeNotice = useCallback(() => {
+    setNotice(null);
+    setSignedOutPath(null);
+  }, []);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -187,9 +193,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         publishLogoutRef.current();
         transitionToSignedOut(notice);
       },
+      consumeNotice,
     }),
     [
       notice,
+      consumeNotice,
       setAuthenticated,
       signedOutPath,
       status,

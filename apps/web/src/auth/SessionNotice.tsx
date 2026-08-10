@@ -1,9 +1,17 @@
+import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import type { AuthNavigationState } from './AuthContext';
+import { useAuth, type AuthNavigationState } from './AuthContext';
 
 export function SessionNotice() {
+  const auth = useAuth();
   const location = useLocation();
   const notice = (location.state as AuthNavigationState | null)?.authNotice;
+
+  useEffect(() => {
+    if (notice) {
+      auth.consumeNotice();
+    }
+  }, [auth.consumeNotice, notice]);
 
   if (!notice) return null;
 

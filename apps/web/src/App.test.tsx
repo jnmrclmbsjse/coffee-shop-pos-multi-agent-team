@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Role } from '@coffee-shop/shared';
 import { AppRoutes, safeReturnPath } from './App';
@@ -27,11 +27,26 @@ function response(status: number, body?: unknown): Response {
 }
 
 function renderAt(path: string) {
-  return render(
+  let navigate: ReturnType<typeof useNavigate> | null = null;
+
+  function NavigationBridge() {
+    navigate = useNavigate();
+    return null;
+  }
+
+  const rendered = render(
     <MemoryRouter initialEntries={[path]}>
+      <NavigationBridge />
       <AppRoutes />
     </MemoryRouter>,
   );
+
+  return {
+    ...rendered,
+    navigateTo(destination: string) {
+      act(() => navigate?.(destination));
+    },
+  };
 }
 
 describe('administrator authentication routes', () => {
@@ -792,7 +807,7 @@ describe('session logout', () => {
     });
     const user = userEvent.setup();
 
-    renderAt('/pos/opening');
+    const { navigateTo } = renderAt('/pos/opening');
 
     await screen.findByRole('heading', { name: 'Opening count' });
     await user.click(screen.getByRole('button', { name: 'Sign out' }));
@@ -823,6 +838,64 @@ describe('session logout', () => {
           (init as RequestInit | undefined)?.method === 'DELETE',
       ),
     ).toBe(false);
+
+    navigateTo('/reports');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Sign in' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Sign in to continue to', { exact: false }),
+    ).toHaveTextContent('Sign in to continue to Reports.');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('keeps focus inside the staff dialog while logout is in flight', async () => {
+    let resolveLogout: (() => void) | undefined;
+    const logoutPending = new Promise<void>((resolve) => {
+      resolveLogout = resolve;
+    });
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/auth/session') return response(200, { user: staffUser });
+      if (path === '/auth/logout') {
+        await logoutPending;
+        return response(204);
+      }
+      if (path === '/trading-day/current') return response(200, { isOpen: false });
+      if (path === '/inventory/counts/opening-sheet') {
+        return response(200, {
+          businessDay: { isOpen: false, businessDate: null, dayType: null },
+          phase: 'unavailable',
+          items: [],
+          submittedCount: null,
+        });
+      }
+      if (path === '/inventory/counts/staff') return response(200, []);
+      if (path === '/sales/active-cashier') return response(200, { cashier: null });
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderAt('/pos/opening');
+
+    await screen.findByRole('heading', { name: 'Opening count' });
+    await user.click(screen.getByRole('button', { name: 'Sign out' }));
+    const dialog = screen.getByRole('dialog', {
+      name: 'Sign out of this session?',
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Sign out' }));
+
+    await waitFor(() => expect(dialog).toHaveFocus());
+    await user.keyboard('{Tab}');
+    expect(dialog).toHaveFocus();
+    await user.keyboard('{Shift>}{Tab}{/Shift}');
+    expect(dialog).toHaveFocus();
+
+    resolveLogout?.();
+    expect(
+      await screen.findByRole('heading', { name: 'Who’s signing in?' }),
+    ).toBeInTheDocument();
   });
 
   it('ends an authenticated session when a protected request returns 401', async () => {

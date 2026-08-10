@@ -106,6 +106,12 @@ export function StaffLogoutControl() {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (open && busy) {
+      dialogRef.current?.focus();
+    }
+  }, [busy, open]);
+
   const close = () => {
     if (busy) return;
     setOpen(false);
@@ -134,7 +140,11 @@ export function StaffLogoutControl() {
     }
     if (event.key !== 'Tab' || !dialogRef.current) return;
     const buttons = focusableButtons(dialogRef.current);
-    if (buttons.length === 0) return;
+    if (buttons.length === 0) {
+      event.preventDefault();
+      dialogRef.current.focus();
+      return;
+    }
     const first = buttons[0]!;
     const last = buttons.at(-1)!;
     if (event.shiftKey && document.activeElement === first) {
@@ -166,6 +176,7 @@ export function StaffLogoutControl() {
               ref={dialogRef}
               className="logout-dialog"
               role="dialog"
+              tabIndex={-1}
               aria-modal="true"
               aria-labelledby="logout-dialog-title"
               aria-describedby="logout-dialog-description"

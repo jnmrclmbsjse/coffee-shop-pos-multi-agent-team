@@ -2130,19 +2130,41 @@ button {
   }
 
   .admin-sidebar-user {
-    min-width: 118px;
+    min-width: 160px;
     display: flex;
+    flex-direction: row;
     flex: 0 0 auto;
+    align-items: center;
     justify-content: center;
+    gap: var(--space-2);
     margin: 0;
     padding: 0 0 0 var(--space-2);
     border-top: 0;
     border-left: 1px solid var(--border);
   }
 
-  .admin-sidebar-user .admin-identity,
-  .admin-sign-out > p {
+  .admin-sidebar-user .admin-identity {
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  .admin-sidebar-user .admin-identity > div {
     display: none;
+  }
+
+  .admin-sign-out {
+    width: auto;
+  }
+
+  .admin-sign-out > p {
+    position: absolute;
+    right: var(--space-3);
+    bottom: calc(100% + var(--space-2));
+    width: min(320px, calc(100vw - (var(--space-4) * 2)));
+    padding: var(--space-3);
+    border: 1px solid var(--danger-border);
+    border-radius: var(--radius-sm);
+    background: var(--danger-surface);
   }
 
   .admin-sidebar-user .sign-out-button {
@@ -7374,16 +7396,6 @@ button {
   .current-order-line-actions button:nth-of-type(6),
   .current-order-line-actions button:nth-of-type(7) {
     grid-column: span 2;
-  }
-}
-
-@media (min-width: 768px) {
-  .staff-workspace-header-inner {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .staff-inventory-nav {
-    grid-column: 1 / -1;
   }
 }
 
