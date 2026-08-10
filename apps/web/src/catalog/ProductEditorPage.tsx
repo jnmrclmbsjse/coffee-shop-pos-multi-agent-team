@@ -23,7 +23,13 @@ import {
   updateProduct,
   type ProductInput,
 } from './api';
-import { Icon, Notice, StateBadge, Switch } from './components';
+import {
+  Icon,
+  Notice,
+  PromotionBadge,
+  StateBadge,
+  Switch,
+} from './components';
 import { formatCentsAsPesosInput, parsePesosToCents } from './money';
 
 interface SizeDraft {
@@ -39,6 +45,7 @@ interface SizeDraft {
 interface ProductDraft {
   categoryId: string;
   name: string;
+  packagingServings: string;
   active: boolean;
   available: boolean;
   sizes: SizeDraft[];
@@ -54,6 +61,7 @@ interface SizeErrors {
 interface FormErrors {
   categoryId?: string;
   name?: string;
+  packagingServings?: string;
   summary?: string;
   sizes: Record<string, SizeErrors>;
 }
@@ -72,6 +80,7 @@ function emptySize(): SizeDraft {
 const emptyDraft = (): ProductDraft => ({
   categoryId: '',
   name: '',
+  packagingServings: '1',
   active: true,
   available: true,
   sizes: [emptySize()],
@@ -81,6 +90,7 @@ function draftFromProduct(product: Product): ProductDraft {
   return {
     categoryId: product.categoryId,
     name: product.name,
+    packagingServings: String(product.packagingServings),
     active: product.active,
     available: product.available,
     sizes: product.variants.map((size) => ({
@@ -182,6 +192,15 @@ export function ProductEditorPage() {
     if (!name) {
       nextErrors.name = 'Enter a product name after trimming spaces.';
     }
+    const packagingServings = Number(draft.packagingServings);
+    if (
+      draft.packagingServings.trim() === '' ||
+      !Number.isInteger(packagingServings) ||
+      packagingServings < 1
+    ) {
+      nextErrors.packagingServings =
+        'Enter a whole number of 1 or greater.';
+    }
 
     const sizes = draft.sizes.flatMap((size, index) => {
       const sizeErrors: SizeErrors = {};
@@ -223,6 +242,7 @@ export function ProductEditorPage() {
     if (
       nextErrors.categoryId ||
       nextErrors.name ||
+      nextErrors.packagingServings ||
       Object.keys(nextErrors.sizes).length > 0
     ) {
       nextErrors.summary =
@@ -236,6 +256,7 @@ export function ProductEditorPage() {
     return {
       categoryId: draft.categoryId,
       name,
+      packagingServings,
       active: draft.active,
       available: draft.available,
       sizes,
@@ -517,6 +538,64 @@ export function ProductEditorPage() {
                   </p>
                 )}
               </div>
+            </div>
+
+            <div className="catalog-field servings-field">
+              <label htmlFor="product-packaging-servings">
+                Drinks handed over per item sold{' '}
+                <span aria-hidden="true">*</span>
+              </label>
+              <div className="servings-input-row">
+                <input
+                  id="product-packaging-servings"
+                  name="packagingServings"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={draft.packagingServings}
+                  aria-invalid={
+                    errors.packagingServings ? true : undefined
+                  }
+                  aria-describedby={
+                    errors.packagingServings
+                      ? 'product-packaging-servings-error'
+                      : 'product-packaging-servings-help'
+                  }
+                  onChange={(event) => {
+                    setDraft({
+                      ...draft,
+                      packagingServings: event.target.value,
+                    });
+                    setErrors((current) => ({
+                      ...current,
+                      packagingServings: undefined,
+                      summary: undefined,
+                    }));
+                  }}
+                />
+                {Number.isInteger(Number(draft.packagingServings)) &&
+                  Number(draft.packagingServings) > 1 && (
+                    <PromotionBadge>
+                      {draft.packagingServings} drinks / sale
+                    </PromotionBadge>
+                  )}
+              </div>
+              {errors.packagingServings ? (
+                <p
+                  className="catalog-field-error"
+                  id="product-packaging-servings-error"
+                >
+                  {errors.packagingServings}
+                </p>
+              ) : (
+                <p
+                  className="catalog-field-help"
+                  id="product-packaging-servings-help"
+                >
+                  Used only to count cups and lids. It does not change the
+                  product price, discounts, tax, or order total.
+                </p>
+              )}
             </div>
 
             <div className="state-settings">

@@ -14,6 +14,7 @@ import {
   Icon,
   LoadingRows,
   Notice,
+  PromotionBadge,
   StateBadge,
   Switch,
 } from './components';
@@ -238,7 +239,14 @@ export function ProductsPage() {
                   <tr key={product.id}>
                     <td data-label="Category">{product.category.name}</td>
                     <td data-label="Product name">
-                      <strong>{product.name}</strong>
+                      <div className="product-name-cell">
+                        <strong>{product.name}</strong>
+                        {product.packagingServings > 1 && (
+                          <PromotionBadge>
+                            {product.packagingServings} drinks / sale
+                          </PromotionBadge>
+                        )}
+                      </div>
                       <small>
                         {product.variants.length}{' '}
                         {product.variants.length === 1 ? 'size' : 'sizes'}
