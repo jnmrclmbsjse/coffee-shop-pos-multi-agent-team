@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Preserve-mode implementation reference for GitHub issue 274 and design task 280.">
+  <title>Issue 274 - Preserve sign-out on cold entry</title>
+  <style>
+    :root {
+      --background: oklch(98% 0.005 250);
+      --surface: oklch(100% 0 0);
+      --foreground: oklch(22% 0.02 240);
+      --muted: oklch(50% 0.018 240);
+      --border: oklch(90% 0.008 240);
+      --accent: oklch(58% 0.16 145);
+      --accentHover: oklch(52% 0.16 145);
+      --accentPressed: oklch(46% 0.14 145);
+      --danger: oklch(48% 0.18 28);
+      --focus: oklch(43% 0.14 145);
+      --inkSoft: oklch(36% 0.018 240);
+      --surfaceSubtle: oklch(96.5% 0.007 240);
+      --borderStrong: oklch(76% 0.012 240);
+    }
+
+    * { box-sizing: border-box; }
+    html { color-scheme: light; scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: -apple-system, BlinkMacSystemFont, Inter, "Segoe UI", system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+    button, input { font: inherit; }
+    a { color: inherit; }
+    :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+    .page { width: min(1180px, calc(100% - 48px)); margin: 0 auto; }
+    .masthead { padding: 40px 0 32px; border-bottom: 1px solid var(--border); }
+    .issue-line {
+      margin: 0 0 12px;
+      color: var(--inkSoft);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      max-width: 800px;
+      margin-bottom: 16px;
+      font-size: clamp(34px, 5vw, 52px);
+      font-weight: 600;
+      letter-spacing: -.025em;
+      line-height: 1.08;
+    }
+    h2 {
+      margin-bottom: 12px;
+      font-size: clamp(24px, 3vw, 32px);
+      font-weight: 600;
+      letter-spacing: -.015em;
+      line-height: 1.15;
+    }
+    h3 { margin-bottom: 8px; font-size: 18px; font-weight: 600; }
+    .lede { max-width: 72ch; margin-bottom: 0; color: var(--inkSoft); font-size: 17px; }
+    .metadata { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+    .metadata span, .label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 8px;
+      border: 1px solid var(--borderStrong);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--inkSoft);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .02em;
+      white-space: nowrap;
+    }
+    .label.advisory { border-color: var(--focus); color: var(--focus); }
+
+    main { padding-bottom: 48px; }
+    .section { padding: 40px 0; border-bottom: 1px solid var(--border); }
+    .section:last-child { border-bottom: 0; }
+    .section-head { max-width: 760px; margin-bottom: 24px; }
+    .section-head p { margin-bottom: 0; color: var(--inkSoft); }
+
+    .decision {
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      border: 1px solid var(--borderStrong);
+      border-top: 4px solid var(--accent);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .decision-key { padding: 24px; background: var(--surfaceSubtle); border-right: 1px solid var(--border); }
+    .decision-key strong { display: block; margin-top: 12px; font-size: 20px; line-height: 1.2; }
+    .decision-body { padding: 24px 28px; }
+    .decision-body h2 { max-width: 720px; }
+    .decision-body p { max-width: 76ch; color: var(--inkSoft); }
+    .decision-body p:last-child { margin-bottom: 0; }
+
+    .reason-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+    .reason { padding: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .reason p { margin-bottom: 0; color: var(--inkSoft); }
+
+    .truth-table { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+    .truth-row { display: grid; grid-template-columns: 190px 1fr; }
+    .truth-row + .truth-row { border-top: 1px solid var(--border); }
+    .truth-row dt, .truth-row dd { margin: 0; padding: 16px 20px; }
+    .truth-row dt { background: var(--surfaceSubtle); color: var(--inkSoft); font-weight: 600; }
+    .truth-row dd { color: var(--inkSoft); }
+    code {
+      padding: 2px 5px;
+      border-radius: 6px;
+      background: var(--surfaceSubtle);
+      color: var(--foreground);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .9em;
+    }
+
+    .frame-list { display: grid; gap: 32px; }
+    .frame-block { min-width: 0; }
+    .frame-caption { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+    .frame-caption h3 { margin: 0; }
+    .viewport { color: var(--muted); font-size: 12px; letter-spacing: .02em; white-space: nowrap; }
+    .app-frame { overflow: hidden; border: 1px solid var(--borderStrong); border-radius: 10px; background: var(--surface); }
+    .browser-bar { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surfaceSubtle); }
+    .browser-controls { display: flex; gap: 5px; }
+    .browser-controls i { width: 7px; height: 7px; border: 1px solid var(--borderStrong); border-radius: 50%; background: var(--surface); }
+    .address { min-width: 0; overflow: hidden; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+
+    .admin-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 480px; }
+    .admin-sidebar { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--border); background: var(--surface); }
+    .brand { display: flex; align-items: center; gap: 10px; min-height: 68px; padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
+    .brand-mark { display: grid; flex: 0 0 auto; place-items: center; width: 40px; height: 40px; border: 2px solid var(--foreground); border-radius: 10px; color: var(--foreground); font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
+    .admin-nav { display: grid; gap: 4px; padding: 12px; }
+    .admin-nav span { min-height: 40px; padding: 9px 10px; border-radius: 6px; color: var(--inkSoft); font-size: 14px; }
+    .admin-nav .active { background: var(--surfaceSubtle); color: var(--foreground); font-weight: 600; }
+    .admin-sidebar-user { margin-top: auto; padding: 12px; border-top: 1px solid var(--border); background: var(--surface); }
+    .identity-row { display: grid; gap: 1px; margin-bottom: 10px; padding: 2px 4px; }
+    .identity-row strong { font-size: 14px; font-weight: 600; }
+    .identity-row span { color: var(--muted); font-size: 12px; letter-spacing: .01em; }
+    .logout-control {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 148px;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--borderStrong);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--foreground);
+      font-weight: 600;
+      letter-spacing: .02em;
+      white-space: nowrap;
+    }
+    .admin-sidebar-user .logout-control { width: 100%; }
+    .logout-control:hover { background: var(--surfaceSubtle); }
+    .logout-control:active { transform: translateY(1px); }
+    .logout-control[disabled] { cursor: not-allowed; color: var(--muted); }
+    .spinner { width: 15px; height: 15px; margin-right: 8px; border: 2px solid var(--borderStrong); border-top-color: var(--foreground); border-radius: 50%; }
+
+    .workspace { min-width: 0; background: var(--background); }
+    .workspace-title { display: flex; align-items: center; min-height: 68px; padding: 0 24px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .workspace-title h4 { margin: 0; font-size: 17px; }
+    .excluded { margin: 24px; padding: 24px; border: 1px dashed var(--borderStrong); border-radius: 10px; background: var(--surface); color: var(--muted); }
+    .excluded strong { display: block; margin-bottom: 4px; color: var(--inkSoft); }
+
+    .pos-shell { min-height: 430px; background: var(--background); }
+    .staff-header { height: 116px; border-bottom: 1px solid var(--borderStrong); background: var(--surface); }
+    .staff-workspace-context-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 44px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+    .staff-brand { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; font-weight: 600; }
+    .staff-brand .brand-mark { width: 32px; height: 32px; border-radius: 6px; font-size: 12px; }
+    .staff-header-row { display: flex; align-items: center; gap: 16px; height: 34px; padding: 0 16px; border-bottom: 1px solid var(--border); color: var(--inkSoft); font-size: 12px; }
+    .staff-header-row strong { color: var(--foreground); font-weight: 600; }
+    .staff-inventory-nav { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 12px; overflow-x: auto; color: var(--inkSoft); white-space: nowrap; }
+    .staff-inventory-nav span { padding: 7px 10px; border-radius: 6px; }
+    .staff-inventory-nav .active { background: var(--surfaceSubtle); color: var(--foreground); font-weight: 600; }
+    .staff-workspace-context-row .logout-control { flex: 0 0 auto; min-height: 44px; }
+    .pos-content { padding: 20px; }
+    .pos-content .excluded { margin: 0; min-height: 230px; }
+
+    .frame-note { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; margin-top: 12px; color: var(--inkSoft); font-size: 14px; }
+    .frame-note strong { color: var(--foreground); }
+
+    .loading-review { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(0, 1.15fr); gap: 24px; align-items: stretch; }
+    .loading-frame { display: grid; min-height: 420px; place-content: center; justify-items: center; gap: 16px; padding: 24px; border: 1px solid var(--borderStrong); border-radius: 10px; background: var(--surface); }
+    .hero-logo { display: grid; place-items: center; width: 72px; height: 72px; border: 3px solid var(--foreground); border-radius: 10px; font-size: 22px; font-weight: 600; }
+    .loading-frame .spinner { width: 24px; height: 24px; margin: 0; border-width: 3px; }
+    .loading-copy { margin: 0; color: var(--muted); }
+    .loading-analysis { padding: 24px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .loading-analysis p { color: var(--inkSoft); }
+    .loading-analysis ul { margin: 16px 0 0; padding-left: 20px; }
+    .loading-analysis li + li { margin-top: 10px; }
+
+    .flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+    .flow-step { min-height: 150px; padding: 20px; }
+    .flow-step + .flow-step { border-left: 1px solid var(--border); }
+    .flow-step p { margin-bottom: 0; color: var(--inkSoft); }
+    .flow-step .label { margin-bottom: 12px; }
+
+    .notes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .note { padding: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .note p { margin-bottom: 0; color: var(--inkSoft); }
+
+    .state-contract { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+    .state-sample { padding: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .state-sample .logout-control { margin-top: 8px; }
+    .state-sample p { color: var(--inkSoft); }
+    .state-sample p:last-child { margin-bottom: 0; }
+
+    .implementation { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+    .implementation > div { padding: 24px; }
+    .implementation > div + div { border-left: 1px solid var(--border); }
+    .implementation ul { margin: 0; padding-left: 20px; }
+    .implementation li + li { margin-top: 8px; }
+    .do-not { color: var(--danger); }
+
+    footer { padding: 24px 0 40px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .spinner { animation: spin .8s linear infinite; }
+      .logout-control { transition: background-color 100ms cubic-bezier(.2, 0, 0, 1), transform 100ms cubic-bezier(.2, 0, 0, 1); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 767px) {
+      .page { width: min(100% - 32px, 1180px); }
+      .masthead { padding: 32px 0 24px; }
+      .section { padding: 32px 0; }
+      .decision, .reason-grid, .loading-review, .flow, .notes-grid, .state-contract, .implementation { grid-template-columns: 1fr; }
+      .decision-key { border-right: 0; border-bottom: 1px solid var(--border); }
+      .reason-grid, .notes-grid, .state-contract { gap: 12px; }
+      .flow-step + .flow-step { border-left: 0; border-top: 1px solid var(--border); }
+      .implementation > div + div { border-left: 0; border-top: 1px solid var(--border); }
+      .truth-row { grid-template-columns: 1fr; }
+      .truth-row dt { padding-bottom: 6px; }
+      .truth-row dd { padding-top: 6px; }
+      .frame-caption { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .frame-note { grid-template-columns: 1fr; gap: 4px; }
+      .admin-shell { grid-template-columns: 1fr; min-height: 440px; }
+      .admin-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand user" "nav nav"; border-right: 0; border-bottom: 1px solid var(--border); }
+      .admin-sidebar .brand { grid-area: brand; min-height: 60px; border-bottom: 0; }
+      .admin-nav { grid-area: nav; display: flex; min-width: 0; overflow-x: auto; border-top: 1px solid var(--border); }
+      .admin-nav span { flex: 0 0 auto; white-space: nowrap; }
+      .admin-sidebar-user { grid-area: user; display: flex; align-items: center; gap: 8px; margin-top: 0; padding: 8px; border-top: 0; }
+      .identity-row { margin: 0; text-align: right; }
+      .admin-sidebar-user .logout-control { width: 148px; }
+      .workspace-title { padding: 0 16px; }
+      .excluded { margin: 16px; }
+      .browser-controls { display: none; }
+    }
+
+    @media (max-width: 540px) {
+      .admin-sidebar { grid-template-columns: 1fr; grid-template-areas: "brand" "user" "nav"; }
+      .admin-sidebar-user { justify-content: space-between; border-top: 1px solid var(--border); }
+      .staff-workspace-context-row { padding: 0 10px; }
+      .staff-brand span { display: none; }
+    }
+
+    @media print {
+      body { background: var(--surface); font-size: 12pt; }
+      .page { width: 100%; max-width: none; }
+      .section, .frame-block, .decision, .note, .reason { break-inside: avoid; }
+      .spinner { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="masthead" data-od-id="artifact-header">
+    <div class="page">
+      <p class="issue-line">GitHub issue #274 / design task #280</p>
+      <h1 data-od-id="artifact-title">Keep sign-out available after refresh</h1>
+      <p class="lede">Preserve-mode implementation reference. The existing sign-out controls and shell placement are correct. The stale deep-path entry document at the CDN edge is the defect.</p>
+      <div class="metadata" aria-label="Review metadata">
+        <span>Review, not redesign</span>
+        <span>React + Vite</span>
+        <span>Light theme</span>
+        <span>One decision</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="section" data-od-id="decision-section">
+      <div class="decision">
+        <div class="decision-key">
+          <span class="label advisory">Advisory recommendation</span>
+          <strong>Keep the full-screen loading state.</strong>
+        </div>
+        <div class="decision-body">
+          <h2 data-od-id="decision-heading">Do not reserve shell chrome during session validation</h2>
+          <p>A sidebar or header skeleton would resemble an authenticated workspace before the session and role are known. That conflicts with the settled criterion that no otherwise usable workspace may appear without its enabled sign-out control.</p>
+          <p>This is a full-viewport state replacement, not a partially painted workspace inside persistent chrome. The resolved shell has a different geometry, but that change occurs at an authentication boundary. It is not cumulative layout shift caused by late content inside a stable screen, and preserving the boundary is more important than visually approximating the next state.</p>
+          <p><strong>Minimal refinement:</strong> keep the current logo, spinner, and role-specific copy; expose the copy through a polite live region; and avoid flashing the loading view when the session response returns immediately. No new visual token is needed.</p>
+        </div>
+      </div>
+
+      <div class="reason-grid" aria-label="Decision rationale">
+        <article class="reason">
+          <h3>Identity is unresolved</h3>
+          <p>An expired session or cross-role address must resolve to the correct sign-in destination without either workspace shell painting first.</p>
+        </article>
+        <article class="reason">
+          <h3>No false affordance</h3>
+          <p>A disabled sign-out-shaped placeholder suggests authenticated chrome while withholding the only control the acceptance criterion requires.</p>
+        </article>
+        <article class="reason">
+          <h3>No token work</h3>
+          <p>The existing surface, muted text, foreground spinner, spacing, and hero logo tokens already express a neutral validation state.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" data-od-id="root-cause-section">
+      <div class="section-head">
+        <span class="label">Inherited finding</span>
+        <h2 data-od-id="root-cause-heading">The root cause is delivery, not interface</h2>
+        <p>Application code already satisfies the shell and session requirements. A previous entry document remained cached at deep paths.</p>
+      </div>
+
+      <dl class="truth-table">
+        <div class="truth-row">
+          <dt>Already correct</dt>
+          <dd>Both route shells render their sign-out control on every protected route. <code>AuthContext</code> re-reads <code>GET /auth/session</code> on mount.</dd>
+        </div>
+        <div class="truth-row">
+          <dt>Actual defect</dt>
+          <dd>The entry document had no <code>Cache-Control</code>. CloudFront cached a separate copy per URL path, and the pipeline invalidated only <code>/</code> and <code>/index.html</code>.</dd>
+        </div>
+        <div class="truth-row">
+          <dt>Required fix</dt>
+          <dd>Correct the entry-document cache policy in <code>deploy/nginx.conf</code> and invalidate cached entry documents at deep paths during deployment.</dd>
+        </div>
+        <div class="truth-row">
+          <dt>UI scope</dt>
+          <dd>No new account surface, navigation, control, component, or sign-out placement. The product UI remains unchanged.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="section" data-od-id="cold-entry-placement-section">
+      <div class="section-head">
+        <span class="label">Inherited requirement</span>
+        <h2 data-od-id="cold-entry-heading">Cold entry does not change shell chrome</h2>
+        <p>Both shells wrap every protected route. Opening a deep address directly affects route content, not the location of identity or sign-out controls.</p>
+      </div>
+
+      <div class="frame-list">
+        <article class="frame-block" data-od-id="admin-cold-entry-frame">
+          <div class="frame-caption">
+            <h3>Administrator product catalog, cold direct entry</h3>
+            <span class="viewport">Desktop viewport 1440 x 900</span>
+          </div>
+          <div class="app-frame">
+            <div class="browser-bar">
+              <div class="browser-controls" aria-hidden="true"><i></i><i></i><i></i></div>
+              <div class="address">https://pos.example/catalog/products</div>
+            </div>
+            <div class="admin-shell">
+              <aside class="admin-sidebar" aria-label="Administrator shell reference">
+                <div class="brand"><span class="brand-mark" aria-hidden="true">UC</span><span>UCM Coffee</span></div>
+                <nav class="admin-nav" aria-label="Administrator navigation reference">
+                  <span>Dashboard</span>
+                  <span class="active">Product catalog</span>
+                  <span>Orders</span>
+                </nav>
+                <div class="admin-sidebar-user">
+                  <div class="identity-row"><strong>Mara Santos</strong><span>Administrator</span></div>
+                  <button class="logout-control" type="button" data-od-id="admin-logout-control">Sign out</button>
+                </div>
+              </aside>
+              <div class="workspace">
+                <div class="workspace-title"><h4>Products</h4></div>
+                <div class="excluded"><strong>Protected catalog content</strong>Route content is outside this review. The surrounding administrator shell is the implementation requirement.</div>
+              </div>
+            </div>
+          </div>
+          <div class="frame-note"><strong>Placement unchanged</strong><span><code>AdminLogoutControl</code> remains a quiet, full-width outlined button directly beneath the identity row in the pinned <code>.admin-sidebar-user</code> footer.</span></div>
+        </article>
+
+        <article class="frame-block" data-od-id="pos-cold-entry-frame">
+          <div class="frame-caption">
+            <h3>Staff point-of-sale order screen, cold direct entry</h3>
+            <span class="viewport">Touch desktop viewport 1280 x 800</span>
+          </div>
+          <div class="app-frame">
+            <div class="browser-bar">
+              <div class="browser-controls" aria-hidden="true"><i></i><i></i><i></i></div>
+              <div class="address">https://pos.example/pos/order</div>
+            </div>
+            <div class="pos-shell">
+              <header class="staff-header" aria-label="Staff shell reference">
+                <div class="staff-workspace-context-row">
+                  <div class="staff-brand"><span class="brand-mark" aria-hidden="true">UC</span><span>UCM Coffee POS</span></div>
+                  <button class="logout-control" type="button" data-od-id="staff-logout-control">Sign out</button>
+                </div>
+                <div class="staff-header-row"><strong>Order</strong><span>Active cashier context</span></div>
+                <nav class="staff-inventory-nav" aria-label="Inventory navigation reference"><span class="active">All items</span><span>Coffee</span><span>Cold drinks</span><span>Food</span><span>Extras</span></nav>
+              </header>
+              <div class="pos-content"><div class="excluded"><strong>Protected order workspace</strong>Order content is outside this review. The three-row staff header and sign-out placement are preserved.</div></div>
+            </div>
+          </div>
+          <div class="frame-note"><strong>Placement unchanged</strong><span><code>StaffLogoutControl</code> remains at the far right of row 1, opposite the brand and outside the horizontally scrolling <code>.staff-inventory-nav</code>.</span></div>
+        </article>
+      </div>
+
+      <div class="state-contract" aria-label="Existing sign-out behavior">
+        <article class="state-sample">
+          <span class="label">Inherited: administrator</span>
+          <h3>No confirmation dialog</h3>
+          <p>Logout is reversible, and the control sits outside the primary work path. At the narrow breakpoint, identity and Sign out move together to the rail's right edge, outside scrolling navigation.</p>
+        </article>
+        <article class="state-sample">
+          <span class="label">Inherited: point of sale</span>
+          <h3>Confirmation required</h3>
+          <p>Default focus is Cancel. Body: “Signing out ends your session on this browser. The active cashier on this till stays as it is.” The affirmative action uses <code>--accent</code>, never <code>--danger</code>.</p>
+        </article>
+        <article class="state-sample">
+          <span class="label">Inherited: in-flight</span>
+          <h3>Fixed footprint, disabled in place</h3>
+          <button class="logout-control" type="button" disabled aria-busy="true"><span class="spinner" aria-hidden="true"></span>Signing out…</button>
+          <p>Both controls retain their footprint, set <code>aria-busy="true"</code>, and avoid layout movement.</p>
+        </article>
+        <article class="state-sample">
+          <span class="label">Inherited: interaction</span>
+          <h3>Neutral rest state</h3>
+          <p>Outlined rest state, subtle surface hover, visible standard focus ring, and a minimum 44px touch target.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" data-od-id="loading-state-section">
+      <div class="section-head">
+        <span class="label">Inherited state, advisory handling</span>
+        <h2 data-od-id="loading-heading">Validate first, then paint one resolved destination</h2>
+        <p>The loading state must remain visually neutral. It must not outline either role's workspace shell.</p>
+      </div>
+
+      <div class="loading-review">
+        <div class="loading-frame" role="img" aria-label="Existing full-screen administrator session loading state">
+          <div class="hero-logo" aria-hidden="true">UC</div>
+          <span class="spinner" aria-hidden="true"></span>
+          <p class="loading-copy" aria-live="polite">Checking administrator access…</p>
+        </div>
+        <div class="loading-analysis">
+          <span class="label advisory">Recommendation</span>
+          <h3>Retain the full-viewport swap as-is</h3>
+          <p>Admin <code>SessionLoading</code> keeps <code>min-height: 100svh</code>. POS keeps <code>min-height: 100dvh</code>. Both use the existing surface, centered grid, 24px padding, 16px gap, 72px logo, foreground spinner, and muted line.</p>
+          <ul>
+            <li>Do not paint a sidebar, header, workspace grid, or sign-out placeholder while session status is unresolved.</li>
+            <li>Use <code>aria-live="polite"</code> on the loading announcement so validation is communicated without interrupting other assistive technology output.</li>
+            <li>If a fast session response causes a perceptible flash, delay visual presentation briefly while keeping the session request immediate. This is timing only and needs no token.</li>
+            <li>When the resolved shell replaces loading, preserve the app's existing route-entry focus target. Focus the route's main heading if that is the established target. Never move focus to Sign out automatically.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flow" style="margin-top:24px" aria-label="Session resolution flow">
+        <article class="flow-step">
+          <span class="label">Unresolved</span>
+          <h3>Neutral validation screen</h3>
+          <p>No authenticated workspace chrome and no sign-out control are painted.</p>
+        </article>
+        <article class="flow-step">
+          <span class="label">Valid session</span>
+          <h3>Role-correct shell</h3>
+          <p>The requested route paints inside its shell with the existing enabled sign-out control.</p>
+        </article>
+        <article class="flow-step">
+          <span class="label">Invalid or wrong role</span>
+          <h3>Role-correct sign-in</h3>
+          <p>The other role's shell never paints, and no sign-out control appears at any point.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" data-od-id="edge-case-section">
+      <div class="section-head">
+        <span class="label">Advisory acceptance notes</span>
+        <h2 data-od-id="edge-case-heading">Deep-entry behavior remains route-consistent</h2>
+      </div>
+      <div class="notes-grid">
+        <article class="note"><h3>Query strings and fragments</h3><p><code>?query=value</code> and <code>#fragment</code> do not change shell selection or sign-out placement. Visual behavior is identical.</p></article>
+        <article class="note"><h3>Cross-role entry</h3><p>Resolve the session before shell paint, then redirect to the correct workspace or sign-in. Never flash the other role's shell.</p></article>
+        <article class="note"><h3>After sign-out</h3><p>Administrator exits land on <code>/sign-in</code>. Staff exits land on <code>/staff/sign-in</code>. Keep the polite <code>role="status"</code> line “You have been signed out.”</p></article>
+        <article class="note"><h3>Refresh after sign-out</h3><p>Refreshing the original protected deep address must not restore the workspace. Session validation must resolve to the role-correct sign-in screen.</p></article>
+        <article class="note"><h3>Loading accessibility</h3><p>Announce validation politely. Ensure the loading tree can unmount without dropping focus into an inert or removed element.</p></article>
+        <article class="note"><h3>Control accessibility</h3><p>Keep the 44px minimum target, visible focus ring, stable in-flight footprint, disabled state, and <code>aria-busy="true"</code>.</p></article>
+      </div>
+    </section>
+
+    <section class="section" data-od-id="implementation-boundary-section">
+      <div class="section-head">
+        <span class="label">Implementation boundary</span>
+        <h2 data-od-id="implementation-heading">Ship the cache fix, preserve the product UI</h2>
+      </div>
+      <div class="implementation">
+        <div>
+          <h3>Change</h3>
+          <ul>
+            <li><code>deploy/nginx.conf</code>: set the intended entry-document cache behavior.</li>
+            <li>Deployment invalidation: cover cached entry documents at protected deep paths, not only root aliases.</li>
+            <li>Regression coverage: cold direct entry for <code>/dashboard</code>, <code>/catalog/products</code>, and <code>/pos/order</code>.</li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="do-not">Do not change</h3>
+          <ul>
+            <li><code>AdminLogoutControl</code> or <code>StaffLogoutControl</code> placement.</li>
+            <li>Shell information architecture, route addresses, or account surfaces.</li>
+            <li>Confirmation rules, destructive semantics, control dimensions, or loading tokens.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="page">Advisory implementation reference for issue #274 and design task #280. Production tokens are reproduced without additions.</div>
+  </footer>
+</body>
+</html>
