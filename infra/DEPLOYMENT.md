@@ -119,6 +119,14 @@ auth cookie stay `SameSite=Lax; Secure; HttpOnly` — the strongest posture
 achievable without extra work. Cross-origin (`SameSite=None`) is only needed if
 SPA and API ever live on different hosts — avoid that scenario if possible.
 
+**SPA cache rule:** nginx sends `Cache-Control: no-cache` on `index.html`,
+including when a client-side deep link falls back to that entry document. The
+entry document must therefore be revalidated rather than reused at the edge;
+otherwise CloudFront can retain a different stale build for every deep-link
+path. Do not apply this rule to `/assets/`: Vite's content-hashed assets should
+remain long-lived and cacheable. Each deployment also invalidates `/*` once to
+clear entry documents cached under deep paths by older deployments.
+
 **If this ever needs to scale past ~3 users:** move Postgres to RDS (managed
 backups/patching), API to ECS Fargate behind an ALB (horizontal scaling, but
 note the login throttle is in-memory per-instance — see §7), and add a NAT
@@ -479,7 +487,9 @@ Triggered by the deploy agent via `gh workflow run deploy.yml --ref master`
    - syncs `s3://<spa-bucket>/spa/` to `/var/www/spa`; and
    - verifies the local nginx `/health` endpoint.
 7. Fail the workflow unless the SSM command explicitly reaches `Success`, then
-   verify the live uncached endpoint at `<site-url>/api/health`.
+   invalidate `/*` on CloudFront so entry documents cached under deep-link
+   paths by an older deployment cannot survive the release.
+8. Verify the live uncached endpoint at `<site-url>/api/health`.
 
 **Rollback:** every image is tagged by git sha. Rolling back is one SSM Run
 Command re-running compose with the previous sha's image tag, then re-syncing
