@@ -187,9 +187,14 @@ export class InventoryItemListQueryDto {
 }
 
 export class UpsertParLevelDto {
+  @IsOptional()
   @IsInt()
   @Min(0, { message: 'parQty must be zero or greater' })
-  parQty!: number;
+  parQty?: number;
+
+  @IsOptional()
+  @IsEnum(StockLevel)
+  parLevel?: StockLevel;
 
   @IsOptional()
   @IsInt()

@@ -7,13 +7,14 @@ import {
 import {
   CountMethod as SharedCountMethod,
   DayType as SharedDayType,
+  StockLevel as SharedStockLevel,
 } from '@coffee-shop/shared';
 import type {
   InventoryItem,
   InventoryItemOption,
   ParLevel,
 } from '@coffee-shop/shared';
-import { CountMethod, DayType, Prisma } from '@prisma/client';
+import { CountMethod, DayType, Prisma, StockLevel } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -187,24 +188,34 @@ export class InventoryItemsService {
     dayType: DayType,
     input: UpsertParLevelDto,
   ): Promise<ParLevel> {
-    await this.requireItem(inventoryItemId);
+    const item = await this.requireItem(inventoryItemId);
+    const parQty = input.parQty ?? null;
+    const parLevel = (input.parLevel as StockLevel | undefined) ?? null;
     const lowThreshold = input.lowThreshold ?? null;
     const urgentThreshold = input.urgentThreshold ?? null;
-    this.validateParLevel(input.parQty, lowThreshold, urgentThreshold);
+    this.validateParLevel(
+      item.countMethod,
+      parQty,
+      parLevel,
+      lowThreshold,
+      urgentThreshold,
+    );
 
     const record = await this.prisma.parLevel.upsert({
       where: {
         inventoryItemId_dayType: { inventoryItemId, dayType },
       },
       update: {
-        parQty: input.parQty,
+        parQty,
+        parLevel,
         lowThreshold,
         urgentThreshold,
       },
       create: {
         inventoryItemId,
         dayType,
-        parQty: input.parQty,
+        parQty,
+        parLevel,
         lowThreshold,
         urgentThreshold,
       },
@@ -226,14 +237,17 @@ export class InventoryItemsService {
     }
   }
 
-  private async requireItem(id: string): Promise<void> {
+  private async requireItem(
+    id: string,
+  ): Promise<{ id: string; countMethod: CountMethod }> {
     const item = await this.prisma.inventoryItem.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, countMethod: true },
     });
     if (!item) {
       throw new NotFoundException('Stock item not found');
     }
+    return item;
   }
 
   private findItem(id: string): Promise<InventoryItemRecord | null> {
@@ -258,10 +272,58 @@ export class InventoryItemsService {
   }
 
   private validateParLevel(
-    parQty: number,
+    countMethod: CountMethod,
+    parQty: number | null,
+    parLevel: StockLevel | null,
     lowThreshold: number | null,
     urgentThreshold: number | null,
   ): void {
+    if (countMethod === CountMethod.LEVEL) {
+      if (parQty !== null) {
+        throw new BadRequestException({
+          message: 'Quantity par is not valid for a Level-counted item',
+          field: 'parQty',
+          reason: 'PAR_COUNT_METHOD_MISMATCH',
+        });
+      }
+      if (parLevel === null) {
+        throw new BadRequestException({
+          message: 'Level-counted items require a level target',
+          field: 'parLevel',
+          reason: 'PAR_VALUE_REQUIRED',
+        });
+      }
+      if (lowThreshold !== null) {
+        throw new BadRequestException({
+          message: 'Low threshold is not valid for a Level-counted item',
+          field: 'lowThreshold',
+          reason: 'LEVEL_PAR_REJECTS_THRESHOLDS',
+        });
+      }
+      if (urgentThreshold !== null) {
+        throw new BadRequestException({
+          message: 'Urgent threshold is not valid for a Level-counted item',
+          field: 'urgentThreshold',
+          reason: 'LEVEL_PAR_REJECTS_THRESHOLDS',
+        });
+      }
+      return;
+    }
+
+    if (parLevel !== null) {
+      throw new BadRequestException({
+        message: 'Level target is not valid for a Quantity-counted item',
+        field: 'parLevel',
+        reason: 'PAR_COUNT_METHOD_MISMATCH',
+      });
+    }
+    if (parQty === null) {
+      throw new BadRequestException({
+        message: 'Quantity-counted items require a quantity par',
+        field: 'parQty',
+        reason: 'PAR_VALUE_REQUIRED',
+      });
+    }
     if (urgentThreshold !== null && lowThreshold === null) {
       throw new BadRequestException({
         message: 'Urgent threshold requires a Low threshold',
@@ -331,13 +393,15 @@ export class InventoryItemsService {
     id: string;
     inventoryItemId: string;
     dayType: DayType;
-    parQty: number;
+    parQty: number | null;
+    parLevel: StockLevel | null;
     lowThreshold: number | null;
     urgentThreshold: number | null;
   }): ParLevel {
     return {
       ...record,
       dayType: record.dayType as SharedDayType,
+      parLevel: record.parLevel as SharedStockLevel | null,
     };
   }
 }

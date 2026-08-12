@@ -2,8 +2,11 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { CountMethod as SharedCountMethod } from '@coffee-shop/shared';
-import { CountMethod, DayType } from '@prisma/client';
+import {
+  CountMethod as SharedCountMethod,
+  StockLevel as SharedStockLevel,
+} from '@coffee-shop/shared';
+import { CountMethod, DayType, StockLevel } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { InventoryItemsService } from './inventory-items.service';
 
@@ -205,7 +208,10 @@ describe('InventoryItemsService', () => {
     },
   ])('rejects invalid par ordering: $reason', async ({ input, reason }) => {
     const prisma = createPrisma();
-    prisma.inventoryItem.findUnique.mockResolvedValue({ id: itemId });
+    prisma.inventoryItem.findUnique.mockResolvedValue({
+      id: itemId,
+      countMethod: CountMethod.QUANTITY,
+    });
     const service = new InventoryItemsService(
       prisma as unknown as PrismaService,
     );
@@ -220,12 +226,16 @@ describe('InventoryItemsService', () => {
 
   it('accepts all-zero thresholds and updates only the selected day type', async () => {
     const prisma = createPrisma();
-    prisma.inventoryItem.findUnique.mockResolvedValue({ id: itemId });
+    prisma.inventoryItem.findUnique.mockResolvedValue({
+      id: itemId,
+      countMethod: CountMethod.QUANTITY,
+    });
     prisma.parLevel.upsert.mockResolvedValue({
       id: '3daf8107-e86f-43a7-83bd-1252648fb243',
       inventoryItemId: itemId,
       dayType: DayType.PEAK,
       parQty: 0,
+      parLevel: null,
       lowThreshold: 0,
       urgentThreshold: 0,
     });
@@ -248,6 +258,7 @@ describe('InventoryItemsService', () => {
       },
       update: {
         parQty: 0,
+        parLevel: null,
         lowThreshold: 0,
         urgentThreshold: 0,
       },
@@ -255,9 +266,163 @@ describe('InventoryItemsService', () => {
         inventoryItemId: itemId,
         dayType: DayType.PEAK,
         parQty: 0,
+        parLevel: null,
         lowThreshold: 0,
         urgentThreshold: 0,
       },
     });
   });
+
+  it('persists and returns a level target for only the selected day type', async () => {
+    const prisma = createPrisma();
+    prisma.inventoryItem.findUnique.mockResolvedValue({
+      id: itemId,
+      countMethod: CountMethod.LEVEL,
+    });
+    prisma.parLevel.upsert.mockResolvedValue({
+      id: '3daf8107-e86f-43a7-83bd-1252648fb243',
+      inventoryItemId: itemId,
+      dayType: DayType.NORMAL,
+      parQty: null,
+      parLevel: StockLevel.HALF,
+      lowThreshold: null,
+      urgentThreshold: null,
+    });
+    const service = new InventoryItemsService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.upsertParLevel(itemId, DayType.NORMAL, {
+        parLevel: SharedStockLevel.HALF,
+      }),
+    ).resolves.toMatchObject({
+      dayType: DayType.NORMAL,
+      parQty: null,
+      parLevel: SharedStockLevel.HALF,
+    });
+
+    expect(prisma.parLevel.upsert).toHaveBeenCalledWith({
+      where: {
+        inventoryItemId_dayType: {
+          inventoryItemId: itemId,
+          dayType: DayType.NORMAL,
+        },
+      },
+      update: {
+        parQty: null,
+        parLevel: StockLevel.HALF,
+        lowThreshold: null,
+        urgentThreshold: null,
+      },
+      create: {
+        inventoryItemId: itemId,
+        dayType: DayType.NORMAL,
+        parQty: null,
+        parLevel: StockLevel.HALF,
+        lowThreshold: null,
+        urgentThreshold: null,
+      },
+    });
+  });
+
+  it('returns saved level targets when par settings are listed', async () => {
+    const prisma = createPrisma();
+    prisma.inventoryItem.findUnique.mockResolvedValue({
+      id: itemId,
+      countMethod: CountMethod.LEVEL,
+    });
+    prisma.parLevel.findMany.mockResolvedValue([
+      {
+        id: '3daf8107-e86f-43a7-83bd-1252648fb243',
+        inventoryItemId: itemId,
+        dayType: DayType.PEAK,
+        parQty: null,
+        parLevel: StockLevel.THREE_QUARTERS,
+        lowThreshold: null,
+        urgentThreshold: null,
+      },
+    ]);
+    const service = new InventoryItemsService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(service.listParLevels(itemId)).resolves.toEqual([
+      expect.objectContaining({
+        dayType: DayType.PEAK,
+        parQty: null,
+        parLevel: SharedStockLevel.THREE_QUARTERS,
+      }),
+    ]);
+  });
+
+  it.each([
+    {
+      countMethod: CountMethod.LEVEL,
+      input: { parQty: 10 },
+      field: 'parQty',
+      reason: 'PAR_COUNT_METHOD_MISMATCH',
+    },
+    {
+      countMethod: CountMethod.QUANTITY,
+      input: { parLevel: SharedStockLevel.HALF },
+      field: 'parLevel',
+      reason: 'PAR_COUNT_METHOD_MISMATCH',
+    },
+    {
+      countMethod: CountMethod.LEVEL,
+      input: { parQty: 10, parLevel: SharedStockLevel.HALF },
+      field: 'parQty',
+      reason: 'PAR_COUNT_METHOD_MISMATCH',
+    },
+    {
+      countMethod: CountMethod.QUANTITY,
+      input: { parQty: 10, parLevel: SharedStockLevel.HALF },
+      field: 'parLevel',
+      reason: 'PAR_COUNT_METHOD_MISMATCH',
+    },
+    {
+      countMethod: CountMethod.LEVEL,
+      input: {},
+      field: 'parLevel',
+      reason: 'PAR_VALUE_REQUIRED',
+    },
+    {
+      countMethod: CountMethod.QUANTITY,
+      input: {},
+      field: 'parQty',
+      reason: 'PAR_VALUE_REQUIRED',
+    },
+    {
+      countMethod: CountMethod.LEVEL,
+      input: { parLevel: SharedStockLevel.HALF, lowThreshold: 2 },
+      field: 'lowThreshold',
+      reason: 'LEVEL_PAR_REJECTS_THRESHOLDS',
+    },
+    {
+      countMethod: CountMethod.LEVEL,
+      input: { parLevel: SharedStockLevel.HALF, urgentThreshold: 1 },
+      field: 'urgentThreshold',
+      reason: 'LEVEL_PAR_REJECTS_THRESHOLDS',
+    },
+  ])(
+    'rejects a par shape that does not match $countMethod ($field)',
+    async ({ countMethod, input, field, reason }) => {
+      const prisma = createPrisma();
+      prisma.inventoryItem.findUnique.mockResolvedValue({
+        id: itemId,
+        countMethod,
+      });
+      const service = new InventoryItemsService(
+        prisma as unknown as PrismaService,
+      );
+
+      await expect(
+        service.upsertParLevel(itemId, DayType.NORMAL, input),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ field, reason }),
+      });
+      expect(prisma.parLevel.upsert).not.toHaveBeenCalled();
+    },
+  );
 });

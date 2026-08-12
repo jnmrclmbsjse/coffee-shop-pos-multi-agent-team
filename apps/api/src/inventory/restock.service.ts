@@ -84,6 +84,9 @@ type RestockCountRecord = Prisma.StockCountGetPayload<{
   include: typeof restockCountInclude;
 }>;
 
+type RestockParRecord =
+  RestockCountRecord['lines'][number]['inventoryItem']['parLevels'][number];
+
 @Injectable()
 export class RestockService {
   constructor(
@@ -161,7 +164,7 @@ export class RestockService {
 
   private toRow(
     line: RestockCountRecord['lines'][number],
-    par: QuantityBands | null,
+    par: RestockParRecord | null,
   ): RestockStatusRow {
     const item = line.inventoryItem;
     if (item.countMethod === CountMethod.LEVEL) {
@@ -179,6 +182,14 @@ export class RestockService {
     }
 
     const quantity = line.quantity!;
+    const quantityBands =
+      par === null || par.parQty === null
+        ? null
+        : {
+            parQty: par.parQty,
+            lowThreshold: par.lowThreshold,
+            urgentThreshold: par.urgentThreshold,
+          };
     return {
       inventoryItemId: item.id,
       itemName: item.name,
@@ -186,8 +197,8 @@ export class RestockService {
       countMethod: SharedCountMethod.QUANTITY,
       quantity,
       level: null,
-      par: par?.parQty ?? null,
-      status: quantityRestockStatus(quantity, par),
+      par: quantityBands?.parQty ?? null,
+      status: quantityRestockStatus(quantity, quantityBands),
     };
   }
 }

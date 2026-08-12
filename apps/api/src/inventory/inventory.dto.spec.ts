@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CountMethod } from '@coffee-shop/shared';
+import { CountMethod, StockLevel } from '@coffee-shop/shared';
 import {
   CreateInventoryItemDto,
   UpsertParLevelDto,
@@ -51,6 +51,23 @@ describe('Inventory DTO validation', () => {
     { parQty: 10, lowThreshold: 5, urgentThreshold: 1.5 },
   ])('rejects negative or non-whole par input: %j', async (input) => {
     const parLevel = plainToInstance(UpsertParLevelDto, input);
+
+    expect(await validate(parLevel)).not.toHaveLength(0);
+  });
+
+  it.each([
+    { parQty: 10, lowThreshold: 5, urgentThreshold: 2 },
+    { parLevel: StockLevel.HALF },
+  ])('accepts a valid par payload shape: %j', async (input) => {
+    const parLevel = plainToInstance(UpsertParLevelDto, input);
+
+    expect(await validate(parLevel)).toHaveLength(0);
+  });
+
+  it('rejects a level outside the StockLevel vocabulary', async () => {
+    const parLevel = plainToInstance(UpsertParLevelDto, {
+      parLevel: 'ALMOST_FULL',
+    });
 
     expect(await validate(parLevel)).not.toHaveLength(0);
   });
