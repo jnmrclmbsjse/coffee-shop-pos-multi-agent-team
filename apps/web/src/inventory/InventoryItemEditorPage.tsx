@@ -4,7 +4,12 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import { CountMethod, DayType, type InventoryItem } from '@coffee-shop/shared';
+import {
+  CountMethod,
+  DayType,
+  StockLevel,
+  type InventoryItem,
+} from '@coffee-shop/shared';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Icon, Notice, Switch } from '../catalog/components';
 import {
@@ -21,6 +26,7 @@ import {
 
 interface ParDraft {
   parQty: string;
+  parLevel: string;
   lowThreshold: string;
   urgentThreshold: string;
 }
@@ -49,9 +55,23 @@ interface FormErrors {
 
 const EMPTY_PAR: ParDraft = {
   parQty: '0',
+  parLevel: '',
   lowThreshold: '',
   urgentThreshold: '',
 };
+
+const LEVEL_OPTIONS = [
+  [StockLevel.EMPTY, 'Empty'],
+  [StockLevel.LOW, 'Low'],
+  [StockLevel.QUARTER, 'Quarter'],
+  [StockLevel.ONE_THIRD, 'One-third'],
+  [StockLevel.HALF, 'Half'],
+  [StockLevel.TWO_THIRDS, 'Two-thirds'],
+  [StockLevel.THREE_QUARTERS, 'Three-quarters'],
+  [StockLevel.FULL, 'Full'],
+] as const;
+
+const STOCK_LEVELS = new Set<string>(Object.values(StockLevel));
 
 const EMPTY_ITEM: ItemDraft = {
   categoryId: '',
@@ -69,8 +89,9 @@ const EMPTY_ITEM: ItemDraft = {
 function parFromItem(item: InventoryItem, dayType: DayType): ParDraft {
   const par = item.parLevels.find((level) => level.dayType === dayType);
   return par
-    ? {
-        parQty: String(par.parQty),
+      ? {
+        parQty: par.parQty === null ? '' : String(par.parQty),
+        parLevel: par.parLevel ?? '',
         lowThreshold: par.lowThreshold === null ? '' : String(par.lowThreshold),
         urgentThreshold:
           par.urgentThreshold === null ? '' : String(par.urgentThreshold),
@@ -101,8 +122,21 @@ function parseWholeNumber(value: string): number | null {
 export function validateParDraft(
   draft: ParDraft,
   label: string,
+  countMethod: CountMethod,
 ): { input?: ParLevelInput; errors: Partial<Record<keyof ParDraft, string>> } {
   const errors: Partial<Record<keyof ParDraft, string>> = {};
+
+  if (countMethod === CountMethod.LEVEL) {
+    if (!STOCK_LEVELS.has(draft.parLevel)) {
+      errors.parLevel = `Choose a level for ${label}.`;
+      return { errors };
+    }
+    return {
+      input: { parLevel: draft.parLevel as StockLevel },
+      errors,
+    };
+  }
+
   const parQty = parseWholeNumber(draft.parQty);
   const lowThreshold =
     draft.lowThreshold.trim() === ''
@@ -167,6 +201,7 @@ export function InventoryItemEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [countMethodSwitched, setCountMethodSwitched] = useState(false);
   const validationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -182,9 +217,11 @@ export function InventoryItemEditorPage() {
         if (item) {
           setOriginal(item);
           setDraft(draftFromItem(item));
+          setCountMethodSwitched(false);
           document.title = `Edit ${item.name} · UCM Coffee Studio`;
         } else {
           setDraft(EMPTY_ITEM);
+          setCountMethodSwitched(false);
           document.title = 'Add stock item · UCM Coffee Studio';
         }
       })
@@ -226,6 +263,11 @@ export function InventoryItemEditorPage() {
     }));
   }
 
+  function setCountMethod(countMethod: CountMethod) {
+    if (countMethod !== draft.countMethod) setCountMethodSwitched(true);
+    setField('countMethod', countMethod);
+  }
+
   function validate(): {
     item: InventoryItemInput;
     normal: ParLevelInput;
@@ -242,8 +284,8 @@ export function InventoryItemEditorPage() {
         'Reconciled items must use Quantity as their count method.';
     }
 
-    const normal = validateParDraft(draft.normal, 'Normal day');
-    const peak = validateParDraft(draft.peak, 'Peak day');
+    const normal = validateParDraft(draft.normal, 'Normal day', draft.countMethod);
+    const peak = validateParDraft(draft.peak, 'Peak day', draft.countMethod);
     if (Object.keys(normal.errors).length > 0) nextErrors.normal = normal.errors;
     if (Object.keys(peak.errors).length > 0) nextErrors.peak = peak.errors;
 
@@ -293,10 +335,38 @@ export function InventoryItemEditorPage() {
         id && original
           ? await updateInventoryItem(id, input.item)
           : await createInventoryItem(input.item);
-      await Promise.all([
+      const parResults = await Promise.allSettled([
         saveParLevel(saved.id, DayType.NORMAL, input.normal),
         saveParLevel(saved.id, DayType.PEAK, input.peak),
       ]);
+      const dayKeys = ['normal', 'peak'] as const;
+      const parErrors: Pick<FormErrors, 'normal' | 'peak'> = {};
+      parResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') return;
+        const day = dayKeys[index]!;
+        const label = day === 'normal' ? 'Normal day' : 'Peak day';
+        const error = result.reason;
+        const message =
+          error instanceof InventoryApiError
+            ? error.messages.join(' ')
+            : 'The par setting could not be saved. Try again.';
+        const quantityField =
+          error instanceof InventoryApiError &&
+          (error.field === 'lowThreshold' || error.field === 'urgentThreshold')
+            ? error.field
+            : 'parQty';
+        const field =
+          draft.countMethod === CountMethod.LEVEL ? 'parLevel' : quantityField;
+        parErrors[day] = { [field]: `${label}: ${message}` };
+      });
+      if (parErrors.normal || parErrors.peak) {
+        setErrors({
+          ...parErrors,
+          summary: 'Review the highlighted item and par-level fields before saving.',
+        });
+        requestAnimationFrame(() => validationRef.current?.focus());
+        return;
+      }
       navigate('/inventory', { replace: true });
     } catch (error) {
       const message =
@@ -455,7 +525,7 @@ export function InventoryItemEditorPage() {
                   type="radio"
                   name="count-method"
                   checked={draft.countMethod === CountMethod.QUANTITY}
-                  onChange={() => setField('countMethod', CountMethod.QUANTITY)}
+                  onChange={() => setCountMethod(CountMethod.QUANTITY)}
                 />
                 <span><strong>Quantity</strong><small>Count exact whole units.</small></span>
               </label>
@@ -465,12 +535,20 @@ export function InventoryItemEditorPage() {
                   name="count-method"
                   checked={draft.countMethod === CountMethod.LEVEL}
                   disabled={draft.reconciled}
-                  onChange={() => setField('countMethod', CountMethod.LEVEL)}
+                  onChange={() => setCountMethod(CountMethod.LEVEL)}
                 />
                 <span><strong>Level</strong><small>Record an estimated stock level.</small></span>
               </label>
               {draft.reconciled && (
                 <p>Reconciled items always use Quantity.</p>
+              )}
+              {countMethodSwitched && !draft.reconciled && (
+                <p className="inventory-count-method-notice" role="status">
+                  {draft.countMethod ===
+                  (original?.countMethod ?? EMPTY_ITEM.countMethod)
+                    ? `Not saved yet. The ${draft.countMethod === CountMethod.QUANTITY ? 'quantity' : 'level'} entries from before the method change are restored.`
+                    : `Not saved yet. No ${draft.countMethod === CountMethod.LEVEL ? 'quantity' : 'level'} values were converted. Switching back restores the entries from before this change.`}
+                </p>
               )}
             </fieldset>
           </div>
@@ -494,6 +572,9 @@ export function InventoryItemEditorPage() {
                     ? CountMethod.QUANTITY
                     : current.countMethod,
                 }));
+                if (checked && draft.countMethod === CountMethod.LEVEL) {
+                  setCountMethodSwitched(true);
+                }
                 setErrors((current) => ({ ...current, summary: undefined }));
               }}
             />
@@ -515,23 +596,34 @@ export function InventoryItemEditorPage() {
         <section className="form-section" aria-labelledby="par-levels-heading">
           <div className="section-heading">
             <h2 id="par-levels-heading">Par levels</h2>
-            <p>Set independent targets for normal and peak days. Zero is valid.</p>
+            <p>
+              Set independent targets for normal and peak days.
+              {draft.countMethod === CountMethod.QUANTITY && ' Zero is valid.'}
+            </p>
           </div>
           <div className="par-level-grid">
-            <ParFields
-              idPrefix="normal"
-              title="Normal day"
-              draft={draft.normal}
-              errors={errors.normal}
-              onChange={(field, value) => setParField('normal', field, value)}
-            />
-            <ParFields
-              idPrefix="peak"
-              title="Peak day"
-              draft={draft.peak}
-              errors={errors.peak}
-              onChange={(field, value) => setParField('peak', field, value)}
-            />
+            {(['normal', 'peak'] as const).map((day) => {
+              const title = day === 'normal' ? 'Normal day' : 'Peak day';
+              return draft.countMethod === CountMethod.LEVEL ? (
+                <LevelParFields
+                  key={day}
+                  idPrefix={day}
+                  title={title}
+                  value={draft[day].parLevel}
+                  error={errors[day]?.parLevel}
+                  onChange={(value) => setParField(day, 'parLevel', value)}
+                />
+              ) : (
+                <ParFields
+                  key={day}
+                  idPrefix={day}
+                  title={title}
+                  draft={draft[day]}
+                  errors={errors[day]}
+                  onChange={(field, value) => setParField(day, field, value)}
+                />
+              );
+            })}
           </div>
         </section>
 
@@ -559,6 +651,58 @@ export function InventoryItemEditorPage() {
         )}
       </form>
     </main>
+  );
+}
+
+function LevelParFields({
+  idPrefix,
+  title,
+  value,
+  error,
+  onChange,
+}: {
+  idPrefix: string;
+  title: string;
+  value: string;
+  error?: string;
+  onChange: (value: StockLevel) => void;
+}) {
+  const hintId = `${idPrefix}-level-hint`;
+  const errorId = `${idPrefix}-level-error`;
+  return (
+    <fieldset
+      className={`par-level-group par-level-group--level${error ? ' is-invalid' : ''}`}
+      aria-invalid={Boolean(error)}
+      aria-describedby={`${hintId}${error ? ` ${errorId}` : ''}`}
+    >
+      <legend>{title}</legend>
+      <p className="level-scale-hint" id={hintId}>
+        Choose one target from Empty to Full.
+      </p>
+      <div className="level-scale-options">
+        {LEVEL_OPTIONS.map(([level, label]) => {
+          const id = `${idPrefix}-level-${level.toLowerCase()}`;
+          return (
+            <div className="level-radio-option" key={level}>
+              <input
+                id={id}
+                type="radio"
+                name={`${idPrefix}-par-level`}
+                value={level}
+                checked={value === level}
+                onChange={() => onChange(level)}
+              />
+              <label htmlFor={id}>{label}</label>
+            </div>
+          );
+        })}
+      </div>
+      {error && (
+        <p className="catalog-field-error level-scale-error" id={errorId} role="alert">
+          {error}
+        </p>
+      )}
+    </fieldset>
   );
 }
 
