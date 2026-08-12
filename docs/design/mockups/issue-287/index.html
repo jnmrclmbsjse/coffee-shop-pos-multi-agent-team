@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UCM Coffee Studio - Staff login account states</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="prototype" data-od-id="login-account-prototype">
+    <header class="prototype-head" data-od-id="prototype-heading">
+      <div>
+        <p class="prototype-kicker">Design task #295</p>
+        <h1>Staff login account flow</h1>
+        <p>Advisory implementation reference for GitHub #287. Existing admin and POS shells are preserved.</p>
+      </div>
+      <nav aria-label="Mockup sections">
+        <a href="#roster">Roster row</a>
+        <a href="#dialog">Dialog states</a>
+        <a href="#cashier">Cashier display</a>
+      </nav>
+    </header>
+
+    <section id="roster" class="mockup-section catalog-page staff-page" data-od-id="staff-roster-section" aria-labelledby="staff-heading">
+      <div class="section-label">A. Shipped staff roster with new row action</div>
+      <div class="catalog-page-head">
+        <div>
+          <h2 id="staff-heading">Staff</h2>
+          <p>Manage names used to identify cashiers at the register.</p>
+        </div>
+        <button class="catalog-button primary" type="button"><span aria-hidden="true">+</span> Add staff</button>
+      </div>
+
+      <div class="catalog-panel" data-od-id="staff-catalog-panel">
+        <div class="staff-filters">
+          <label class="search-control">
+            <span class="sr-only">Search staff</span>
+            <input type="search" placeholder="Search staff" aria-label="Search staff">
+          </label>
+          <label class="filter-control"><span>Status</span><select><option>All statuses</option><option>Active</option><option>Inactive</option></select></label>
+          <label class="filter-control"><span>Sort by</span><select><option>Name</option></select></label>
+          <button class="catalog-button direction-button" type="button" aria-label="Sort ascending">A to Z</button>
+        </div>
+        <div class="results-meta">
+          <span>4 staff members shown</span>
+          <button type="button" class="text-button">Clear search and filter</button>
+        </div>
+
+        <div class="table-scroll" tabindex="0" aria-label="Staff roster table, horizontally scrollable on small screens">
+          <table class="catalog-table staff-table">
+            <thead><tr><th scope="col">Name</th><th scope="col">Is active</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+            <tbody>
+              <tr data-od-id="staff-row-mara-santos">
+                <th scope="row">Mara Santos</th>
+                <td><div class="state-cell"><span class="state-badge active">Active</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Mara Santos is active"><span></span></button></div></td>
+                <td class="table-action"><div class="row-actions"><button class="catalog-button small" type="button">Edit</button><button class="catalog-button small create-login" type="button" data-member="Mara Santos">Create login account</button></div></td>
+              </tr>
+              <tr data-od-id="staff-row-jon-bell">
+                <th scope="row"><span>Jon Bell</span><span class="account-marker">Login account</span></th>
+                <td><div class="state-cell"><span class="state-badge active">Active</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Jon Bell is active"><span></span></button></div></td>
+                <td class="table-action"><div class="row-actions"><button class="catalog-button small" type="button">Edit</button><span class="action-reason">Account already exists</span></div></td>
+              </tr>
+              <tr data-od-id="staff-row-ines-reyes">
+                <th scope="row">Ines Reyes</th>
+                <td><div class="state-cell"><span class="state-badge inactive">Inactive</span><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Ines Reyes is inactive"><span></span></button></div></td>
+                <td class="table-action"><div class="row-actions"><button class="catalog-button small" type="button">Edit</button><span class="action-reason">Activate staff to create an account</span></div></td>
+              </tr>
+              <tr data-od-id="staff-row-omar-diaz">
+                <th scope="row"><span>Omar Diaz</span><span class="account-marker">Login account</span></th>
+                <td><div class="state-cell"><span class="state-badge inactive">Inactive</span><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Omar Diaz is inactive"><span></span></button></div></td>
+                <td class="table-action"><div class="row-actions"><button class="catalog-button small" type="button">Edit</button><span class="action-reason">Inactive. Account already exists</span></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="dialog" class="mockup-section" data-od-id="dialog-states-section" aria-labelledby="dialog-section-heading">
+      <div class="section-label">B. Create-login-account dialog</div>
+      <div class="section-intro">
+        <h2 id="dialog-section-heading">Dialog state workbench</h2>
+        <p>Choose a state to inspect production copy, field wiring, and control behavior.</p>
+      </div>
+      <div class="state-switcher" role="group" aria-label="Dialog state">
+        <button type="button" data-state="default" aria-pressed="true">Default</button>
+        <button type="button" data-state="missing">Required fields</button>
+        <button type="button" data-state="spaces">Spaces only</button>
+        <button type="button" data-state="pin-short">3-digit PIN</button>
+        <button type="button" data-state="pin-text">Non-digit PIN</button>
+        <button type="button" data-state="username-taken">Username 409</button>
+        <button type="button" data-state="member-account">Account 409</button>
+        <button type="button" data-state="member-inactive">Inactive 409</button>
+        <button type="button" data-state="submitting">Submitting</button>
+        <button type="button" data-state="success">Success</button>
+      </div>
+
+      <div class="dialog-preview" data-od-id="dialog-preview">
+        <div class="inventory-modal-backdrop">
+          <section class="inventory-modal staff-modal" role="dialog" aria-modal="true" aria-labelledby="create-account-title" aria-describedby="create-account-description" tabindex="-1">
+            <div class="inventory-modal-head">
+              <div><h3 id="create-account-title">Create login account</h3><p id="create-account-description">Create an account linked to <strong id="linked-member-name">Mara Santos</strong>.</p></div>
+              <button class="catalog-button small modal-close" type="button">Close</button>
+            </div>
+            <div id="dialog-content"></div>
+          </section>
+        </div>
+      </div>
+      <button id="reopen-preview" class="catalog-button" type="button" hidden>Reopen dialog preview</button>
+    </section>
+
+    <section id="cashier" class="mockup-section" data-od-id="cashier-confirmation-section" aria-labelledby="cashier-heading">
+      <div class="section-label">C. Shipped POS states, confirmed without redesign</div>
+      <div class="section-intro"><h2 id="cashier-heading">Active cashier display</h2><p>Both examples reproduce the shipped control shape and copy.</p></div>
+      <div class="cashier-state-list">
+        <article class="cashier-example" data-od-id="cashier-linked-active">
+          <h3>Linked active member signed in</h3>
+          <div class="cashier-shell-control">
+            <button class="cashier-indicator" type="button">
+              <span class="cashier-indicator-label">Active cashier</span><strong>Mara Santos</strong><span class="cashier-indicator-action">Change</span>
+            </button>
+            <button class="catalog-button" type="button">Clear</button>
+          </div>
+          <p class="assessment"><strong>Assessment:</strong> Satisfies the story. The signed-in linked member is clearly named as the active cashier. Recommend no change.</p>
+        </article>
+        <article class="cashier-example" data-od-id="cashier-unlinked-or-inactive">
+          <h3>Unlinked account or inactive linked member</h3>
+          <div class="cashier-shell-control">
+            <button class="cashier-indicator" type="button">
+              <span class="cashier-indicator-label">Active cashier</span><strong>No cashier selected</strong><span class="cashier-indicator-action">Change</span>
+            </button>
+          </div>
+          <p class="assessment"><strong>Assessment:</strong> Satisfies the safe fallback. No cashier is implied, Clear is absent, and the picker remains reachable through Change. Recommend no change.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const dialog = document.querySelector('.staff-modal');
+      const backdrop = document.querySelector('.dialog-preview .inventory-modal-backdrop');
+      const content = document.getElementById('dialog-content');
+      const preview = document.querySelector('.dialog-preview');
+      const reopen = document.getElementById('reopen-preview');
+      const stateButtons = [...document.querySelectorAll('[data-state]')];
+      let state = 'default';
+      let invokingButton = null;
+
+      const values = {
+        default: { username: '', display: 'Mara Santos', password: '', pin: '' },
+        missing: { username: '', display: 'Mara Santos', password: '', pin: '' },
+        spaces: { username: '   ', display: 'Mara Santos', password: 'day shift', pin: '' },
+        'pin-short': { username: 'mara.santos', display: 'Mara Santos', password: 'day shift', pin: '123' },
+        'pin-text': { username: 'mara.santos', display: 'Mara Santos', password: 'day shift', pin: '12a4' },
+        'username-taken': { username: ' Mara.Santos ', display: 'Mara Santos', password: 'day shift', pin: '2048' },
+        'member-account': { username: 'mara.santos', display: 'Mara Santos', password: 'day shift', pin: '2048' },
+        'member-inactive': { username: 'mara.santos', display: 'Mara Santos', password: 'day shift', pin: '2048' },
+        submitting: { username: 'mara.santos', display: 'Mara Santos', password: 'day shift', pin: '2048' }
+      };
+
+      const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+      const errorSummary = (items, live = false) => `<div class="notice danger error-summary" ${live ? 'role="alert" aria-live="assertive"' : 'role="alert"'}><strong>${items.length === 1 ? 'There is a problem.' : 'Review the fields below.'}</strong><ul>${items.map(item => `<li><a href="#${item.id}">${escapeHtml(item.text)}</a></li>`).join('')}</ul></div>`;
+      const field = ({id, label, value, help, error, type = 'text', disabled = false, inputmode = '', autocomplete = '', toggle = false}) => {
+        const described = [`${id}-help`, error ? `${id}-error` : ''].filter(Boolean).join(' ');
+        return `<div class="catalog-field ${error ? 'has-error' : ''}"><label for="${id}">${label}</label><div class="input-row"><input id="${id}" name="${id}" type="${type}" value="${escapeHtml(value)}" ${inputmode ? `inputmode="${inputmode}"` : ''} ${autocomplete ? `autocomplete="${autocomplete}"` : ''} aria-describedby="${described}" ${error ? 'aria-invalid="true"' : ''} ${disabled ? 'disabled' : ''}>${toggle ? `<button class="catalog-button small password-toggle" type="button" aria-label="Show password" ${disabled ? 'disabled' : ''}>Show</button>` : ''}</div><p class="catalog-field-help" id="${id}-help">${help}</p>${error ? `<p class="catalog-field-error" id="${id}-error">${error}</p>` : ''}</div>`;
+      };
+
+      function formMarkup(current) {
+        const v = values[current] || values.default;
+        const disabled = current === 'submitting';
+        const errors = {};
+        if (current === 'missing') { errors.username = 'Enter a username.'; errors.password = 'Enter a password.'; }
+        if (current === 'spaces') errors.username = 'Enter a username that is not only spaces.';
+        if (current === 'pin-short') errors.pin = 'Enter exactly 4 digits, or leave the PIN blank.';
+        if (current === 'pin-text') errors.pin = 'Use digits only, or leave the PIN blank.';
+        if (current === 'username-taken') errors.username = 'That username is already in use. Usernames ignore uppercase letters and spaces at the beginning or end.';
+        const items = Object.entries(errors).map(([id, text]) => ({ id, text }));
+        let notice = items.length ? errorSummary(items, current === 'username-taken') : '';
+        if (current === 'member-account') notice = '<div class="notice danger" role="alert" aria-live="assertive"><strong>No account was created.</strong><p>This staff member already has a login account. Nothing was created or changed.</p></div>';
+        if (current === 'member-inactive') notice = '<div class="notice danger" role="alert" aria-live="assertive"><strong>No account was created.</strong><p>This staff member is inactive. Activate the staff member before creating an account. Nothing was created or changed.</p></div>';
+        return `<form novalidate>${notice}${field({id:'username',label:'Username',value:v.username,help:'Required. Spaces at the beginning and end are removed, and uppercase letters do not make a username different.',error:errors.username,disabled,autocomplete:'username'})}${field({id:'display-name',label:'Display name',value:v.display,help:'Optional. Prefilled from the staff roster and can be changed.',disabled,autocomplete:'name'})}${field({id:'password',label:'Password',value:v.password,help:'Required. At least 1 character. Passwords are case-sensitive, and spaces are preserved exactly.',error:errors.password,type:'password',disabled,autocomplete:'new-password',toggle:true})}${field({id:'pin',label:'PIN',value:v.pin,help:'Optional. Use exactly 4 digits. Leave blank if PIN sign-in is not needed. PIN sign-in becomes available on this device after the first username and password sign-in.',error:errors.pin,disabled,inputmode:'numeric',autocomplete:'off'})}<div class="staff-modal-actions"><button class="catalog-button modal-cancel" type="button" ${disabled ? 'disabled' : ''}>Cancel</button><button class="catalog-button primary" type="submit" ${disabled ? 'disabled' : ''}>${disabled ? 'Creating...' : 'Create account'}</button></div></form>`;
+      }
+
+      function successMarkup() {
+        return `<div class="success-panel" role="status" aria-live="polite"><h4>Login account created</h4><p>The account is ready to use.</p><dl><div><dt>Username</dt><dd>mara.santos</dd></div><div><dt>Linked staff member</dt><dd>Mara Santos</dd></div><div><dt>PIN set</dt><dd>Yes</dd></div></dl><p class="success-note">The password and PIN are not shown.</p><div class="staff-modal-actions"><button class="catalog-button primary success-close" type="button">Done</button></div></div>`;
+      }
+
+      function bindDialogActions() {
+        const toggle = content.querySelector('.password-toggle');
+        if (toggle) toggle.addEventListener('click', () => {
+          const input = document.getElementById('password');
+          const showing = input.type === 'text';
+          input.type = showing ? 'password' : 'text';
+          toggle.textContent = showing ? 'Show' : 'Hide';
+          toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+        });
+        const form = content.querySelector('form');
+        if (form) form.addEventListener('submit', event => { event.preventDefault(); setState('submitting', true); window.setTimeout(() => setState('success', true), 700); });
+        content.querySelector('.modal-cancel')?.addEventListener('click', closeDialog);
+        content.querySelector('.success-close')?.addEventListener('click', closeDialog);
+      }
+
+      function setState(next, focusDialog = false) {
+        state = next;
+        stateButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.state === state)));
+        content.innerHTML = state === 'success' ? successMarkup() : formMarkup(state);
+        bindDialogActions();
+        if (focusDialog) {
+          const target = state === 'username-taken' ? document.getElementById('username') : dialog;
+          target?.focus();
+        }
+      }
+
+      function openDialog(source) {
+        invokingButton = source || document.activeElement;
+        preview.hidden = false;
+        reopen.hidden = true;
+        setState('default');
+        document.getElementById('username')?.focus();
+      }
+
+      function closeDialog() {
+        preview.hidden = true;
+        reopen.hidden = false;
+        invokingButton?.focus();
+      }
+
+      stateButtons.forEach(button => button.addEventListener('click', () => { if (preview.hidden) { preview.hidden = false; reopen.hidden = true; } setState(button.dataset.state, true); }));
+      document.querySelectorAll('.create-login').forEach(button => button.addEventListener('click', () => openDialog(button)));
+      document.querySelector('.modal-close').addEventListener('click', closeDialog);
+      reopen.addEventListener('click', () => openDialog(reopen));
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !preview.hidden) { event.preventDefault(); closeDialog(); }
+        if (event.key === 'Tab' && document.activeElement && dialog.contains(document.activeElement)) {
+          const focusable = [...dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+          if (!focusable.length) return;
+          const first = focusable[0], last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
+      });
+      setState('default');
+    })();
+  </script>
+</body>
+</html>
