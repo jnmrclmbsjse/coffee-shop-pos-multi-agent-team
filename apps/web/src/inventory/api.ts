@@ -8,6 +8,7 @@ import type {
   InventoryStaffOption,
   ParLevel,
   RestockStatusResult,
+  StockLevel,
   StockCategorySummary,
   StockMovementList,
   StockMovementListItem,
@@ -33,16 +34,20 @@ export interface InventoryItemInput {
   active: boolean;
 }
 
-export interface ParLevelInput {
-  parQty: number;
-  lowThreshold: number | null;
-  urgentThreshold: number | null;
-}
+export type ParLevelInput =
+  | {
+      parQty: number;
+      lowThreshold: number | null;
+      urgentThreshold: number | null;
+    }
+  | { parLevel: StockLevel };
 
 export class InventoryApiError extends Error {
   constructor(
     readonly status: number,
     readonly messages: string[],
+    readonly field?: string,
+    readonly reason?: string,
   ) {
     super(messages[0] ?? 'Inventory request failed');
   }
@@ -59,8 +64,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     let messages = ['The inventory change could not be saved. Try again.'];
+    let field: string | undefined;
+    let reason: string | undefined;
     try {
-      const body = (await response.json()) as { message?: unknown };
+      const body = (await response.json()) as {
+        message?: unknown;
+        field?: unknown;
+        reason?: unknown;
+      };
       if (Array.isArray(body.message)) {
         messages = body.message.filter(
           (message): message is string => typeof message === 'string',
@@ -68,10 +79,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       } else if (typeof body.message === 'string') {
         messages = [body.message];
       }
+      field = typeof body.field === 'string' ? body.field : undefined;
+      reason = typeof body.reason === 'string' ? body.reason : undefined;
     } catch {
       // Keep the generic message when the server does not return JSON.
     }
-    throw new InventoryApiError(response.status, messages);
+    throw new InventoryApiError(response.status, messages, field, reason);
   }
 
   if (response.status === 204) {

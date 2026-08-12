@@ -1938,6 +1938,16 @@ button {
   font-weight: 650;
 }
 
+.inventory-count-method > .inventory-count-method-notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-sm);
+  color: var(--warn-ink);
+  background: var(--warn-surface);
+  font-weight: 600;
+}
+
 .inventory-settings {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1964,6 +1974,76 @@ button {
   padding: 0 var(--space-2);
   font-size: 15px;
   font-weight: 700;
+}
+
+.par-level-group--level {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.par-level-group--level.is-invalid {
+  border-color: var(--danger);
+  background: var(--danger-surface);
+}
+
+.level-scale-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.level-scale-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(72px, 1fr));
+  gap: var(--space-1);
+}
+
+.level-radio-option {
+  position: relative;
+  min-width: 0;
+}
+
+.level-radio-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.level-radio-option label {
+  min-height: var(--field-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.level-radio-option label:hover {
+  background: var(--surface-subtle);
+}
+
+.level-radio-option input:focus-visible + label {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.level-radio-option input:checked + label {
+  border-color: var(--accent-pressed);
+  color: var(--surface);
+  background: var(--accent-pressed);
+}
+
+.level-scale-error {
+  margin-top: 0;
 }
 
 .inventory-danger-zone {
@@ -2005,6 +2085,16 @@ button {
   .inventory-settings,
   .par-level-grid {
     grid-template-columns: 1fr;
+  }
+
+  .level-scale-options {
+    grid-template-columns: repeat(8, minmax(72px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .level-scale-options {
+    grid-template-columns: repeat(4, minmax(72px, 1fr));
   }
 }
 
@@ -2080,6 +2170,12 @@ button {
 
   .inventory-danger-zone .catalog-button {
     width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .level-scale-options {
+    grid-template-columns: repeat(2, minmax(72px, 1fr));
   }
 }
 
