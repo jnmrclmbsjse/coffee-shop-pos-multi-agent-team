@@ -95,7 +95,8 @@ export interface ParLevel {
   id: string;
   inventoryItemId: string;
   dayType: DayType;
-  parQty: number;
+  parQty: number | null;
+  parLevel: StockLevel | null;
   lowThreshold: number | null;
   urgentThreshold: number | null;
 }

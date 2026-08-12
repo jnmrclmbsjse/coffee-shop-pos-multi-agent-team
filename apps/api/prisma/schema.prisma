@@ -231,13 +231,15 @@ model InventoryItem {
   @@map("inventory_items")
 }
 
-// Par quantities are non-monetary whole stock units. Their ordering invariant
-// (urgent <= low <= par) is enforced by both the API and database migration.
+// Par quantities are non-monetary whole stock units. For quantity rows, the
+// ordering invariant (urgent <= low <= par) is enforced by both the API and
+// database migration.
 model ParLevel {
   id              String        @id @default(uuid()) @db.Uuid
   inventoryItemId String        @map("inventory_item_id") @db.Uuid
   dayType         DayType       @map("day_type")
-  parQty          Int           @map("par_qty")
+  parQty          Int?          @map("par_qty")
+  parLevel        StockLevel?   @map("par_level")
   lowThreshold    Int?          @map("low_threshold")
   urgentThreshold Int?          @map("urgent_threshold")
   inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)

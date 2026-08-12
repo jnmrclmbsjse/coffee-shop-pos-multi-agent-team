@@ -141,6 +141,7 @@ describe('RestockService', () => {
             inventoryItemId: id,
             dayType: DayType.NORMAL,
             parQty,
+            parLevel: null,
             lowThreshold: 5,
             urgentThreshold: 2,
           },
@@ -149,9 +150,51 @@ describe('RestockService', () => {
     };
   }
 
+  function levelLine(
+    id: string,
+    name: string,
+    level: StockLevel,
+    savedParLevel: StockLevel,
+  ) {
+    return {
+      id: `line-${id}`,
+      stockCountId: 'count-id',
+      inventoryItemId: id,
+      quantity: null,
+      level,
+      inventoryItem: {
+        id,
+        sku: id,
+        name,
+        categoryId: 'category-id',
+        unit: 'pcs',
+        size: null,
+        countMethod: CountMethod.LEVEL,
+        critical: false,
+        reconciled: false,
+        active: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        parLevels: [
+          {
+            id: `par-${id}`,
+            inventoryItemId: id,
+            dayType: DayType.NORMAL,
+            parQty: null,
+            parLevel: savedParLevel,
+            lowThreshold: null,
+            urgentThreshold: null,
+          },
+        ],
+      },
+    };
+  }
+
   function countRecord(
     phase: StockCountPhase,
-    lines = [quantityLine('item-id', 'Beans', 4, true)],
+    lines: Array<
+      ReturnType<typeof quantityLine> | ReturnType<typeof levelLine>
+    > = [quantityLine('item-id', 'Beans', 4, true)],
   ) {
     return {
       id: `${phase.toLowerCase()}-count`,
@@ -228,6 +271,31 @@ describe('RestockService', () => {
       'low-b',
       'enough',
     ]);
+  });
+
+  it('ignores a saved level par and keeps the fixed level status mapping', async () => {
+    const { prisma, service } = createService();
+    prisma.stockCount.findFirst.mockResolvedValue(
+      countRecord(StockCountPhase.CLOSE, [
+        levelLine(
+          'level-item',
+          'Milk',
+          StockLevel.QUARTER,
+          StockLevel.FULL,
+        ),
+      ]),
+    );
+
+    await expect(service.getStatus()).resolves.toMatchObject({
+      rows: [
+        {
+          inventoryItemId: 'level-item',
+          level: StockLevel.QUARTER,
+          par: null,
+          status: 'LOW',
+        },
+      ],
+    });
   });
 
   it('returns an explicit no-count result', async () => {
