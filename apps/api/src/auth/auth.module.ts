@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { CashierSelectionModule } from '../sales/cashier-selection.module';
+import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { AuthService } from './auth.service';
 import { AuthAttemptThrottleService } from './auth-attempt-throttle.service';
-import { UsersModule } from '../users/users.module';
 
 function jwtSecret(config: ConfigService): string {
   const secret = config.get<string>('JWT_SECRET');
@@ -20,6 +21,7 @@ function jwtSecret(config: ConfigService): string {
 @Module({
   imports: [
     UsersModule,
+    CashierSelectionModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

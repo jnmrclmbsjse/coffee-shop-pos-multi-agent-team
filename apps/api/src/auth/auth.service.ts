@@ -2,6 +2,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -13,6 +14,7 @@ import {
   type StaffLoginResponse,
 } from '@coffee-shop/shared';
 import * as argon2 from 'argon2';
+import { CashierSelectionService } from '../sales/cashier-selection.service';
 import { UsersService } from '../users/users.service';
 import { AuthAttemptThrottleService } from './auth-attempt-throttle.service';
 import {
@@ -37,10 +39,13 @@ export interface LoginResult<TResponse = LoginResponse> {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly throttle: AuthAttemptThrottleService,
+    private readonly cashierSelectionService: CashierSelectionService,
   ) {}
 
   async login(username: string, password: string): Promise<LoginResult> {
@@ -100,7 +105,9 @@ export class AuthService {
     }
 
     this.throttle.reset(throttleKey);
-    return this.staffLoginResult(user);
+    const result = await this.staffLoginResult(user);
+    await this.appendDefaultCashier(deviceId, user.id);
+    return result;
   }
 
   async staffPinLogin(
@@ -132,7 +139,9 @@ export class AuthService {
     }
 
     this.throttle.reset(throttleKey);
-    return this.staffLoginResult(user);
+    const result = await this.staffLoginResult(user);
+    await this.appendDefaultCashier(deviceId, user.id);
+    return result;
   }
 
   async authorizeCashierPin(
@@ -218,5 +227,27 @@ export class AuthService {
       response: { user: authenticatedUser },
       token: await this.jwtService.signAsync(payload),
     };
+  }
+
+  private async appendDefaultCashier(
+    deviceId: string,
+    userId: string,
+  ): Promise<void> {
+    try {
+      const linkedMember = await this.usersService.findLinkedStaffMember(userId);
+      const activeMember = linkedMember?.isActive ? linkedMember : null;
+
+      await this.cashierSelectionService.appendSelection({
+        deviceId,
+        locationId: activeMember?.locationId ?? null,
+        staffMemberId: activeMember?.id ?? null,
+        selectedByUserId: userId,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to record the default cashier for staff user ${userId}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 }

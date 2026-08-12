@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import type { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CashierSelectionService } from '../sales/cashier-selection.service';
 import { SalesService } from '../sales/sales.service';
 import type {
   CompleteOrderDto,
@@ -60,7 +61,11 @@ describeWithDatabase('Order capture against Postgres', () => {
     await prisma.$connect();
     service = new OrdersService(
       prisma,
-      new SalesService(prisma, {} as AuthService),
+      new SalesService(
+        prisma,
+        {} as AuthService,
+        new CashierSelectionService(prisma),
+      ),
     );
 
     await prisma.location.create({
