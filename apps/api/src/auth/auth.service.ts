@@ -48,6 +48,20 @@ export class AuthService {
     private readonly cashierSelectionService: CashierSelectionService,
   ) {}
 
+  async hashStaffCredentials(
+    password: string,
+    pin?: string,
+  ): Promise<{ passwordHash: string; pinHash: string | null }> {
+    const [passwordHash, pinHash] = await Promise.all([
+      argon2.hash(password, { type: argon2.argon2id }),
+      pin === undefined
+        ? Promise.resolve(null)
+        : argon2.hash(pin, { type: argon2.argon2id }),
+    ]);
+
+    return { passwordHash, pinHash };
+  }
+
   async login(username: string, password: string): Promise<LoginResult> {
     const user = await this.usersService.findByUsername(username);
     const passwordHash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;

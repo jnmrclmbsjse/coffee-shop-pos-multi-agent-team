@@ -1,4 +1,5 @@
 import type {
+  CreateStaffAccountInput,
   CreateStaffMemberInput,
   StaffMemberListQuery,
   StaffMemberListSort,
@@ -11,8 +12,10 @@ import {
   IsIn,
   IsNotEmpty,
   IsOptional,
+  Matches,
   IsString,
   IsUUID,
+  ValidateIf,
 } from 'class-validator';
 
 const trimString = ({ value }: { value: unknown }): unknown =>
@@ -49,6 +52,28 @@ export class UpdateStaffMemberDto implements UpdateStaffMemberInput {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+}
+
+export class CreateStaffAccountDto implements CreateStaffAccountInput {
+  @Transform(trimString)
+  @IsString()
+  @IsNotEmpty({ message: 'username must not be blank' })
+  username!: string;
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @Transform(trimString)
+  @IsString()
+  @IsNotEmpty({ message: 'displayName must not be blank' })
+  displayName?: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'password must not be empty' })
+  password!: string;
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsString()
+  @Matches(/^\d{4}$/, { message: 'pin must be exactly 4 digits' })
+  pin?: string;
 }
 
 export class StaffMemberListQueryDto implements StaffMemberListQuery {

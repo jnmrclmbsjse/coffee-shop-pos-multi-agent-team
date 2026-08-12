@@ -166,6 +166,18 @@ export interface UpdateStaffMemberInput {
   isActive?: boolean;
 }
 
+export interface CreateStaffAccountInput {
+  username: string;
+  displayName?: string;
+  password: string;
+  pin?: string;
+}
+
+export interface CreateStaffAccountResponse {
+  username: string;
+  displayName: string;
+}
+
 export type ProductListSort = 'category' | 'name' | 'active';
 
 export type StockCountPhase = 'open' | 'close';

@@ -23,4 +23,32 @@ describe('StaffController', () => {
       Object.getOwnPropertyNames(StaffController.prototype),
     ).not.toContain('remove');
   });
+
+  it('delegates account creation for the route member', async () => {
+    const createAccount = jest.fn().mockResolvedValue({
+      username: 'jane',
+      displayName: 'Jane Santos',
+    });
+    const controller = new StaffController({ createAccount } as never);
+    const input = {
+      username: 'jane',
+      displayName: 'Jane Santos',
+      password: 'secret',
+      pin: '4826',
+    };
+
+    await expect(
+      controller.createAccount(
+        '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+        input,
+      ),
+    ).resolves.toEqual({
+      username: 'jane',
+      displayName: 'Jane Santos',
+    });
+    expect(createAccount).toHaveBeenCalledWith(
+      '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+      input,
+    );
+  });
 });

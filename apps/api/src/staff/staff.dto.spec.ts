@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
+  CreateStaffAccountDto,
   CreateStaffMemberDto,
   StaffMemberListQueryDto,
   UpdateStaffMemberDto,
@@ -51,5 +52,53 @@ describe('Staff DTO validation', () => {
       sort: 'name',
       direction: 'asc',
     });
+  });
+
+  it('normalizes account fields without changing the password', async () => {
+    const input = plainToInstance(CreateStaffAccountDto, {
+      username: '  Jane.Santos  ',
+      displayName: '  Jane Santos  ',
+      password: ' Exact Password ',
+      pin: '4826',
+    });
+
+    expect(await validate(input)).toHaveLength(0);
+    expect(input).toEqual({
+      username: 'Jane.Santos',
+      displayName: 'Jane Santos',
+      password: ' Exact Password ',
+      pin: '4826',
+    });
+  });
+
+  it.each([
+    [{ password: 'secret' }, 'username'],
+    [{ username: '   ', password: 'secret' }, 'username'],
+    [{ username: 'jane' }, 'password'],
+    [{ username: 'jane', password: '' }, 'password'],
+    [{ username: 'jane', password: 'secret', pin: '123' }, 'pin'],
+    [{ username: 'jane', password: 'secret', pin: '12345' }, 'pin'],
+    [{ username: 'jane', password: 'secret', pin: '12a4' }, 'pin'],
+    [{ username: 'jane', password: 'secret', pin: null }, 'pin'],
+    [
+      { username: 'jane', password: 'secret', displayName: null },
+      'displayName',
+    ],
+  ])('rejects invalid account input %j on %s', async (value, field) => {
+    const input = plainToInstance(CreateStaffAccountDto, value);
+    const errors = await validate(input);
+
+    expect(errors.some((error) => error.property === field)).toBe(true);
+  });
+
+  it('allows an omitted PIN and a password made only of spaces', async () => {
+    const input = plainToInstance(CreateStaffAccountDto, {
+      username: 'jane',
+      password: '   ',
+    });
+
+    expect(await validate(input)).toHaveLength(0);
+    expect(input.password).toBe('   ');
+    expect(input.pin).toBeUndefined();
   });
 });
