@@ -10,11 +10,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@coffee-shop/shared';
-import type { StaffMember } from '@coffee-shop/shared';
+import type {
+  CreateStaffAccountResponse,
+  StaffMember,
+} from '@coffee-shop/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import {
+  CreateStaffAccountDto,
   CreateStaffMemberDto,
   StaffMemberListQueryDto,
   UpdateStaffMemberDto,
@@ -39,6 +43,14 @@ export class StaffController {
     @Body() input: CreateStaffMemberDto,
   ): Promise<StaffMember> {
     return this.staffService.create(input);
+  }
+
+  @Post(':id/account')
+  createAccount(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() input: CreateStaffAccountDto,
+  ): Promise<CreateStaffAccountResponse> {
+    return this.staffService.createAccount(id, input);
   }
 
   @Patch(':id')

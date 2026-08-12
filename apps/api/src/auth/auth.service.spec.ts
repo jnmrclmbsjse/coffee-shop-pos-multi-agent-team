@@ -7,6 +7,7 @@ import type { ConfigService } from '@nestjs/config';
 import type { JwtService } from '@nestjs/jwt';
 import { Role } from '@coffee-shop/shared';
 import type { User } from '@prisma/client';
+import * as argon2 from 'argon2';
 import type { UsersService } from '../users/users.service';
 import type { CashierSelectionService } from '../sales/cashier-selection.service';
 import { AuthAttemptThrottleService } from './auth-attempt-throttle.service';
@@ -61,6 +62,30 @@ describe('AuthService', () => {
   beforeEach(() => {
     signAsync.mockClear();
     appendSelection.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('hashes staff passwords and optional PINs with argon2id', async () => {
+    const service = new AuthService(
+      {} as UsersService,
+      jwtService,
+      throttleMock() as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
+    );
+
+    const hashes = await service.hashStaffCredentials(
+      ' Exact Password ',
+      '4826',
+    );
+
+    expect(hashes.passwordHash).toMatch(/^\$argon2id\$/);
+    expect(hashes.pinHash).toMatch(/^\$argon2id\$/);
+    await expect(
+      argon2.verify(hashes.passwordHash, ' Exact Password '),
+    ).resolves.toBe(true);
+    await expect(argon2.verify(hashes.pinHash!, '4826')).resolves.toBe(true);
+    await expect(
+      service.hashStaffCredentials('password'),
+    ).resolves.toMatchObject({ pinHash: null });
   });
 
   it('authenticates an administrator and signs a cookie-safe token payload', async () => {

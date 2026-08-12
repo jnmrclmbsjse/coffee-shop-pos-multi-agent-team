@@ -4,12 +4,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  CreateStaffAccountResponse,
   SelectableStaffMember,
   StaffMember,
 } from '@coffee-shop/shared';
 import type { Prisma } from '@prisma/client';
+import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersService } from '../users/users.service';
 import type {
+  CreateStaffAccountDto,
   CreateStaffMemberDto,
   StaffMemberListQueryDto,
   UpdateStaffMemberDto,
@@ -17,7 +21,11 @@ import type {
 
 @Injectable()
 export class StaffService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
 
   async list(query: StaffMemberListQueryDto): Promise<StaffMember[]> {
     const records = await this.prisma.staffMember.findMany({
@@ -69,6 +77,23 @@ export class StaffService {
     });
 
     return this.toStaffMember(record);
+  }
+
+  async createAccount(
+    staffMemberId: string,
+    input: CreateStaffAccountDto,
+  ): Promise<CreateStaffAccountResponse> {
+    const hashes = await this.authService.hashStaffCredentials(
+      input.password,
+      input.pin,
+    );
+
+    return this.usersService.createStaffAccount({
+      staffMemberId,
+      username: input.username,
+      displayName: input.displayName,
+      ...hashes,
+    });
   }
 
   async update(

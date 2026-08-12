@@ -2,7 +2,9 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import type { AuthService } from '../auth/auth.service';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { UsersService } from '../users/users.service';
 import { StaffService } from './staff.service';
 
 describe('StaffService', () => {
@@ -36,12 +38,22 @@ describe('StaffService', () => {
     };
   }
 
+  function createService(
+    prisma: ReturnType<typeof createPrisma>,
+    authService: Partial<AuthService> = {},
+    usersService: Partial<UsersService> = {},
+  ): StaffService {
+    return new StaffService(
+      prisma as unknown as PrismaService,
+      authService as AuthService,
+      usersService as UsersService,
+    );
+  }
+
   it('combines case-insensitive name search and active filtering', async () => {
     const prisma = createPrisma();
     prisma.staffMember.findMany.mockResolvedValue([]);
-    const service = new StaffService(
-      prisma as unknown as PrismaService,
-    );
+    const service = createService(prisma);
 
     await service.list({
       search: 'aLeX',
@@ -75,7 +87,7 @@ describe('StaffService', () => {
         user: null,
       },
     ]);
-    const service = new StaffService(prisma as unknown as PrismaService);
+    const service = createService(prisma);
 
     await expect(service.listSelectable()).resolves.toEqual([
       {
@@ -109,7 +121,7 @@ describe('StaffService', () => {
         user: { pinHash: 'argon-hash', isActive: false },
       },
     ]);
-    const service = new StaffService(prisma as unknown as PrismaService);
+    const service = createService(prisma);
 
     await expect(service.listSelectable()).resolves.toEqual([
       {
@@ -123,9 +135,7 @@ describe('StaffService', () => {
   it('sorts inactive before active in ascending active order', async () => {
     const prisma = createPrisma();
     prisma.staffMember.findMany.mockResolvedValue([]);
-    const service = new StaffService(
-      prisma as unknown as PrismaService,
-    );
+    const service = createService(prisma);
 
     await service.list({
       sort: 'active',
@@ -145,9 +155,7 @@ describe('StaffService', () => {
   it('creates duplicate names without a uniqueness check', async () => {
     const prisma = createPrisma();
     prisma.staffMember.create.mockResolvedValue(staffRecord());
-    const service = new StaffService(
-      prisma as unknown as PrismaService,
-    );
+    const service = createService(prisma);
 
     await service.create({
       displayName: 'Alex Rivera',
@@ -166,9 +174,7 @@ describe('StaffService', () => {
   it('rejects a nonexistent location before creating staff', async () => {
     const prisma = createPrisma();
     prisma.location.findUnique.mockResolvedValue(null);
-    const service = new StaffService(
-      prisma as unknown as PrismaService,
-    );
+    const service = createService(prisma);
 
     await expect(
       service.create({
@@ -186,9 +192,7 @@ describe('StaffService', () => {
     prisma.staffMember.update.mockResolvedValue(
       staffRecord({ displayName: 'Alex Santos', isActive: false }),
     );
-    const service = new StaffService(
-      prisma as unknown as PrismaService,
-    );
+    const service = createService(prisma);
 
     const result = await service.update(staffId, {
       displayName: 'Alex Santos',
@@ -212,13 +216,51 @@ describe('StaffService', () => {
   it('returns not found instead of replacing a missing record', async () => {
     const prisma = createPrisma();
     prisma.staffMember.findUnique.mockResolvedValue(null);
-    const service = new StaffService(
-      prisma as unknown as PrismaService,
-    );
+    const service = createService(prisma);
 
     await expect(
       service.update(staffId, { isActive: false }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.staffMember.update).not.toHaveBeenCalled();
+  });
+
+  it('hashes credentials through AuthService and creates the linked account', async () => {
+    const prisma = createPrisma();
+    const hashStaffCredentials = jest.fn().mockResolvedValue({
+      passwordHash: 'password-hash',
+      pinHash: 'pin-hash',
+    });
+    const createStaffAccount = jest.fn().mockResolvedValue({
+      username: 'jane',
+      displayName: 'Jane Santos',
+    });
+    const service = createService(
+      prisma,
+      { hashStaffCredentials },
+      { createStaffAccount },
+    );
+
+    await expect(
+      service.createAccount(staffId, {
+        username: ' Jane ',
+        displayName: 'Jane Santos',
+        password: ' Exact Password ',
+        pin: '4826',
+      }),
+    ).resolves.toEqual({
+      username: 'jane',
+      displayName: 'Jane Santos',
+    });
+    expect(hashStaffCredentials).toHaveBeenCalledWith(
+      ' Exact Password ',
+      '4826',
+    );
+    expect(createStaffAccount).toHaveBeenCalledWith({
+      staffMemberId: staffId,
+      username: ' Jane ',
+      displayName: 'Jane Santos',
+      passwordHash: 'password-hash',
+      pinHash: 'pin-hash',
+    });
   });
 });
