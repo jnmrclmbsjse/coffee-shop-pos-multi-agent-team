@@ -238,6 +238,19 @@ async function fillItemForm(page: Page, input: ItemInput): Promise<void> {
   if (input.countMethod) {
     await page.getByRole('radio', { name: new RegExp(input.countMethod) }).check();
   }
+  if (input.countMethod === 'Level') {
+    // Story #286 makes a level target required for both day types before a
+    // level-counted item can be saved, and replaces the quantity par inputs
+    // with the eight-level scale. #55's own criteria are indifferent to which
+    // level is chosen, so pick one for each day and move on — the level par
+    // rules themselves are covered by e2e/level-par-settings.spec.ts. The
+    // label is what a user taps: the radio sits underneath it in the
+    // touch-target layout and a direct click on the input is intercepted.
+    for (const prefix of ['normal', 'peak'] as const) {
+      await page.locator(`label[for="${prefix}-level-half"]`).click();
+      await expect(page.locator(`#${prefix}-level-half`)).toBeChecked();
+    }
+  }
   if (input.critical) {
     await page.getByRole('switch', { name: 'Critical' }).click();
   }
