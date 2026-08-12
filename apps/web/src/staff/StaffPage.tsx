@@ -22,6 +22,7 @@ import {
   StaffApiError,
   updateStaffMember,
 } from './api';
+import { StaffAccountDialog } from './StaffAccountDialog';
 
 type ActiveFilter = 'all' | 'true' | 'false';
 
@@ -61,6 +62,7 @@ export function StaffPage() {
   const [pageError, setPageError] = useState('');
   const [notice, setNotice] = useState('');
   const [draft, setDraft] = useState<StaffDraft | null>(null);
+  const [accountMember, setAccountMember] = useState<StaffMember | null>(null);
   const [nameError, setNameError] = useState('');
   const [modalError, setModalError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -149,6 +151,24 @@ export function StaffPage() {
     setDraft(null);
     setNameError('');
     setModalError('');
+    requestAnimationFrame(() => previousFocusRef.current?.focus());
+  }
+
+  function openAccountDialog(member: StaffMember) {
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setNotice('');
+    setAccountMember(member);
+  }
+
+  function closeAccountDialog(created: boolean) {
+    const memberName = accountMember?.displayName;
+    setAccountMember(null);
+    if (created && memberName) {
+      setNotice(`${memberName}'s login account was created.`);
+    }
     requestAnimationFrame(() => previousFocusRef.current?.focus());
   }
 
@@ -429,14 +449,30 @@ export function StaffPage() {
                       </div>
                     </td>
                     <td data-label="Actions" className="table-action">
-                      <button
-                        className="catalog-button small"
-                        type="button"
-                        aria-label={`Edit ${member.displayName}`}
-                        onClick={() => openDialog(member)}
-                      >
-                        Edit
-                      </button>
+                      <div className="staff-row-actions">
+                        <button
+                          className="catalog-button small"
+                          type="button"
+                          aria-label={`Edit ${member.displayName}`}
+                          onClick={() => openDialog(member)}
+                        >
+                          Edit
+                        </button>
+                        {member.isActive ? (
+                          <button
+                            className="catalog-button small"
+                            type="button"
+                            aria-label={`Create login account for ${member.displayName}`}
+                            onClick={() => openAccountDialog(member)}
+                          >
+                            Create login account
+                          </button>
+                        ) : (
+                          <span className="staff-account-unavailable">
+                            Activate staff to create an account
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -560,6 +596,12 @@ export function StaffPage() {
             </form>
           </section>
         </div>
+      )}
+      {accountMember && (
+        <StaffAccountDialog
+          member={accountMember}
+          onClose={closeAccountDialog}
+        />
       )}
     </main>
   );

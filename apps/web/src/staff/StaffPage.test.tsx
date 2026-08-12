@@ -36,6 +36,26 @@ function renderPage() {
   );
 }
 
+async function openAccountDialog(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByRole('button', {
+    name: 'Create login account for Mara Villanueva',
+  });
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Create login account for Mara Villanueva',
+    }),
+  );
+  return screen.getByRole('dialog', { name: 'Create login account' });
+}
+
+async function fillRequiredAccountFields(
+  user: ReturnType<typeof userEvent.setup>,
+  dialog: HTMLElement,
+) {
+  await user.type(within(dialog).getByLabelText('Username'), 'mara.login');
+  await user.type(within(dialog).getByLabelText('Password'), 'day shift');
+}
+
 describe('staff roster page', () => {
   const fetchMock = vi.fn<typeof fetch>();
 
@@ -221,4 +241,202 @@ describe('staff roster page', () => {
     expect(screen.getByLabelText('Search staff')).toHaveValue('');
     expect(screen.getByLabelText('Status')).toHaveValue('all');
   });
+
+  it('offers account creation for active members and explains why it is unavailable for inactive members', async () => {
+    fetchMock.mockResolvedValue(response(200, [mara, amina]));
+    renderPage();
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Create login account for Mara Villanueva',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Create login account for Amina Santos',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Activate staff to create an account'),
+    ).toBeInTheDocument();
+  });
+
+  it('creates an account once with a normalized payload and never echoes credentials after success', async () => {
+    fetchMock.mockImplementation(async (url, init) => {
+      if (
+        new URL(String(url)).pathname === `/staff/${mara.id}/account` &&
+        init?.method === 'POST'
+      ) {
+        return response(201, {
+          username: 'mara.login',
+          displayName: 'Mara Register',
+        });
+      }
+      return response(200, [mara]);
+    });
+    const user = userEvent.setup();
+    renderPage();
+    const dialog = await openAccountDialog(user);
+
+    await user.type(within(dialog).getByLabelText('Username'), '  Mara.Login  ');
+    await user.clear(within(dialog).getByLabelText('Display name'));
+    await user.type(
+      within(dialog).getByLabelText('Display name'),
+      '  Mara Register  ',
+    );
+    await user.type(
+      within(dialog).getByLabelText('Password'),
+      ' day shift ',
+    );
+    await user.type(within(dialog).getByLabelText('PIN'), '2048');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create account' }),
+    );
+
+    expect(
+      await within(dialog).findByText('Login account created'),
+    ).toBeInTheDocument();
+    const createCalls = fetchMock.mock.calls.filter(
+      ([url, init]) =>
+        new URL(String(url)).pathname === `/staff/${mara.id}/account` &&
+        init?.method === 'POST',
+    );
+    expect(createCalls).toHaveLength(1);
+    expect(JSON.parse(String(createCalls[0]?.[1]?.body))).toEqual({
+      username: 'mara.login',
+      displayName: 'Mara Register',
+      password: ' day shift ',
+      pin: '2048',
+    });
+    expect(dialog).not.toHaveTextContent(' day shift ');
+    expect(dialog).not.toHaveTextContent('2048');
+    expect(within(dialog).queryByLabelText('Password')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('The password and PIN are not shown.'))
+      .toBeInTheDocument();
+  });
+
+  it('attributes server 400 validation messages to their fields', async () => {
+    fetchMock.mockImplementation(async (url, init) => {
+      if (init?.method === 'POST' && String(url).includes('/account')) {
+        return response(400, {
+          message: [
+            'username must not be blank',
+            'password must not be empty',
+            'pin must be exactly 4 digits',
+          ],
+        });
+      }
+      return response(200, [mara]);
+    });
+    const user = userEvent.setup();
+    renderPage();
+    const dialog = await openAccountDialog(user);
+    await fillRequiredAccountFields(user, dialog);
+    await user.type(within(dialog).getByLabelText('PIN'), '2048');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create account' }),
+    );
+
+    expect(await within(dialog).findByText('Review the fields below.'))
+      .toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Username')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(within(dialog).getByLabelText('Password')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(within(dialog).getByLabelText('PIN')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(within(dialog).getAllByText('Enter a username.')).toHaveLength(2);
+    expect(within(dialog).getAllByText('Enter a password.')).toHaveLength(2);
+    expect(
+      within(dialog).getAllByText(
+        'Enter exactly 4 digits, or leave the PIN blank.',
+      ),
+    ).toHaveLength(2);
+  });
+
+  it('keeps the populated form open and attributes a username conflict', async () => {
+    fetchMock.mockImplementation(async (url, init) => {
+      if (init?.method === 'POST' && String(url).includes('/account')) {
+        return response(409, {
+          message: 'This username is already in use',
+          field: 'username',
+          reason: 'USERNAME_TAKEN',
+        });
+      }
+      return response(200, [mara]);
+    });
+    const user = userEvent.setup();
+    renderPage();
+    const dialog = await openAccountDialog(user);
+    await fillRequiredAccountFields(user, dialog);
+    await user.type(within(dialog).getByLabelText('PIN'), '2048');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create account' }),
+    );
+
+    expect(
+      await within(dialog).findAllByText(
+        'That username is already in use. Usernames ignore uppercase letters and spaces at the beginning or end.',
+      ),
+    ).toHaveLength(2);
+    expect(within(dialog).getByLabelText('Username')).toHaveValue('mara.login');
+    expect(within(dialog).getByLabelText('Display name')).toHaveValue(
+      'Mara Villanueva',
+    );
+    expect(within(dialog).getByLabelText('Password')).toHaveValue('day shift');
+    expect(within(dialog).getByLabelText('PIN')).toHaveValue('2048');
+    expect(within(dialog).getByLabelText('Username')).toHaveAttribute(
+      'aria-describedby',
+      expect.stringContaining('staff-account-username-error'),
+    );
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText('Username')).toHaveFocus();
+    });
+  });
+
+  it.each([
+    [
+      'STAFF_MEMBER_ALREADY_HAS_ACCOUNT',
+      'This staff member already has a login account',
+      'This staff member already has a login account. Nothing was created or changed.',
+    ],
+    [
+      'STAFF_MEMBER_INACTIVE',
+      'A login account cannot be created for an inactive staff member',
+      'This staff member is inactive. Activate the staff member before creating an account. Nothing was created or changed.',
+    ],
+  ])(
+    'shows the %s refusal at dialog level',
+    async (reason, message, expected) => {
+      fetchMock.mockImplementation(async (url, init) => {
+        if (init?.method === 'POST' && String(url).includes('/account')) {
+          return response(409, { message, reason });
+        }
+        return response(200, [mara]);
+      });
+      const user = userEvent.setup();
+      renderPage();
+      const dialog = await openAccountDialog(user);
+      await fillRequiredAccountFields(user, dialog);
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Create account' }),
+      );
+
+      expect(await within(dialog).findByText('No account was created.'))
+        .toBeInTheDocument();
+      expect(within(dialog).getByText(expected)).toBeInTheDocument();
+      expect(within(dialog).getByLabelText('Username')).toHaveValue(
+        'mara.login',
+      );
+      expect(within(dialog).getByLabelText('Password')).toHaveValue(
+        'day shift',
+      );
+    },
+  );
 });
