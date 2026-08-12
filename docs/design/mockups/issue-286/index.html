@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UCM Coffee Studio POS - Par levels state sheet</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="mockup-sheet" data-od-id="par-levels-state-sheet">
+    <header class="sheet-heading" data-od-id="sheet-heading">
+      <h1>Inventory item editor: Par levels</h1>
+      <p>Implementation states for quantity-counted and level-counted inventory items.</p>
+    </header>
+
+    <article class="state-panel" data-od-id="state-quantity-baseline">
+      <header class="state-header">
+        <h2>1. Quantity-counted item - unchanged baseline</h2>
+        <p class="state-caption">The existing three-field layout, shown unchanged for before-and-after comparison.</p>
+      </header>
+      <section class="form-section" aria-labelledby="quantity-par-levels-heading">
+        <div class="section-heading">
+          <h2 id="quantity-par-levels-heading">Par levels</h2>
+          <p>Set independent targets for normal and peak days. Zero is valid.</p>
+        </div>
+        <div class="par-level-grid">
+          <fieldset class="par-level-group">
+            <legend>Normal day</legend>
+            <div class="catalog-field">
+              <label for="normal-par">Par quantity <span aria-hidden="true">*</span></label>
+              <input id="normal-par" type="text" inputmode="numeric" value="">
+              <p class="catalog-field-error"></p>
+            </div>
+            <div class="catalog-field">
+              <label for="normal-low">Low threshold</label>
+              <input id="normal-low" type="text" inputmode="numeric" placeholder="Optional">
+            </div>
+            <div class="catalog-field">
+              <label for="normal-urgent">Urgent threshold</label>
+              <input id="normal-urgent" type="text" inputmode="numeric" placeholder="Optional">
+            </div>
+          </fieldset>
+          <fieldset class="par-level-group">
+            <legend>Peak day</legend>
+            <div class="catalog-field">
+              <label for="peak-par">Par quantity <span aria-hidden="true">*</span></label>
+              <input id="peak-par" type="text" inputmode="numeric" value="">
+              <p class="catalog-field-error"></p>
+            </div>
+            <div class="catalog-field">
+              <label for="peak-low">Low threshold</label>
+              <input id="peak-low" type="text" inputmode="numeric" placeholder="Optional">
+            </div>
+            <div class="catalog-field">
+              <label for="peak-urgent">Urgent threshold</label>
+              <input id="peak-urgent" type="text" inputmode="numeric" placeholder="Optional">
+            </div>
+          </fieldset>
+        </div>
+      </section>
+    </article>
+
+    <article class="state-panel" data-od-id="state-level-empty">
+      <header class="state-header">
+        <h2>2. Level-counted item - empty</h2>
+        <p class="state-caption">A new level-counted item, or an unsaved Quantity to Level switch, before either required target is chosen.</p>
+      </header>
+      <section class="form-section" aria-labelledby="empty-par-levels-heading">
+        <div class="section-heading">
+          <h2 id="empty-par-levels-heading">Par levels</h2>
+          <p>Set independent targets for normal and peak days.</p>
+        </div>
+        <div class="par-level-grid">
+          <fieldset class="par-level-group par-level-group--level" aria-describedby="empty-normal-hint">
+            <legend>Normal day</legend>
+            <p class="level-scale-hint" id="empty-normal-hint">Choose one target from Empty to Full.</p>
+            <div class="level-scale-options">
+              <div class="level-radio-option"><input id="empty-normal-empty" type="radio" name="empty-normal" value="EMPTY"><label for="empty-normal-empty">Empty</label></div>
+              <div class="level-radio-option"><input id="empty-normal-low" type="radio" name="empty-normal" value="LOW"><label for="empty-normal-low">Low</label></div>
+              <div class="level-radio-option"><input id="empty-normal-quarter" type="radio" name="empty-normal" value="QUARTER"><label for="empty-normal-quarter">Quarter</label></div>
+              <div class="level-radio-option"><input id="empty-normal-one-third" type="radio" name="empty-normal" value="ONE_THIRD"><label for="empty-normal-one-third">One-third</label></div>
+              <div class="level-radio-option"><input id="empty-normal-half" type="radio" name="empty-normal" value="HALF"><label for="empty-normal-half">Half</label></div>
+              <div class="level-radio-option"><input id="empty-normal-two-thirds" type="radio" name="empty-normal" value="TWO_THIRDS"><label for="empty-normal-two-thirds">Two-thirds</label></div>
+              <div class="level-radio-option"><input id="empty-normal-three-quarters" type="radio" name="empty-normal" value="THREE_QUARTERS"><label for="empty-normal-three-quarters">Three-quarters</label></div>
+              <div class="level-radio-option"><input id="empty-normal-full" type="radio" name="empty-normal" value="FULL"><label for="empty-normal-full">Full</label></div>
+            </div>
+          </fieldset>
+          <fieldset class="par-level-group par-level-group--level" aria-describedby="empty-peak-hint">
+            <legend>Peak day</legend>
+            <p class="level-scale-hint" id="empty-peak-hint">Choose one target from Empty to Full.</p>
+            <div class="level-scale-options">
+              <div class="level-radio-option"><input id="empty-peak-empty" type="radio" name="empty-peak" value="EMPTY"><label for="empty-peak-empty">Empty</label></div>
+              <div class="level-radio-option"><input id="empty-peak-low" type="radio" name="empty-peak" value="LOW"><label for="empty-peak-low">Low</label></div>
+              <div class="level-radio-option"><input id="empty-peak-quarter" type="radio" name="empty-peak" value="QUARTER"><label for="empty-peak-quarter">Quarter</label></div>
+              <div class="level-radio-option"><input id="empty-peak-one-third" type="radio" name="empty-peak" value="ONE_THIRD"><label for="empty-peak-one-third">One-third</label></div>
+              <div class="level-radio-option"><input id="empty-peak-half" type="radio" name="empty-peak" value="HALF"><label for="empty-peak-half">Half</label></div>
+              <div class="level-radio-option"><input id="empty-peak-two-thirds" type="radio" name="empty-peak" value="TWO_THIRDS"><label for="empty-peak-two-thirds">Two-thirds</label></div>
+              <div class="level-radio-option"><input id="empty-peak-three-quarters" type="radio" name="empty-peak" value="THREE_QUARTERS"><label for="empty-peak-three-quarters">Three-quarters</label></div>
+              <div class="level-radio-option"><input id="empty-peak-full" type="radio" name="empty-peak" value="FULL"><label for="empty-peak-full">Full</label></div>
+            </div>
+          </fieldset>
+        </div>
+      </section>
+    </article>
+
+    <article class="state-panel" data-od-id="state-level-populated">
+      <header class="state-header">
+        <h2>3. Level-counted item - populated</h2>
+        <p class="state-caption">A saved or completed edit with Normal day set to Half and Peak day set to Three-quarters.</p>
+      </header>
+      <section class="form-section" aria-labelledby="populated-par-levels-heading">
+        <div class="section-heading">
+          <h2 id="populated-par-levels-heading">Par levels</h2>
+          <p>Set independent targets for normal and peak days.</p>
+        </div>
+        <div class="par-level-grid">
+          <fieldset class="par-level-group par-level-group--level" aria-describedby="populated-normal-hint">
+            <legend>Normal day</legend>
+            <p class="level-scale-hint" id="populated-normal-hint">Choose one target from Empty to Full.</p>
+            <div class="level-scale-options">
+              <div class="level-radio-option"><input id="populated-normal-empty" type="radio" name="populated-normal"><label for="populated-normal-empty">Empty</label></div>
+              <div class="level-radio-option"><input id="populated-normal-low" type="radio" name="populated-normal"><label for="populated-normal-low">Low</label></div>
+              <div class="level-radio-option"><input id="populated-normal-quarter" type="radio" name="populated-normal"><label for="populated-normal-quarter">Quarter</label></div>
+              <div class="level-radio-option"><input id="populated-normal-one-third" type="radio" name="populated-normal"><label for="populated-normal-one-third">One-third</label></div>
+              <div class="level-radio-option"><input id="populated-normal-half" type="radio" name="populated-normal" checked><label for="populated-normal-half">Half</label></div>
+              <div class="level-radio-option"><input id="populated-normal-two-thirds" type="radio" name="populated-normal"><label for="populated-normal-two-thirds">Two-thirds</label></div>
+              <div class="level-radio-option"><input id="populated-normal-three-quarters" type="radio" name="populated-normal"><label for="populated-normal-three-quarters">Three-quarters</label></div>
+              <div class="level-radio-option"><input id="populated-normal-full" type="radio" name="populated-normal"><label for="populated-normal-full">Full</label></div>
+            </div>
+          </fieldset>
+          <fieldset class="par-level-group par-level-group--level" aria-describedby="populated-peak-hint">
+            <legend>Peak day</legend>
+            <p class="level-scale-hint" id="populated-peak-hint">Choose one target from Empty to Full.</p>
+            <div class="level-scale-options">
+              <div class="level-radio-option"><input id="populated-peak-empty" type="radio" name="populated-peak"><label for="populated-peak-empty">Empty</label></div>
+              <div class="level-radio-option"><input id="populated-peak-low" type="radio" name="populated-peak"><label for="populated-peak-low">Low</label></div>
+              <div class="level-radio-option"><input id="populated-peak-quarter" type="radio" name="populated-peak"><label for="populated-peak-quarter">Quarter</label></div>
+              <div class="level-radio-option"><input id="populated-peak-one-third" type="radio" name="populated-peak"><label for="populated-peak-one-third">One-third</label></div>
+              <div class="level-radio-option"><input id="populated-peak-half" type="radio" name="populated-peak"><label for="populated-peak-half">Half</label></div>
+              <div class="level-radio-option"><input id="populated-peak-two-thirds" type="radio" name="populated-peak"><label for="populated-peak-two-thirds">Two-thirds</label></div>
+              <div class="level-radio-option"><input id="populated-peak-three-quarters" type="radio" name="populated-peak" checked><label for="populated-peak-three-quarters">Three-quarters</label></div>
+              <div class="level-radio-option"><input id="populated-peak-full" type="radio" name="populated-peak"><label for="populated-peak-full">Full</label></div>
+            </div>
+          </fieldset>
+        </div>
+      </section>
+    </article>
+
+    <article class="state-panel" data-od-id="state-level-invalid">
+      <header class="state-header">
+        <h2>4. Level-counted item - invalid on save attempt</h2>
+        <p class="state-caption">Saving is blocked because Peak day is unset; the existing section and field error language identify the affected group.</p>
+      </header>
+      <section class="form-section form-section--invalid" aria-labelledby="invalid-par-levels-heading" aria-describedby="invalid-section-error">
+        <div class="section-heading">
+          <h2 id="invalid-par-levels-heading">Par levels</h2>
+          <p>Set independent targets for normal and peak days.</p>
+        </div>
+        <p class="form-section-error" id="invalid-section-error">Review the highlighted item and par-level fields before saving.</p>
+        <div class="par-level-grid">
+          <fieldset class="par-level-group par-level-group--level" aria-describedby="invalid-normal-hint">
+            <legend>Normal day</legend>
+            <p class="level-scale-hint" id="invalid-normal-hint">Choose one target from Empty to Full.</p>
+            <div class="level-scale-options">
+              <div class="level-radio-option"><input id="invalid-normal-empty" type="radio" name="invalid-normal"><label for="invalid-normal-empty">Empty</label></div>
+              <div class="level-radio-option"><input id="invalid-normal-low" type="radio" name="invalid-normal"><label for="invalid-normal-low">Low</label></div>
+              <div class="level-radio-option"><input id="invalid-normal-quarter" type="radio" name="invalid-normal"><label for="invalid-normal-quarter">Quarter</label></div>
+              <div class="level-radio-option"><input id="invalid-normal-one-third" type="radio" name="invalid-normal"><label for="invalid-normal-one-third">One-third</label></div>
+              <div class="level-radio-option"><input id="invalid-normal-half" type="radio" name="invalid-normal" checked><label for="invalid-normal-half">Half</label></div>
+              <div class="level-radio-option"><input id="invalid-normal-two-thirds" type="radio" name="invalid-normal"><label for="invalid-normal-two-thirds">Two-thirds</label></div>
+              <div class="level-radio-option"><input id="invalid-normal-three-quarters" type="radio" name="invalid-normal"><label for="invalid-normal-three-quarters">Three-quarters</label></div>
+              <div class="level-radio-option"><input id="invalid-normal-full" type="radio" name="invalid-normal"><label for="invalid-normal-full">Full</label></div>
+            </div>
+          </fieldset>
+          <fieldset class="par-level-group par-level-group--level" aria-invalid="true" aria-describedby="invalid-peak-hint invalid-peak-error">
+            <legend>Peak day</legend>
+            <p class="level-scale-hint" id="invalid-peak-hint">Choose one target from Empty to Full.</p>
+            <div class="level-scale-options">
+              <div class="level-radio-option"><input id="invalid-peak-empty" type="radio" name="invalid-peak"><label for="invalid-peak-empty">Empty</label></div>
+              <div class="level-radio-option"><input id="invalid-peak-low" type="radio" name="invalid-peak"><label for="invalid-peak-low">Low</label></div>
+              <div class="level-radio-option"><input id="invalid-peak-quarter" type="radio" name="invalid-peak"><label for="invalid-peak-quarter">Quarter</label></div>
+              <div class="level-radio-option"><input id="invalid-peak-one-third" type="radio" name="invalid-peak"><label for="invalid-peak-one-third">One-third</label></div>
+              <div class="level-radio-option"><input id="invalid-peak-half" type="radio" name="invalid-peak"><label for="invalid-peak-half">Half</label></div>
+              <div class="level-radio-option"><input id="invalid-peak-two-thirds" type="radio" name="invalid-peak"><label for="invalid-peak-two-thirds">Two-thirds</label></div>
+              <div class="level-radio-option"><input id="invalid-peak-three-quarters" type="radio" name="invalid-peak"><label for="invalid-peak-three-quarters">Three-quarters</label></div>
+              <div class="level-radio-option"><input id="invalid-peak-full" type="radio" name="invalid-peak"><label for="invalid-peak-full">Full</label></div>
+            </div>
+            <p class="catalog-field-error" id="invalid-peak-error">Choose a level for Peak day.</p>
+          </fieldset>
+        </div>
+      </section>
+    </article>
+
+    <article class="state-panel" data-od-id="state-count-method-switch">
+      <header class="state-header">
+        <h2>5. Pre-save count-method switch</h2>
+        <p class="state-caption">The admin changed Count method from Quantity to Level; the new controls appear empty and the prior entries remain recoverable before save.</p>
+      </header>
+      <div class="count-method-context">
+        <fieldset>
+          <legend>Count method</legend>
+          <div class="count-method-options">
+            <label class="count-method-option"><input type="radio" name="method-demo" value="quantity"> Quantity</label>
+            <label class="count-method-option"><input type="radio" name="method-demo" value="level" checked> Level</label>
+          </div>
+        </fieldset>
+        <p class="unsaved-note" id="method-note" role="status">Not saved yet. No quantity values were converted. Switching back to Quantity restores the entries from before this change.</p>
+      </div>
+
+      <section class="form-section method-demo" id="method-level-demo" aria-labelledby="switch-level-heading">
+        <div class="section-heading">
+          <h2 id="switch-level-heading">Par levels</h2>
+          <p>Set independent targets for normal and peak days.</p>
+        </div>
+        <div class="par-level-grid">
+          <fieldset class="par-level-group par-level-group--level" aria-describedby="switch-normal-hint">
+            <legend>Normal day</legend>
+            <p class="level-scale-hint" id="switch-normal-hint">Choose one target from Empty to Full.</p>
+            <div class="level-scale-options">
+              <div class="level-radio-option"><input id="switch-normal-empty" type="radio" name="switch-normal"><label for="switch-normal-empty">Empty</label></div>
+              <div class="level-radio-option"><input id="switch-normal-low" type="radio" name="switch-normal"><label for="switch-normal-low">Low</label></div>
+              <div class="level-radio-option"><input id="switch-normal-quarter" type="radio" name="switch-normal"><label for="switch-normal-quarter">Quarter</label></div>
+              <div class="level-radio-option"><input id="switch-normal-one-third" type="radio" name="switch-normal"><label for="switch-normal-one-third">One-third</label></div>
+              <div class="level-radio-option"><input id="switch-normal-half" type="radio" name="switch-normal"><label for="switch-normal-half">Half</label></div>
+              <div class="level-radio-option"><input id="switch-normal-two-thirds" type="radio" name="switch-normal"><label for="switch-normal-two-thirds">Two-thirds</label></div>
+              <div class="level-radio-option"><input id="switch-normal-three-quarters" type="radio" name="switch-normal"><label for="switch-normal-three-quarters">Three-quarters</label></div>
+              <div class="level-radio-option"><input id="switch-normal-full" type="radio" name="switch-normal"><label for="switch-normal-full">Full</label></div>
+            </div>
+          </fieldset>
+          <fieldset class="par-level-group par-level-group--level" aria-describedby="switch-peak-hint">
+            <legend>Peak day</legend>
+            <p class="level-scale-hint" id="switch-peak-hint">Choose one target from Empty to Full.</p>
+            <div class="level-scale-options">
+              <div class="level-radio-option"><input id="switch-peak-empty" type="radio" name="switch-peak"><label for="switch-peak-empty">Empty</label></div>
+              <div class="level-radio-option"><input id="switch-peak-low" type="radio" name="switch-peak"><label for="switch-peak-low">Low</label></div>
+              <div class="level-radio-option"><input id="switch-peak-quarter" type="radio" name="switch-peak"><label for="switch-peak-quarter">Quarter</label></div>
+              <div class="level-radio-option"><input id="switch-peak-one-third" type="radio" name="switch-peak"><label for="switch-peak-one-third">One-third</label></div>
+              <div class="level-radio-option"><input id="switch-peak-half" type="radio" name="switch-peak"><label for="switch-peak-half">Half</label></div>
+              <div class="level-radio-option"><input id="switch-peak-two-thirds" type="radio" name="switch-peak"><label for="switch-peak-two-thirds">Two-thirds</label></div>
+              <div class="level-radio-option"><input id="switch-peak-three-quarters" type="radio" name="switch-peak"><label for="switch-peak-three-quarters">Three-quarters</label></div>
+              <div class="level-radio-option"><input id="switch-peak-full" type="radio" name="switch-peak"><label for="switch-peak-full">Full</label></div>
+            </div>
+          </fieldset>
+        </div>
+      </section>
+
+      <section class="form-section method-demo" id="method-quantity-demo" aria-labelledby="switch-quantity-heading" hidden>
+        <div class="section-heading">
+          <h2 id="switch-quantity-heading">Par levels</h2>
+          <p>Set independent targets for normal and peak days. Zero is valid.</p>
+        </div>
+        <div class="par-level-grid">
+          <fieldset class="par-level-group">
+            <legend>Normal day</legend>
+            <div class="catalog-field"><label for="switch-normal-par">Par quantity <span aria-hidden="true">*</span></label><input id="switch-normal-par" type="text" inputmode="numeric" value="24"></div>
+            <div class="catalog-field"><label for="switch-quantity-normal-low">Low threshold</label><input id="switch-quantity-normal-low" type="text" inputmode="numeric" value="8"></div>
+            <div class="catalog-field"><label for="switch-quantity-normal-urgent">Urgent threshold</label><input id="switch-quantity-normal-urgent" type="text" inputmode="numeric" value="3"></div>
+          </fieldset>
+          <fieldset class="par-level-group">
+            <legend>Peak day</legend>
+            <div class="catalog-field"><label for="switch-peak-par">Par quantity <span aria-hidden="true">*</span></label><input id="switch-peak-par" type="text" inputmode="numeric" value="36"></div>
+            <div class="catalog-field"><label for="switch-quantity-peak-low">Low threshold</label><input id="switch-quantity-peak-low" type="text" inputmode="numeric" value="12"></div>
+            <div class="catalog-field"><label for="switch-quantity-peak-urgent">Urgent threshold</label><input id="switch-quantity-peak-urgent" type="text" inputmode="numeric" value="5"></div>
+          </fieldset>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <script>
+    (() => {
+      const methodInputs = document.querySelectorAll('input[name="method-demo"]');
+      const levelDemo = document.getElementById('method-level-demo');
+      const quantityDemo = document.getElementById('method-quantity-demo');
+      const note = document.getElementById('method-note');
+
+      methodInputs.forEach((input) => {
+        input.addEventListener('change', () => {
+          const showLevel = input.value === 'level';
+          levelDemo.hidden = !showLevel;
+          quantityDemo.hidden = showLevel;
+          note.textContent = showLevel
+            ? 'Not saved yet. No quantity values were converted. Switching back to Quantity restores the entries from before this change.'
+            : 'Not saved yet. The quantity entries from before the method change are restored.';
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
