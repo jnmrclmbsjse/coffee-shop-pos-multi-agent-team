@@ -34,4 +34,19 @@ describe('UsersService', () => {
       where: { id: 'staff-id' },
     });
   });
+
+  it('resolves the roster link and cashier-selection fields for a user', async () => {
+    const findUnique = jest.fn().mockResolvedValue(null);
+    const prisma = {
+      staffMember: { findUnique },
+    } as unknown as PrismaService;
+    const service = new UsersService(prisma);
+
+    await service.findLinkedStaffMember('user-id');
+
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { userId: 'user-id' },
+      select: { id: true, isActive: true, locationId: true },
+    });
+  });
 });

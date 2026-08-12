@@ -26,4 +26,15 @@ export class UsersService {
       where: { staffMember: { id: staffMemberId } },
     });
   }
+
+  findLinkedStaffMember(userId: string): Promise<{
+    id: string;
+    isActive: boolean;
+    locationId: string | null;
+  } | null> {
+    return this.prisma.staffMember.findUnique({
+      where: { userId },
+      select: { id: true, isActive: true, locationId: true },
+    });
+  }
 }

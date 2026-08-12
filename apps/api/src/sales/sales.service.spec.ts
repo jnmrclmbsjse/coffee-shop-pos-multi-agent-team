@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import type { AuthService } from '../auth/auth.service';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { CashierSelectionService } from './cashier-selection.service';
 import {
   CASHIER_UNAVAILABLE_MESSAGE,
   SalesService,
@@ -30,58 +31,52 @@ describe('SalesService active cashier selection', () => {
     return {
       prisma: {
         staffMember: { findUnique: jest.fn() },
-        cashierSelection: {
-          findFirst: jest.fn(),
-          create: jest.fn().mockResolvedValue({ id: 'selection-id' }),
-        },
       },
       authService: { authorizeCashierPin: jest.fn() },
+      cashierSelectionService: {
+        activeCashier: jest.fn(),
+        appendSelection: jest.fn().mockResolvedValue(undefined),
+      },
     };
   }
 
   it('reads the latest selection and resolves only its roster identity', async () => {
-    const { prisma, authService } = createDependencies();
-    prisma.cashierSelection.findFirst.mockResolvedValue({
+    const { prisma, authService, cashierSelectionService } = createDependencies();
+    cashierSelectionService.activeCashier.mockResolvedValue({
       staffMember: { id: staffMemberId, displayName: 'Alex Rivera' },
     });
     const service = new SalesService(
       prisma as unknown as PrismaService,
       authService as unknown as AuthService,
+      cashierSelectionService as unknown as CashierSelectionService,
     );
 
-    await expect(service.activeCashier(deviceId)).resolves.toEqual({
-      id: staffMemberId,
-      displayName: 'Alex Rivera',
-    });
-    expect(prisma.cashierSelection.findFirst).toHaveBeenCalledWith({
-      where: { deviceId },
-      select: {
-        staffMember: { select: { id: true, displayName: true } },
-      },
-      orderBy: { selectedAt: 'desc' },
-    });
+    await service.activeCashier(deviceId);
+    expect(cashierSelectionService.activeCashier).toHaveBeenCalledWith(
+      deviceId,
+      prisma,
+    );
   });
 
-  it.each([
-    ['no history', null],
-    ['latest row is cleared', { staffMember: null }],
-  ])('returns null when %s', async (_case, latest) => {
-    const { prisma, authService } = createDependencies();
-    prisma.cashierSelection.findFirst.mockResolvedValue(latest);
+  it('returns null when the selection service has no active cashier', async () => {
+    const { prisma, authService, cashierSelectionService } = createDependencies();
+    cashierSelectionService.activeCashier.mockResolvedValue(null);
     const service = new SalesService(
       prisma as unknown as PrismaService,
       authService as unknown as AuthService,
+      cashierSelectionService as unknown as CashierSelectionService,
     );
 
     await expect(service.activeCashier(deviceId)).resolves.toBeNull();
   });
 
   it('selects an ungated member with an append-only insert', async () => {
-    const { prisma, authService } = createDependencies();
+    const { prisma, authService, cashierSelectionService } = createDependencies();
     prisma.staffMember.findUnique.mockResolvedValue(member());
     const service = new SalesService(
       prisma as unknown as PrismaService,
       authService as unknown as AuthService,
+      cashierSelectionService as unknown as CashierSelectionService,
     );
 
     await expect(
@@ -93,24 +88,23 @@ describe('SalesService active cashier selection', () => {
       ),
     ).resolves.toEqual({ id: staffMemberId, displayName: 'Alex Rivera' });
     expect(authService.authorizeCashierPin).not.toHaveBeenCalled();
-    expect(prisma.cashierSelection.create).toHaveBeenCalledWith({
-      data: {
-        deviceId,
-        locationId,
-        staffMemberId,
-        selectedByUserId,
-      },
+    expect(cashierSelectionService.appendSelection).toHaveBeenCalledWith({
+      deviceId,
+      locationId,
+      staffMemberId,
+      selectedByUserId,
     });
   });
 
   it('re-derives the PIN requirement and authorizes before inserting', async () => {
-    const { prisma, authService } = createDependencies();
+    const { prisma, authService, cashierSelectionService } = createDependencies();
     prisma.staffMember.findUnique.mockResolvedValue(
       member({ user: { pinHash: 'configured-hash' } }),
     );
     const service = new SalesService(
       prisma as unknown as PrismaService,
       authService as unknown as AuthService,
+      cashierSelectionService as unknown as CashierSelectionService,
     );
 
     await service.selectCashier(
@@ -126,7 +120,7 @@ describe('SalesService active cashier selection', () => {
       deviceId,
     );
     expect(authService.authorizeCashierPin.mock.invocationCallOrder[0]).toBeLessThan(
-      prisma.cashierSelection.create.mock.invocationCallOrder[0]!,
+      cashierSelectionService.appendSelection.mock.invocationCallOrder[0]!,
     );
   });
 
@@ -134,11 +128,12 @@ describe('SalesService active cashier selection', () => {
     ['unknown member', null],
     ['inactive member', member({ isActive: false })],
   ])('writes nothing for an %s', async (_case, foundMember) => {
-    const { prisma, authService } = createDependencies();
+    const { prisma, authService, cashierSelectionService } = createDependencies();
     prisma.staffMember.findUnique.mockResolvedValue(foundMember);
     const service = new SalesService(
       prisma as unknown as PrismaService,
       authService as unknown as AuthService,
+      cashierSelectionService as unknown as CashierSelectionService,
     );
 
     await expect(
@@ -150,14 +145,15 @@ describe('SalesService active cashier selection', () => {
       ),
     ).rejects.toEqual(new BadRequestException(CASHIER_UNAVAILABLE_MESSAGE));
     expect(authService.authorizeCashierPin).not.toHaveBeenCalled();
-    expect(prisma.cashierSelection.create).not.toHaveBeenCalled();
+    expect(cashierSelectionService.appendSelection).not.toHaveBeenCalled();
   });
 
   it('refuses a malformed member identifier without touching the database', async () => {
-    const { prisma, authService } = createDependencies();
+    const { prisma, authService, cashierSelectionService } = createDependencies();
     const service = new SalesService(
       prisma as unknown as PrismaService,
       authService as unknown as AuthService,
+      cashierSelectionService as unknown as CashierSelectionService,
     );
 
     await expect(
@@ -169,11 +165,11 @@ describe('SalesService active cashier selection', () => {
       ),
     ).rejects.toEqual(new BadRequestException(CASHIER_UNAVAILABLE_MESSAGE));
     expect(prisma.staffMember.findUnique).not.toHaveBeenCalled();
-    expect(prisma.cashierSelection.create).not.toHaveBeenCalled();
+    expect(cashierSelectionService.appendSelection).not.toHaveBeenCalled();
   });
 
   it('leaves the prior selection untouched when authorization fails', async () => {
-    const { prisma, authService } = createDependencies();
+    const { prisma, authService, cashierSelectionService } = createDependencies();
     prisma.staffMember.findUnique.mockResolvedValue(
       member({ user: { pinHash: 'configured-hash' } }),
     );
@@ -183,6 +179,7 @@ describe('SalesService active cashier selection', () => {
     const service = new SalesService(
       prisma as unknown as PrismaService,
       authService as unknown as AuthService,
+      cashierSelectionService as unknown as CashierSelectionService,
     );
 
     await expect(
@@ -193,15 +190,16 @@ describe('SalesService active cashier selection', () => {
         selectedByUserId,
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(prisma.cashierSelection.create).not.toHaveBeenCalled();
+    expect(cashierSelectionService.appendSelection).not.toHaveBeenCalled();
   });
 
   it('appends every change and clear without updating or deleting history', async () => {
-    const { prisma, authService } = createDependencies();
+    const { prisma, authService, cashierSelectionService } = createDependencies();
     prisma.staffMember.findUnique.mockResolvedValue(member());
     const service = new SalesService(
       prisma as unknown as PrismaService,
       authService as unknown as AuthService,
+      cashierSelectionService as unknown as CashierSelectionService,
     );
 
     await service.selectCashier(
@@ -214,14 +212,12 @@ describe('SalesService active cashier selection', () => {
       service.clearCashier(deviceId, selectedByUserId),
     ).resolves.toBeNull();
 
-    expect(prisma.cashierSelection.create).toHaveBeenCalledTimes(2);
-    expect(prisma.cashierSelection.create).toHaveBeenLastCalledWith({
-      data: {
-        deviceId,
-        locationId: null,
-        staffMemberId: null,
-        selectedByUserId,
-      },
+    expect(cashierSelectionService.appendSelection).toHaveBeenCalledTimes(2);
+    expect(cashierSelectionService.appendSelection).toHaveBeenLastCalledWith({
+      deviceId,
+      locationId: null,
+      staffMemberId: null,
+      selectedByUserId,
     });
   });
 });

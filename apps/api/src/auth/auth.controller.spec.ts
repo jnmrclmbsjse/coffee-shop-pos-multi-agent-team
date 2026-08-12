@@ -169,6 +169,8 @@ describe('AuthController', () => {
         role: 'ADMIN',
       },
     });
+    expect(staffPasswordLogin).not.toHaveBeenCalled();
+    expect(staffPinLogin).not.toHaveBeenCalled();
   });
 
   it.each([undefined, null, {}, { username: '   ', password: 'password' }])(

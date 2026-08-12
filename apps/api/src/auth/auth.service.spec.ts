@@ -1,5 +1,6 @@
 import {
   HttpStatus,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
@@ -7,6 +8,7 @@ import type { JwtService } from '@nestjs/jwt';
 import { Role } from '@coffee-shop/shared';
 import type { User } from '@prisma/client';
 import type { UsersService } from '../users/users.service';
+import type { CashierSelectionService } from '../sales/cashier-selection.service';
 import { AuthAttemptThrottleService } from './auth-attempt-throttle.service';
 import {
   INVALID_CASHIER_PIN_MESSAGE,
@@ -51,9 +53,14 @@ function throttleMock(retryAfterSeconds: number | null = null) {
 describe('AuthService', () => {
   const signAsync = jest.fn().mockResolvedValue('signed-token');
   const jwtService = { signAsync } as unknown as JwtService;
+  const appendSelection = jest.fn().mockResolvedValue(undefined);
+  const cashierSelectionService = {
+    appendSelection,
+  } as unknown as CashierSelectionService;
 
   beforeEach(() => {
     signAsync.mockClear();
+    appendSelection.mockReset().mockResolvedValue(undefined);
   });
 
   it('authenticates an administrator and signs a cookie-safe token payload', async () => {
@@ -64,6 +71,7 @@ describe('AuthService', () => {
       usersService,
       jwtService,
       throttleMock() as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
     );
 
     const result = await service.login('  ADMIN ', ' Exact Pass ');
@@ -75,6 +83,7 @@ describe('AuthService', () => {
       role: Role.ADMIN,
     });
     expect(result.response.user.role).toBe(Role.ADMIN);
+    expect(appendSelection).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -91,6 +100,7 @@ describe('AuthService', () => {
         usersService,
         jwtService,
         throttleMock() as unknown as AuthAttemptThrottleService,
+        cashierSelectionService,
       );
 
       await expect(service.login('username', password)).rejects.toEqual(
@@ -104,12 +114,18 @@ describe('AuthService', () => {
     const foundUser = user(Role.STAFF);
     const usersService = {
       findByUsername: jest.fn().mockResolvedValue(foundUser),
+      findLinkedStaffMember: jest.fn().mockResolvedValue({
+        id: '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+        isActive: true,
+        locationId: '56fe72cc-5c03-466c-bd87-7c5d2d732bbe',
+      }),
     } as unknown as UsersService;
     const throttle = throttleMock();
     const service = new AuthService(
       usersService,
       jwtService,
       throttle as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
     );
 
     const result = await service.staffPasswordLogin(
@@ -140,6 +156,63 @@ describe('AuthService', () => {
       },
       token: 'signed-token',
     });
+    expect(appendSelection).toHaveBeenCalledWith({
+      deviceId: 'device-1',
+      locationId: '56fe72cc-5c03-466c-bd87-7c5d2d732bbe',
+      staffMemberId: '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+      selectedByUserId: foundUser.id,
+    });
+  });
+
+  it('appends an explicit clear when password sign-in has no roster link', async () => {
+    const foundUser = user(Role.STAFF);
+    const usersService = {
+      findByUsername: jest.fn().mockResolvedValue(foundUser),
+      findLinkedStaffMember: jest.fn().mockResolvedValue(null),
+    } as unknown as UsersService;
+    const service = new AuthService(
+      usersService,
+      jwtService,
+      throttleMock() as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
+    );
+
+    await service.staffPasswordLogin('staff', ' Exact Pass ', 'device-1');
+
+    expect(appendSelection).toHaveBeenCalledWith({
+      deviceId: 'device-1',
+      locationId: null,
+      staffMemberId: null,
+      selectedByUserId: foundUser.id,
+    });
+  });
+
+  it('returns the staff session when the default selection write fails', async () => {
+    const foundUser = user(Role.STAFF);
+    const usersService = {
+      findByUsername: jest.fn().mockResolvedValue(foundUser),
+      findLinkedStaffMember: jest.fn().mockResolvedValue(null),
+    } as unknown as UsersService;
+    appendSelection.mockRejectedValueOnce(new Error('database unavailable'));
+    const logError = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const service = new AuthService(
+      usersService,
+      jwtService,
+      throttleMock() as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
+    );
+
+    await expect(
+      service.staffPasswordLogin('staff', ' Exact Pass ', 'device-1'),
+    ).resolves.toMatchObject({
+      response: { user: { id: foundUser.id } },
+      token: 'signed-token',
+    });
+    expect(logError).toHaveBeenCalledWith(
+      `Failed to record the default cashier for staff user ${foundUser.id}`,
+      expect.stringContaining('database unavailable'),
+    );
+    logError.mockRestore();
   });
 
   it.each([
@@ -158,6 +231,7 @@ describe('AuthService', () => {
         usersService,
         jwtService,
         throttle as unknown as AuthAttemptThrottleService,
+        cashierSelectionService,
       );
 
       await expect(
@@ -174,12 +248,18 @@ describe('AuthService', () => {
     const foundUser = user(Role.STAFF);
     const usersService = {
       findById: jest.fn().mockResolvedValue(foundUser),
+      findLinkedStaffMember: jest.fn().mockResolvedValue({
+        id: '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+        isActive: false,
+        locationId: '56fe72cc-5c03-466c-bd87-7c5d2d732bbe',
+      }),
     } as unknown as UsersService;
     const throttle = throttleMock();
     const service = new AuthService(
       usersService,
       jwtService,
       throttle as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
     );
 
     const result = await service.staffPinLogin(
@@ -194,6 +274,12 @@ describe('AuthService', () => {
       username: 'staff',
       displayName: 'Casey Barista',
       role: Role.STAFF,
+    });
+    expect(appendSelection).toHaveBeenCalledWith({
+      deviceId: 'device-1',
+      locationId: null,
+      staffMemberId: null,
+      selectedByUserId: foundUser.id,
     });
   });
 
@@ -213,6 +299,7 @@ describe('AuthService', () => {
       usersService,
       jwtService,
       throttle as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
     );
 
     await expect(
@@ -233,6 +320,7 @@ describe('AuthService', () => {
       usersService,
       jwtService,
       throttle as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
     );
 
     const attempt = service.staffPasswordLogin(
@@ -266,6 +354,7 @@ describe('AuthService', () => {
       usersService,
       jwtService,
       new AuthAttemptThrottleService(config),
+      cashierSelectionService,
     );
 
     await expect(
@@ -291,6 +380,7 @@ describe('AuthService', () => {
       usersService,
       jwtService,
       throttle as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
     );
 
     await expect(
@@ -324,6 +414,7 @@ describe('AuthService', () => {
         usersService,
         jwtService,
         throttle as unknown as AuthAttemptThrottleService,
+        cashierSelectionService,
       );
 
       await expect(
@@ -349,6 +440,7 @@ describe('AuthService', () => {
       usersService,
       jwtService,
       throttle as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
     );
 
     await expect(

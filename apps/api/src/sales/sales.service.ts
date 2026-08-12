@@ -3,9 +3,10 @@ import {
   Injectable,
 } from '@nestjs/common';
 import type { ActiveCashier } from '@coffee-shop/shared';
+import type { Prisma } from '@prisma/client';
 import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
-import type { Prisma } from '@prisma/client';
+import { CashierSelectionService } from './cashier-selection.service';
 
 export const CASHIER_UNAVAILABLE_MESSAGE = 'Cashier cannot be selected.';
 const UUID_PATTERN =
@@ -16,23 +17,14 @@ export class SalesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
+    private readonly cashierSelectionService: CashierSelectionService,
   ) {}
 
   async activeCashier(
     deviceId: string,
     client: PrismaService | Prisma.TransactionClient = this.prisma,
   ): Promise<ActiveCashier | null> {
-    const latest = await client.cashierSelection.findFirst({
-      where: { deviceId },
-      select: {
-        staffMember: {
-          select: { id: true, displayName: true },
-        },
-      },
-      orderBy: { selectedAt: 'desc' },
-    });
-
-    return latest?.staffMember ?? null;
+    return this.cashierSelectionService.activeCashier(deviceId, client);
   }
 
   async selectCashier(
@@ -69,13 +61,11 @@ export class SalesService {
       );
     }
 
-    await this.prisma.cashierSelection.create({
-      data: {
-        deviceId,
-        locationId: member.locationId,
-        staffMemberId: member.id,
-        selectedByUserId,
-      },
+    await this.cashierSelectionService.appendSelection({
+      deviceId,
+      locationId: member.locationId,
+      staffMemberId: member.id,
+      selectedByUserId,
     });
 
     return { id: member.id, displayName: member.displayName };
@@ -85,13 +75,11 @@ export class SalesService {
     deviceId: string,
     selectedByUserId: string,
   ): Promise<null> {
-    await this.prisma.cashierSelection.create({
-      data: {
-        deviceId,
-        locationId: null,
-        staffMemberId: null,
-        selectedByUserId,
-      },
+    await this.cashierSelectionService.appendSelection({
+      deviceId,
+      locationId: null,
+      staffMemberId: null,
+      selectedByUserId,
     });
 
     return null;
