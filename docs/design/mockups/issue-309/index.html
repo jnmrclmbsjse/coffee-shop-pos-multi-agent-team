@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Advisory implementation reference for daily compensation records and payslips in the coffee-shop POS back office.">
+  <title>Compensation admin reference - GitHub #309</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="prototype" data-od-id="compensation-prototype">
+    <header class="prototype-head" data-od-id="prototype-heading">
+      <p class="prototype-kicker">Design task #311</p>
+      <h1>Compensation admin reference</h1>
+      <p>Advisory implementation reference for GitHub #309</p>
+    </header>
+
+    <nav class="prototype-nav" aria-label="Mockup sections" data-od-id="prototype-nav">
+      <a href="#records">A. Daily records</a>
+      <a href="#record-dialog">B. Add and edit</a>
+      <a href="#delete-dialog">C. Delete</a>
+      <a href="#payslip">D. Payslip</a>
+      <a href="#navigation">E. Navigation</a>
+    </nav>
+
+    <main>
+      <section class="mockup-section" id="records" data-od-id="daily-records-section">
+        <p class="section-label">A. Daily compensation records - list</p>
+        <div class="assessment-note" role="note">
+          <strong>Decision:</strong> First load shows all staff for August 1-31, 2026. Results sort by work date newest first, then staff name A-Z.
+        </div>
+        <div class="state-switcher" role="group" aria-label="Daily records preview state">
+          <button type="button" aria-pressed="true" data-target="records" data-state="default">Default list</button>
+          <button type="button" aria-pressed="false" data-target="records" data-state="no-records">No records yet</button>
+          <button type="button" aria-pressed="false" data-target="records" data-state="no-match">No filter matches</button>
+        </div>
+        <div id="records-preview" class="preview-frame" aria-live="polite"></div>
+      </section>
+
+      <section class="mockup-section" id="record-dialog" data-od-id="record-dialog-section">
+        <p class="section-label">B. Add / edit a daily record</p>
+        <div class="assessment-note" role="note">
+          <strong>Decision:</strong> Preview the daily total live as a read-only calculation. It confirms the math without presenting a fifth input.
+        </div>
+        <div class="state-switcher state-switcher-wide" role="group" aria-label="Daily record dialog preview state">
+          <button type="button" aria-pressed="true" data-target="record" data-state="add">Add default</button>
+          <button type="button" aria-pressed="false" data-target="record" data-state="missing">Missing amounts</button>
+          <button type="button" aria-pressed="false" data-target="record" data-state="negative">Negative amount</button>
+          <button type="button" aria-pressed="false" data-target="record" data-state="nonnumeric">Non-numeric</button>
+          <button type="button" aria-pressed="false" data-target="record" data-state="subcentavo">Sub-centavo</button>
+          <button type="button" aria-pressed="false" data-target="record" data-state="future">Future date</button>
+          <button type="button" aria-pressed="false" data-target="record" data-state="inactive">Inactive staff</button>
+          <button type="button" aria-pressed="false" data-target="record" data-state="duplicate">Duplicate 409</button>
+          <button type="button" aria-pressed="false" data-target="record" data-state="submitting">Submitting</button>
+          <button type="button" aria-pressed="false" data-target="record" data-state="edit">Edit pre-populated</button>
+          <button type="button" aria-pressed="false" data-target="record" data-state="saved">Edit saved</button>
+        </div>
+        <div id="record-preview" class="preview-frame dialog-stage" aria-live="polite"></div>
+      </section>
+
+      <section class="mockup-section" id="delete-dialog" data-od-id="delete-dialog-section">
+        <p class="section-label">C. Delete confirmation</p>
+        <div class="state-switcher" role="group" aria-label="Delete confirmation preview state">
+          <button type="button" aria-pressed="true" data-target="delete" data-state="confirm">Confirmation</button>
+          <button type="button" aria-pressed="false" data-target="delete" data-state="cancelled">Cancelled</button>
+          <button type="button" aria-pressed="false" data-target="delete" data-state="deleted">Deleted</button>
+        </div>
+        <div id="delete-preview" class="preview-frame dialog-stage" aria-live="polite"></div>
+      </section>
+
+      <section class="mockup-section" id="payslip" data-od-id="payslip-section">
+        <p class="section-label">D. Generate a payslip</p>
+        <div class="assessment-note" role="note">
+          <strong>Critical state:</strong> An empty valid range replaces the result table and totals entirely. It cannot be mistaken for a zero-earnings payslip.
+        </div>
+        <div class="state-switcher" role="group" aria-label="Payslip preview state">
+          <button type="button" aria-pressed="true" data-target="payslip" data-state="result">Result with lines</button>
+          <button type="button" aria-pressed="false" data-target="payslip" data-state="range-error">End before start</button>
+          <button type="button" aria-pressed="false" data-target="payslip" data-state="empty">Empty range</button>
+          <button type="button" aria-pressed="false" data-target="payslip" data-state="inactive">Deactivated member</button>
+          <button type="button" aria-pressed="false" data-target="payslip" data-state="loading">Loading</button>
+        </div>
+        <div id="payslip-preview" class="preview-frame" aria-live="polite"></div>
+      </section>
+
+      <section class="mockup-section" id="navigation" data-od-id="navigation-section">
+        <p class="section-label">E. Navigation placement</p>
+        <div class="assessment-note" role="note">
+          <strong>Recommendation:</strong> Add one Compensation entry under Operations. Records and Payslips remain a local switch because they share the same admin-only context and roster vocabulary.
+        </div>
+        <div id="navigation-preview" class="preview-frame"></div>
+      </section>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
