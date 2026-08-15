@@ -408,9 +408,21 @@ export interface RestockStatusResult {
 export interface PackagingReconciliationRow {
   inventoryItemId: string;
   itemName: string;
+  openingQty: number | null;
+  deliveriesQty: number;
+  wastageQty: number;
+  soldQty: number;
   expectedQty: number | null;
   actualQty: number | null;
   varianceQty: number | null;
+}
+
+export interface DailyInventoryReport {
+  businessDate: string;
+  locationId: string | null;
+  hasInventoryInformation: boolean;
+  reconciliation: PackagingReconciliationRow[];
+  restock: RestockStatusResult;
 }
 
 export enum OrderStatus {

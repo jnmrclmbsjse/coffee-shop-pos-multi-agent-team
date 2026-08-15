@@ -102,10 +102,27 @@ describe('PackagingReconciliationService', () => {
       {
         inventoryItemId: 'cup-id',
         itemName: '12 oz Cup',
+        openingQty: null,
+        deliveriesQty: 0,
+        wastageQty: 0,
+        soldQty: 2,
         expectedQty: null,
         actualQty: 8,
         varianceQty: null,
       },
+    ]);
+  });
+
+  it('keeps every numeric field unavailable when both counts are missing', async () => {
+    const { service } = createService();
+
+    await expect(service.getForTradingDay(day)).resolves.toEqual([
+      expect.objectContaining({
+        openingQty: null,
+        expectedQty: null,
+        actualQty: null,
+        varianceQty: null,
+      }),
     ]);
   });
 
@@ -228,6 +245,10 @@ describe('PackagingReconciliationService', () => {
 
     await expect(service.getForTradingDay(day)).resolves.toEqual([
       expect.objectContaining({
+        openingQty: 10,
+        deliveriesQty: 5,
+        wastageQty: 2,
+        soldQty: 0,
         expectedQty: 13,
         actualQty: 11,
         varianceQty: -2,
@@ -348,29 +369,49 @@ describe('PackagingReconciliationService', () => {
     );
   });
 
-  it('omits reconciled=false, inactive and LEVEL items', async () => {
+  it('limits rows to reconciled quantity items that are active or participated that day', async () => {
     const { prisma, service } = createService();
 
     await service.getForTradingDay(day);
 
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: {
-        active: true,
         reconciled: true,
         countMethod: CountMethod.QUANTITY,
+        OR: [{ active: true }, { id: { in: [] } }],
       },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: { id: true, name: true },
     });
   });
 
-  it('returns no rows without querying day inputs when no items qualify', async () => {
+  it('includes a since-deactivated item that participated on the selected day', async () => {
+    const { prisma, service } = createService();
+    prisma.stockCount.findMany.mockResolvedValue([
+      count('open', StockCountPhase.OPEN, 10),
+    ]);
+
+    await service.getForTradingDay(day);
+
+    expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { active: true },
+            { id: { in: ['cup-id'] } },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it('returns no rows after checking day participation when no items qualify', async () => {
     const { prisma, service } = createService();
     prisma.inventoryItem.findMany.mockResolvedValue([]);
 
     await expect(service.getForTradingDay(day)).resolves.toEqual([]);
-    expect(prisma.stockCount.findMany).not.toHaveBeenCalled();
-    expect(prisma.stockMovement.findMany).not.toHaveBeenCalled();
-    expect(prisma.saleLine.findMany).not.toHaveBeenCalled();
+    expect(prisma.stockCount.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.stockMovement.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.saleLine.findMany).toHaveBeenCalledTimes(1);
   });
 });

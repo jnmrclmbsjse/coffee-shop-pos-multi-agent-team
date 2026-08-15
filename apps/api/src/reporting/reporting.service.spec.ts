@@ -11,6 +11,15 @@ import {
   ReportingService,
 } from './reporting.service';
 
+function createReportingService(prisma: PrismaService): ReportingService {
+  return new ReportingService(
+    prisma,
+    undefined as never,
+    undefined as never,
+    undefined as never,
+  );
+}
+
 describe('ReportingService', () => {
   function createPrisma() {
     return {
@@ -40,6 +49,106 @@ describe('ReportingService', () => {
     orderCount: 3n,
   } as const;
 
+  it('composes the selected day read model and removes Enough restock rows', async () => {
+    const prisma = createPrisma();
+    const day = {
+      id: 'day-id',
+      locationId: null,
+      businessDate: new Date('2026-08-15T00:00:00.000Z'),
+      dayType: 'NORMAL',
+    };
+    const tradingDayService = {
+      findByBusinessDate: jest.fn().mockResolvedValue(day),
+    };
+    const packaging = {
+      getForTradingDay: jest.fn().mockResolvedValue([
+        {
+          inventoryItemId: 'cup-id',
+          itemName: '12 oz Cup',
+          openingQty: 20,
+          deliveriesQty: 5,
+          wastageQty: 1,
+          soldQty: 4,
+          expectedQty: 20,
+          actualQty: 18,
+          varianceQty: -2,
+        },
+      ]),
+    };
+    const restock = {
+      getStatusForDay: jest.fn().mockResolvedValue({
+        businessDay: { businessDate: '2026-08-15' },
+        hasCount: true,
+        selectedPhase: 'close',
+        selectedCountId: 'count-id',
+        selectedCountRecordedAt: '2026-08-15T10:00:00.000Z',
+        rows: [
+          { inventoryItemId: 'low', status: 'LOW' },
+          { inventoryItemId: 'enough', status: 'ENOUGH' },
+        ],
+      }),
+    };
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+      tradingDayService as never,
+      packaging as never,
+      restock as never,
+    );
+
+    await expect(
+      service.getDailyInventory('2026-08-15'),
+    ).resolves.toMatchObject({
+      businessDate: '2026-08-15',
+      locationId: null,
+      hasInventoryInformation: true,
+      reconciliation: [{ soldQty: 4, varianceQty: -2 }],
+      restock: {
+        selectedPhase: 'close',
+        rows: [{ inventoryItemId: 'low', status: 'LOW' }],
+      },
+    });
+    expect(packaging.getForTradingDay).toHaveBeenCalledWith(day);
+    expect(restock.getStatusForDay).toHaveBeenCalledWith(day);
+  });
+
+  it('returns a safe empty report when the date has no trading day', async () => {
+    const prisma = createPrisma();
+    const tradingDayService = {
+      findByBusinessDate: jest.fn().mockResolvedValue(null),
+      toResponse: jest.fn().mockReturnValue({
+        isOpen: false,
+        businessDate: null,
+      }),
+    };
+    const packaging = { getForTradingDay: jest.fn() };
+    const restock = { getStatusForDay: jest.fn() };
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+      tradingDayService as never,
+      packaging as never,
+      restock as never,
+    );
+
+    await expect(
+      service.getDailyInventory('2026-08-20'),
+    ).resolves.toEqual({
+      businessDate: '2026-08-20',
+      locationId: null,
+      hasInventoryInformation: false,
+      reconciliation: [],
+      restock: {
+        businessDay: { isOpen: false, businessDate: null },
+        hasCount: false,
+        selectedPhase: null,
+        selectedCountId: null,
+        selectedCountRecordedAt: null,
+        rows: [],
+      },
+    });
+    expect(packaging.getForTradingDay).not.toHaveBeenCalled();
+    expect(restock.getStatusForDay).not.toHaveBeenCalled();
+  });
+
   it('builds one range model with integer-cent totals and reconciliation', async () => {
     const prisma = createPrisma();
     prisma.$queryRaw
@@ -52,7 +161,7 @@ describe('ReportingService', () => {
           revenueCents: 37_500n,
         },
       ]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -107,7 +216,7 @@ describe('ReportingService', () => {
         },
       ])
       .mockResolvedValueOnce([]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -130,7 +239,7 @@ describe('ReportingService', () => {
     prisma.$queryRaw
       .mockResolvedValueOnce([closedDay])
       .mockResolvedValueOnce([]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -152,7 +261,7 @@ describe('ReportingService', () => {
   it('returns zero totals and empty collections for a range without days', async () => {
     const prisma = createPrisma();
     prisma.$queryRaw.mockResolvedValue([]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -187,7 +296,7 @@ describe('ReportingService', () => {
         },
       ])
       .mockResolvedValueOnce([closedDay]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -223,7 +332,7 @@ describe('ReportingService', () => {
   it('returns an absent dashboard summary when no trading day exists', async () => {
     const prisma = createPrisma();
     prisma.$queryRaw.mockResolvedValue([]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -233,7 +342,7 @@ describe('ReportingService', () => {
   });
 
   it('renders the exact CSV columns, nulls, zeroes, and negatives', () => {
-    const service = new ReportingService(
+    const service = createReportingService(
       createPrisma() as unknown as PrismaService,
     );
 
@@ -340,7 +449,7 @@ describe('order history read model', () => {
           customerName: null,
         },
       ]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -372,7 +481,7 @@ describe('order history read model', () => {
     prisma.$queryRaw
       .mockResolvedValueOnce([{ count: 0n }])
       .mockResolvedValueOnce([]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -400,7 +509,7 @@ describe('order history read model', () => {
       .mockResolvedValueOnce([baseOrder])
       .mockResolvedValueOnce([{ count: 0n }])
       .mockResolvedValueOnce([]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -448,7 +557,7 @@ describe('order history read model', () => {
         ],
       },
     ]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -491,7 +600,7 @@ describe('order history read model', () => {
         lines: [],
       },
     ]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -529,7 +638,7 @@ describe('order history read model', () => {
         ],
       },
     ]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -589,7 +698,7 @@ describe('order history read model', () => {
     const prisma = createPrisma();
     prisma.tradingDay.findUnique.mockResolvedValue({ id: 'day-id' });
     prisma.$queryRaw.mockResolvedValue([]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -605,7 +714,7 @@ describe('order history read model', () => {
     const prisma = createPrisma();
     prisma.tradingDay.findUnique.mockResolvedValue({ id: 'day-id' });
     prisma.$queryRaw.mockResolvedValue([]);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 
@@ -625,7 +734,7 @@ describe('order history read model', () => {
   it('rejects an unknown business day before querying orders', async () => {
     const prisma = createPrisma();
     prisma.tradingDay.findUnique.mockResolvedValue(null);
-    const service = new ReportingService(
+    const service = createReportingService(
       prisma as unknown as PrismaService,
     );
 

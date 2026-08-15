@@ -47,6 +47,18 @@ describe('restock status classification', () => {
     expect(quantityRestockStatus(0, null)).toBe('ENOUGH');
   });
 
+  it('uses configured thresholds even when no par target applies', () => {
+    const bands = {
+      parQty: null,
+      lowThreshold: 5,
+      urgentThreshold: 2,
+    };
+
+    expect(quantityRestockStatus(2, bands)).toBe('URGENT');
+    expect(quantityRestockStatus(5, bands)).toBe('LOW');
+    expect(quantityRestockStatus(6, bands)).toBe('ENOUGH');
+  });
+
   it('maps all eight stock levels to their specified bands', () => {
     expect(
       Object.fromEntries(
@@ -82,7 +94,7 @@ describe('RestockService', () => {
   function createPrisma() {
     return {
       stockCount: {
-        findFirst: jest.fn(),
+        findMany: jest.fn(),
       },
     };
   }
@@ -114,7 +126,7 @@ describe('RestockService', () => {
     name: string,
     quantity: number,
     critical: boolean,
-    parQty = 10,
+    parQty: number | null = 10,
   ) {
     return {
       id: `line-${id}`,
@@ -211,48 +223,43 @@ describe('RestockService', () => {
     };
   }
 
-  it('selects the latest closing count without consulting opening', async () => {
+  it('selects the latest closing correction before considering opening', async () => {
     const { prisma, service } = createService();
-    prisma.stockCount.findFirst.mockResolvedValue(
+    prisma.stockCount.findMany.mockResolvedValue([
+      countRecord(StockCountPhase.OPEN),
       countRecord(StockCountPhase.CLOSE),
-    );
+    ]);
 
     const result = await service.getStatus();
 
     expect(result.selectedPhase).toBe('close');
-    expect(prisma.stockCount.findFirst).toHaveBeenCalledTimes(1);
-    expect(prisma.stockCount.findFirst).toHaveBeenCalledWith(
+    expect(prisma.stockCount.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.stockCount.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          phase: StockCountPhase.CLOSE,
+          phase: {
+            in: [StockCountPhase.OPEN, StockCountPhase.CLOSE],
+          },
         }),
-        orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
       }),
     );
   });
 
   it('falls back to the latest opening count', async () => {
     const { prisma, service } = createService();
-    prisma.stockCount.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(countRecord(StockCountPhase.OPEN));
+    prisma.stockCount.findMany.mockResolvedValue([
+      countRecord(StockCountPhase.OPEN),
+    ]);
 
     const result = await service.getStatus();
 
     expect(result.selectedPhase).toBe('open');
-    expect(prisma.stockCount.findFirst).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        where: expect.objectContaining({
-          phase: StockCountPhase.OPEN,
-        }),
-      }),
-    );
+    expect(prisma.stockCount.findMany).toHaveBeenCalledTimes(1);
   });
 
   it('sorts by status, critical flag, then item name', async () => {
     const { prisma, service } = createService();
-    prisma.stockCount.findFirst.mockResolvedValue(
+    prisma.stockCount.findMany.mockResolvedValue([
       countRecord(StockCountPhase.CLOSE, [
         quantityLine('enough', 'Zulu', 10, false),
         quantityLine('low-b', 'Beans', 4, false),
@@ -260,7 +267,7 @@ describe('RestockService', () => {
         quantityLine('low-a', 'Apples', 4, true),
         quantityLine('urgent-c', 'Cups', 1, true),
       ]),
-    );
+    ]);
 
     const result = await service.getStatus();
 
@@ -275,7 +282,7 @@ describe('RestockService', () => {
 
   it('ignores a saved level par and keeps the fixed level status mapping', async () => {
     const { prisma, service } = createService();
-    prisma.stockCount.findFirst.mockResolvedValue(
+    prisma.stockCount.findMany.mockResolvedValue([
       countRecord(StockCountPhase.CLOSE, [
         levelLine(
           'level-item',
@@ -284,7 +291,7 @@ describe('RestockService', () => {
           StockLevel.FULL,
         ),
       ]),
-    );
+    ]);
 
     await expect(service.getStatus()).resolves.toMatchObject({
       rows: [
@@ -298,9 +305,29 @@ describe('RestockService', () => {
     });
   });
 
+  it('returns an unavailable target while retaining threshold urgency', async () => {
+    const { prisma, service } = createService();
+    prisma.stockCount.findMany.mockResolvedValue([
+      countRecord(StockCountPhase.CLOSE, [
+        quantityLine('threshold-only', 'Cups', 1, true, null),
+      ]),
+    ]);
+
+    await expect(service.getStatus()).resolves.toMatchObject({
+      rows: [
+        {
+          inventoryItemId: 'threshold-only',
+          quantity: 1,
+          par: null,
+          status: 'URGENT',
+        },
+      ],
+    });
+  });
+
   it('returns an explicit no-count result', async () => {
     const { prisma, service } = createService();
-    prisma.stockCount.findFirst.mockResolvedValue(null);
+    prisma.stockCount.findMany.mockResolvedValue([]);
 
     await expect(service.getStatus()).resolves.toMatchObject({
       businessDay: {
@@ -328,6 +355,31 @@ describe('RestockService', () => {
       selectedCountRecordedAt: null,
       rows: [],
     });
-    expect(prisma.stockCount.findFirst).not.toHaveBeenCalled();
+    expect(prisma.stockCount.findMany).not.toHaveBeenCalled();
+  });
+
+  it('uses an out-of-order correction leaf for the restock count', async () => {
+    const { prisma, service } = createService();
+    const original = {
+      ...countRecord(StockCountPhase.CLOSE, [
+        quantityLine('item-id', 'Beans', 9, true),
+      ]),
+      id: 'original',
+      recordedAt: new Date('2026-07-23T10:00:00.000Z'),
+    };
+    const correction = {
+      ...countRecord(StockCountPhase.CLOSE, [
+        quantityLine('item-id', 'Beans', 1, true),
+      ]),
+      id: 'correction',
+      correctsStockCountId: 'original',
+      recordedAt: new Date('2026-07-23T09:00:00.000Z'),
+    };
+    prisma.stockCount.findMany.mockResolvedValue([original, correction]);
+
+    await expect(service.getStatusForDay(openDay)).resolves.toMatchObject({
+      selectedCountId: 'correction',
+      rows: [{ quantity: 1, status: 'URGENT' }],
+    });
   });
 });

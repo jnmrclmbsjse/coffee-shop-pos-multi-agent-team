@@ -11,6 +11,7 @@ import {
   ServiceType as SharedServiceType,
 } from '@coffee-shop/shared';
 import type {
+  DailyInventoryReport,
   DailyReconciliation,
   MoneyCents,
   OrderHistoryDetail,
@@ -34,6 +35,9 @@ import {
   TradingDayStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PackagingReconciliationService } from '../inventory/packaging-reconciliation.service';
+import { RestockService } from '../inventory/restock.service';
+import { TradingDayService } from '../trading-day/trading-day.service';
 
 type DatabaseInteger = bigint | number;
 
@@ -122,7 +126,67 @@ const SHOP_TIME_ZONE = 'Asia/Manila';
 
 @Injectable()
 export class ReportingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tradingDayService: TradingDayService,
+    private readonly packagingReconciliation: PackagingReconciliationService,
+    private readonly restockService: RestockService,
+  ) {}
+
+  async getDailyInventory(
+    businessDate: string,
+  ): Promise<DailyInventoryReport> {
+    const day = await this.tradingDayService.findByBusinessDate(
+      businessDate,
+    );
+
+    if (day === null) {
+      // Counts and movements use date/location while sold packaging usage uses
+      // a trading-day ID. Without that row, combining orphaned inventory data
+      // with an assumed sold quantity of zero would fabricate a variance, so
+      // the selected date is intentionally reported as having no safe read model.
+      return {
+        businessDate,
+        locationId: null,
+        hasInventoryInformation: false,
+        reconciliation: [],
+        restock: {
+          businessDay: this.tradingDayService.toResponse(null),
+          hasCount: false,
+          selectedPhase: null,
+          selectedCountId: null,
+          selectedCountRecordedAt: null,
+          rows: [],
+        },
+      };
+    }
+
+    const [reconciliation, restock] = await Promise.all([
+      this.packagingReconciliation.getForTradingDay(day),
+      this.restockService.getStatusForDay(day),
+    ]);
+    const hasInventoryInformation =
+      restock.hasCount ||
+      reconciliation.some(
+        (row) =>
+          row.openingQty !== null ||
+          row.actualQty !== null ||
+          row.deliveriesQty !== 0 ||
+          row.wastageQty !== 0 ||
+          row.soldQty !== 0,
+      );
+
+    return {
+      businessDate,
+      locationId: day.locationId,
+      hasInventoryInformation,
+      reconciliation: hasInventoryInformation ? reconciliation : [],
+      restock: {
+        ...restock,
+        rows: restock.rows.filter((row) => row.status !== 'ENOUGH'),
+      },
+    };
+  }
 
   async getDashboard(): Promise<ReportingDashboard> {
     const to = shopDate(new Date());
