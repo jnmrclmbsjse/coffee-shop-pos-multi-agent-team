@@ -21,7 +21,7 @@ describe('CompensationController', () => {
     ).toEqual([JwtAuthGuard, RolesGuard]);
   });
 
-  it.each(['list', 'create', 'update', 'remove'] as const)(
+  it.each(['payslip', 'list', 'create', 'update', 'remove'] as const)(
     'refuses a STAFF user on %s',
     (handlerName) => {
       const guard = new RolesGuard(new Reflector());
@@ -42,6 +42,21 @@ describe('CompensationController', () => {
       expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
     },
   );
+
+  it('delegates payslip generation with the requested staff member and range', async () => {
+    const service = {
+      getPayslip: jest.fn().mockResolvedValue({ entries: [] }),
+    };
+    const controller = new CompensationController(service as never);
+    const query = {
+      staffMemberId: '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+      from: '2026-08-01',
+      to: '2026-08-15',
+    };
+
+    await expect(controller.payslip(query)).resolves.toEqual({ entries: [] });
+    expect(service.getPayslip).toHaveBeenCalledWith(query);
+  });
 
   it('attributes creates and updates to the authenticated administrator', async () => {
     const service = {

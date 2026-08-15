@@ -11,7 +11,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { Role, type StaffCompensationEntry } from '@coffee-shop/shared';
+import {
+  type PayslipSummary,
+  Role,
+  type StaffCompensationEntry,
+} from '@coffee-shop/shared';
 import type { AuthenticatedRequest } from '../auth/auth.types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -19,6 +23,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import {
   CompensationEntryListQueryDto,
   CreateCompensationEntryDto,
+  PayslipQueryDto,
   UpdateCompensationEntryDto,
 } from './compensation.dto';
 import { CompensationService } from './compensation.service';
@@ -28,6 +33,11 @@ import { CompensationService } from './compensation.service';
 @Roles(Role.ADMIN)
 export class CompensationController {
   constructor(private readonly compensationService: CompensationService) {}
+
+  @Get('payslip')
+  payslip(@Query() query: PayslipQueryDto): Promise<PayslipSummary> {
+    return this.compensationService.getPayslip(query);
+  }
 
   @Get('entries')
   list(

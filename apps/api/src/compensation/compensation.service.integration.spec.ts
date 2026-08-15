@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompensationService } from './compensation.service';
@@ -10,6 +14,7 @@ const describeWithDatabase = testDatabaseUrl ? describe : describe.skip;
 describeWithDatabase('CompensationService against Postgres', () => {
   const locationId = randomUUID();
   const staffMemberId = randomUUID();
+  const otherStaffMemberId = randomUUID();
   const adminUserId = randomUUID();
   const secondAdminUserId = randomUUID();
   let prisma: PrismaService;
@@ -43,21 +48,30 @@ describeWithDatabase('CompensationService against Postgres', () => {
         },
       ],
     });
-    await prisma.staffMember.create({
-      data: {
-        id: staffMemberId,
-        displayName: 'Compensation Integration Staff',
-        locationId,
-      },
+    await prisma.staffMember.createMany({
+      data: [
+        {
+          id: staffMemberId,
+          displayName: 'Compensation Integration Staff',
+          locationId,
+        },
+        {
+          id: otherStaffMemberId,
+          displayName: 'Other Compensation Staff',
+          locationId,
+        },
+      ],
     });
   });
 
   afterAll(async () => {
     if (!prisma) return;
     await prisma.staffCompensationEntry.deleteMany({
-      where: { staffMemberId },
+      where: { staffMemberId: { in: [staffMemberId, otherStaffMemberId] } },
     });
-    await prisma.staffMember.deleteMany({ where: { id: staffMemberId } });
+    await prisma.staffMember.deleteMany({
+      where: { id: { in: [staffMemberId, otherStaffMemberId] } },
+    });
     await prisma.user.deleteMany({
       where: { id: { in: [adminUserId, secondAdminUserId] } },
     });
@@ -147,5 +161,141 @@ describeWithDatabase('CompensationService against Postgres', () => {
         where: { id: created.id },
       }),
     ).resolves.toBeNull();
+  });
+
+  it('computes a fresh payslip for only the requested staff and inclusive date range', async () => {
+    const before = await service.create(
+      {
+        staffMemberId,
+        workDate: '2026-09-09',
+        salaryCents: 90_000,
+        commissionCents: 9_000,
+      } as never,
+      adminUserId,
+    );
+    const fromBoundary = await service.create(
+      {
+        staffMemberId,
+        workDate: '2026-09-10',
+        salaryCents: 10_000,
+        commissionCents: 100,
+      } as never,
+      adminUserId,
+    );
+    const toBoundary = await service.create(
+      {
+        staffMemberId,
+        workDate: '2026-09-12',
+        salaryCents: 12_000,
+        commissionCents: 300,
+      } as never,
+      adminUserId,
+    );
+    const after = await service.create(
+      {
+        staffMemberId,
+        workDate: '2026-09-13',
+        salaryCents: 130_000,
+        commissionCents: 13_000,
+      } as never,
+      adminUserId,
+    );
+    const otherStaffEntry = await service.create(
+      {
+        staffMemberId: otherStaffMemberId,
+        workDate: '2026-09-11',
+        salaryCents: 110_000,
+        commissionCents: 11_000,
+      } as never,
+      adminUserId,
+    );
+
+    const initial = await service.getPayslip({
+      staffMemberId,
+      from: '2026-09-10',
+      to: '2026-09-12',
+    });
+    expect(initial).toEqual({
+      staffMember: {
+        id: staffMemberId,
+        displayName: 'Compensation Integration Staff',
+      },
+      from: '2026-09-10',
+      to: '2026-09-12',
+      entries: [
+        expect.objectContaining({
+          id: fromBoundary.id,
+          workDate: '2026-09-10',
+          dailyTotalCents: 10_100,
+        }),
+        expect.objectContaining({
+          id: toBoundary.id,
+          workDate: '2026-09-12',
+          dailyTotalCents: 12_300,
+        }),
+      ],
+      salaryTotalCents: 22_000,
+      commissionTotalCents: 400,
+      grandTotalCents: 22_400,
+    });
+    expect(initial.entries.map((entry) => entry.id)).not.toEqual(
+      expect.arrayContaining([
+        before.id,
+        after.id,
+        otherStaffEntry.id,
+      ]),
+    );
+
+    await service.update(
+      fromBoundary.id,
+      { salaryCents: 20_000, commissionCents: 200 } as never,
+      secondAdminUserId,
+    );
+    const afterUpdate = await service.getPayslip({
+      staffMemberId,
+      from: '2026-09-10',
+      to: '2026-09-12',
+    });
+    expect(afterUpdate.salaryTotalCents).toBe(32_000);
+    expect(afterUpdate.commissionTotalCents).toBe(500);
+    expect(afterUpdate.grandTotalCents).toBe(32_500);
+
+    await service.remove(toBoundary.id);
+    const afterDelete = await service.getPayslip({
+      staffMemberId,
+      from: '2026-09-10',
+      to: '2026-09-12',
+    });
+    expect(afterDelete.entries).toHaveLength(1);
+    expect(afterDelete.grandTotalCents).toBe(20_200);
+
+    await expect(
+      service.getPayslip({
+        staffMemberId,
+        from: '2026-10-01',
+        to: '2026-10-31',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        entries: [],
+        salaryTotalCents: 0,
+        commissionTotalCents: 0,
+        grandTotalCents: 0,
+      }),
+    );
+    await expect(
+      service.getPayslip({
+        staffMemberId,
+        from: '2026-09-12',
+        to: '2026-09-10',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.getPayslip({
+        staffMemberId: randomUUID(),
+        from: '2026-09-10',
+        to: '2026-09-12',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

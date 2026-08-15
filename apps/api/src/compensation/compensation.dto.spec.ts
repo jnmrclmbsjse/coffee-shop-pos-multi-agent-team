@@ -5,6 +5,7 @@ import { validate } from 'class-validator';
 import {
   CompensationEntryListQueryDto,
   CreateCompensationEntryDto,
+  PayslipQueryDto,
   UpdateCompensationEntryDto,
 } from './compensation.dto';
 
@@ -100,5 +101,38 @@ describe('Compensation DTOs', () => {
 
     await expect(validate(valid)).resolves.toEqual([]);
     await expect(validate(invalid)).resolves.toHaveLength(3);
+  });
+
+  it('requires a valid staff member and two valid payslip dates', async () => {
+    const valid = plainToInstance(PayslipQueryDto, {
+      staffMemberId: validCreate.staffMemberId,
+      from: '2026-08-01',
+      to: '2026-08-15',
+    });
+    const invalid = plainToInstance(PayslipQueryDto, {
+      staffMemberId: 'not-a-uuid',
+      from: '08/01/2026',
+      to: '2026-02-30',
+    });
+
+    await expect(validate(valid)).resolves.toEqual([]);
+    await expect(validate(invalid)).resolves.toHaveLength(3);
+  });
+
+  it('returns field-level messages for missing payslip query fields', async () => {
+    const errors = await validate(plainToInstance(PayslipQueryDto, {}));
+
+    expect(errors.map((error) => error.property)).toEqual(
+      expect.arrayContaining(['staffMemberId', 'from', 'to']),
+    );
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          constraints: expect.objectContaining({
+            isNotEmpty: 'staffMemberId is required',
+          }),
+        }),
+      ]),
+    );
   });
 });
