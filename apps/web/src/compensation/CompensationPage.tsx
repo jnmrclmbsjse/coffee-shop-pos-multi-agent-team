@@ -165,7 +165,7 @@ export function CompensationPage() {
   useEffect(() => {
     if (!draft) return;
     requestAnimationFrame(() => (draft.id ? editSalaryRef.current : firstFieldRef.current)?.focus());
-  }, [draft?.id]);
+  }, [draft !== null, draft?.id]);
   useEffect(() => { if (conflict) requestAnimationFrame(() => conflictRef.current?.focus()); }, [conflict]);
   useEffect(() => { if (deleteTarget) requestAnimationFrame(() => deleteCancelRef.current?.focus()); }, [deleteTarget]);
 

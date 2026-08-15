@@ -102,6 +102,19 @@ describe('CompensationPage', () => {
     expect(screen.getByText('₱1,650.00')).toBeInTheDocument();
   });
 
+  it('moves initial focus into both add and edit dialogs', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: /Edit Mara Santos/ });
+
+    const { user, dialog: addDialog } = await openAddForm();
+    await waitFor(() => expect(within(addDialog).getByLabelText(/Staff member/)).toHaveFocus());
+    await user.click(within(addDialog).getByRole('button', { name: 'Cancel' }));
+
+    await user.click(screen.getByRole('button', { name: /Edit Mara Santos/ }));
+    const editDialog = screen.getByRole('dialog', { name: 'Edit daily record' });
+    await waitFor(() => expect(within(editDialog).getByLabelText(/Salary amount/)).toHaveFocus());
+  });
+
   it('blocks required, negative, and non-numeric amounts with per-field messages', async () => {
     renderPage();
     await screen.findByRole('button', { name: /Edit Mara Santos/ });
