@@ -109,11 +109,23 @@ export function DailyInventoryReportPage() {
           {!report.hasInventoryInformation ? (
             <section className="report-panel" aria-labelledby="no-inventory-title">
               <div className="report-empty">
-                <strong id="no-inventory-title">No inventory information for this day</strong>
-                <span>
-                  There are no reportable counts, movements, or completed-sale
-                  packaging usage for {formatBusinessDate(report.businessDate)} at {location}.
-                </span>
+                {report.restock.businessDay.openedAt === null ? (
+                  <>
+                    <strong id="no-inventory-title">Business day not opened</strong>
+                    <span>
+                      No business day was opened for {formatBusinessDate(report.businessDate)} at{' '}
+                      {location}. There is no daily inventory report for this date.
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <strong id="no-inventory-title">Nothing reportable for this opened day</strong>
+                    <span>
+                      The business day for {formatBusinessDate(report.businessDate)} at {location}{' '}
+                      was opened, but it has no counts, movements, or completed-sale packaging usage.
+                    </span>
+                  </>
+                )}
               </div>
               <div className="report-scope-footer">
                 This report is read-only. To manage item configuration, use{' '}

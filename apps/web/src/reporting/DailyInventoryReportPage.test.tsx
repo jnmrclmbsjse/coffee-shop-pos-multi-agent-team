@@ -186,6 +186,7 @@ describe('daily inventory report page', () => {
     const levelRow = within(table).getByRole('row', { name: /Chocolate powder/ });
     expect(oatRow).toHaveTextContent('Oat milkCritical2UnavailableUrgent');
     expect(levelRow).toHaveTextContent('Chocolate powderHalfUnavailableBelow par');
+    expect(within(levelRow).getByText('Half')).toHaveClass('restock-level');
     expect(within(table).getAllByText('Unavailable')).toHaveLength(2);
   });
 
@@ -197,49 +198,84 @@ describe('daily inventory report page', () => {
     expect(screen.queryByRole('table', { name: /Items below/ })).not.toBeInTheDocument();
   });
 
-  it('shows no-count and no-inventory-information empty states without misleading tables', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          dailyReport({
-            restock: {
-              ...dailyReport().restock,
-              hasCount: false,
-              selectedPhase: null,
-              selectedCountId: null,
-              selectedCountRecordedAt: null,
-              rows: [],
-            },
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          dailyReport({
-            businessDate: '2026-07-27',
-            hasInventoryInformation: false,
-            reconciliation: [],
-            restock: {
-              ...dailyReport().restock,
-              hasCount: false,
-              selectedPhase: null,
-              selectedCountId: null,
-              selectedCountRecordedAt: null,
-              rows: [],
-            },
-          }),
-        ),
-      );
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  it('shows a no-count restock state without a misleading restock table', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({
+          restock: {
+            ...dailyReport().restock,
+            hasCount: false,
+            selectedPhase: null,
+            selectedCountId: null,
+            selectedCountRecordedAt: null,
+            rows: [],
+          },
+        }),
+      ),
+    );
     renderPage();
 
     expect(await screen.findByText('No count submitted for this day')).toBeInTheDocument();
-    const input = screen.getByLabelText('Business date');
-    await user.clear(input);
-    await user.type(input, '2026-07-27');
+    expect(screen.queryByRole('table', { name: /Items below/ })).not.toBeInTheDocument();
+  });
 
-    expect(await screen.findByText('No inventory information for this day')).toBeInTheDocument();
-    expect(screen.getByText(/July 27, 2026 at UCM Coffee Studio/)).toBeInTheDocument();
+  it('shows the opened-day empty state when the day has no inventory activity', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({
+          hasInventoryInformation: false,
+          reconciliation: [],
+          restock: {
+            ...dailyReport().restock,
+            hasCount: false,
+            selectedPhase: null,
+            selectedCountId: null,
+            selectedCountRecordedAt: null,
+            rows: [],
+          },
+        }),
+      ),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Nothing reportable for this opened day')).toBeInTheDocument();
+    expect(screen.getByText(/was opened, but it has no counts/)).toHaveTextContent(
+      'The business day for July 26, 2026 at UCM Coffee Studio was opened',
+    );
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('shows the not-opened empty state when no business day exists', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({
+          hasInventoryInformation: false,
+          reconciliation: [],
+          restock: {
+            ...dailyReport().restock,
+            businessDay: {
+              isOpen: false,
+              businessDate: null,
+              dayType: null,
+              openingFloatCents: null,
+              openedByDisplayName: null,
+              openedAt: null,
+            },
+            hasCount: false,
+            selectedPhase: null,
+            selectedCountId: null,
+            selectedCountRecordedAt: null,
+            rows: [],
+          },
+        }),
+      ),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Business day not opened')).toBeInTheDocument();
+    expect(screen.getByText(/No business day was opened/)).toHaveTextContent(
+      'No business day was opened for July 26, 2026 at UCM Coffee Studio',
+    );
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 

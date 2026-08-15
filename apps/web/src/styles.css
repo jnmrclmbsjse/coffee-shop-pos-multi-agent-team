@@ -3583,6 +3583,11 @@ button {
   font-weight: 500;
 }
 
+.restock-level {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
 .report-footnote,
 .restock-copy,
 .report-scope-footer,

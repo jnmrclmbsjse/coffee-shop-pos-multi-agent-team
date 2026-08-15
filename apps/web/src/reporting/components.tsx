@@ -390,7 +390,7 @@ export function PackagingReconciliationTable({
 
 function RestockCount({ row }: { row: RestockStatusRow }) {
   if (row.countMethod === CountMethod.LEVEL) {
-    return <>{formatStockLevel(row.level)}</>;
+    return <span className="restock-level">{formatStockLevel(row.level)}</span>;
   }
   return row.quantity === null ? (
     <UnavailableCount reason="counted quantity not submitted" />
