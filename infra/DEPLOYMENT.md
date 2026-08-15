@@ -16,9 +16,9 @@ What exists in the repo today vs. what still requires hands-on, real-AWS work.
 
 **Done**
 - [x] This runbook (`infra/DEPLOYMENT.md`) and [ADR 0009](../docs/adr/0009-deployment-architecture.md).
-- [x] App-code prerequisites filed as issue **#235** (Dockerfile/`prisma/` +
-  `migrate deploy` blocker, `helmet`, `trust proxy`, guard audit) — routes
-  through the existing `agent:dev` lane; not yet fixed.
+- [x] App-code prerequisites (issue **#235**: Dockerfile/`prisma/` +
+  `migrate deploy` blocker, `helmet`, `trust proxy`, guard audit) — **fixed and
+  shipped**; #235 is closed. Verified in code, see §4.
 - [x] Pulumi program in `infra/` (`network.ts`, `iam.ts`, `storage.ts`,
   `compute.ts`, `edge.ts`, `oidc.ts`, `index.ts`) — typechecks clean against
   real `@pulumi/aws` types, **never applied** (no AWS account attached yet).
@@ -53,7 +53,6 @@ What exists in the repo today vs. what still requires hands-on, real-AWS work.
   ASCII-only).
 
 **Not done — genuinely needs the operator, not an agent**
-- [ ] Fix the app-code prerequisites (issue #235) via the normal Dev pickup.
 - [ ] Delete the bootstrap access key (§5a step G) — it's no longer needed
   now that the bootstrap apply succeeded.
 - [ ] Set the GitHub Actions repository variables/secret it unlocks (§5a/§7).
@@ -163,24 +162,30 @@ user, update the seed env values in SSM and re-run the seed (idempotent via
 
 ### App-code prerequisites (route to Tech Lead → Dev; the deploy agent is read-only on app code)
 
-- [ ] **Blocker:** `apps/api/Dockerfile` does not copy the `prisma/` directory
-  into the runtime image, and there is no `migrate deploy` script anywhere in
-  `apps/api/package.json` (only `db:migrate` = `prisma migrate dev`, a dev-only
-  command). **Migrations cannot run in the container as it exists today.** Fix:
-  add `prisma/` to the runtime stage and add a `db:migrate:deploy` script
-  (`prisma migrate deploy`).
-- [ ] Add `helmet` to `apps/api/src/main.ts` (no security headers today).
-- [ ] Add `app.set('trust proxy', 1)` in `main.ts` — behind CloudFront,
-  `X-Forwarded-Proto` must be trusted for `secure` cookies to behave correctly.
-- [ ] Audit that every sensitive controller (orders, sales, catalog, inventory,
-  reporting, staff, trading-day) declares `@UseGuards(JwtAuthGuard, RolesGuard)`
-  — there is **no global guard fallback**, so an unguarded controller is
-  unauthenticated by default. Consider adding a global guard with explicit
-  `@Public()` opt-outs instead of the current per-controller-only model.
-- [ ] Confirm the SPA build step passes `VITE_API_URL=/api` — Vite does **not**
-  read the repo-root `.env` (it only reads `apps/web/.env*`), so this must be
-  set explicitly in the build environment (see `deploy.yml`), not assumed from
-  the root `.env`.
+**All satisfied as of 2026-08-16** (issue #235, closed). The Release/Deploy role
+re-verifies these in the checked-out repo before every deploy, so keep this list
+accurate — a stale entry here is a tripwire in an automated lane, not just a
+stale document.
+
+- [x] `apps/api/Dockerfile` copies `prisma/` into the runtime image
+  (`apps/api/Dockerfile:20`) and `apps/api/package.json` defines
+  `db:migrate:deploy` = `prisma migrate deploy` (`package.json:9`). Migrations
+  run in the container.
+- [x] `helmet()` applied in `apps/api/src/main.ts:11`.
+- [x] `app.set('trust proxy', 1)` in `apps/api/src/main.ts:10` — behind
+  CloudFront, `X-Forwarded-Proto` must be trusted for `secure` cookies.
+- [x] Every sensitive controller declares `@UseGuards(...)` — verified across
+  all 16 (orders, sales, catalog, inventory, reporting, staff, trading-day and
+  the rest). Only `app.controller.ts` is unguarded, which is the health
+  endpoint. Note there is still **no global guard fallback**, so a newly added
+  controller is unauthenticated by default until it declares its own guards.
+- [x] The SPA build passes `VITE_API_URL=/api` explicitly
+  (`.github/workflows/deploy.yml:108`) — Vite does **not** read the repo-root
+  `.env` (only `apps/web/.env*`), so this must never be assumed from the root.
+
+Open design question, **not** a go-live blocker: replace the per-controller
+guard model with a global guard plus explicit `@Public()` opt-outs, which would
+make an unguarded new controller fail closed rather than open.
 
 ### Ops/config prerequisites
 
