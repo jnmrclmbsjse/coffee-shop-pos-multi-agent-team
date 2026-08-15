@@ -119,6 +119,37 @@ export interface StaffMember {
   updatedAt: string;
 }
 
+export interface StaffCompensationEntry {
+  id: string;
+  staffMemberId: string;
+  staffMemberDisplayName: string;
+  workDate: string;
+  salaryCents: MoneyCents;
+  commissionCents: MoneyCents;
+  dailyTotalCents: MoneyCents;
+  locationId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StaffCompensationEntryListQuery {
+  staffMemberId?: string;
+  from?: string;
+  to?: string;
+}
+
+export interface CreateStaffCompensationEntryInput {
+  staffMemberId: string;
+  workDate: string;
+  salaryCents: MoneyCents;
+  commissionCents: MoneyCents;
+}
+
+export interface UpdateStaffCompensationEntryInput {
+  salaryCents: MoneyCents;
+  commissionCents: MoneyCents;
+}
+
 export interface SelectableStaffMember {
   id: string;
   displayName: string;
