@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardPage } from './DashboardPage';
 import { ReportsPage } from './ReportsPage';
@@ -88,6 +89,14 @@ const report = {
   topProducts: dashboard.topProducts,
 };
 
+function renderReportsPage() {
+  return render(
+    <MemoryRouter initialEntries={['/reports']}>
+      <ReportsPage />
+    </MemoryRouter>,
+  );
+}
+
 describe('reporting pages', () => {
   const fetchMock = vi.fn<typeof fetch>();
 
@@ -137,7 +146,7 @@ describe('reporting pages', () => {
 
   it('renders null cash as unavailable and a recorded zero as money', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(report));
-    render(<ReportsPage />);
+    renderReportsPage();
 
     const table = await screen.findByRole('table', {
       name: /Daily reconciliation/,
@@ -160,7 +169,7 @@ describe('reporting pages', () => {
   it('keeps the last valid results and makes no request for an invalid range', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(report));
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<ReportsPage />);
+    renderReportsPage();
 
     await screen.findByText('Daily reconciliation');
     await user.clear(screen.getByLabelText('From'));
@@ -192,7 +201,7 @@ describe('reporting pages', () => {
         }),
       );
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<ReportsPage />);
+    renderReportsPage();
     await screen.findByText('Daily reconciliation');
 
     const from = screen.getByLabelText('From');

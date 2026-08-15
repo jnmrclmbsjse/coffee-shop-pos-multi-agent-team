@@ -1,4 +1,5 @@
 import type {
+  DailyInventoryReport,
   OrderHistoryDetail,
   OrderHistoryList,
   OrderHistoryListQuery,
@@ -36,6 +37,13 @@ export function getDashboard(): Promise<ReportingDashboard> {
 
 export function getReport(from: string, to: string): Promise<SalesRangeReport> {
   return request(`/reporting/report?${rangeQuery(from, to)}`);
+}
+
+export function getDailyInventoryReport(
+  date: string,
+): Promise<DailyInventoryReport> {
+  const params = new URLSearchParams({ date });
+  return request(`/reporting/daily-inventory?${params.toString()}`);
 }
 
 export function getOrderHistory(

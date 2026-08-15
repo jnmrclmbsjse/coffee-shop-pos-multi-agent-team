@@ -1,4 +1,28 @@
+import type { RestockStatus, StockLevel } from '@coffee-shop/shared';
+
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const COUNT_FORMATTER = new Intl.NumberFormat('en-PH', {
+  maximumFractionDigits: 0,
+});
+
+const STOCK_LEVEL_LABELS: Record<StockLevel, string> = {
+  EMPTY: 'Empty',
+  LOW: 'Low',
+  QUARTER: 'Quarter',
+  ONE_THIRD: 'One-third',
+  HALF: 'Half',
+  TWO_THIRDS: 'Two-thirds',
+  THREE_QUARTERS: 'Three-quarters',
+  FULL: 'Full',
+};
+
+const RESTOCK_STATUS_LABELS: Record<RestockStatus, string> = {
+  URGENT: 'Urgent',
+  LOW: 'Low',
+  BELOW_PAR: 'Below par',
+  ENOUGH: 'Enough',
+};
 
 export function formatMoney(cents: number): string {
   const absoluteCents = Math.abs(cents);
@@ -14,6 +38,44 @@ export function formatQuantity(quantity: number): string {
   return new Intl.NumberFormat('en-PH', {
     maximumFractionDigits: 2,
   }).format(quantity);
+}
+
+export function formatCount(quantity: number): string {
+  return COUNT_FORMATTER.format(quantity);
+}
+
+export function formatOptionalCount(quantity: number | null): string {
+  return quantity === null ? 'Unavailable' : formatCount(quantity);
+}
+
+export function formatSignedCount(quantity: number): string {
+  return `${quantity > 0 ? '+' : ''}${formatCount(quantity)}`;
+}
+
+export function formatStockLevel(level: StockLevel | null): string {
+  return level === null ? 'Unavailable' : STOCK_LEVEL_LABELS[level];
+}
+
+export function formatRestockStatus(status: RestockStatus): string {
+  return RESTOCK_STATUS_LABELS[status];
+}
+
+export function formatLocation(locationId: string | null): string {
+  return locationId === null ? 'UCM Coffee Studio' : `Location ${locationId}`;
+}
+
+export function formatSubmissionTime(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp);
+  if (Number.isNaN(date.getTime())) return isoTimestamp;
+
+  return new Intl.DateTimeFormat('en-PH', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Asia/Manila',
+  }).format(date);
 }
 
 export function formatBusinessDate(

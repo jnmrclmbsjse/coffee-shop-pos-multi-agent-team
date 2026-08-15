@@ -2984,6 +2984,35 @@ button {
   font-weight: 650;
 }
 
+.page-context-switch {
+  display: flex;
+  gap: var(--space-6);
+  margin: calc(var(--space-3) * -1) 0 var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.page-context-switch a {
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 2px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.page-context-switch a[aria-current='page'] {
+  border-bottom-color: var(--accent);
+  color: var(--fg);
+}
+
+.page-context-switch a:focus-visible,
+.report-table-region:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .read-only-label {
   flex: 0 0 auto;
   padding: 5px 9px;
@@ -2998,6 +3027,22 @@ button {
 .reporting-content {
   display: grid;
   gap: var(--space-6);
+}
+
+.reporting-refreshing {
+  pointer-events: none;
+  opacity: 0.48;
+  transition: opacity 180ms ease-out;
+}
+
+.daily-inventory-loading-status {
+  min-height: var(--touch-min);
+  display: flex;
+  align-items: center;
+  margin: calc(var(--space-3) * -1) 0 var(--space-3);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .reporting-loading,
@@ -3308,6 +3353,10 @@ button {
   color: var(--fg);
 }
 
+.report-empty-positive {
+  background: var(--success-surface);
+}
+
 .report-filter {
   display: grid;
   grid-template-columns: minmax(180px, 0.4fr) minmax(0, 1fr);
@@ -3350,6 +3399,23 @@ button {
 .report-filter input[aria-invalid='true'] {
   border-color: var(--danger);
   background: var(--danger-surface);
+}
+
+.daily-inventory-filter {
+  align-items: end;
+}
+
+.daily-inventory-filter > label {
+  width: min(100%, 320px);
+  display: grid;
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.daily-inventory-filter > label input {
+  width: 100%;
 }
 
 .report-button {
@@ -3429,6 +3495,13 @@ button {
   text-align: left;
 }
 
+.report-table caption {
+  padding: var(--space-3) var(--space-4);
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+}
+
 .report-table th {
   padding: 11px 14px;
   color: var(--muted);
@@ -3464,6 +3537,110 @@ button {
 
 .reconciliation-table {
   min-width: 1060px;
+}
+
+.packaging-report-table {
+  min-width: 1040px;
+}
+
+.restock-report-table {
+  min-width: 660px;
+}
+
+.packaging-report-table tbody th,
+.restock-report-table tbody th {
+  padding: 13px 14px;
+  border-top: 1px solid var(--border);
+  color: var(--fg);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.packaging-report-table tbody tr:first-child th,
+.restock-report-table tbody tr:first-child th {
+  border-top: 0;
+}
+
+.packaging-report-table .outcome-start {
+  border-left: 2px solid var(--border-strong);
+}
+
+.packaging-report-table .outcome-start,
+.packaging-report-table .outcome-cell {
+  background: var(--surface-subtle);
+}
+
+.unavailable {
+  color: var(--muted);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.restock-level {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+.report-footnote,
+.restock-copy,
+.report-scope-footer,
+.report-read-only-note {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.report-footnote {
+  margin: 0;
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--warn-border);
+  background: var(--warn-surface);
+}
+
+.restock-copy {
+  margin: 0;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border);
+}
+
+.restock-copy-secondary {
+  padding-top: 0;
+}
+
+.critical-marker {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  background: var(--danger-surface);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.report-scope-footer {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border);
+}
+
+.report-read-only-note {
+  margin: 0;
+}
+
+.report-scope-footer a,
+.report-read-only-note a {
+  color: var(--fg);
+  font-weight: 700;
+  text-underline-offset: 3px;
 }
 
 .variance {
@@ -3540,6 +3717,10 @@ button {
     grid-template-columns: 1fr 1fr;
   }
 
+  .daily-inventory-filter > label {
+    width: 100%;
+  }
+
   .report-button {
     width: 100%;
   }
@@ -3563,6 +3744,13 @@ button {
     padding: var(--space-4);
   }
 
+  .report-footnote,
+  .restock-copy,
+  .report-scope-footer {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
   .sales-bars {
     height: 220px;
     padding-inline: var(--space-4);
@@ -3581,6 +3769,15 @@ button {
   .read-only-label {
     display: inline-flex;
     margin-top: var(--space-3);
+  }
+
+  .page-context-switch {
+    gap: 0;
+  }
+
+  .page-context-switch a {
+    flex: 1;
+    justify-content: center;
   }
 
   .summary-metrics,

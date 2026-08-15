@@ -1,9 +1,33 @@
 import type {
+  DailyInventoryReport,
   DailyReconciliation,
+  PackagingReconciliationRow,
   ProductSales,
+  RestockStatusRow,
   SalesReportTotals,
 } from '@coffee-shop/shared';
-import { formatBusinessDate, formatMoney, formatQuantity } from './format';
+import { CountMethod } from '@coffee-shop/shared';
+import { NavLink } from 'react-router-dom';
+import {
+  formatBusinessDate,
+  formatCount,
+  formatMoney,
+  formatOptionalCount,
+  formatQuantity,
+  formatRestockStatus,
+  formatSignedCount,
+  formatStockLevel,
+  formatSubmissionTime,
+} from './format';
+
+export function ReportTypeNavigation() {
+  return (
+    <nav className="page-context-switch" aria-label="Report type">
+      <NavLink end to="/reports">Sales</NavLink>
+      <NavLink to="/reports/daily-inventory">Daily inventory</NavLink>
+    </nav>
+  );
+}
 
 export function ReportingNotice({
   children,
@@ -214,5 +238,275 @@ export function DateRangeLabel({ from, to }: { from: string; to: string }) {
     <span>
       {formatBusinessDate(from, 'short')} to {formatBusinessDate(to, 'short')}
     </span>
+  );
+}
+
+function UnavailableCount({ reason }: { reason: string }) {
+  return (
+    <span
+      className="unavailable"
+      aria-label={`Unavailable: ${reason}. No count was taken; this is not a count of zero.`}
+    >
+      Unavailable
+    </span>
+  );
+}
+
+function OptionalCount({
+  value,
+  reason,
+}: {
+  value: number | null;
+  reason: string;
+}) {
+  return value === null ? (
+    <UnavailableCount reason={reason} />
+  ) : (
+    <span className="num">{formatOptionalCount(value)}</span>
+  );
+}
+
+function PackagingVariance({ row }: { row: PackagingReconciliationRow }) {
+  if (row.varianceQty === null) {
+    return (
+      <UnavailableCount reason="variance cannot be calculated without both opening and closing counts" />
+    );
+  }
+
+  const state = row.varianceQty > 0
+    ? { label: 'Surplus', className: 'variance-over' }
+    : row.varianceQty < 0
+      ? { label: 'Short', className: 'variance-short' }
+      : { label: 'Even', className: 'variance-even' };
+
+  return (
+    <span className={`variance ${state.className}`}>
+      <strong className="num">{formatSignedCount(row.varianceQty)}</strong>
+      <small>{state.label}</small>
+    </span>
+  );
+}
+
+export function PackagingReconciliationTable({
+  rows,
+  businessDate,
+  location,
+}: {
+  rows: PackagingReconciliationRow[];
+  businessDate: string;
+  location: string;
+}) {
+  return (
+    <section className="report-panel" aria-labelledby="packaging-reconciliation-title">
+      <header className="report-panel-head">
+        <div>
+          <h2 id="packaging-reconciliation-title">Cup and lid reconciliation</h2>
+          <p>
+            Physical item counts for the selected business day. Variance equals
+            actual closing minus expected closing.
+          </p>
+        </div>
+      </header>
+      {rows.length === 0 ? (
+        <div className="report-empty">
+          <strong>No cup or lid activity</strong>
+          <span>No reconciled packaging items participated on this day.</span>
+        </div>
+      ) : (
+        <>
+          <p className="report-scroll-hint">
+            Swipe or scroll horizontally to review all columns.
+          </p>
+          <div
+            className="report-table-region"
+            tabIndex={0}
+            role="region"
+            aria-label="Cup and lid reconciliation table. Scroll horizontally for more columns."
+          >
+            <table className="report-table packaging-report-table">
+              <caption>
+                Cup and lid counts for {formatBusinessDate(businessDate)} at {location}.
+                All values are physical item counts.
+              </caption>
+              <thead>
+                <tr>
+                  <th rowSpan={2} scope="col">Item</th>
+                  <th colSpan={4} scope="colgroup">
+                    Derivation: opening + deliveries - wastage - used
+                  </th>
+                  <th className="outcome-start" colSpan={3} scope="colgroup">Outcome</th>
+                </tr>
+                <tr>
+                  <th scope="col" className="num">Opening</th>
+                  <th scope="col" className="num">Deliveries</th>
+                  <th scope="col" className="num">Wastage</th>
+                  <th scope="col" className="num">Used by completed sales</th>
+                  <th scope="col" className="num outcome-start">Expected closing</th>
+                  <th scope="col" className="num outcome-cell">Actual closing</th>
+                  <th scope="col" className="num outcome-cell">Variance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.inventoryItemId}>
+                    <th scope="row">{row.itemName}</th>
+                    <td className="num">
+                      <OptionalCount
+                        value={row.openingQty}
+                        reason="opening count not submitted"
+                      />
+                    </td>
+                    <td className="num">{formatCount(row.deliveriesQty)}</td>
+                    <td className="num">{formatCount(row.wastageQty)}</td>
+                    <td className="num">{formatCount(row.soldQty)}</td>
+                    <td className="num outcome-start">
+                      <OptionalCount
+                        value={row.expectedQty}
+                        reason="expected closing cannot be calculated without an opening count"
+                      />
+                    </td>
+                    <td className="num outcome-cell">
+                      <OptionalCount
+                        value={row.actualQty}
+                        reason="closing count not submitted"
+                      />
+                    </td>
+                    <td className="num outcome-cell"><PackagingVariance row={row} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="report-footnote">
+            <strong>Unavailable</strong> means no count was taken. It is not the
+            same as a count of zero. Expected closing and variance are also
+            Unavailable when a required count is missing.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+function RestockCount({ row }: { row: RestockStatusRow }) {
+  if (row.countMethod === CountMethod.LEVEL) {
+    return <span className="restock-level">{formatStockLevel(row.level)}</span>;
+  }
+  return row.quantity === null ? (
+    <UnavailableCount reason="counted quantity not submitted" />
+  ) : (
+    <span className="num">{formatCount(row.quantity)}</span>
+  );
+}
+
+function RestockTarget({ row }: { row: RestockStatusRow }) {
+  if (row.countMethod === CountMethod.LEVEL || row.par === null) {
+    return (
+      <span className="unavailable" aria-label="Unavailable: no par target is configured for this item and day type.">
+        Unavailable
+      </span>
+    );
+  }
+  return <span className="num">{formatCount(row.par)}</span>;
+}
+
+export function RestockNeedsPanel({
+  restock,
+  businessDate,
+  location,
+}: {
+  restock: DailyInventoryReport['restock'];
+  businessDate: string;
+  location: string;
+}) {
+  const phase = restock.selectedPhase === 'close' ? 'closing' : 'opening';
+  const submittedAt = restock.selectedCountRecordedAt
+    ? formatSubmissionTime(restock.selectedCountRecordedAt)
+    : '';
+
+  return (
+    <section className="report-panel" aria-labelledby="restock-needs-title">
+      <header className="report-panel-head">
+        <div>
+          <h2 id="restock-needs-title">Restock needs</h2>
+          <p>Read-only priorities for the selected business day.</p>
+        </div>
+      </header>
+      {!restock.hasCount ? (
+        <div className="report-empty">
+          <strong>No count submitted for this day</strong>
+          <span>
+            No opening or closing count was submitted for{' '}
+            {formatBusinessDate(businessDate)} at {location}, so a restock list
+            cannot be prepared.
+          </span>
+        </div>
+      ) : (
+        <>
+          <p className="restock-copy">
+            This list uses the {phase} count submitted on {submittedAt}.
+          </p>
+          <p className="restock-copy restock-copy-secondary">
+            Only Urgent, Low, and Below par items are shown. Items with Enough
+            stock do not appear.
+          </p>
+          {restock.rows.length === 0 ? (
+            <div className="report-empty report-empty-positive">
+              <strong>Nothing needs restocking</strong>
+              <span>
+                The {phase} count for {formatBusinessDate(businessDate)} at{' '}
+                {location} has no Urgent, Low, or Below par items.
+              </span>
+            </div>
+          ) : (
+            <>
+              <p className="report-scroll-hint">
+                Swipe or scroll horizontally to review all columns.
+              </p>
+              <div
+                className="report-table-region"
+                tabIndex={0}
+                role="region"
+                aria-label="Restock needs table. Scroll horizontally for more columns."
+              >
+                <table className="report-table restock-report-table">
+                  <caption>
+                    Items below their restock threshold, ordered by status,
+                    Critical setting, then item name.
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Item</th>
+                      <th scope="col" className="num">Counted amount</th>
+                      <th scope="col" className="num">Target (par)</th>
+                      <th scope="col">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {restock.rows.map((row) => (
+                      <tr key={row.inventoryItemId}>
+                        <th scope="row">
+                          {row.itemName}
+                          {row.critical && <span className="critical-marker">Critical</span>}
+                        </th>
+                        <td className="num"><RestockCount row={row} /></td>
+                        <td className="num"><RestockTarget row={row} /></td>
+                        <td>
+                          <span
+                            className={`staff-restock-status ${row.status.toLowerCase().replace('_', '-')}`}
+                          >
+                            {formatRestockStatus(row.status)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </section>
   );
 }

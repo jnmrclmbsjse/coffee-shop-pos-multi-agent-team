@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { StockLevel } from '@coffee-shop/shared';
 import {
+  formatCount,
+  formatLocation,
   formatMoney,
+  formatOptionalCount,
+  formatSignedCount,
+  formatStockLevel,
+  formatSubmissionTime,
   rangeError,
   reportingDefaultRange,
   shopDate,
@@ -33,5 +40,24 @@ describe('reporting format helpers', () => {
       'From date must be on or before To date.',
     );
     expect(rangeError('2026-07-13', '2026-07-26')).toBe('');
+  });
+
+  it('formats physical counts without collapsing null into a recorded zero', () => {
+    expect(formatCount(0)).toBe('0');
+    expect(formatCount(1234)).toBe('1,234');
+    expect(formatOptionalCount(0)).toBe('0');
+    expect(formatOptionalCount(null)).toBe('Unavailable');
+    expect(formatSignedCount(2)).toBe('+2');
+    expect(formatSignedCount(-2)).toBe('-2');
+  });
+
+  it('formats location, stock levels, and count submission time', () => {
+    expect(formatLocation(null)).toBe('UCM Coffee Studio');
+    expect(formatLocation('branch-id')).toBe('Location branch-id');
+    expect(formatStockLevel(StockLevel.ONE_THIRD)).toBe('One-third');
+    expect(formatStockLevel(null)).toBe('Unavailable');
+    expect(formatSubmissionTime('2026-07-26T13:42:00.000Z')).toBe(
+      'July 26, 2026 at 9:42 PM',
+    );
   });
 });

@@ -35,6 +35,7 @@ import { StaffPage } from './staff/StaffPage';
 import { StaffWorkspaceLayout } from './staff/StaffWorkspace';
 import { DashboardPage } from './reporting/DashboardPage';
 import { ReportsPage } from './reporting/ReportsPage';
+import { DailyInventoryReportPage } from './reporting/DailyInventoryReportPage';
 import { OrderHistoryPage } from './pages/OrderHistoryPage';
 import { OrderHistoryDetailPage } from './pages/OrderHistoryDetailPage';
 import {
@@ -108,6 +109,7 @@ function destinationName(path: string): string {
     '/inventory': 'Inventory',
     '/staff': 'Staff',
     '/reports': 'Reports',
+    '/reports/daily-inventory': 'Daily Inventory Report',
     '/compensation': 'Compensation',
     '/order-history': 'Order History',
   };
@@ -527,6 +529,10 @@ export function AppRoutes() {
               element={<ProductEditorPage />}
             />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route
+              path="/reports/daily-inventory"
+              element={<DailyInventoryReportPage />}
+            />
             <Route path="/compensation" element={<CompensationPage />} />
             <Route path="/order-history" element={<OrderHistoryPage />} />
             <Route

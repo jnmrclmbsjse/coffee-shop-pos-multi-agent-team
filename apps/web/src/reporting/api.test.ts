@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   downloadReportCsv,
+  getDailyInventoryReport,
   getDashboard,
   getOrderHistory,
   getOrderHistoryDetail,
@@ -13,7 +14,7 @@ describe('reporting API client', () => {
     vi.restoreAllMocks();
   });
 
-  it('uses credentialed GET requests for both read models', async () => {
+  it('uses credentialed GET requests for reporting read models', async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockImplementation(async () =>
@@ -30,6 +31,7 @@ describe('reporting API client', () => {
 
     await getDashboard();
     await getReport('2026-07-13', '2026-07-26');
+    await getDailyInventoryReport('2026-07-26');
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -39,6 +41,11 @@ describe('reporting API client', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'http://localhost:3000/reporting/report?from=2026-07-13&to=2026-07-26',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:3000/reporting/daily-inventory?date=2026-07-26',
       expect.objectContaining({ credentials: 'include' }),
     );
     expect(fetchMock.mock.calls.every(([, init]) => !init?.method)).toBe(true);
