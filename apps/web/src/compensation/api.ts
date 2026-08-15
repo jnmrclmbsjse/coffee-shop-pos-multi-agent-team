@@ -1,5 +1,7 @@
 import type {
   CreateStaffCompensationEntryInput,
+  PayslipQuery,
+  PayslipSummary,
   StaffCompensationEntry,
   StaffCompensationEntryListQuery,
   UpdateStaffCompensationEntryInput,
@@ -54,6 +56,15 @@ export function listCompensationEntries(query: StaffCompensationEntryListQuery):
   if (query.to) params.set('to', query.to);
   const suffix = params.size ? `?${params.toString()}` : '';
   return request(`/compensation/entries${suffix}`);
+}
+
+export function getPayslip(query: PayslipQuery): Promise<PayslipSummary> {
+  const params = new URLSearchParams({
+    staffMemberId: query.staffMemberId,
+    from: query.from,
+    to: query.to,
+  });
+  return request(`/compensation/payslip?${params.toString()}`);
 }
 
 export function createCompensationEntry(input: CreateStaffCompensationEntryInput): Promise<StaffCompensationEntry> {

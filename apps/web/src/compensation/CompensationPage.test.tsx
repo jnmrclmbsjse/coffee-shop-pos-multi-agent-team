@@ -1,4 +1,9 @@
-import { cents, type StaffCompensationEntry, type StaffMember } from '@coffee-shop/shared';
+import {
+  cents,
+  type PayslipSummary,
+  type StaffCompensationEntry,
+  type StaffMember,
+} from '@coffee-shop/shared';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +14,7 @@ const api = vi.hoisted(() => ({
   create: vi.fn(),
   remove: vi.fn(),
   list: vi.fn(),
+  payslip: vi.fn(),
   update: vi.fn(),
   listStaff: vi.fn(),
 }));
@@ -20,6 +26,7 @@ vi.mock('./api', async (importOriginal) => {
     createCompensationEntry: api.create,
     deleteCompensationEntry: api.remove,
     listCompensationEntries: api.list,
+    getPayslip: api.payslip,
     updateCompensationEntry: api.update,
   };
 });
@@ -56,6 +63,24 @@ const entry: StaffCompensationEntry = {
   locationId: null,
   createdAt: '2026-08-14T00:00:00.000Z',
   updatedAt: '2026-08-14T00:00:00.000Z',
+};
+
+const payslip: PayslipSummary = {
+  staffMember: { id: 'staff-1', displayName: 'Mara Santos' },
+  from: '2026-08-01',
+  to: '2026-08-31',
+  entries: [
+    {
+      id: 'payslip-entry-1',
+      workDate: '2026-08-14',
+      salaryCents: cents(100),
+      commissionCents: cents(200),
+      dailyTotalCents: cents(999),
+    },
+  ],
+  salaryTotalCents: cents(501),
+  commissionTotalCents: cents(602),
+  grandTotalCents: cents(9_999),
 };
 
 function renderPage(records: StaffCompensationEntry[] = [entry]) {
@@ -221,5 +246,111 @@ describe('CompensationPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Delete record' }));
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith('entry-1'));
     expect(screen.queryByText('₱1,650.00')).not.toBeInTheDocument();
+  });
+
+  it('renders payslip lines and server totals verbatim', async () => {
+    api.payslip.mockResolvedValue(payslip);
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'),
+    );
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+
+    const result = await screen.findByRole('region', {
+      name: 'Payslip daily entries, horizontally scrollable',
+    });
+    expect(screen.getByRole('heading', { name: 'Mara Santos' })).toBeInTheDocument();
+    expect(screen.getByText('Inclusive range: August 1, 2026 to August 31, 2026')).toBeInTheDocument();
+    expect(within(result).getByText('August 14, 2026')).toBeInTheDocument();
+    expect(within(result).getByText('₱1.00')).toBeInTheDocument();
+    expect(within(result).getByText('₱2.00')).toBeInTheDocument();
+    expect(within(result).getByText('₱9.99')).toBeInTheDocument();
+
+    const totals = screen.getByRole('group', { name: 'Payslip totals' });
+    expect(within(totals).getByText('₱5.01')).toBeInTheDocument();
+    expect(within(totals).getByText('₱6.02')).toBeInTheDocument();
+    expect(within(totals).getByText('₱99.99')).toBeInTheDocument();
+  });
+
+  it('offers a deactivated staff member when compensation history exists', async () => {
+    const inactiveEntry: StaffCompensationEntry = {
+      ...entry,
+      id: 'entry-2',
+      staffMemberId: 'staff-2',
+      staffMemberDisplayName: 'Omar Diaz',
+    };
+    renderPage([entry, inactiveEntry]);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+
+    expect(
+      await screen.findByRole('option', { name: 'Omar Diaz (inactive)' }),
+    ).toBeInTheDocument();
+  });
+
+  it('refuses an end date before the start date without issuing a request', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'),
+    );
+    await user.clear(screen.getByLabelText('Start date'));
+    await user.type(screen.getByLabelText('Start date'), '2026-08-14');
+    await user.clear(screen.getByLabelText('End date'));
+    await user.type(screen.getByLabelText('End date'), '2026-08-12');
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'End date must be on or after the start date. Dates were not changed.',
+    );
+    expect(screen.getByLabelText('Start date')).toHaveValue('2026-08-14');
+    expect(screen.getByLabelText('End date')).toHaveValue('2026-08-12');
+    expect(api.payslip).not.toHaveBeenCalled();
+  });
+
+  it('renders an explicit no-records result without a table or zero totals', async () => {
+    api.payslip.mockResolvedValue({
+      ...payslip,
+      entries: [],
+      salaryTotalCents: cents(0),
+      commissionTotalCents: cents(0),
+      grandTotalCents: cents(0),
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'),
+    );
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+
+    expect(await screen.findByRole('heading', { name: 'No records in this range' })).toBeInTheDocument();
+    expect(screen.getByText(/No payslip or totals were generated/)).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByText('₱0.00')).not.toBeInTheDocument();
+  });
+
+  it('fetches again and shows current figures when a payslip is regenerated', async () => {
+    api.payslip
+      .mockResolvedValueOnce(payslip)
+      .mockResolvedValueOnce({
+        ...payslip,
+        grandTotalCents: cents(12_345),
+      });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'),
+    );
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+    expect(await screen.findByText('₱99.99')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+    expect(await screen.findByText('₱123.45')).toBeInTheDocument();
+    expect(api.payslip).toHaveBeenCalledTimes(2);
   });
 });

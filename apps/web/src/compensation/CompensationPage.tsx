@@ -23,6 +23,7 @@ import {
   listCompensationEntries,
   updateCompensationEntry,
 } from './api';
+import { PayslipView } from './PayslipView';
 
 interface EntryDraft {
   id?: string;
@@ -110,13 +111,14 @@ function serverValidationErrors(error: CompensationApiError): DraftErrors {
 
 export function CompensationPage() {
   const [initialRange] = useState(compensationDefaultRange);
+  const [section, setSection] = useState<'records' | 'payslips'>('records');
   const [entries, setEntries] = useState<StaffCompensationEntry[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffMemberId, setStaffMemberId] = useState('');
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
   const [loading, setLoading] = useState(true);
-  const [allEntryIds, setAllEntryIds] = useState<Set<string> | null>(null);
+  const [allEntries, setAllEntries] = useState<StaffCompensationEntry[] | null>(null);
   const [pageError, setPageError] = useState('');
   const [notice, setNotice] = useState('');
   const [draft, setDraft] = useState<EntryDraft | null>(null);
@@ -139,7 +141,7 @@ export function CompensationPage() {
       .then(setStaff)
       .catch(() => setPageError('The staff list could not be loaded. Refresh the page to try again.'));
     void listCompensationEntries({})
-      .then((result) => setAllEntryIds(new Set(result.map((entry) => entry.id))))
+      .then(setAllEntries)
       .catch(() => setPageError('Compensation records could not be loaded. Try again.'));
   }, []);
 
@@ -255,7 +257,10 @@ export function CompensationPage() {
       setEntries((current) => [...current.filter((entry) => entry.id !== saved.id), saved].sort(
         (left, right) => right.workDate.localeCompare(left.workDate) || left.staffMemberDisplayName.localeCompare(right.staffMemberDisplayName),
       ));
-      setAllEntryIds((current) => new Set([...(current ?? []), saved.id]));
+      setAllEntries((current) => [
+        ...(current ?? []).filter((entry) => entry.id !== saved.id),
+        saved,
+      ]);
       setDraft(null);
       setNotice(`${saved.staffMemberDisplayName}'s ${formatBusinessDate(saved.workDate)} record was ${draft.id ? 'updated' : 'added'}. Daily total: ${formatMoney(saved.dailyTotalCents)}.`);
       requestAnimationFrame(() => previousFocusRef.current?.focus());
@@ -276,11 +281,9 @@ export function CompensationPage() {
     try {
       await deleteCompensationEntry(deleteTarget.id);
       setEntries((current) => current.filter((entry) => entry.id !== deleteTarget.id));
-      setAllEntryIds((current) => {
-        const next = new Set(current ?? []);
-        next.delete(deleteTarget.id);
-        return next;
-      });
+      setAllEntries((current) =>
+        (current ?? []).filter((entry) => entry.id !== deleteTarget.id),
+      );
       setNotice(`${deleteTarget.staffMemberDisplayName}'s ${formatBusinessDate(deleteTarget.workDate)} record was deleted.`);
       setDeleteTarget(null);
       requestAnimationFrame(() => previousFocusRef.current?.focus());
@@ -293,8 +296,12 @@ export function CompensationPage() {
   function openDelete(entry: StaffCompensationEntry) { rememberFocus(); setDeleteTarget(entry); setNotice(''); }
   function clearFilters() { setStaffMemberId(''); setFrom(''); setTo(''); }
 
-  const noRecordsAtAll = !loading && entries.length === 0 && allEntryIds?.size === 0;
-  const noMatches = !loading && entries.length === 0 && Boolean(allEntryIds?.size);
+  const noRecordsAtAll = !loading && entries.length === 0 && allEntries?.length === 0;
+  const noMatches = !loading && entries.length === 0 && Boolean(allEntries?.length);
+  const staffMemberIdsWithEntries = useMemo(
+    () => new Set((allEntries ?? []).map((entry) => entry.staffMemberId)),
+    [allEntries],
+  );
   const conflictingEntry = draft && conflict
     ? entries.find((entry) => entry.staffMemberId === draft.staffMemberId && entry.workDate === draft.workDate)
     : undefined;
@@ -302,14 +309,38 @@ export function CompensationPage() {
   return (
     <main className="catalog-page compensation-page">
       <header className="catalog-page-head">
-        <div><h1>Compensation</h1><p>Daily salary and commission records</p></div>
-        <button ref={addButtonRef} className="catalog-button primary" type="button" onClick={openAdd}><Icon name="plus" /> Add daily record</button>
+        <div>
+          <h1>Compensation</h1>
+          <p>
+            {section === 'records'
+              ? 'Daily salary and commission records'
+              : 'Generate a gross summary from entered daily records'}
+          </p>
+        </div>
+        {section === 'records' && (
+          <button ref={addButtonRef} className="catalog-button primary" type="button" onClick={openAdd}><Icon name="plus" /> Add daily record</button>
+        )}
       </header>
-      <nav className="compensation-sections" aria-label="Compensation sections"><button type="button" aria-current="page">Daily records</button><span aria-disabled="true">Payslips</span></nav>
-      {notice && <Notice tone="success" title="Compensation records updated"><p>{notice}</p></Notice>}
+      <nav className="compensation-sections" aria-label="Compensation sections">
+        <button
+          type="button"
+          aria-current={section === 'records' ? 'page' : undefined}
+          onClick={() => setSection('records')}
+        >
+          Daily records
+        </button>
+        <button
+          type="button"
+          aria-current={section === 'payslips' ? 'page' : undefined}
+          onClick={() => setSection('payslips')}
+        >
+          Payslips
+        </button>
+      </nav>
+      {section === 'records' && notice && <Notice tone="success" title="Compensation records updated"><p>{notice}</p></Notice>}
       {pageError && <Notice tone="danger" title="Compensation unavailable"><p>{pageError}</p></Notice>}
 
-      <section className="catalog-panel" aria-labelledby="records-heading">
+      {section === 'records' ? <section className="catalog-panel" aria-labelledby="records-heading">
         <h2 className="sr-only" id="records-heading">Daily compensation records</h2>
         <form className="compensation-filters" aria-label="Filter compensation records" onSubmit={(event) => event.preventDefault()}>
           <label><span>Staff member</span><select value={staffMemberId} onChange={(event) => setStaffMemberId(event.target.value)}><option value="">All staff</option>{staff.map((member) => <option value={member.id} key={member.id}>{member.displayName}{member.isActive ? '' : ' (inactive)'}</option>)}</select></label>
@@ -325,7 +356,13 @@ export function CompensationPage() {
             <tbody>{loading ? <LoadingRows columns={6} /> : noRecordsAtAll || noMatches ? <tr><td colSpan={6}><div className="catalog-empty compensation-empty"><Icon name={noRecordsAtAll ? 'document' : 'search'} /><h3>{noRecordsAtAll ? 'No compensation records yet' : 'No records match these filters'}</h3><p>{noRecordsAtAll ? 'Add the first daily record for a staff member. Salary and commission can each be zero.' : 'Try another staff member or date range.'}</p>{noRecordsAtAll ? <button className="catalog-button" type="button" onClick={openAdd}>Add daily record</button> : <button className="catalog-button" type="button" onClick={clearFilters}>Clear filters</button>}</div></td></tr> : entries.map((entry) => <tr key={entry.id}><td><strong>{entry.staffMemberDisplayName}</strong></td><td>{formatBusinessDate(entry.workDate)}</td><td className="num">{formatMoney(entry.salaryCents)}</td><td className="num">{formatMoney(entry.commissionCents)}</td><td className="num"><strong>{formatMoney(entry.dailyTotalCents)}</strong></td><td className="table-action"><div className="compensation-row-actions"><button className="catalog-button small" type="button" aria-label={`Edit ${entry.staffMemberDisplayName}'s ${entry.workDate} record`} onClick={() => openEdit(entry)}>Edit</button><button className="catalog-button small danger" type="button" aria-label={`Delete ${entry.staffMemberDisplayName}'s ${entry.workDate} record`} onClick={() => openDelete(entry)}>Delete</button></div></td></tr>)}</tbody>
           </table>
         </div>
-      </section>
+      </section> : (
+        <PayslipView
+          staff={staff}
+          staffMemberIdsWithEntries={staffMemberIdsWithEntries}
+          initialRange={initialRange}
+        />
+      )}
 
       {draft && <div className="inventory-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}><section className="inventory-modal staff-modal compensation-modal" role="dialog" aria-modal="true" aria-labelledby="compensation-dialog-title" onKeyDown={(event) => { if (event.key === 'Escape') closeEditor(); else trapDialogFocus(event); }}>
         <header className="inventory-modal-head"><div><h2 id="compensation-dialog-title">{draft.id ? 'Edit daily record' : 'Add daily record'}</h2><p>{draft.id ? 'Update the amounts for this record.' : 'Record salary and commission for one work date.'}</p></div><button className="catalog-button small" type="button" aria-label="Close daily record editor" disabled={saving} onClick={closeEditor}>Close</button></header>
