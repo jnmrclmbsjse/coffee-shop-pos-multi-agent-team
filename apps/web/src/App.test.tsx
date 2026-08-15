@@ -397,14 +397,19 @@ describe('staff authentication routes', () => {
   it('does not render administrator pages for an authenticated staff session', async () => {
     fetchMock.mockResolvedValueOnce(response(200, { user: staffUser }));
 
-    renderAt('/reports');
+    renderAt('/reports/daily-inventory');
 
     expect(
       await screen.findByRole('link', { name: 'Take Order' }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('heading', { name: 'Reports' }),
+      screen.queryByRole('heading', { name: 'Daily inventory report' }),
     ).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).includes('/reporting/daily-inventory'),
+      ),
+    ).toBe(false);
   });
 
   it('opens inventory routes under the staff guard with persistent active navigation', async () => {

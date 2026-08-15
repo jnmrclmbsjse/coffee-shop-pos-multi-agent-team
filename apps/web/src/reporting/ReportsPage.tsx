@@ -4,6 +4,7 @@ import {
   DateRangeLabel,
   ProductSalesTable,
   ReconciliationTable,
+  ReportTypeNavigation,
   ReportTotals,
   ReportingLoading,
   ReportingNotice,
@@ -60,6 +61,7 @@ export function ReportsPage() {
 
   return (
     <main className="reporting-page">
+      <ReportTypeNavigation />
       <header className="reporting-page-head">
         <div>
           <p className="reporting-context">Sales and cash review</p>
