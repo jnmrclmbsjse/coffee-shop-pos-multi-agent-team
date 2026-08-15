@@ -31,6 +31,6 @@ import { StockMovementsService } from './stock-movements.service';
     StockCountsService,
     StockMovementsService,
   ],
-  exports: [PackagingReconciliationService],
+  exports: [PackagingReconciliationService, RestockService],
 })
 export class InventoryModule {}

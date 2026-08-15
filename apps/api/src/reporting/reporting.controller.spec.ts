@@ -1,5 +1,10 @@
 import 'reflect-metadata';
+import {
+  ForbiddenException,
+  type ExecutionContext,
+} from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { Reflector } from '@nestjs/core';
 import { Role } from '@coffee-shop/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ROLES_KEY } from '../auth/roles.decorator';
@@ -28,6 +33,7 @@ describe('ReportingController', () => {
       expect.arrayContaining([
         'constructor',
         'dashboard',
+        'dailyInventory',
         'report',
         'reportCsv',
         'orderHistory',
@@ -43,6 +49,25 @@ describe('ReportingController', () => {
         'close',
       ]),
     );
+  });
+
+  it('returns access denied when a staff user directly requests daily inventory', () => {
+    const guard = new RolesGuard(new Reflector());
+    const context = {
+      getHandler: () => ReportingController.prototype.dailyInventory,
+      getClass: () => ReportingController,
+      switchToHttp: () => ({
+        getRequest: () => ({
+          user: {
+            id: 'staff-id',
+            username: 'staff',
+            role: Role.STAFF,
+          },
+        }),
+      }),
+    } as unknown as ExecutionContext;
+
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 });
 

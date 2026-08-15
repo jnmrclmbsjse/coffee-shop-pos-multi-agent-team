@@ -15,10 +15,12 @@ import {
   StockLevel,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { OpenTradingDay } from '../trading-day/trading-day.service';
 import { TradingDayService } from '../trading-day/trading-day.service';
+import { latestStockCountCorrection } from './packaging-reconciliation.service';
 
 interface QuantityBands {
-  parQty: number;
+  parQty: number | null;
   lowThreshold: number | null;
   urgentThreshold: number | null;
 }
@@ -58,7 +60,9 @@ export function quantityRestockStatus(
   ) {
     return 'LOW';
   }
-  if (counted < bands.parQty) return 'BELOW_PAR';
+  if (bands.parQty !== null && counted < bands.parQty) {
+    return 'BELOW_PAR';
+  }
   return 'ENOUGH';
 }
 
@@ -100,33 +104,40 @@ export class RestockService {
       return this.emptyResult();
     }
 
+    return this.getStatusForDay(openDay);
+  }
+
+  async getStatusForDay(
+    day: OpenTradingDay,
+  ): Promise<RestockStatusResult> {
     const where = {
-      locationId: openDay.locationId,
-      businessDate: openDay.businessDate,
+      locationId: day.locationId,
+      businessDate: day.businessDate,
     };
+    const counts = await this.prisma.stockCount.findMany({
+      where: {
+        ...where,
+        phase: {
+          in: [StockCountPhase.OPEN, StockCountPhase.CLOSE],
+        },
+      },
+      include: restockCountInclude,
+    });
     const count =
-      (await this.prisma.stockCount.findFirst({
-        where: { ...where, phase: StockCountPhase.CLOSE },
-        orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
-        include: restockCountInclude,
-      })) ??
-      (await this.prisma.stockCount.findFirst({
-        where: { ...where, phase: StockCountPhase.OPEN },
-        orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
-        include: restockCountInclude,
-      }));
+      latestStockCountCorrection(counts, StockCountPhase.CLOSE) ??
+      latestStockCountCorrection(counts, StockCountPhase.OPEN);
 
     if (count === null) {
       return {
         ...this.emptyResult(),
-        businessDay: this.tradingDayService.toResponse(openDay),
+        businessDay: this.tradingDayService.toResponse(day),
       };
     }
 
     const rows = count.lines.map((line) => {
       const par =
         line.inventoryItem.parLevels.find(
-          (candidate) => candidate.dayType === openDay.dayType,
+          (candidate) => candidate.dayType === day.dayType,
         ) ?? null;
       return this.toRow(line, par);
     });
@@ -141,7 +152,7 @@ export class RestockService {
     });
 
     return {
-      businessDay: this.tradingDayService.toResponse(openDay),
+      businessDay: this.tradingDayService.toResponse(day),
       hasCount: true,
       selectedPhase:
         count.phase === StockCountPhase.CLOSE ? 'close' : 'open',
@@ -183,7 +194,7 @@ export class RestockService {
 
     const quantity = line.quantity!;
     const quantityBands =
-      par === null || par.parQty === null
+      par === null
         ? null
         : {
             parQty: par.parQty,

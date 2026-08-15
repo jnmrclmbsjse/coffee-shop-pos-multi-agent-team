@@ -234,6 +234,25 @@ describe('TradingDayService', () => {
     });
   });
 
+  it('looks up a selected business date without requiring it to be open', async () => {
+    const { prisma, service } = createHarness();
+    const closedDay = { ...day, status: TradingDayStatus.CLOSED };
+    prisma.tradingDay.findFirst.mockResolvedValue(closedDay);
+
+    await expect(
+      service.findByBusinessDate('2026-07-23'),
+    ).resolves.toEqual(closedDay);
+    expect(prisma.tradingDay.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          locationId: null,
+          businessDate: new Date('2026-07-23T00:00:00.000Z'),
+        },
+      }),
+    );
+    expect(service.toResponse(closedDay).isOpen).toBe(false);
+  });
+
   it('lists newest business days and identifies the open day', async () => {
     const { prisma, service } = createHarness();
     prisma.tradingDay.findMany.mockResolvedValue([

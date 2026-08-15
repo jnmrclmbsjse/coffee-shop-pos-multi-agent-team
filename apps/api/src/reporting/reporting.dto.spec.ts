@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import {
+  DailyInventoryQueryDto,
   OrderHistoryListQueryDto,
   ReportingRangeQueryDto,
   StaffOrderLedgerQueryDto,
@@ -30,6 +31,24 @@ describe('ReportingRangeQueryDto', () => {
       messages({ from: 'not-a-date', to: '2026-07-31' }),
     ).resolves.toContain('from must be a valid date');
   });
+});
+
+describe('DailyInventoryQueryDto', () => {
+  it('accepts one real date in the exact date-only format', async () => {
+    const dto = Object.assign(new DailyInventoryQueryDto(), {
+      date: '2026-08-15',
+    });
+
+    await expect(validate(dto)).resolves.toEqual([]);
+  });
+
+  it.each(['', '2026-8-15', '2026-02-30'])(
+    'rejects invalid date %j',
+    async (date) => {
+      const dto = Object.assign(new DailyInventoryQueryDto(), { date });
+      await expect(validate(dto)).resolves.not.toEqual([]);
+    },
+  );
 });
 
 describe('StaffOrderLedgerQueryDto', () => {

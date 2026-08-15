@@ -39,6 +39,7 @@ export interface OpenTradingDay {
   id: string;
   locationId: string | null;
   businessDate: Date;
+  status?: TradingDayStatus;
   dayType: DayType;
   openingFloatCents: number;
   openedAt: Date;
@@ -53,6 +54,7 @@ const openTradingDaySelect = {
   id: true,
   locationId: true,
   businessDate: true,
+  status: true,
   dayType: true,
   openingFloatCents: true,
   openedAt: true,
@@ -86,6 +88,17 @@ export class TradingDayService {
     return this.prisma.tradingDay.findFirst({
       where: { status: TradingDayStatus.OPEN },
       orderBy: { openedAt: 'desc' },
+      select: openTradingDaySelect,
+    });
+  }
+
+  findByBusinessDate(businessDate: string): Promise<OpenTradingDay | null> {
+    return this.prisma.tradingDay.findFirst({
+      where: {
+        locationId: null,
+        businessDate: this.parseBusinessDate(businessDate),
+      },
+      orderBy: [{ openedAt: 'desc' }, { id: 'asc' }],
       select: openTradingDaySelect,
     });
   }
@@ -476,7 +489,7 @@ export class TradingDayService {
     }
 
     return {
-      isOpen: true,
+      isOpen: day.status !== TradingDayStatus.CLOSED,
       businessDate: this.toDateOnly(day.businessDate),
       dayType: day.dayType as SharedDayType,
       openingFloatCents: cents(day.openingFloatCents),

@@ -12,6 +12,15 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportingService } from './reporting.service';
 
+function createReportingService(prisma: PrismaService): ReportingService {
+  return new ReportingService(
+    prisma,
+    undefined as never,
+    undefined as never,
+    undefined as never,
+  );
+}
+
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const describeWithDatabase = testDatabaseUrl ? describe : describe.skip;
 
@@ -32,7 +41,7 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
       },
     });
     await prisma.$connect();
-    service = new ReportingService(prisma);
+    service = createReportingService(prisma);
 
     await prisma.staffMember.create({
       data: {
@@ -210,7 +219,7 @@ describeWithDatabase('Order History queries against Postgres', () => {
       },
     });
     await prisma.$connect();
-    service = new ReportingService(prisma);
+    service = createReportingService(prisma);
 
     await prisma.staffMember.create({
       data: {

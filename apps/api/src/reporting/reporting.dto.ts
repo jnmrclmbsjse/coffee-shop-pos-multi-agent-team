@@ -32,6 +32,15 @@ export class ReportingRangeQueryDto {
   to!: string;
 }
 
+export class DailyInventoryQueryDto {
+  @IsNotEmpty({ message: 'date is required' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'date must be a date in YYYY-MM-DD format',
+  })
+  @IsDateString({ strict: true }, { message: 'date must be a valid date' })
+  date!: string;
+}
+
 export class OrderHistoryListQueryDto {
   @IsOptional()
   @IsIn(['Parked', 'Completed', 'Void'])

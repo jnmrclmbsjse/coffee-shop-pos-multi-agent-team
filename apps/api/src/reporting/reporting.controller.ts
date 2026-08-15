@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { Role } from '@coffee-shop/shared';
 import type {
+  DailyInventoryReport,
   ReportingDashboard,
   OrderHistoryDetail,
   OrderHistoryList,
@@ -19,6 +20,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import {
+  DailyInventoryQueryDto,
   OrderHistoryListQueryDto,
   ReportingRangeQueryDto,
 } from './reporting.dto';
@@ -33,6 +35,13 @@ export class ReportingController {
   @Get('dashboard')
   dashboard(): Promise<ReportingDashboard> {
     return this.reportingService.getDashboard();
+  }
+
+  @Get('daily-inventory')
+  dailyInventory(
+    @Query() query: DailyInventoryQueryDto,
+  ): Promise<DailyInventoryReport> {
+    return this.reportingService.getDailyInventory(query.date);
   }
 
   @Get('report')

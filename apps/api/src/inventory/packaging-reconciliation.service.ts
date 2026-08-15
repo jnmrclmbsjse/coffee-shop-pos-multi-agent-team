@@ -37,6 +37,36 @@ type CountRecord = Prisma.StockCountGetPayload<{
   select: typeof countSelect;
 }>;
 
+interface CorrectableStockCount {
+  id: string;
+  phase: StockCountPhase;
+  recordedAt: Date;
+  correctsStockCountId: string | null;
+}
+
+export function latestStockCountCorrection<
+  T extends CorrectableStockCount,
+>(counts: T[], phase: StockCountPhase): T | null {
+  const phaseCounts = counts.filter((count) => count.phase === phase);
+  const correctedIds = new Set(
+    phaseCounts.flatMap((count) =>
+      count.correctsStockCountId === null
+        ? []
+        : [count.correctsStockCountId],
+    ),
+  );
+  const chainLeaves = phaseCounts.filter(
+    (count) => !correctedIds.has(count.id),
+  );
+
+  chainLeaves.sort(
+    (left, right) =>
+      right.recordedAt.getTime() - left.recordedAt.getTime() ||
+      right.id.localeCompare(left.id),
+  );
+  return chainLeaves[0] || null;
+}
+
 /**
  * Computes the day-bounded cup/lid read model without storing a running stock
  * balance. LEVEL-counted items are excluded because they have no numeric
@@ -50,19 +80,6 @@ export class PackagingReconciliationService {
     tradingDay: PackagingReconciliationTradingDay,
     client: PackagingReconciliationClient = this.prisma,
   ): Promise<PackagingReconciliationRow[]> {
-    const items = await client.inventoryItem.findMany({
-      where: {
-        active: true,
-        reconciled: true,
-        countMethod: CountMethod.QUANTITY,
-      },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      select: { id: true, name: true },
-    });
-
-    if (items.length === 0) return [];
-
-    const itemIds = items.map((item) => item.id);
     const stockScope = {
       locationId: tradingDay.locationId,
       businessDate: tradingDay.businessDate,
@@ -77,16 +94,11 @@ export class PackagingReconciliationService {
         },
         select: {
           ...countSelect,
-          lines: {
-            where: { inventoryItemId: { in: itemIds } },
-            select: countSelect.lines.select,
-          },
         },
       }),
       client.stockMovement.findMany({
         where: {
           ...stockScope,
-          inventoryItemId: { in: itemIds },
           type: {
             in: [MovementType.DELIVERY, MovementType.WASTAGE],
           },
@@ -120,6 +132,45 @@ export class PackagingReconciliationService {
         },
       }),
     ]);
+
+    const participatingItemIds = new Set<string>();
+    for (const count of counts) {
+      for (const line of count.lines) {
+        participatingItemIds.add(line.inventoryItemId);
+      }
+    }
+    for (const movement of movements) {
+      participatingItemIds.add(movement.inventoryItemId);
+    }
+    for (const line of saleLines) {
+      if (line.productVariant.cupInventoryItemId !== null) {
+        participatingItemIds.add(
+          line.productVariant.cupInventoryItemId,
+        );
+      }
+      if (line.productVariant.lidInventoryItemId !== null) {
+        participatingItemIds.add(
+          line.productVariant.lidInventoryItemId,
+        );
+      }
+    }
+
+    const items = await client.inventoryItem.findMany({
+      where: {
+        reconciled: true,
+        countMethod: CountMethod.QUANTITY,
+        OR: [
+          { active: true },
+          { id: { in: [...participatingItemIds] } },
+        ],
+      },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: { id: true, name: true },
+    });
+
+    if (items.length === 0) return [];
+
+    const itemIds = items.map((item) => item.id);
 
     const opening = this.countQuantities(
       counts,
@@ -172,6 +223,11 @@ export class PackagingReconciliationService {
       return {
         inventoryItemId: item.id,
         itemName: item.name,
+        openingQty:
+          typeof openingQty === 'number' ? openingQty : null,
+        deliveriesQty: deliveries.get(item.id)!,
+        wastageQty: wastage.get(item.id)!,
+        soldQty: sold.get(item.id)!,
         expectedQty,
         actualQty: numericActual,
         varianceQty:
@@ -186,7 +242,7 @@ export class PackagingReconciliationService {
     counts: CountRecord[],
     phase: StockCountPhase,
   ): Map<string, number | null> {
-    const count = this.latestCorrection(counts, phase);
+    const count = latestStockCountCorrection(counts, phase);
     if (count === null) return new Map();
 
     return new Map(
@@ -195,32 +251,6 @@ export class PackagingReconciliationService {
         line.quantity,
       ]),
     );
-  }
-
-  private latestCorrection(
-    counts: CountRecord[],
-    phase: StockCountPhase,
-  ): CountRecord | null {
-    const phaseCounts = counts.filter(
-      (count) => count.phase === phase,
-    );
-    const correctedIds = new Set(
-      phaseCounts.flatMap((count) =>
-        count.correctsStockCountId === null
-          ? []
-          : [count.correctsStockCountId],
-      ),
-    );
-    const chainLeaves = phaseCounts.filter(
-      (count) => !correctedIds.has(count.id),
-    );
-
-    chainLeaves.sort(
-      (left, right) =>
-        right.recordedAt.getTime() - left.recordedAt.getTime() ||
-        right.id.localeCompare(left.id),
-    );
-    return chainLeaves[0] || null;
   }
 
   private zeroTotals(itemIds: string[]): Map<string, number> {

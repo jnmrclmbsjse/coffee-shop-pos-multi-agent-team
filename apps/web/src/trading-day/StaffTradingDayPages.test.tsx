@@ -249,6 +249,10 @@ describe('staff business-day pages', () => {
               {
                 inventoryItemId: 'cup-id',
                 itemName: '16 oz Cup',
+                openingQty: 0,
+                deliveriesQty: 0,
+                wastageQty: 0,
+                soldQty: 0,
                 expectedQty: 0,
                 actualQty: null,
                 varianceQty: null,
@@ -282,6 +286,10 @@ describe('staff business-day pages', () => {
               {
                 inventoryItemId: 'unknown-opening',
                 itemName: '12 oz Cup',
+                openingQty: null,
+                deliveriesQty: 0,
+                wastageQty: 0,
+                soldQty: 0,
                 expectedQty: null,
                 actualQty: 4,
                 varianceQty: null,
@@ -289,6 +297,10 @@ describe('staff business-day pages', () => {
               {
                 inventoryItemId: 'genuine-zero',
                 itemName: '12 oz Lid',
+                openingQty: 0,
+                deliveriesQty: 0,
+                wastageQty: 0,
+                soldQty: 0,
                 expectedQty: 0,
                 actualQty: 0,
                 varianceQty: 0,
@@ -296,6 +308,10 @@ describe('staff business-day pages', () => {
               {
                 inventoryItemId: 'unknown-actual',
                 itemName: '16 oz Cup',
+                openingQty: 8,
+                deliveriesQty: 0,
+                wastageQty: 0,
+                soldQty: 0,
                 expectedQty: 8,
                 actualQty: null,
                 varianceQty: null,
