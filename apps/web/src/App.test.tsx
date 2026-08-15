@@ -215,6 +215,7 @@ describe('administrator authentication routes', () => {
       'Inventory',
       'Staff',
       'Reports',
+      'Compensation',
       'Order History',
     ]);
     expect(
@@ -227,6 +228,7 @@ describe('administrator authentication routes', () => {
       'box',
       'clipboard',
       'users',
+      'document',
       'document',
       'receipt',
     ]);
