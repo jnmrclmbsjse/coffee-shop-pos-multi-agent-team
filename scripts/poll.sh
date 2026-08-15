@@ -41,9 +41,9 @@ TIMEOUT_BIN=""
 command -v timeout  >/dev/null 2>&1 && TIMEOUT_BIN="timeout"
 [[ -z "$TIMEOUT_BIN" ]] && command -v gtimeout >/dev/null 2>&1 && TIMEOUT_BIN="gtimeout"
 
-label_for()  { case "$1" in dev) echo agent:dev;; qa) echo agent:qa;; tech-lead) echo agent:tech-lead;; po) echo agent:po;; esac; }
-script_for() { case "$1" in dev) echo scripts/dev-pickup.sh;; qa) echo scripts/qa-test.sh;; tech-lead) echo scripts/techlead-review.sh;; prepare) echo scripts/po-prepare.sh;; po) echo scripts/po-clarify.sh;; esac; }
-single_for() { case "$1" in dev|qa|prepare) echo 1;; tech-lead|po) echo 0;; esac; }
+label_for()  { case "$1" in dev) echo agent:dev;; qa) echo agent:qa;; tech-lead) echo agent:tech-lead;; po) echo agent:po;; deploy) echo agent:deploy;; esac; }
+script_for() { case "$1" in dev) echo scripts/dev-pickup.sh;; qa) echo scripts/qa-test.sh;; tech-lead) echo scripts/techlead-review.sh;; prepare) echo scripts/po-prepare.sh;; po) echo scripts/po-clarify.sh;; deploy) echo scripts/deploy.sh;; esac; }
+single_for() { case "$1" in dev|qa|prepare|deploy) echo 1;; tech-lead|po) echo 0;; esac; }
 
 # ---------- atomic lock ----------
 acquire_lock() {
@@ -482,6 +482,15 @@ poll_discovery() {
 poll_role() {
   local role="$1" label candidates single
   label="$(label_for "$role")"
+  # A role missing from label_for/script_for is a WIRING BUG, not an empty lane.
+  # Left unguarded, an empty label makes `gh issue list --label ""` return EVERY
+  # open issue, and an empty script makes dispatch run `timeout N "" <issue>`,
+  # whose "No such file" output classify_failure reads as `environmental` — so
+  # every open issue gets escalated to agent:human in one cycle. Fail loudly.
+  if [[ -z "$label" || -z "$(script_for "$role")" ]]; then
+    echo "  [$role] NOT WIRED — missing label_for/script_for entry; skipping lane" >&2
+    return 0
+  fi
   candidates="$(gh issue list --state open --label "$label" \
       --json number,labels --limit 100 \
       -q '[ .[] | select( (.labels|map(.name)) as $l
