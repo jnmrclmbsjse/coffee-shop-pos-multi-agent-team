@@ -68,6 +68,15 @@ At the end:
   (`gh issue edit {{ISSUE}} --add-label agent:tech-lead --remove-label agent:dev`).
 - Set status to `Ready for Review`.
 - Comment with the PR link and a one-line summary, including sha={{PROMPT_SHA}}.
+- **Leave the issue OPEN. Never run `gh issue close` on it.** The task is closed
+  by `merge-and-advance` when the PR merges (and the PR's `Closes #{{ISSUE}}`
+  does it too). Closing it yourself strands the work: every poller lane queries
+  `gh issue list --state open`, so a closed task is invisible to the poller no
+  matter how correct its labels are — the review is never dispatched, the PR sits
+  unreviewed, and nothing logs an error. #327 was lost this way.
+- If a step of this self-report fails, say so explicitly in your final message.
+  A silently failed `gh` call leaves the board and the labels disagreeing, and
+  the poller trusts the labels.
 
 Boundaries reminder: full codebase read/write EXCEPT no direct push to default;
 comment + create PRs only, NO approve/change-request/merge; read-only on

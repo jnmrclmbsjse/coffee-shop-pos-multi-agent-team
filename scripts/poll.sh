@@ -546,6 +546,37 @@ poll_role() {
   done <<< "$candidates"
 }
 
+# ---------- orphan detector ----------
+# Every lane queries `gh issue list --state open`. An issue that is CLOSED but
+# still carries an `agent:*` label is therefore invisible to the poller while
+# looking, to a human reading the labels, exactly like queued work. Nothing
+# errors; the lane simply reports nothing to do and the task sits forever.
+#
+# #327 was lost this way: the dev agent opened its PR, correctly relabelled the
+# task `agent:tech-lead`, then also closed it. The review was never dispatched
+# and the PR sat unreviewed with no failure recorded anywhere.
+#
+# This is a WARNING only — it never relabels, reopens, or dispatches. Deciding
+# whether a closed task should be reopened or its label dropped needs a human.
+# One `gh` call per cycle over recently-closed issues; a task orphaned this way
+# is always a recent close, so the window does not need to be large.
+warn_orphaned_labels() {
+  local orphans
+  orphans="$(gh issue list --state closed --limit 40 \
+      --json number,labels,title \
+      -q '[ .[] | select( (.labels|map(.name)) as $l
+              | ($l | map(select(startswith("agent:"))) | length) > 0 )
+            | "#\(.number) [\((.labels|map(.name)|map(select(startswith("agent:")))|join(",")))] \(.title[0:52])" ] | .[]' \
+      2>/dev/null)"
+  [[ -z "$orphans" ]] && return 0
+  echo "  ‼ CLOSED issues still carrying an agent:* label — invisible to every lane:"
+  while read -r line; do
+    [[ -z "$line" ]] && continue
+    echo "      $line"
+  done <<< "$orphans"
+  echo "      → reopen it, or remove the label if the task is genuinely finished."
+}
+
 echo "poll.sh watching: ${ROLES[*]}"
 echo "  interval=${POLL_INTERVAL}s  attempts=${MAX_ATTEMPTS}  max-dispatches/issue=${MAX_DISPATCHES}"
 echo "  dispatch-timeout=${DISPATCH_TIMEOUT}s  session=${MAX_SESSION_HOURS}h  rate=${MAX_PER_HOUR}/hr"
@@ -554,9 +585,14 @@ echo "  discovery-cooldown=$(( DISCOVERY_COOLDOWN / 3600 ))h (only when backlog 
 echo "  logs → $LOG_DIR/   state → $STATE_DIR/   kill switch → touch $STOP_FILE"
 echo
 
+CYCLE=0
 while true; do
   should_stop && cleanup
   echo "[$(date +%H:%M:%S)] polling…"
+  # Throttled: an orphan persists until a human acts, so warning every cycle
+  # would just bury the rest of the output. Once at startup, then every 10th.
+  (( CYCLE % 10 == 0 )) && warn_orphaned_labels
+  CYCLE=$(( CYCLE + 1 ))
   for role in "${ROLES[@]}"; do
     should_stop && cleanup
     case "$role" in
