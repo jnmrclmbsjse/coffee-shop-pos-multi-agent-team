@@ -79,6 +79,9 @@ let staff: SeededItem;
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(() => {
+  // Clearing first is what frees the previous run's opener to be deleted: a
+  // staff member is only unreferenced once its trading days and counts are.
+  resetInventoryReportWorld();
   staff = seedReportStaff(`QA Report Opener ${TAG}`);
   catalog = seedReportCatalog(TAG);
 });
