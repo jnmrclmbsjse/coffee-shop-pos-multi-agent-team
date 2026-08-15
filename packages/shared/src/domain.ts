@@ -150,6 +150,30 @@ export interface UpdateStaffCompensationEntryInput {
   commissionCents: MoneyCents;
 }
 
+export interface PayslipEntry {
+  id: string;
+  workDate: string;
+  salaryCents: MoneyCents;
+  commissionCents: MoneyCents;
+  dailyTotalCents: MoneyCents;
+}
+
+export interface PayslipQuery {
+  staffMemberId: string;
+  from: string;
+  to: string;
+}
+
+export interface PayslipSummary {
+  staffMember: Pick<StaffMember, 'id' | 'displayName'>;
+  from: string;
+  to: string;
+  entries: PayslipEntry[];
+  salaryTotalCents: MoneyCents;
+  commissionTotalCents: MoneyCents;
+  grandTotalCents: MoneyCents;
+}
+
 export interface SelectableStaffMember {
   id: string;
   displayName: string;

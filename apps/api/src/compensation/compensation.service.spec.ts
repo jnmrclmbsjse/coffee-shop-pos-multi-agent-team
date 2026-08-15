@@ -39,12 +39,14 @@ describe('CompensationService', () => {
     createError?: Error;
     updateError?: Error;
     deleteError?: Error;
+    findManyResult?: typeof record[];
   } = {}) {
     const prisma = {
       staffMember: {
         findUnique: jest.fn().mockResolvedValue(
           options.staffMember === undefined
-            ? {
+              ? {
+                id: staffMemberId,
                 displayName: 'Jane Santos',
                 isActive: true,
                 locationId,
@@ -53,7 +55,9 @@ describe('CompensationService', () => {
         ),
       },
       staffCompensationEntry: {
-        findMany: jest.fn().mockResolvedValue([record]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue(options.findManyResult ?? [record]),
         create: options.createError
           ? jest.fn().mockRejectedValue(options.createError)
           : jest.fn().mockResolvedValue(record),
@@ -84,6 +88,133 @@ describe('CompensationService', () => {
       clientVersion: '6.19.0',
     });
   }
+
+  it('generates a payslip with inclusive bounds and integer totals', async () => {
+    const boundaryRecords = [
+      {
+        ...record,
+        id: 'a2cffea6-a6a7-481a-b809-fcad1d4b89d8',
+        workDate: new Date('2026-08-01T00:00:00.000Z'),
+        salaryCents: 8_000,
+        commissionCents: 250,
+      },
+      {
+        ...record,
+        workDate: new Date('2026-08-15T00:00:00.000Z'),
+        salaryCents: 10_000,
+        commissionCents: 500,
+      },
+    ];
+    const { prisma, service } = setup({ findManyResult: boundaryRecords });
+
+    await expect(
+      service.getPayslip({
+        staffMemberId,
+        from: '2026-08-01',
+        to: '2026-08-15',
+      }),
+    ).resolves.toEqual({
+      staffMember: { id: staffMemberId, displayName: 'Jane Santos' },
+      from: '2026-08-01',
+      to: '2026-08-15',
+      entries: [
+        expect.objectContaining({
+          workDate: '2026-08-01',
+          salaryCents: 8_000,
+          commissionCents: 250,
+          dailyTotalCents: 8_250,
+        }),
+        expect.objectContaining({
+          workDate: '2026-08-15',
+          salaryCents: 10_000,
+          commissionCents: 500,
+          dailyTotalCents: 10_500,
+        }),
+      ],
+      salaryTotalCents: 18_000,
+      commissionTotalCents: 750,
+      grandTotalCents: 18_750,
+    });
+    expect(prisma.staffCompensationEntry.findMany).toHaveBeenCalledWith({
+      where: {
+        staffMemberId,
+        workDate: {
+          gte: new Date('2026-08-01T00:00:00.000Z'),
+          lt: new Date('2026-08-16T00:00:00.000Z'),
+        },
+      },
+      orderBy: { workDate: 'asc' },
+    });
+  });
+
+  it('changes payslip arithmetic when a seeded amount changes', async () => {
+    const { service } = setup({
+      findManyResult: [{ ...record, salaryCents: 10_001 }],
+    });
+
+    const result = await service.getPayslip({
+      staffMemberId,
+      from: '2026-08-15',
+      to: '2026-08-15',
+    });
+
+    expect(result.salaryTotalCents).toBe(10_001);
+    expect(result.grandTotalCents).toBe(10_501);
+  });
+
+  it('returns an empty payslip with zero totals for a valid range', async () => {
+    const { service } = setup({ findManyResult: [] });
+
+    await expect(
+      service.getPayslip({
+        staffMemberId,
+        from: '2026-07-01',
+        to: '2026-07-31',
+      }),
+    ).resolves.toEqual({
+      staffMember: { id: staffMemberId, displayName: 'Jane Santos' },
+      from: '2026-07-01',
+      to: '2026-07-31',
+      entries: [],
+      salaryTotalCents: 0,
+      commissionTotalCents: 0,
+      grandTotalCents: 0,
+    });
+  });
+
+  it('returns a field-level 400 without querying for a reversed range', async () => {
+    const { prisma, service } = setup();
+
+    await expect(
+      service.getPayslip({
+        staffMemberId,
+        from: '2026-08-15',
+        to: '2026-08-14',
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: {
+        message: 'to must be on or after from',
+        field: 'to',
+        reason: 'INVALID_DATE_RANGE',
+      },
+    });
+    expect(prisma.staffMember.findUnique).not.toHaveBeenCalled();
+    expect(prisma.staffCompensationEntry.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 for an unknown payslip staff member', async () => {
+    const { prisma, service } = setup({ staffMember: null });
+
+    await expect(
+      service.getPayslip({
+        staffMemberId,
+        from: '2026-08-01',
+        to: '2026-08-15',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.staffCompensationEntry.findMany).not.toHaveBeenCalled();
+  });
 
   it('lists optional filters in deterministic order and derives the total', async () => {
     const { prisma, service } = setup();

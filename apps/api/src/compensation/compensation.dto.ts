@@ -1,5 +1,6 @@
 import type {
   CreateStaffCompensationEntryInput,
+  PayslipQuery,
   StaffCompensationEntryListQuery,
   UpdateStaffCompensationEntryInput,
 } from '@coffee-shop/shared';
@@ -7,6 +8,7 @@ import {
   IsDateString,
   IsDefined,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsUUID,
   Matches,
@@ -16,6 +18,26 @@ import {
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DATABASE_INTEGER = 2_147_483_647;
+
+export class PayslipQueryDto implements PayslipQuery {
+  @IsNotEmpty({ message: 'staffMemberId is required' })
+  @IsUUID('4', { message: 'staffMemberId must be a valid identifier' })
+  staffMemberId!: string;
+
+  @IsNotEmpty({ message: 'from is required' })
+  @Matches(ISO_DATE_PATTERN, {
+    message: 'from must be a date in YYYY-MM-DD format',
+  })
+  @IsDateString({ strict: true }, { message: 'from must be a valid date' })
+  from!: string;
+
+  @IsNotEmpty({ message: 'to is required' })
+  @Matches(ISO_DATE_PATTERN, {
+    message: 'to must be a date in YYYY-MM-DD format',
+  })
+  @IsDateString({ strict: true }, { message: 'to must be a valid date' })
+  to!: string;
+}
 
 export class CompensationEntryListQueryDto
   implements StaffCompensationEntryListQuery

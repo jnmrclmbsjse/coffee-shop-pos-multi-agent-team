@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -6,6 +7,7 @@ import {
 import {
   addMoney,
   cents,
+  type PayslipSummary,
   type StaffCompensationEntry,
 } from '@coffee-shop/shared';
 import { Prisma, type StaffMember } from '@prisma/client';
@@ -13,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type {
   CompensationEntryListQueryDto,
   CreateCompensationEntryDto,
+  PayslipQueryDto,
   UpdateCompensationEntryDto,
 } from './compensation.dto';
 
@@ -30,6 +33,66 @@ type CompensationEntryRecord =
 @Injectable()
 export class CompensationService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getPayslip(query: PayslipQueryDto): Promise<PayslipSummary> {
+    if (query.to < query.from) {
+      throw new BadRequestException({
+        message: 'to must be on or after from',
+        field: 'to',
+        reason: 'INVALID_DATE_RANGE',
+      });
+    }
+
+    const staffMember = await this.prisma.staffMember.findUnique({
+      where: { id: query.staffMemberId },
+      select: { id: true, displayName: true },
+    });
+    if (!staffMember) {
+      throw new NotFoundException('Staff member not found');
+    }
+
+    const records = await this.prisma.staffCompensationEntry.findMany({
+      where: {
+        staffMemberId: query.staffMemberId,
+        workDate: {
+          gte: this.toDate(query.from),
+          lt: this.dayAfter(query.to),
+        },
+      },
+      orderBy: { workDate: 'asc' },
+    });
+    const entries = records.map((record) => {
+      const salaryCents = cents(record.salaryCents);
+      const commissionCents = cents(record.commissionCents);
+
+      return {
+        id: record.id,
+        workDate: record.workDate.toISOString().slice(0, ISO_DATE_LENGTH),
+        salaryCents,
+        commissionCents,
+        dailyTotalCents: addMoney(salaryCents, commissionCents),
+      };
+    });
+    const salaryTotalCents = addMoney(
+      ...entries.map((entry) => entry.salaryCents),
+    );
+    const commissionTotalCents = addMoney(
+      ...entries.map((entry) => entry.commissionCents),
+    );
+
+    return {
+      staffMember: {
+        id: staffMember.id,
+        displayName: staffMember.displayName,
+      },
+      from: query.from,
+      to: query.to,
+      entries,
+      salaryTotalCents,
+      commissionTotalCents,
+      grandTotalCents: addMoney(salaryTotalCents, commissionTotalCents),
+    };
+  }
 
   async list(
     query: CompensationEntryListQueryDto,
@@ -146,6 +209,12 @@ export class CompensationService {
 
   private toDate(value: string): Date {
     return new Date(`${value}T00:00:00.000Z`);
+  }
+
+  private dayAfter(value: string): Date {
+    const date = this.toDate(value);
+    date.setUTCDate(date.getUTCDate() + 1);
+    return date;
   }
 
   private toEntry(record: CompensationEntryRecord): StaffCompensationEntry {
