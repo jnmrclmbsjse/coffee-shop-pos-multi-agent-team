@@ -34,4 +34,23 @@ assert_refs \
   "" \
   $'### Parent User Story\n\n#165\n\n### Pull Request\n\n_Filled by Dev._'
 
+# The issue-form template emits `##`, not `###`. Hard-coding `###` made every
+# task created after that template change parse as unblocked — which both
+# disabled the poller's dependency gate and stranded dependents in
+# merge-and-advance (#327). Cover every heading depth in use.
+assert_refs \
+  "h2 issue-form section (current template)" \
+  $'325\n326' \
+  $'## Parent User Story\n\n#324\n\n## Blocked By\n\n#326, #325\n\n## Acceptance Criteria\n\n- #999'
+
+assert_refs \
+  "h2 section terminated by an h2 heading" \
+  "326" \
+  $'## Blocked By\n\n#326\n\n## Notes\n\n#777'
+
+assert_refs \
+  "h2 'None' placeholder yields no blockers" \
+  "" \
+  $'## Blocked By\n\n_None._\n\n## Acceptance Criteria\n\n- #999'
+
 echo "dependency parsing tests passed"
