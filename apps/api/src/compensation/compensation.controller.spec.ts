@@ -1,0 +1,84 @@
+import 'reflect-metadata';
+import {
+  type ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { Reflector } from '@nestjs/core';
+import { Role } from '@coffee-shop/shared';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ROLES_KEY } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { CompensationController } from './compensation.controller';
+
+describe('CompensationController', () => {
+  it('restricts the entire compensation API to administrators', () => {
+    expect(Reflect.getMetadata(ROLES_KEY, CompensationController)).toEqual([
+      Role.ADMIN,
+    ]);
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, CompensationController),
+    ).toEqual([JwtAuthGuard, RolesGuard]);
+  });
+
+  it.each(['list', 'create', 'update', 'remove'] as const)(
+    'refuses a STAFF user on %s',
+    (handlerName) => {
+      const guard = new RolesGuard(new Reflector());
+      const context = {
+        getHandler: () => CompensationController.prototype[handlerName],
+        getClass: () => CompensationController,
+        switchToHttp: () => ({
+          getRequest: () => ({
+            user: {
+              id: 'staff-user-id',
+              username: 'staff',
+              role: Role.STAFF,
+            },
+          }),
+        }),
+      } as unknown as ExecutionContext;
+
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    },
+  );
+
+  it('attributes creates and updates to the authenticated administrator', async () => {
+    const service = {
+      create: jest.fn().mockResolvedValue({ id: 'created' }),
+      update: jest.fn().mockResolvedValue({ id: 'updated' }),
+    };
+    const controller = new CompensationController(service as never);
+    const request = {
+      headers: {},
+      user: {
+        id: 'admin-user-id',
+        username: 'admin',
+        role: Role.ADMIN,
+      },
+    };
+    const createInput = {
+      staffMemberId: 'staff-id',
+      workDate: '2026-08-15',
+      salaryCents: 100,
+      commissionCents: 25,
+    } as never;
+    const updateInput = {
+      salaryCents: 200,
+      commissionCents: 50,
+    } as never;
+
+    await controller.create(createInput, request);
+    await controller.update('entry-id', updateInput, request);
+
+    expect(service.create).toHaveBeenCalledWith(
+      createInput,
+      'admin-user-id',
+    );
+    expect(service.update).toHaveBeenCalledWith(
+      'entry-id',
+      updateInput,
+      'admin-user-id',
+    );
+  });
+});

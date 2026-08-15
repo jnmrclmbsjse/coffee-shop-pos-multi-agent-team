@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { NoStoreInterceptor } from './auth/no-store.interceptor';
 import { CatalogModule } from './catalog/catalog.module';
+import { CompensationModule } from './compensation/compensation.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -22,6 +23,7 @@ import { TradingDayModule } from './trading-day/trading-day.module';
     PrismaModule,
     AuthModule,
     CatalogModule,
+    CompensationModule,
     InventoryModule,
     OrdersModule,
     ReportingModule,

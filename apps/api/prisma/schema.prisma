@@ -88,58 +88,83 @@ enum CashMovementKind {
 }
 
 model User {
-  id                String             @id @default(uuid()) @db.Uuid
-  username          String             @unique
-  displayName       String             @map("display_name")
-  passwordHash      String             @map("password_hash")
-  pinHash           String?            @map("pin_hash")
-  isActive          Boolean            @default(true) @map("is_active")
-  role              Role
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
-  staffMember       StaffMember?
-  cashierSelections CashierSelection[] @relation("CashierSelectionSelectedBy")
+  id                         String                   @id @default(uuid()) @db.Uuid
+  username                   String                   @unique
+  displayName                String                   @map("display_name")
+  passwordHash               String                   @map("password_hash")
+  pinHash                    String?                  @map("pin_hash")
+  isActive                   Boolean                  @default(true) @map("is_active")
+  role                       Role
+  createdAt                  DateTime                 @default(now()) @map("created_at")
+  updatedAt                  DateTime                 @updatedAt @map("updated_at")
+  staffMember                StaffMember?
+  cashierSelections          CashierSelection[]       @relation("CashierSelectionSelectedBy")
+  createdCompensationEntries StaffCompensationEntry[] @relation("CompensationEntryCreatedBy")
+  updatedCompensationEntries StaffCompensationEntry[] @relation("CompensationEntryUpdatedBy")
 
   @@map("users")
 }
 
 model Location {
-  id                String             @id @default(uuid()) @db.Uuid
-  name              String
-  createdAt         DateTime           @default(now()) @map("created_at")
-  stockCounts       StockCount[]
-  stockMovements    StockMovement[]
-  sales             Sale[]
-  staffMembers      StaffMember[]
-  tradingDays       TradingDay[]
-  cashierSelections CashierSelection[]
+  id                  String                   @id @default(uuid()) @db.Uuid
+  name                String
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  stockCounts         StockCount[]
+  stockMovements      StockMovement[]
+  sales               Sale[]
+  staffMembers        StaffMember[]
+  tradingDays         TradingDay[]
+  cashierSelections   CashierSelection[]
+  compensationEntries StaffCompensationEntry[]
 
   @@map("locations")
 }
 
 model StaffMember {
-  id                     String             @id @default(uuid()) @db.Uuid
-  displayName            String             @map("display_name")
-  isActive               Boolean            @default(true) @map("is_active")
-  locationId             String?            @map("location_id") @db.Uuid
-  userId                 String?            @unique @map("user_id") @db.Uuid
-  createdAt              DateTime           @default(now()) @map("created_at")
-  updatedAt              DateTime           @updatedAt @map("updated_at")
-  location               Location?          @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  user                   User?              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  openedTradingDays      TradingDay[]       @relation("TradingDayOpenedBy")
-  closedTradingDays      TradingDay[]       @relation("TradingDayClosedBy")
-  submittedStockCounts   StockCount[]       @relation("StockCountSubmittedBy")
-  ledStockCounts         StockCount[]       @relation("StockCountShiftLead")
-  recordedStockMovements StockMovement[]    @relation("StockMovementRecordedBy")
-  recordedCashMovements  CashMovement[]     @relation("CashMovementRecordedBy")
+  id                     String                   @id @default(uuid()) @db.Uuid
+  displayName            String                   @map("display_name")
+  isActive               Boolean                  @default(true) @map("is_active")
+  locationId             String?                  @map("location_id") @db.Uuid
+  userId                 String?                  @unique @map("user_id") @db.Uuid
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+  location               Location?                @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  user                   User?                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  openedTradingDays      TradingDay[]             @relation("TradingDayOpenedBy")
+  closedTradingDays      TradingDay[]             @relation("TradingDayClosedBy")
+  submittedStockCounts   StockCount[]             @relation("StockCountSubmittedBy")
+  ledStockCounts         StockCount[]             @relation("StockCountShiftLead")
+  recordedStockMovements StockMovement[]          @relation("StockMovementRecordedBy")
+  recordedCashMovements  CashMovement[]           @relation("CashMovementRecordedBy")
   cashCounts             CashCount[]
-  dayClosings            DayClosing[]       @relation("DayClosingClosedBy")
-  cashierSales           Sale[]             @relation("SaleCashier")
+  dayClosings            DayClosing[]             @relation("DayClosingClosedBy")
+  cashierSales           Sale[]                   @relation("SaleCashier")
   cashierSelections      CashierSelection[]
+  compensationEntries    StaffCompensationEntry[]
 
   @@index([locationId])
   @@map("staff_members")
+}
+
+model StaffCompensationEntry {
+  id              String      @id @default(uuid()) @db.Uuid
+  staffMemberId   String      @map("staff_member_id") @db.Uuid
+  workDate        DateTime    @map("work_date") @db.Date
+  salaryCents     Int         @map("salary_cents")
+  commissionCents Int         @map("commission_cents")
+  locationId      String?     @map("location_id") @db.Uuid
+  createdByUserId String      @map("created_by_user_id") @db.Uuid
+  updatedByUserId String      @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  staffMember     StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Restrict)
+  location        Location?   @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  createdByUser   User        @relation("CompensationEntryCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedByUser   User        @relation("CompensationEntryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([staffMemberId, workDate])
+  @@index([staffMemberId, workDate])
+  @@map("staff_compensation_entries")
 }
 
 model Product {
