@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -17,7 +16,6 @@ import type {
   UpdateCompensationEntryDto,
 } from './compensation.dto';
 
-const SHOP_TIME_ZONE = 'Asia/Manila';
 const ISO_DATE_LENGTH = 10;
 
 const compensationEntryInclude = {
@@ -64,10 +62,7 @@ export class CompensationService {
     input: CreateCompensationEntryDto,
     userId: string,
   ): Promise<StaffCompensationEntry> {
-    const staffMember = await this.requireActiveStaffMember(
-      input.staffMemberId,
-    );
-    this.requireCurrentOrPastDate(input.workDate);
+    const staffMember = await this.requireStaffMember(input.staffMemberId);
 
     try {
       const record = await this.prisma.staffCompensationEntry.create({
@@ -132,52 +127,21 @@ export class CompensationService {
     }
   }
 
-  private async requireActiveStaffMember(
+  private async requireStaffMember(
     id: string,
   ): Promise<Pick<StaffMember, 'displayName' | 'locationId'>> {
     const staffMember = await this.prisma.staffMember.findUnique({
       where: { id },
       select: {
         displayName: true,
-        isActive: true,
         locationId: true,
       },
     });
     if (!staffMember) {
       throw new NotFoundException('Staff member not found');
     }
-    if (!staffMember.isActive) {
-      throw new BadRequestException({
-        message: `${staffMember.displayName} is deactivated and cannot receive new compensation entries`,
-        field: 'staffMemberId',
-        reason: 'STAFF_MEMBER_INACTIVE',
-      });
-    }
 
     return staffMember;
-  }
-
-  private requireCurrentOrPastDate(workDate: string): void {
-    const today = this.shopDate(new Date());
-    if (workDate > today) {
-      throw new BadRequestException({
-        message: 'workDate must be today or earlier',
-        field: 'workDate',
-        reason: 'FUTURE_WORK_DATE',
-      });
-    }
-  }
-
-  private shopDate(value: Date): string {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: SHOP_TIME_ZONE,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(value);
-    const part = (type: Intl.DateTimeFormatPartTypes): string =>
-      parts.find((item) => item.type === type)?.value ?? '';
-    return `${part('year')}-${part('month')}-${part('day')}`;
   }
 
   private toDate(value: string): Date {

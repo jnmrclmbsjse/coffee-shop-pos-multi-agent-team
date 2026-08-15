@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { CompensationService } from './compensation.service';
@@ -32,14 +29,6 @@ describe('CompensationService', () => {
     salaryCents: 10_000,
     commissionCents: 500,
   };
-
-  beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(now);
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-  });
 
   function setup(options: {
     staffMember?: {
@@ -157,24 +146,16 @@ describe('CompensationService', () => {
     );
   });
 
-  it.each([
-    ['unknown', null, NotFoundException],
-    [
-      'inactive',
-      { displayName: 'Jane Santos', isActive: false, locationId },
-      BadRequestException,
-    ],
-  ])('refuses an %s staff member', async (_case, staffMember, errorType) => {
-    const { prisma, service } = setup({ staffMember });
+  it('refuses an unknown staff member', async () => {
+    const { prisma, service } = setup({ staffMember: null });
 
     await expect(
       service.create(createInput as never, adminUserId),
-    ).rejects.toBeInstanceOf(errorType);
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.staffCompensationEntry.create).not.toHaveBeenCalled();
   });
 
-  it('refuses a future work date using the shop calendar date', async () => {
-    jest.setSystemTime(new Date('2026-08-15T15:59:59.000Z'));
+  it('accepts a future calendar work date without applying trading-day rules', async () => {
     const { prisma, service } = setup();
 
     await expect(
@@ -182,10 +163,14 @@ describe('CompensationService', () => {
         { ...createInput, workDate: '2026-08-17' } as never,
         adminUserId,
       ),
-    ).rejects.toMatchObject({
-      response: expect.objectContaining({ reason: 'FUTURE_WORK_DATE' }),
-    });
-    expect(prisma.staffCompensationEntry.create).not.toHaveBeenCalled();
+    ).resolves.toEqual(expect.objectContaining({ dailyTotalCents: 10_500 }));
+    expect(prisma.staffCompensationEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          workDate: new Date('2026-08-17T00:00:00.000Z'),
+        }),
+      }),
+    );
   });
 
   it('maps P2002 to a named 409 without attempting to modify the existing row', async () => {
@@ -275,6 +260,21 @@ describe('CompensationService', () => {
 
     expect(prisma.staffMember.findUnique).not.toHaveBeenCalled();
     expect(prisma.staffCompensationEntry.update).toHaveBeenCalled();
+  });
+
+  it('allows creating an entry for a deactivated staff member', async () => {
+    const { prisma, service } = setup({
+      staffMember: {
+        displayName: 'Jane Santos',
+        isActive: false,
+        locationId,
+      },
+    });
+
+    await expect(
+      service.create(createInput as never, adminUserId),
+    ).resolves.toEqual(expect.objectContaining({ dailyTotalCents: 10_500 }));
+    expect(prisma.staffCompensationEntry.create).toHaveBeenCalled();
   });
 
   it('does not disguise unrelated database errors as conflicts', async () => {

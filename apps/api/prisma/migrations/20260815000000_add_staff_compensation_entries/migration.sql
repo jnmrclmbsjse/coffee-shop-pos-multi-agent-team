@@ -8,7 +8,7 @@ CREATE TABLE "staff_compensation_entries" (
     "created_by_user_id" UUID NOT NULL,
     "updated_by_user_id" UUID NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "staff_compensation_entries_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "staff_compensation_entries_non_negative_amounts_check"
