@@ -4,6 +4,7 @@ import {
   CompensationApiError,
   createCompensationEntry,
   deleteCompensationEntry,
+  getPayslip,
   listCompensationEntries,
 } from './api';
 
@@ -60,6 +61,31 @@ describe('compensation API client', () => {
           commissionCents: 100,
         }),
       }),
+    );
+  });
+
+  it('encodes the complete payslip query and returns the shared response', async () => {
+    const returned = {
+      staffMember: { id: 'staff/member', displayName: 'Mara Santos' },
+      from: '2026-08-01',
+      to: '2026-08-15',
+      entries: [],
+      salaryTotalCents: cents(0),
+      commissionTotalCents: cents(0),
+      grandTotalCents: cents(0),
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response(200, returned));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getPayslip({
+      staffMemberId: 'staff/member',
+      from: '2026-08-01',
+      to: '2026-08-15',
+    })).resolves.toEqual(returned);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/compensation/payslip?staffMemberId=staff%2Fmember&from=2026-08-01&to=2026-08-15',
+      expect.objectContaining({ credentials: 'include' }),
     );
   });
 
