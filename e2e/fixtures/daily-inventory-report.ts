@@ -356,9 +356,27 @@ export function seedReportCatalog(tag: string): ReportCatalog {
   return JSON.parse(output) as ReportCatalog;
 }
 
-/** One roster member per run — a day has to be opened by somebody. */
+/**
+ * One roster member per run — a day has to be opened by somebody.
+ *
+ * Earlier runs' openers are dropped first. They are only unreferenced once the
+ * trading days and counts pointing at them are gone, so this must follow a
+ * `resetInventoryReportWorld()`; a member another table still holds is left
+ * alone rather than failing the run.
+ */
 export function seedReportStaff(displayName: string): SeededItem {
   const output = runPrisma(`
+    const stale = await prisma.staffMember.findMany({
+      where: { displayName: { startsWith: 'QA Report Opener ' } },
+      select: { id: true },
+    });
+    for (const member of stale) {
+      try {
+        await prisma.staffMember.delete({ where: { id: member.id } });
+      } catch {
+        // Still referenced by a table this suite does not own — leave it.
+      }
+    }
     const member = await prisma.staffMember.create({
       data: { displayName: ${JSON.stringify(displayName)}, isActive: true },
     });
