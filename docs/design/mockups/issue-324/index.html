@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily inventory report - advisory implementation reference</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="prototype" data-od-id="daily-inventory-reference">
+    <header class="prototype-head" data-od-id="prototype-heading">
+      <p class="prototype-kicker">Advisory implementation reference</p>
+      <h1>Admin daily inventory reconciliation and restock report</h1>
+      <p>Preserve-mode reference for GitHub story #324 and design task #325. The controls above each preview simulate states; they are not proposed product controls.</p>
+    </header>
+
+    <nav class="prototype-nav" aria-label="Reference sections" data-od-id="prototype-section-nav">
+      <a href="#navigation">Navigation</a>
+      <a href="#report-shell">Report shell</a>
+      <a href="#reconciliation">Reconciliation</a>
+      <a href="#unavailable">Unavailable</a>
+      <a href="#restock">Restock</a>
+      <a href="#empty-states">Empty states</a>
+    </nav>
+
+    <section class="mockup-section" id="navigation" data-od-id="navigation-placement">
+      <p class="section-label">Navigation placement</p>
+      <p class="assessment-note"><strong>Decision:</strong> Keep Reports as one Operations destination. Add a local Sales / Daily inventory switch inside the Reports page, matching the page-context switch already used by Compensation.</p>
+      <div class="state-switcher" aria-label="Navigation reference states">
+        <button type="button" aria-pressed="true" data-preview="navigation" data-state="daily">Daily inventory selected</button>
+        <button type="button" aria-pressed="false" data-preview="navigation" data-state="sales">Sales selected</button>
+      </div>
+      <div class="preview-frame" id="preview-navigation" data-od-id="navigation-preview"></div>
+    </section>
+
+    <section class="mockup-section" id="report-shell" data-od-id="report-shell-day-selection">
+      <p class="section-label">Report shell and day selection</p>
+      <p class="assessment-note"><strong>Decision:</strong> Use one business-date field. Keep the loaded scope visible during a day change, then replace the whole report atomically so a new label never appears above stale numbers.</p>
+      <div class="state-switcher" aria-label="Report shell states">
+        <button type="button" aria-pressed="true" data-preview="shell" data-state="loaded">Loaded</button>
+        <button type="button" aria-pressed="false" data-preview="shell" data-state="changing">Changing day (re-fetch)</button>
+        <button type="button" aria-pressed="false" data-preview="shell" data-state="error">Load error</button>
+      </div>
+      <div class="preview-frame" id="preview-shell" data-od-id="report-shell-preview"></div>
+    </section>
+
+    <section class="mockup-section" id="reconciliation" data-od-id="cup-lid-reconciliation">
+      <p class="section-label">Cup-and-lid reconciliation table</p>
+      <p class="assessment-note"><strong>Decision:</strong> Present opening + deliveries - wastage - used as a derivation group, then separate expected and actual as outcomes. Variance always includes a sign and a word.</p>
+      <div class="state-switcher" aria-label="Reconciliation examples">
+        <button type="button" aria-pressed="true" data-preview="reconciliation" data-state="mixed">Mixed variances</button>
+        <button type="button" aria-pressed="false" data-preview="reconciliation" data-state="even">All even</button>
+      </div>
+      <div class="preview-frame" id="preview-reconciliation" data-od-id="reconciliation-preview"></div>
+    </section>
+
+    <section class="mockup-section" id="unavailable" data-od-id="unavailable-count-states">
+      <p class="section-label">Unavailable count states</p>
+      <p class="assessment-note"><strong>Decision:</strong> Use the literal sans-serif word “Unavailable” in every missing or invalidly derived cell. Keep a persistent explanation below the table and announce the full meaning to screen readers.</p>
+      <div class="state-switcher" aria-label="Count availability states">
+        <button type="button" aria-pressed="true" data-preview="unavailable" data-state="all">All counted</button>
+        <button type="button" aria-pressed="false" data-preview="unavailable" data-state="opening">Missing opening</button>
+        <button type="button" aria-pressed="false" data-preview="unavailable" data-state="closing">Missing closing</button>
+        <button type="button" aria-pressed="false" data-preview="unavailable" data-state="both">Missing both</button>
+      </div>
+      <div class="preview-frame" id="preview-unavailable" data-od-id="unavailable-preview"></div>
+    </section>
+
+    <section class="mockup-section" id="restock" data-od-id="restock-needs-list">
+      <p class="section-label">Restock needs list</p>
+      <p class="assessment-note"><strong>Decision:</strong> State the count source and submission time in persistent copy. List only actionable bands, retain staff badge language, and show a Critical marker beside affected item names.</p>
+      <div class="state-switcher" aria-label="Restock states">
+        <button type="button" aria-pressed="true" data-preview="restock" data-state="needs">Needs restock</button>
+        <button type="button" aria-pressed="false" data-preview="restock" data-state="nothing">Nothing needs restocking</button>
+        <button type="button" aria-pressed="false" data-preview="restock" data-state="none">No count submitted for this day</button>
+      </div>
+      <div class="preview-frame" id="preview-restock" data-od-id="restock-preview"></div>
+    </section>
+
+    <section class="mockup-section" id="empty-states" data-od-id="distinct-empty-states">
+      <p class="section-label">Distinct empty states and read-only boundary</p>
+      <p class="assessment-note"><strong>Decision:</strong> Name the business date and location in every empty state. Distinguish an opened day with no reportable activity from a day that never opened, and never offer mutation controls here.</p>
+      <div class="state-switcher" aria-label="Empty report states">
+        <button type="button" aria-pressed="true" data-preview="empty" data-state="no-activity">Opened day, no activity</button>
+        <button type="button" aria-pressed="false" data-preview="empty" data-state="not-opened">Business day not opened</button>
+        <button type="button" aria-pressed="false" data-preview="empty" data-state="no-restock-count">No restock count</button>
+      </div>
+      <div class="preview-frame" id="preview-empty" data-od-id="empty-states-preview"></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
