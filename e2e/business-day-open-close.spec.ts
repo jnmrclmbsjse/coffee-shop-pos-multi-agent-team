@@ -57,6 +57,14 @@ import {
 
 const STAFF_USERNAME = process.env.E2E_STAFF_USERNAME ?? 'staff';
 const STAFF_PASSWORD = process.env.E2E_STAFF_PASSWORD ?? 'replace-before-seeding';
+/**
+ * Roster member linked to the staff login these tests sign in as (seeded by
+ * `apps/api/prisma/seed.ts`). The "who did this" pickers default to it, so the
+ * tests that used to prove "the picker starts empty" now prove "the picker
+ * starts on me, and clearing it still blocks submission".
+ */
+const SIGNED_IN_STAFF_NAME =
+  process.env.E2E_STAFF_DISPLAY_NAME ?? 'Coffee Shop Staff';
 
 const TAG = `qa123-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 
@@ -535,9 +543,28 @@ test('refuses to open a day when required information is missing or the float is
   await signInAsStaff(page);
   await gotoScreen(page, '/pos/open');
 
-  // Nothing entered: every missing field is explained, and no day is opened.
+  // "Opened by" is not blank on arrival: it defaults to the signed-in staff
+  // member, so it is not one of the fields still to be filled in.
+  await expect(page.locator('#openedBy option:checked')).toHaveText(
+    SIGNED_IN_STAFF_NAME,
+  );
+  await expect(page.locator('#openedBy')).not.toHaveValue('');
+
+  // Nothing else entered: every field that IS missing is explained, "Opened by"
+  // is not among them, and no day is opened.
   await openDayButton(page).click();
   const errors = page.locator('.staff-inventory-field-error');
+  await expect(errors).toHaveText([
+    'Choose a business date.',
+    'Choose Normal day or Peak day.',
+    'Enter the opening cash float.',
+  ]);
+  expect(readTradingDays()).toHaveLength(0);
+
+  // The default is a convenience, not a bypass: clearing it brings the fourth
+  // explanation back and still refuses to open the day.
+  await page.locator('#openedBy').selectOption('');
+  await openDayButton(page).click();
   await expect(errors).toHaveText([
     'Choose a business date.',
     'Choose Normal day or Peak day.',
@@ -886,9 +913,25 @@ test('requires a non-negative actual cash count and a closing staff member', asy
   await signInAsStaff(page);
   await gotoScreen(page, '/pos/close');
 
-  // Nothing entered.
+  // "Closed by" is not blank on arrival: it defaults to the signed-in staff
+  // member, so the cash count is the only thing still missing.
+  await expect(page.locator('#closedBy option:checked')).toHaveText(
+    SIGNED_IN_STAFF_NAME,
+  );
+  await expect(page.locator('#closedBy')).not.toHaveValue('');
+
+  // Nothing else entered: the cash count is explained, "Closed by" is not, and
+  // the day stays open.
   await closeDayButton(page).click();
   const errors = page.locator('.staff-inventory-field-error');
+  await expect(errors).toHaveText(['Enter the actual cash counted.']);
+  expect(readDayClosings()).toHaveLength(0);
+  expect(readTradingDays()[0]!.status).toBe('OPEN');
+
+  // The default is a convenience, not a bypass: clearing it brings the closing
+  // staff explanation back and still refuses to close the day.
+  await page.locator('#closedBy').selectOption('');
+  await closeDayButton(page).click();
   await expect(errors).toHaveText([
     'Enter the actual cash counted.',
     'Choose the staff member closing the day.',

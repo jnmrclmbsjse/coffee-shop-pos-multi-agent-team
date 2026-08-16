@@ -42,6 +42,14 @@ import {
 
 const STAFF_USERNAME = process.env.E2E_STAFF_USERNAME ?? 'staff';
 const STAFF_PASSWORD = process.env.E2E_STAFF_PASSWORD ?? 'replace-before-seeding';
+/**
+ * Roster member linked to the staff login these tests sign in as (seeded by
+ * `apps/api/prisma/seed.ts`). "Submitted by" defaults to it, so the test that
+ * used to prove "the picker starts empty and blocks submission" now proves
+ * "the picker starts on me, and clearing it still blocks submission".
+ */
+const SIGNED_IN_STAFF_NAME =
+  process.env.E2E_STAFF_DISPLAY_NAME ?? 'Coffee Shop Staff';
 
 const TAG = `qa108-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 
@@ -403,14 +411,35 @@ test.describe('opening count sheet (#108)', () => {
       ).toHaveCount(1);
     }
 
-    // Without a submitter the sheet cannot be submitted, and the reason is shown.
+    // "Submitted by" arrives pre-filled with the signed-in staff member, while
+    // the optional "Shift lead" is deliberately left unselected.
+    await expect(
+      page.locator('#open-submitted-by option:checked'),
+    ).toHaveText(SIGNED_IN_STAFF_NAME);
+    await expect(submittedBy).not.toHaveValue('');
+    await expect(shiftLead).toHaveValue('');
+
+    // The default does not make the sheet submittable on its own: with no
+    // quantities counted the button is still disabled, for that reason.
+    await expect(submitCountButton(page, 'opening')).toBeDisabled();
+    await expect(
+      page.getByText('Count at least one item to enable submission.'),
+    ).toBeVisible();
+
+    // Counting one item is all that is left to do — the submitter is already set.
     await setQuantity(page, items.beans, '4');
+    await expect(submitCountButton(page, 'opening')).toBeEnabled();
+
+    // The default is a convenience, not a bypass: clearing the submitter blocks
+    // submission again, with the reason shown.
+    await submittedBy.selectOption('');
     await expect(submitCountButton(page, 'opening')).toBeDisabled();
     await expect(
       page.getByText('Choose Submitted by to enable submission.'),
     ).toBeVisible();
 
-    // Choosing one — and leaving Shift lead at its "None" default — is enough.
+    // Choosing someone else — and leaving Shift lead at its "None" default —
+    // is enough.
     await submittedBy.selectOption({ label: staff.ada.displayName });
     await expect(shiftLead).toHaveValue('');
     await expect(submitCountButton(page, 'opening')).toBeEnabled();
