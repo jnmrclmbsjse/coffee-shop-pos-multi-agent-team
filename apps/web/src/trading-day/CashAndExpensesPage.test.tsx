@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { SignedInAs } from '../auth/session-test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CashMovementKind,
@@ -76,11 +77,13 @@ function openPageFetch(
   });
 }
 
-function renderPage() {
+function renderPage(signedInStaffMemberId: string | null = null) {
   return render(
-    <MemoryRouter>
-      <CashAndExpensesPage />
-    </MemoryRouter>,
+    <SignedInAs staffMemberId={signedInStaffMemberId}>
+      <MemoryRouter>
+        <CashAndExpensesPage />
+      </MemoryRouter>
+    </SignedInAs>,
   );
 }
 
@@ -331,6 +334,24 @@ describe('cash and expenses page', () => {
     expect(await screen.findByRole('heading', { name: 'No business day is open' })).toBeInTheDocument();
     expect(screen.getByText('The business day closed before the entry was recorded. No entry was saved.')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('defaults Recorded by to the signed-in staff member', async () => {
+    openPageFetch(fetchMock);
+
+    renderPage(staff[1]!.id);
+
+    expect(await screen.findByLabelText(/^Recorded by/)).toHaveValue(
+      staff[1]!.id,
+    );
+  });
+
+  it('leaves Recorded by empty when the signed-in user has no roster member', async () => {
+    openPageFetch(fetchMock);
+
+    renderPage(null);
+
+    expect(await screen.findByLabelText(/^Recorded by/)).toHaveValue('');
   });
 
   it('explains the no-open-day state and offers no entry form', async () => {

@@ -68,8 +68,12 @@ export class AuthController {
   @Get('session')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.STAFF)
-  session(@Req() request: AuthenticatedRequest): LoginResponse {
-    return { user: request.user! };
+  async session(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<LoginResponse> {
+    return {
+      user: await this.authService.withLinkedStaffMember(request.user!),
+    };
   }
 
   @Post('logout')

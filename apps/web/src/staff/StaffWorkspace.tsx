@@ -164,6 +164,34 @@ function isCurrentDestination(pathname: string, destination: string): boolean {
   return pathname === destination || pathname.startsWith(`${destination}/`);
 }
 
+const NAV_VISIBILITY_KEY = 'ucm.pos.nav-visible.v1';
+
+/**
+ * Remembers whether the workspace chrome is showing so a device set up for
+ * service keeps the extra screen space across reloads. Storage is best-effort:
+ * a device that refuses it simply starts with the chrome showing.
+ */
+function useNavVisibility(): [boolean, (visible: boolean) => void] {
+  const [visible, setVisible] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(NAV_VISIBILITY_KEY) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const update = (next: boolean) => {
+    setVisible(next);
+    try {
+      window.localStorage.setItem(NAV_VISIBILITY_KEY, String(next));
+    } catch {
+      // Preference persistence is optional; the toggle still works this session.
+    }
+  };
+
+  return [visible, update];
+}
+
 export function useStaffWorkspaceBusinessDay() {
   const context = useContext(StaffWorkspaceContext);
   return {
@@ -183,6 +211,7 @@ export function StaffWorkspaceLayout() {
     useState<CurrentOpenBusinessDay | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [loadVersion, setLoadVersion] = useState(0);
+  const [navVisible, setNavVisible] = useNavVisibility();
 
   useEffect(() => {
     let active = true;
@@ -202,6 +231,9 @@ export function StaffWorkspaceLayout() {
   }, [loadVersion]);
 
   useEffect(() => {
+    // A collapsed navigation has no layout to scroll; this reruns when it
+    // comes back so the current destination is still brought into view.
+    if (!navVisible) return;
     const navigation = navigationRef.current;
     const current = navigation?.querySelector<HTMLElement>(
       '[aria-current="page"]',
@@ -218,7 +250,7 @@ export function StaffWorkspaceLayout() {
     } else if (itemEnd > visibleEnd) {
       navigation.scrollLeft = itemEnd - navigation.clientWidth;
     }
-  }, [location.pathname]);
+  }, [location.pathname, navVisible]);
 
   return (
     <StaffWorkspaceContext.Provider
@@ -234,7 +266,22 @@ export function StaffWorkspaceLayout() {
           Skip to staff workspace
         </a>
         <header className="staff-workspace-header">
-          <div className="staff-workspace-header-inner">
+          <div className="staff-workspace-toggle-bar">
+            <button
+              className="staff-workspace-nav-toggle"
+              type="button"
+              aria-expanded={navVisible}
+              aria-controls="staff-workspace-chrome"
+              onClick={() => setNavVisible(!navVisible)}
+            >
+              {navVisible ? 'Hide menu' : 'Show menu'}
+            </button>
+          </div>
+          <div
+            className="staff-workspace-header-inner"
+            id="staff-workspace-chrome"
+            hidden={!navVisible}
+          >
             <div className="staff-workspace-context-row">
               <div className="staff-workspace-brand">
                 <UcmLogo size="inline" />

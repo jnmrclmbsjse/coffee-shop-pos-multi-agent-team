@@ -177,6 +177,7 @@ describe('AuthService', () => {
           username: 'staff',
           displayName: 'Casey Barista',
           role: Role.STAFF,
+          staffMemberId: '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
         },
       },
       token: 'signed-token',
@@ -299,6 +300,7 @@ describe('AuthService', () => {
       username: 'staff',
       displayName: 'Casey Barista',
       role: Role.STAFF,
+      staffMemberId: null,
     });
     expect(appendSelection).toHaveBeenCalledWith({
       deviceId: 'device-1',

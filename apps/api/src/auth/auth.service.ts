@@ -189,6 +189,28 @@ export class AuthService {
     this.throttle.reset(throttleKey);
   }
 
+  /**
+   * The JWT carries no roster linkage, so the session endpoint resolves it on
+   * read. Only staff logins can be linked to a roster member.
+   */
+  async withLinkedStaffMember(
+    user: AuthenticatedUser,
+  ): Promise<AuthenticatedUser> {
+    if (user.role !== Role.STAFF) {
+      return { ...user, staffMemberId: null };
+    }
+
+    return {
+      ...user,
+      staffMemberId: await this.linkedStaffMemberId(user.id),
+    };
+  }
+
+  private async linkedStaffMemberId(userId: string): Promise<string | null> {
+    const member = await this.usersService.findLinkedStaffMember(userId);
+    return member?.isActive ? member.id : null;
+  }
+
   private async verify(hash: string, secret: string): Promise<boolean> {
     try {
       return await argon2.verify(hash, secret);
@@ -229,6 +251,7 @@ export class AuthService {
       username: user.username,
       displayName: user.displayName,
       role: Role.STAFF,
+      staffMemberId: await this.linkedStaffMemberId(user.id),
     };
     const payload: AuthTokenPayload = {
       sub: authenticatedUser.id,

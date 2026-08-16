@@ -142,12 +142,16 @@ describe('StockCountsService', () => {
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { active: true, critical: true },
-        orderBy: [{ name: 'asc' }],
+        orderBy: [
+          { category: { sortWeight: 'asc' } },
+          { category: { name: 'asc' } },
+          { name: 'asc' },
+        ],
       }),
     );
   });
 
-  it('orders the closing sheet by critical then name', async () => {
+  it('orders the closing sheet by category, then critical, then name', async () => {
     const { prisma, service } = createService();
     prisma.inventoryItem.findMany.mockResolvedValue([]);
     prisma.stockCount.findFirst.mockResolvedValue(null);
@@ -157,9 +161,41 @@ describe('StockCountsService', () => {
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { active: true },
-        orderBy: [{ critical: 'desc' }, { name: 'asc' }],
+        orderBy: [
+          { category: { sortWeight: 'asc' } },
+          { category: { name: 'asc' } },
+          { critical: 'desc' },
+          { name: 'asc' },
+        ],
       }),
     );
+  });
+
+  it('flattens the item category onto each count sheet item', async () => {
+    const { prisma, service } = createService();
+    prisma.inventoryItem.findMany.mockResolvedValue([
+      {
+        id: 'item-id',
+        name: 'Cup',
+        size: '16 oz',
+        unit: 'pcs',
+        countMethod: CountMethod.QUANTITY,
+        critical: true,
+        categoryId: 'category-id',
+        category: { name: 'Packaging' },
+      },
+    ]);
+    prisma.stockCount.findFirst.mockResolvedValue(null);
+
+    await expect(service.openingSheet()).resolves.toMatchObject({
+      items: [
+        {
+          id: 'item-id',
+          categoryId: 'category-id',
+          categoryName: 'Packaging',
+        },
+      ],
+    });
   });
 
   it('returns only active staff alphabetically', async () => {

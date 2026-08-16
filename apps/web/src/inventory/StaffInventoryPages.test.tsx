@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { SignedInAs } from '../auth/session-test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   cents,
@@ -27,6 +28,8 @@ const quantityItem = {
   unit: 'pcs',
   countMethod: CountMethod.QUANTITY,
   critical: true,
+  categoryId: '5b7e2f4a-5f4f-4f1a-9f2b-2f9f7f3f1a01',
+  categoryName: 'Packaging',
 };
 
 const levelItem = {
@@ -36,6 +39,8 @@ const levelItem = {
   unit: 'bag',
   countMethod: CountMethod.LEVEL,
   critical: true,
+  categoryId: '5b7e2f4a-5f4f-4f1a-9f2b-2f9f7f3f1a02',
+  categoryName: 'Beans',
 };
 
 const nonCriticalItem = {
@@ -45,6 +50,8 @@ const nonCriticalItem = {
   unit: 'pack',
   countMethod: CountMethod.QUANTITY,
   critical: false,
+  categoryId: '5b7e2f4a-5f4f-4f1a-9f2b-2f9f7f3f1a01',
+  categoryName: 'Packaging',
 };
 
 const openDay = {
@@ -99,8 +106,15 @@ function installCountFetch(nextSheet: CountSheet) {
   });
 }
 
-function renderPage(page: React.ReactElement) {
-  return render(<MemoryRouter>{page}</MemoryRouter>);
+function renderPage(
+  page: React.ReactElement,
+  signedInStaffMemberId: string | null = null,
+) {
+  return render(
+    <SignedInAs staffMemberId={signedInStaffMemberId}>
+      <MemoryRouter>{page}</MemoryRouter>
+    </SignedInAs>,
+  );
 }
 
 describe('staff inventory screens', () => {
@@ -124,6 +138,45 @@ describe('staff inventory screens', () => {
     expect(await screen.findByText('Coffee beans')).toBeInTheDocument();
     expect(screen.getByText('Cup')).toBeInTheDocument();
     expect(screen.queryByText('Napkins')).not.toBeInTheDocument();
+  });
+
+  it('groups count items under their category heading', async () => {
+    installCountFetch(
+      sheet('close', [quantityItem, nonCriticalItem, levelItem]),
+    );
+
+    renderPage(<ClosingCountPage />);
+
+    await screen.findByText('Coffee beans');
+    const groups = document.querySelectorAll('.staff-count-group');
+    expect(
+      [...groups].map((group) =>
+        group.querySelector('.staff-count-group-title')?.textContent,
+      ),
+    ).toEqual(['Packaging', 'Beans']);
+    expect(
+      [...groups].map((group) =>
+        group.querySelectorAll('.staff-count-row').length,
+      ),
+    ).toEqual([2, 1]);
+  });
+
+  it('defaults Submitted by to the signed-in staff member', async () => {
+    installCountFetch(sheet('open'));
+
+    renderPage(<OpeningCountPage />, activeStaff[0]!.id);
+
+    expect(await screen.findByLabelText('Submitted by *')).toHaveValue(
+      activeStaff[0]!.id,
+    );
+  });
+
+  it('leaves Submitted by empty when the signed-in user has no roster member', async () => {
+    installCountFetch(sheet('open'));
+
+    renderPage(<OpeningCountPage />, null);
+
+    expect(await screen.findByLabelText('Submitted by *')).toHaveValue('');
   });
 
   it('keeps the closing sheet ordering returned by the API', async () => {
@@ -395,6 +448,7 @@ describe('staff inventory screens', () => {
           quantity: null,
           level: StockLevel.HALF,
           par: null,
+          parLevel: null,
           status: 'BELOW_PAR',
         },
       ],

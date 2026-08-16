@@ -115,6 +115,10 @@ export interface StaffMember {
   displayName: string;
   isActive: boolean;
   locationId: string | null;
+  // Login account linkage. A staff member has at most one account (userId is
+  // unique), so hasAccount decides create-versus-manage in the admin UI.
+  hasAccount: boolean;
+  accountUsername: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -332,6 +336,10 @@ export interface CountSheetItem {
   unit: string;
   countMethod: CountMethod;
   critical: boolean;
+  // Category the count sheet groups this item under. Carried on the item
+  // rather than as a nested list so the sheet stays a flat, ordered array.
+  categoryId: string;
+  categoryName: string;
 }
 
 export interface SubmittedStockCountLine extends StockCountLine {
@@ -392,7 +400,10 @@ export interface RestockStatusRow {
   countMethod: CountMethod;
   quantity: number | null;
   level: StockLevel | null;
+  // Quantity-counted items carry a numeric par; level-counted items carry a
+  // level-valued par. Exactly one side is populated, matching countMethod.
   par: number | null;
+  parLevel: StockLevel | null;
   status: RestockStatus;
 }
 

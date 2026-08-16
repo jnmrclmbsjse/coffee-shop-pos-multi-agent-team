@@ -16,6 +16,10 @@ import {
   type PackagingReconciliationRow,
   type TradingDayClosingSummary,
 } from '@coffee-shop/shared';
+import {
+  defaultStaffSelection,
+  useSignedInStaffMemberId,
+} from '../auth/signed-in-staff';
 import { formatMoney } from '../reporting/format';
 import { StaffPageHeading } from '../staff/StaffPageHeading';
 import { useStaffWorkspaceBusinessDay } from '../staff/StaffWorkspace';
@@ -272,6 +276,7 @@ export function OpenBusinessDayPage() {
   const [fieldErrors, setFieldErrors] = useState<OpenFieldErrors>({});
   const [formMessages, setFormMessages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const signedInStaffMemberId = useSignedInStaffMemberId();
 
   useEffect(() => {
     let cancelled = false;
@@ -288,6 +293,9 @@ export function OpenBusinessDayPage() {
           setDay(currentDay);
           setBusinessDay(currentDay);
           setStaff(activeStaff);
+          setOpenedBy(
+            defaultStaffSelection(activeStaff, signedInStaffMemberId),
+          );
         }
       } catch (error) {
         if (!cancelled) {
@@ -304,7 +312,7 @@ export function OpenBusinessDayPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadVersion, setBusinessDay]);
+  }, [loadVersion, setBusinessDay, signedInStaffMemberId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

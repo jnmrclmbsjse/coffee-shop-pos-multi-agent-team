@@ -45,10 +45,17 @@ describe('AuthController', () => {
     },
     token: 'staff-token',
   });
+  const withLinkedStaffMember = jest.fn(
+    async (user: { role: Role }) => ({
+      ...user,
+      staffMemberId: user.role === Role.STAFF ? 'roster-id' : null,
+    }),
+  );
   const authService = {
     login,
     staffPasswordLogin,
     staffPinLogin,
+    withLinkedStaffMember,
   } as unknown as AuthService;
   const cookie = jest.fn();
   const clearCookie = jest.fn();
@@ -65,8 +72,8 @@ describe('AuthController', () => {
     delete process.env.AUTH_COOKIE_SAME_SITE;
   });
 
-  it('returns the authenticated administrator from the verified session', () => {
-    expect(
+  it('returns the authenticated administrator from the verified session', async () => {
+    await expect(
       controller.session({
         headers: {},
         user: {
@@ -75,17 +82,18 @@ describe('AuthController', () => {
           role: Role.ADMIN,
         },
       }),
-    ).toEqual({
+    ).resolves.toEqual({
       user: {
         id: 'user-id',
         username: 'admin',
         role: Role.ADMIN,
+        staffMemberId: null,
       },
     });
   });
 
-  it('returns an authenticated staff session with its display name', () => {
-    expect(
+  it('returns an authenticated staff session with its roster link', async () => {
+    await expect(
       controller.session({
         headers: {},
         user: {
@@ -95,12 +103,13 @@ describe('AuthController', () => {
           role: Role.STAFF,
         },
       }),
-    ).toEqual({
+    ).resolves.toEqual({
       user: {
         id: 'staff-id',
         username: 'staff',
         displayName: 'Casey Barista',
         role: Role.STAFF,
+        staffMemberId: 'roster-id',
       },
     });
   });

@@ -13,6 +13,9 @@ export interface AuthenticatedUser {
   username: string;
   role: Role;
   displayName?: string;
+  // Roster member linked to this login, when there is one. Staff-facing forms
+  // use it to default their "who did this" selection to the signed-in user.
+  staffMemberId?: string | null;
 }
 
 export interface LoginResponse {

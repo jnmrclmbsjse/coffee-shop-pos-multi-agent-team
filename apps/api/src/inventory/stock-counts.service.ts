@@ -175,10 +175,21 @@ export class StockCountsService {
           active: true,
           ...(phase === 'open' ? { critical: true } : {}),
         },
+        // Category first so the sheet can be rendered in category groups;
+        // the previous ordering is preserved within each group.
         orderBy:
           phase === 'open'
-            ? [{ name: 'asc' }]
-            : [{ critical: 'desc' }, { name: 'asc' }],
+            ? [
+                { category: { sortWeight: 'asc' } },
+                { category: { name: 'asc' } },
+                { name: 'asc' },
+              ]
+            : [
+                { category: { sortWeight: 'asc' } },
+                { category: { name: 'asc' } },
+                { critical: 'desc' },
+                { name: 'asc' },
+              ],
         select: {
           id: true,
           name: true,
@@ -186,6 +197,8 @@ export class StockCountsService {
           unit: true,
           countMethod: true,
           critical: true,
+          categoryId: true,
+          category: { select: { name: true } },
         },
       }),
       this.prisma.stockCount.findFirst({
@@ -271,10 +284,14 @@ export class StockCountsService {
     unit: string;
     countMethod: CountMethod;
     critical: boolean;
+    categoryId: string;
+    category: { name: string };
   }): CountSheetItem {
+    const { category, ...rest } = item;
     return {
-      ...item,
+      ...rest,
       countMethod: item.countMethod as SharedCountMethod,
+      categoryName: category.name,
     };
   }
 

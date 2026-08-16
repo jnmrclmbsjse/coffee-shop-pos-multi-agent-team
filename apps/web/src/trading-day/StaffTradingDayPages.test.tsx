@@ -13,6 +13,7 @@ import {
   type CurrentOpenBusinessDay,
   type TradingDayClosingSummary,
 } from '@coffee-shop/shared';
+import { SignedInAs } from '../auth/session-test-utils';
 import {
   CloseBusinessDayPage,
   OpenBusinessDayPage,
@@ -76,11 +77,13 @@ function response(status: number, body?: unknown): Response {
   });
 }
 
-function renderOpenPage() {
+function renderOpenPage(signedInStaffMemberId: string | null = null) {
   return render(
-    <MemoryRouter>
-      <OpenBusinessDayPage />
-    </MemoryRouter>,
+    <SignedInAs staffMemberId={signedInStaffMemberId}>
+      <MemoryRouter>
+        <OpenBusinessDayPage />
+      </MemoryRouter>
+    </SignedInAs>,
   );
 }
 
@@ -134,6 +137,50 @@ describe('staff business-day pages', () => {
         ([, init]) => init?.method === 'POST',
       ),
     ).toHaveLength(0);
+  });
+
+  it('defaults Opened by to the signed-in staff member', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current') return response(200, noOpenDay);
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+
+    renderOpenPage(activeStaff[1]!.id);
+
+    const openedBy = await screen.findByLabelText('Opened by *');
+    expect(openedBy).toHaveValue(activeStaff[1]!.id);
+  });
+
+  it('keeps Opened by unselected when the signed-in user is not on the roster', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current') return response(200, noOpenDay);
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+
+    renderOpenPage('4a2a2f4e-0f2a-4a1e-9a0d-6d7c2c0e0000');
+
+    expect(await screen.findByLabelText('Opened by *')).toHaveValue('');
+  });
+
+  it('lets the signed-in default be changed to another staff member', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current') return response(200, noOpenDay);
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderOpenPage(activeStaff[1]!.id);
+
+    const openedBy = await screen.findByLabelText('Opened by *');
+    await user.selectOptions(openedBy, activeStaff[0]!.id);
+
+    expect(openedBy).toHaveValue(activeStaff[0]!.id);
   });
 
   it.each([

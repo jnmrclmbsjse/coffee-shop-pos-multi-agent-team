@@ -19,6 +19,10 @@ import {
   type SubmitStockCountLineInput,
   type SubmittedStockCount,
 } from '@coffee-shop/shared';
+import {
+  defaultStaffSelection,
+  useSignedInStaffMemberId,
+} from '../auth/signed-in-staff';
 import { StaffPageHeading } from '../staff/StaffPageHeading';
 import {
   InventoryApiError,
@@ -174,6 +178,33 @@ function Field({
   );
 }
 
+interface CountCategoryGroup {
+  categoryId: string;
+  categoryName: string;
+  items: CountSheetItem[];
+}
+
+/**
+ * Groups a count sheet by category while preserving the order the API sent,
+ * which already sorts by category weight and then by item.
+ */
+function toCountGroups(items: CountSheetItem[]): CountCategoryGroup[] {
+  const groups: CountCategoryGroup[] = [];
+  for (const item of items) {
+    const current = groups.at(-1);
+    if (current?.categoryId === item.categoryId) {
+      current.items.push(item);
+      continue;
+    }
+    groups.push({
+      categoryId: item.categoryId,
+      categoryName: item.categoryName,
+      items: [item],
+    });
+  }
+  return groups;
+}
+
 function toCountLines(
   items: CountSheetItem[],
   values: CountDraft,
@@ -233,26 +264,42 @@ function ReadOnlyCount({
           Record another {sheet.phase === 'open' ? 'opening' : 'closing'} count
         </button>
       </div>
-      <div className="staff-count-list">
-        {sheet.items.map((item) => {
-          const line = lines.get(item.id);
-          let value = 'Not counted';
-          if (line?.quantity !== null && line?.quantity !== undefined) {
-            value = `${line.quantity} ${item.unit}`;
-          } else if (line?.level) {
-            value = LEVEL_LABELS[line.level];
-          }
-          return (
-            <div className="staff-count-row" key={item.id}>
-              <CountItemIdentity item={item} />
-              <div
-                className={`staff-readonly-count${line ? '' : ' not-counted'}`}
-              >
-                {value}
-              </div>
+      <div className="staff-count-groups">
+        {toCountGroups(sheet.items).map((group) => (
+          <section
+            className="staff-count-group"
+            key={group.categoryId}
+            aria-labelledby={`submitted-category-${group.categoryId}`}
+          >
+            <h3
+              className="staff-count-group-title"
+              id={`submitted-category-${group.categoryId}`}
+            >
+              {group.categoryName}
+            </h3>
+            <div className="staff-count-list">
+              {group.items.map((item) => {
+                const line = lines.get(item.id);
+                let value = 'Not counted';
+                if (line?.quantity !== null && line?.quantity !== undefined) {
+                  value = `${line.quantity} ${item.unit}`;
+                } else if (line?.level) {
+                  value = LEVEL_LABELS[line.level];
+                }
+                return (
+                  <div className="staff-count-row" key={item.id}>
+                    <CountItemIdentity item={item} />
+                    <div
+                      className={`staff-readonly-count${line ? '' : ' not-counted'}`}
+                    >
+                      {value}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </section>
+        ))}
       </div>
     </div>
   );
@@ -284,6 +331,7 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
   const [fieldErrors, setFieldErrors] = useState<CountFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recordingAnother, setRecordingAnother] = useState(false);
+  const signedInStaffMemberId = useSignedInStaffMemberId();
 
   useEffect(() => {
     let cancelled = false;
@@ -296,6 +344,9 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
         if (cancelled) return;
         setSheet(nextSheet);
         setStaff(nextStaff);
+        setSubmittedBy(
+          defaultStaffSelection(nextStaff, signedInStaffMemberId),
+        );
       })
       .catch(() => {
         if (!cancelled) {
@@ -308,16 +359,20 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
     return () => {
       cancelled = true;
     };
-  }, [phase, loadVersion]);
+  }, [phase, loadVersion, signedInStaffMemberId]);
 
   const lines = useMemo(
     () => (sheet ? toCountLines(sheet.items, values) : []),
     [sheet, values],
   );
+  const countGroups = useMemo(
+    () => (sheet ? toCountGroups(sheet.items) : []),
+    [sheet],
+  );
   const canSubmit = Boolean(submittedBy) && lines.length > 0 && !isSubmitting;
 
   function resetDraft() {
-    setSubmittedBy('');
+    setSubmittedBy(defaultStaffSelection(staff, signedInStaffMemberId));
     setShiftLead('');
     setValues({});
     setFieldErrors({});
@@ -491,8 +546,21 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
                 </select>
               </Field>
             </div>
-            <div className="staff-count-list">
-              {sheet.items.map((item) => (
+            <div className="staff-count-groups">
+              {countGroups.map((group) => (
+                <section
+                  className="staff-count-group"
+                  key={group.categoryId}
+                  aria-labelledby={`${phase}-category-${group.categoryId}`}
+                >
+                  <h3
+                    className="staff-count-group-title"
+                    id={`${phase}-category-${group.categoryId}`}
+                  >
+                    {group.categoryName}
+                  </h3>
+                  <div className="staff-count-list">
+                    {group.items.map((item) => (
                 <div className="staff-count-row" key={item.id}>
                   <CountItemIdentity item={item} />
                   {item.countMethod === CountMethod.QUANTITY ? (
@@ -561,6 +629,9 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
                     </fieldset>
                   )}
                 </div>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
             {fieldErrors.lines && (
@@ -702,9 +773,11 @@ export function RestockStatusPage() {
                         )}
                       </td>
                       <td className="staff-number-cell">
-                        {row.countMethod === CountMethod.LEVEL || row.par === null
-                          ? '—'
-                          : row.par}
+                        {row.countMethod === CountMethod.LEVEL
+                          ? row.parLevel === null
+                            ? '—'
+                            : LEVEL_LABELS[row.parLevel]
+                          : (row.par ?? '—')}
                       </td>
                       <td>
                         <span
