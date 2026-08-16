@@ -267,11 +267,7 @@ export function StaffWorkspaceLayout() {
         </a>
         <header className="staff-workspace-header">
           <div className="staff-workspace-header-inner">
-            <div
-              className="staff-workspace-chrome"
-              id="staff-workspace-chrome"
-              hidden={!navVisible}
-            >
+            <div className="staff-workspace-top-bar">
               <div className="staff-workspace-context-row">
                 <div className="staff-workspace-brand">
                   <UcmLogo size="inline" />
@@ -294,6 +290,21 @@ export function StaffWorkspaceLayout() {
                   <StaffLogoutControl />
                 </div>
               </div>
+              <button
+                className="staff-workspace-nav-toggle"
+                type="button"
+                aria-expanded={navVisible}
+                aria-controls="staff-workspace-chrome"
+                onClick={() => setNavVisible(!navVisible)}
+              >
+                {navVisible ? 'Hide menu' : 'Show menu'}
+              </button>
+            </div>
+            <div
+              className="staff-workspace-chrome"
+              id="staff-workspace-chrome"
+              hidden={!navVisible}
+            >
               <CashierControl />
               <nav
                 className="staff-inventory-nav"
@@ -343,15 +354,6 @@ export function StaffWorkspaceLayout() {
                 </ul>
               </nav>
             </div>
-            <button
-              className="staff-workspace-nav-toggle"
-              type="button"
-              aria-expanded={navVisible}
-              aria-controls="staff-workspace-chrome"
-              onClick={() => setNavVisible(!navVisible)}
-            >
-              {navVisible ? 'Hide menu' : 'Show menu'}
-            </button>
           </div>
         </header>
         <Outlet />

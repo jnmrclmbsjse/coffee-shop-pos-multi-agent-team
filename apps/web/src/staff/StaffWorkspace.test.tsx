@@ -72,20 +72,49 @@ describe('staff workspace navigation toggle', () => {
     ).toBeInTheDocument();
   });
 
-  it('keeps the toggle outside the collapsible region and out of its own bar', () => {
+  it('collapses only the cashier row and the nav, never the top bar', () => {
     renderWorkspace();
 
-    const toggle = screen.getByRole('button', { name: 'Hide menu' });
     const chrome = document.getElementById('staff-workspace-chrome')!;
+    const toggle = screen.getByRole('button', { name: 'Hide menu' });
+    const contextRow = document.querySelector(
+      '.staff-workspace-context-row',
+    )!;
+    const cashier = document.querySelector('.cashier-shell-control')!;
+    const nav = screen.getByRole('navigation', { name: 'Staff workspace' });
 
-    // Reachable when collapsed only if it is a sibling, not a descendant.
+    // Persistent: the context row and the toggle survive a collapse.
+    expect(chrome.contains(contextRow)).toBe(false);
     expect(chrome.contains(toggle)).toBe(false);
+    expect(contextRow.parentElement).toBe(toggle.parentElement);
+
+    // Collapsible: the cashier control and the nav are the only casualties.
+    expect(chrome.contains(cashier)).toBe(true);
+    expect(chrome.contains(nav)).toBe(true);
+
     expect(toggle.getAttribute('aria-controls')).toBe('staff-workspace-chrome');
-    // It shares the header row with the chrome rather than adding a bar.
-    expect(toggle.parentElement).toBe(chrome.parentElement);
+    expect(document.querySelector('.staff-workspace-toggle-bar')).toBeNull();
+  });
+
+  it('keeps the brand, day context and logout on screen while collapsed', async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+
+    await user.click(screen.getByRole('button', { name: 'Hide menu' }));
+
+    expect(screen.getByText('UCM Coffee Studio')).toBeVisible();
+    expect(screen.getByText(/Signed in as/)).toBeVisible();
     expect(
-      document.querySelector('.staff-workspace-toggle-bar'),
-    ).toBeNull();
+      screen.getByLabelText('Business day context'),
+    ).toBeVisible();
+    expect(
+      document.querySelector('.staff-workspace-context-row'),
+    ).toBeVisible();
+    // …while the two collapsible rows are gone from the accessibility tree.
+    expect(
+      screen.queryByRole('navigation', { name: 'Staff workspace' }),
+    ).not.toBeInTheDocument();
+    expect(document.getElementById('staff-workspace-chrome')).not.toBeVisible();
   });
 
   it('remembers a hidden navigation across a remount', async () => {

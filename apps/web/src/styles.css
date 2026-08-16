@@ -5214,10 +5214,8 @@ button {
 }
 
 /*
- * The toggle sits beside the brand title rather than in a bar of its own, so
- * it costs no vertical space. It is a sibling of the collapsible region, not a
- * child: it is the one control that must stay reachable when the chrome is
- * hidden.
+ * The toggle rides in the persistent top bar beside the brand and day context,
+ * so it costs no vertical space and never moves when the rows below collapse.
  */
 .staff-workspace-nav-toggle {
   flex: none;
@@ -5245,19 +5243,26 @@ button {
   outline-offset: 2px;
 }
 
+/*
+ * A vertical stack: a top bar that is always on screen, then the collapsible
+ * rows. Stacking rather than sitting the toggle alongside everything is what
+ * lets the cashier row and the nav use the full inner width — no gutter is
+ * reserved for the button on the rows below it.
+ */
 .staff-workspace-header-inner {
   width: min(100%, 1504px);
   display: flex;
-  align-items: flex-start;
-  /*
-   * flex-end only bites once the chrome is hidden and the toggle is the sole
-   * child; it keeps the control in the same corner in both states, so nobody
-   * has to hunt for it after collapsing.
-   */
-  justify-content: flex-end;
-  gap: var(--space-4);
+  flex-direction: column;
+  gap: var(--space-3);
   margin: 0 auto;
   padding: var(--space-3) var(--space-8);
+}
+
+.staff-workspace-top-bar {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
 }
 
 /* `display: grid` below outranks the UA rule for [hidden], so restate it. */
@@ -5267,8 +5272,6 @@ button {
 
 .staff-workspace-chrome {
   min-width: 0;
-  min-height: 72px;
-  flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
@@ -5276,6 +5279,7 @@ button {
 
 .staff-workspace-context-row {
   min-width: 0;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
