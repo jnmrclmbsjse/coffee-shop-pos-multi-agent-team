@@ -17,6 +17,8 @@ const mara: StaffMember = {
   displayName: 'Mara Villanueva',
   isActive: true,
   locationId: null,
+  hasAccount: false,
+  accountUsername: null,
   createdAt: '2026-07-25T00:00:00.000Z',
   updatedAt: '2026-07-25T00:00:00.000Z',
 };
@@ -259,6 +261,36 @@ describe('staff roster page', () => {
     expect(
       screen.getByText('Activate staff to create an account'),
     ).toBeInTheDocument();
+  });
+
+  it('offers account management, not creation, once a member has a login', async () => {
+    const linked: StaffMember = {
+      ...mara,
+      hasAccount: true,
+      accountUsername: 'mara.login',
+    };
+    fetchMock.mockResolvedValue(response(200, [linked]));
+    const user = userEvent.setup();
+    renderPage();
+
+    const manage = await screen.findByRole('button', {
+      name: 'Manage login account for Mara Villanueva',
+    });
+    expect(
+      screen.queryByRole('button', {
+        name: 'Create login account for Mara Villanueva',
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(manage);
+
+    const dialog = screen.getByRole('dialog', {
+      name: 'Manage login account',
+    });
+    expect(within(dialog).getByText('mara.login')).toBeInTheDocument();
+    expect(
+      within(dialog).queryByLabelText('Password'),
+    ).not.toBeInTheDocument();
   });
 
   it('creates an account once with a normalized payload and never echoes credentials after success', async () => {

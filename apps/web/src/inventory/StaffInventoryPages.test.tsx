@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { SignedInAs } from '../auth/session-test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   cents,
@@ -10,6 +11,7 @@ import {
   StockLevel,
   type CountSheet,
   type CurrentOpenBusinessDay,
+  type RestockStatus,
   type RestockStatusResult,
   type StockMovementList,
 } from '@coffee-shop/shared';
@@ -27,6 +29,8 @@ const quantityItem = {
   unit: 'pcs',
   countMethod: CountMethod.QUANTITY,
   critical: true,
+  categoryId: '5b7e2f4a-5f4f-4f1a-9f2b-2f9f7f3f1a01',
+  categoryName: 'Packaging',
 };
 
 const levelItem = {
@@ -36,6 +40,8 @@ const levelItem = {
   unit: 'bag',
   countMethod: CountMethod.LEVEL,
   critical: true,
+  categoryId: '5b7e2f4a-5f4f-4f1a-9f2b-2f9f7f3f1a02',
+  categoryName: 'Beans',
 };
 
 const nonCriticalItem = {
@@ -45,6 +51,8 @@ const nonCriticalItem = {
   unit: 'pack',
   countMethod: CountMethod.QUANTITY,
   critical: false,
+  categoryId: '5b7e2f4a-5f4f-4f1a-9f2b-2f9f7f3f1a01',
+  categoryName: 'Packaging',
 };
 
 const openDay = {
@@ -99,8 +107,15 @@ function installCountFetch(nextSheet: CountSheet) {
   });
 }
 
-function renderPage(page: React.ReactElement) {
-  return render(<MemoryRouter>{page}</MemoryRouter>);
+function renderPage(
+  page: React.ReactElement,
+  signedInStaffMemberId: string | null = null,
+) {
+  return render(
+    <SignedInAs staffMemberId={signedInStaffMemberId}>
+      <MemoryRouter>{page}</MemoryRouter>
+    </SignedInAs>,
+  );
 }
 
 describe('staff inventory screens', () => {
@@ -124,6 +139,45 @@ describe('staff inventory screens', () => {
     expect(await screen.findByText('Coffee beans')).toBeInTheDocument();
     expect(screen.getByText('Cup')).toBeInTheDocument();
     expect(screen.queryByText('Napkins')).not.toBeInTheDocument();
+  });
+
+  it('groups count items under their category heading', async () => {
+    installCountFetch(
+      sheet('close', [quantityItem, nonCriticalItem, levelItem]),
+    );
+
+    renderPage(<ClosingCountPage />);
+
+    await screen.findByText('Coffee beans');
+    const groups = document.querySelectorAll('.staff-count-group');
+    expect(
+      [...groups].map((group) =>
+        group.querySelector('.staff-count-group-title')?.textContent,
+      ),
+    ).toEqual(['Packaging', 'Beans']);
+    expect(
+      [...groups].map((group) =>
+        group.querySelectorAll('.staff-count-row').length,
+      ),
+    ).toEqual([2, 1]);
+  });
+
+  it('defaults Submitted by to the signed-in staff member', async () => {
+    installCountFetch(sheet('open'));
+
+    renderPage(<OpeningCountPage />, activeStaff[0]!.id);
+
+    expect(await screen.findByLabelText('Submitted by *')).toHaveValue(
+      activeStaff[0]!.id,
+    );
+  });
+
+  it('leaves Submitted by empty when the signed-in user has no roster member', async () => {
+    installCountFetch(sheet('open'));
+
+    renderPage(<OpeningCountPage />, null);
+
+    expect(await screen.findByLabelText('Submitted by *')).toHaveValue('');
   });
 
   it('keeps the closing sheet ordering returned by the API', async () => {
@@ -395,6 +449,7 @@ describe('staff inventory screens', () => {
           quantity: null,
           level: StockLevel.HALF,
           par: null,
+          parLevel: null,
           status: 'BELOW_PAR',
         },
       ],
@@ -406,6 +461,125 @@ describe('staff inventory screens', () => {
     const row = screen.getByText('Coffee beans').closest('tr')!;
     expect(within(row).getByText('Half')).toBeInTheDocument();
     expect(within(row).getByText('—')).toBeInTheDocument();
+  });
+
+  function restockResult(
+    rows: RestockStatusResult['rows'],
+  ): RestockStatusResult {
+    return {
+      businessDay: openDay,
+      hasCount: true,
+      selectedPhase: 'close',
+      selectedCountId: 'count-id',
+      selectedCountRecordedAt: '2026-07-30T08:00:00.000Z',
+      rows,
+    };
+  }
+
+  function levelRow(
+    level: StockLevel,
+    parLevel: StockLevel | null,
+    status: RestockStatus,
+  ): RestockStatusResult['rows'][number] {
+    return {
+      inventoryItemId: levelItem.id,
+      itemName: levelItem.name,
+      critical: true,
+      countMethod: CountMethod.LEVEL,
+      quantity: null,
+      level,
+      par: null,
+      parLevel,
+      status,
+    };
+  }
+
+  async function restockCells(): Promise<string[]> {
+    await screen.findByText('Coffee beans');
+    const row = screen.getByText('Coffee beans').closest('tr')!;
+    return [...row.querySelectorAll('td')].map((cell) =>
+      cell.textContent!.replace('Critical', '').trim(),
+    );
+  }
+
+  it.each([
+    [
+      'below par',
+      StockLevel.QUARTER,
+      StockLevel.FULL,
+      'LOW' as const,
+      ['Coffee beans', 'QuarterLevel', 'Full', 'Low'],
+    ],
+    [
+      'at par',
+      StockLevel.HALF,
+      StockLevel.HALF,
+      'ENOUGH' as const,
+      ['Coffee beans', 'HalfLevel', 'Half', 'Enough'],
+    ],
+    [
+      'above par',
+      StockLevel.TWO_THIRDS,
+      StockLevel.HALF,
+      'ENOUGH' as const,
+      ['Coffee beans', 'Two-thirdsLevel', 'Half', 'Enough'],
+    ],
+  ])(
+    'shows the configured level par on the staff restock table when %s',
+    async (_case, level, parLevel, status, expected) => {
+      fetchMock.mockResolvedValue(
+        response(200, restockResult([levelRow(level, parLevel, status)])),
+      );
+
+      renderPage(<RestockStatusPage />);
+
+      expect(await restockCells()).toEqual(expected);
+    },
+  );
+
+  it('falls back to a dash when a level item has no configured par', async () => {
+    fetchMock.mockResolvedValue(
+      response(200, restockResult([levelRow(StockLevel.HALF, null, 'BELOW_PAR')])),
+    );
+
+    renderPage(<RestockStatusPage />);
+
+    expect(await restockCells()).toEqual([
+      'Coffee beans',
+      'HalfLevel',
+      '\u2014',
+      'Below par',
+    ]);
+  });
+
+  it('keeps the numeric par for a quantity-counted item', async () => {
+    fetchMock.mockResolvedValue(
+      response(
+        200,
+        restockResult([
+          {
+            inventoryItemId: levelItem.id,
+            itemName: levelItem.name,
+            critical: false,
+            countMethod: CountMethod.QUANTITY,
+            quantity: 4,
+            level: null,
+            par: 10,
+            parLevel: null,
+            status: 'BELOW_PAR',
+          },
+        ]),
+      ),
+    );
+
+    renderPage(<RestockStatusPage />);
+
+    expect(await restockCells()).toEqual([
+      'Coffee beans',
+      '4',
+      '10',
+      'Below par',
+    ]);
   });
 
   it('uses the shared no-open-day blocking state instead of a form', async () => {

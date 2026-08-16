@@ -1001,7 +1001,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
   transition:
     border-color 160ms ease-out,
     box-shadow 160ms ease-out;
@@ -1626,7 +1626,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .inventory-filters .search-control {
@@ -1806,7 +1806,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .staff-filters .search-control input {
@@ -2740,7 +2740,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .compensation-filters input:focus-visible,
@@ -3610,7 +3610,7 @@ button {
 }
 
 .restock-copy-secondary {
-  padding-top: 0;
+  padding-top: var(--space-3);
 }
 
 .critical-marker {
@@ -3834,12 +3834,12 @@ button {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .payslip-filter select[aria-invalid='true'] {
   border-color: var(--danger);
-  background: var(--danger-surface);
+  background-color: var(--danger-surface);
 }
 
 .report-field-help,
@@ -4030,7 +4030,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .order-history-filters input::placeholder {
@@ -5213,18 +5213,73 @@ button {
   box-shadow: 0 2px 5px color-mix(in oklch, var(--fg) 5%, transparent);
 }
 
+/*
+ * The toggle rides in the persistent top bar beside the brand and day context,
+ * so it costs no vertical space and never moves when the rows below collapse.
+ */
+.staff-workspace-nav-toggle {
+  flex: none;
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.staff-workspace-nav-toggle:hover {
+  background: var(--surface-subtle);
+}
+
+.staff-workspace-nav-toggle:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/*
+ * A vertical stack: a top bar that is always on screen, then the collapsible
+ * rows. Stacking rather than sitting the toggle alongside everything is what
+ * lets the cashier row and the nav use the full inner width — no gutter is
+ * reserved for the button on the rows below it.
+ */
 .staff-workspace-header-inner {
   width: min(100%, 1504px);
-  min-height: 72px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
   margin: 0 auto;
   padding: var(--space-3) var(--space-8);
 }
 
+.staff-workspace-top-bar {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+/* `display: grid` below outranks the UA rule for [hidden], so restate it. */
+.staff-workspace-chrome[hidden] {
+  display: none;
+}
+
+.staff-workspace-chrome {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
 .staff-workspace-context-row {
   min-width: 0;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5975,7 +6030,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .staff-inventory-field textarea {
@@ -6008,7 +6063,7 @@ button {
 .staff-inventory-field textarea:disabled {
   cursor: not-allowed;
   color: var(--muted);
-  background: var(--surface-subtle);
+  background-color: var(--surface-subtle);
 }
 
 .staff-inventory-field-error {
@@ -6019,6 +6074,52 @@ button {
 
 .staff-count-list {
   border-top: 1px solid var(--border);
+}
+
+/*
+ * Count sheets are grouped by category. One column by default so narrow
+ * screens degrade cleanly; two side-by-side categories once there is room for
+ * them, which is the common iPad-landscape service case.
+ */
+.staff-count-groups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-6);
+}
+
+.staff-count-group {
+  min-width: 0;
+}
+
+.staff-count-group-title {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+@media (min-width: 1024px) {
+  .staff-count-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-8);
+  }
+
+  /*
+   * Half the width means the item and its control stack, and the eight level
+   * buttons need two rows instead of one.
+   */
+  .staff-count-groups .staff-count-row {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .staff-count-groups .staff-level-options {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .staff-count-row {
@@ -6901,6 +7002,7 @@ button {
 @media (max-width: 767px) {
   .staff-workspace-header-inner {
     padding: var(--space-2) var(--space-4);
+    gap: var(--space-2);
   }
 
   .staff-workspace-context-row {
@@ -8443,7 +8545,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .staff-order-filter-grid input::placeholder {
@@ -8459,7 +8561,7 @@ button {
 .staff-order-filter-grid select:disabled {
   cursor: not-allowed;
   color: var(--muted);
-  background: var(--surface-subtle);
+  background-color: var(--surface-subtle);
 }
 
 .staff-order-filter-grid select:focus-visible,
@@ -9320,4 +9422,53 @@ button {
   .staff-cash-type-options label > span {
     min-height: 64px;
   }
+}
+
+/*
+ * Dropdown normalisation for older iPad Safari.
+ *
+ * Left at its default appearance, an iOS <select> is drawn with the system
+ * control chrome: the author background, border radius and padding above are
+ * ignored or half-applied, and a fixed height clips the label. That is what
+ * makes the Open Day dropdowns look broken next to the inputs beside them.
+ *
+ * This block is deliberately old-WebKit-safe: appearance reset, an inline SVG
+ * arrow, and background positioning only. No color-mix, no mask, no logical
+ * shorthands. `select:not([multiple])` matches the specificity of the
+ * component rules above and wins on source order, so it also reclaims the
+ * padding the arrow needs without !important.
+ *
+ * INVARIANT: because the arrow lives in `background-image`, no rule anywhere
+ * may set the `background` SHORTHAND on a select — a shorthand resets
+ * background-image to none and strips the only dropdown affordance the
+ * control has left once appearance is reset. Source order does not save us
+ * either: a more specific rule (`select:disabled`, `select[aria-invalid]`)
+ * wins outright. Every select rule in this file therefore uses
+ * `background-color`. Keep it that way when adding new ones.
+ */
+select:not([multiple]) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23555555' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+  text-overflow: ellipsis;
+}
+
+select:not([multiple])::-ms-expand {
+  display: none;
+}
+
+/*
+ * A fixed height on a select clips its label once the system font is scaled
+ * up, which old iPad Safari does readily. These two are the only dropdowns
+ * that were sized with `height`; give them a floor instead of a ceiling.
+ */
+.payslip-filter select:not([multiple]),
+.order-history-filters select:not([multiple]) {
+  height: auto;
+  min-height: var(--field-h);
 }

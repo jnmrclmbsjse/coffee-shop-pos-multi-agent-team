@@ -68,6 +68,7 @@ describe('StaffService', () => {
         isActive: false,
       },
       orderBy: [{ displayName: 'desc' }],
+      include: { user: { select: { username: true } } },
     });
   });
 
@@ -168,6 +169,7 @@ describe('StaffService', () => {
         isActive: true,
         locationId: null,
       },
+      include: { user: { select: { username: true } } },
     });
   });
 
@@ -205,12 +207,31 @@ describe('StaffService', () => {
         displayName: 'Alex Santos',
         isActive: false,
       },
+      include: { user: { select: { username: true } } },
     });
     expect(result).toMatchObject({
       id: staffId,
       displayName: 'Alex Santos',
       isActive: false,
+      hasAccount: false,
+      accountUsername: null,
     });
+  });
+
+  it('reports the linked login account on a staff member', async () => {
+    const prisma = createPrisma();
+    prisma.staffMember.findMany.mockResolvedValue([
+      staffRecord({ user: { username: 'alex' } }),
+      staffRecord({ id: 'other-id', user: null }),
+    ]);
+    const service = createService(prisma);
+
+    await expect(
+      service.list({ sort: 'name', direction: 'asc' }),
+    ).resolves.toMatchObject([
+      { id: staffId, hasAccount: true, accountUsername: 'alex' },
+      { id: 'other-id', hasAccount: false, accountUsername: null },
+    ]);
   });
 
   it('returns not found instead of replacing a missing record', async () => {

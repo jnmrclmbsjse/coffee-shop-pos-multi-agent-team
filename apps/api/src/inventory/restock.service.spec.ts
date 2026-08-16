@@ -78,6 +78,36 @@ describe('restock status classification', () => {
       FULL: 'ENOUGH',
     });
   });
+
+  it('clears items counted at or above their configured par level', () => {
+    expect(
+      levelRestockStatus(StockLevel.HALF, StockLevel.HALF),
+    ).toBe('ENOUGH');
+    expect(
+      levelRestockStatus(StockLevel.TWO_THIRDS, StockLevel.HALF),
+    ).toBe('ENOUGH');
+    expect(
+      levelRestockStatus(StockLevel.FULL, StockLevel.HALF),
+    ).toBe('ENOUGH');
+  });
+
+  it('keeps absolute urgency for levels below their configured par', () => {
+    expect(
+      levelRestockStatus(StockLevel.EMPTY, StockLevel.HALF),
+    ).toBe('URGENT');
+    expect(
+      levelRestockStatus(StockLevel.QUARTER, StockLevel.HALF),
+    ).toBe('LOW');
+    expect(
+      levelRestockStatus(StockLevel.HALF, StockLevel.FULL),
+    ).toBe('BELOW_PAR');
+  });
+
+  it('never reads as enough while below par', () => {
+    expect(
+      levelRestockStatus(StockLevel.THREE_QUARTERS, StockLevel.FULL),
+    ).toBe('BELOW_PAR');
+  });
 });
 
 describe('RestockService', () => {
@@ -166,7 +196,7 @@ describe('RestockService', () => {
     id: string,
     name: string,
     level: StockLevel,
-    savedParLevel: StockLevel,
+    savedParLevel: StockLevel | null,
   ) {
     return {
       id: `line-${id}`,
@@ -280,7 +310,7 @@ describe('RestockService', () => {
     ]);
   });
 
-  it('ignores a saved level par and keeps the fixed level status mapping', async () => {
+  it('reports the saved level par and grades the count against it', async () => {
     const { prisma, service } = createService();
     prisma.stockCount.findMany.mockResolvedValue([
       countRecord(StockCountPhase.CLOSE, [
@@ -299,7 +329,46 @@ describe('RestockService', () => {
           inventoryItemId: 'level-item',
           level: StockLevel.QUARTER,
           par: null,
+          parLevel: StockLevel.FULL,
           status: 'LOW',
+        },
+      ],
+    });
+  });
+
+  it('does not flag a level count that meets or beats its par', async () => {
+    const { prisma, service } = createService();
+    prisma.stockCount.findMany.mockResolvedValue([
+      countRecord(StockCountPhase.CLOSE, [
+        levelLine('water', 'Water', StockLevel.TWO_THIRDS, StockLevel.HALF),
+        levelLine('matcha', 'Matcha', StockLevel.HALF, StockLevel.HALF),
+      ]),
+    ]);
+
+    const result = await service.getStatus();
+
+    expect(
+      result.rows.map((row) => [row.inventoryItemId, row.status]),
+    ).toEqual([
+      ['matcha', 'ENOUGH'],
+      ['water', 'ENOUGH'],
+    ]);
+  });
+
+  it('falls back to the fixed bands when the item has no level par', async () => {
+    const { prisma, service } = createService();
+    prisma.stockCount.findMany.mockResolvedValue([
+      countRecord(StockCountPhase.CLOSE, [
+        levelLine('level-item', 'Milk', StockLevel.HALF, null),
+      ]),
+    ]);
+
+    await expect(service.getStatus()).resolves.toMatchObject({
+      rows: [
+        {
+          inventoryItemId: 'level-item',
+          parLevel: null,
+          status: 'BELOW_PAR',
         },
       ],
     });

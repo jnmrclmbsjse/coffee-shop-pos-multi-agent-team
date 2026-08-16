@@ -36,6 +36,19 @@ const levelStatus: Record<StockLevel, RestockStatus> = {
   FULL: 'ENOUGH',
 };
 
+// Natural ordering of the level scale, fullest last. Used to compare a counted
+// level against the configured par level for the day type.
+const levelRank: Record<StockLevel, number> = {
+  EMPTY: 0,
+  LOW: 1,
+  QUARTER: 2,
+  ONE_THIRD: 3,
+  HALF: 4,
+  TWO_THIRDS: 5,
+  THREE_QUARTERS: 6,
+  FULL: 7,
+};
+
 const statusRank: Record<RestockStatus, number> = {
   URGENT: 0,
   LOW: 1,
@@ -68,8 +81,16 @@ export function quantityRestockStatus(
 
 export function levelRestockStatus(
   level: StockLevel,
+  parLevel: StockLevel | null = null,
 ): RestockStatus {
-  return levelStatus[level];
+  const status = levelStatus[level];
+  // Without a configured par level the fixed band mapping is all we have.
+  if (parLevel === null) return status;
+  // At or above par is never a restock need, however low the fixed band reads.
+  if (levelRank[level] >= levelRank[parLevel]) return 'ENOUGH';
+  // Below par keeps the absolute urgency of the band, but can never read as
+  // ENOUGH — that would hide a genuine shortfall against a FULL par.
+  return status === 'ENOUGH' ? 'BELOW_PAR' : status;
 }
 
 const restockCountInclude = {
@@ -180,6 +201,7 @@ export class RestockService {
     const item = line.inventoryItem;
     if (item.countMethod === CountMethod.LEVEL) {
       const level = line.level!;
+      const parLevel = par?.parLevel ?? null;
       return {
         inventoryItemId: item.id,
         itemName: item.name,
@@ -188,7 +210,8 @@ export class RestockService {
         quantity: null,
         level: level as SharedStockLevel,
         par: null,
-        status: levelRestockStatus(level),
+        parLevel: parLevel as SharedStockLevel | null,
+        status: levelRestockStatus(level, parLevel),
       };
     }
 
@@ -209,6 +232,7 @@ export class RestockService {
       quantity,
       level: null,
       par: quantityBands?.parQty ?? null,
+      parLevel: null,
       status: quantityRestockStatus(quantity, quantityBands),
     };
   }

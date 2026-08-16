@@ -159,6 +159,7 @@ describe('daily inventory report page', () => {
                 quantity: 2,
                 level: null,
                 par: null,
+                parLevel: null,
                 status: 'URGENT',
               },
               {
@@ -169,6 +170,7 @@ describe('daily inventory report page', () => {
                 quantity: null,
                 level: StockLevel.HALF,
                 par: null,
+                parLevel: null,
                 status: 'BELOW_PAR',
               },
             ],
@@ -188,6 +190,39 @@ describe('daily inventory report page', () => {
     expect(levelRow).toHaveTextContent('Chocolate powderHalfUnavailableBelow par');
     expect(within(levelRow).getByText('Half')).toHaveClass('restock-level');
     expect(within(table).getAllByText('Unavailable')).toHaveLength(2);
+  });
+
+  it('shows the configured level par as the target for a level-counted item', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({
+          restock: {
+            ...dailyReport().restock,
+            rows: [
+              {
+                inventoryItemId: 'matcha',
+                itemName: 'Ceremonial matcha',
+                critical: true,
+                countMethod: CountMethod.LEVEL,
+                quantity: null,
+                level: StockLevel.QUARTER,
+                par: null,
+                parLevel: StockLevel.FULL,
+                status: 'LOW',
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    renderPage();
+
+    const table = await screen.findByRole('table', {
+      name: /Items below their restock threshold/,
+    });
+    const row = within(table).getByRole('row', { name: /Ceremonial matcha/ });
+    expect(row).toHaveTextContent('Ceremonial matchaCriticalQuarterFullLow');
+    expect(within(table).queryByText('Unavailable')).not.toBeInTheDocument();
   });
 
   it('shows a positive empty state when a submitted count needs no restocking', async () => {

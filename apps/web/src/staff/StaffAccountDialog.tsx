@@ -94,8 +94,14 @@ export function StaffAccountDialog({
   const doneButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    requestAnimationFrame(() => usernameRef.current?.focus());
-  }, []);
+    // The create form is not rendered for a member who already has an account,
+    // so there is no username field to land on.
+    requestAnimationFrame(() =>
+      member.hasAccount
+        ? doneButtonRef.current?.focus()
+        : usernameRef.current?.focus(),
+    );
+  }, [member.hasAccount]);
 
   useEffect(() => {
     if (success) requestAnimationFrame(() => doneButtonRef.current?.focus());
@@ -250,9 +256,23 @@ export function StaffAccountDialog({
       >
         <div className="inventory-modal-head">
           <div>
-            <h2 id="staff-account-dialog-title">Create login account</h2>
+            <h2 id="staff-account-dialog-title">
+              {member.hasAccount
+                ? 'Manage login account'
+                : 'Create login account'}
+            </h2>
             <p id="staff-account-dialog-description">
-              Create an account linked to <strong>{member.displayName}</strong>.
+              {member.hasAccount ? (
+                <>
+                  <strong>{member.displayName}</strong> already has a login
+                  account.
+                </>
+              ) : (
+                <>
+                  Create an account linked to{' '}
+                  <strong>{member.displayName}</strong>.
+                </>
+              )}
             </p>
           </div>
           <button
@@ -266,7 +286,35 @@ export function StaffAccountDialog({
           </button>
         </div>
 
-        {success ? (
+        {member.hasAccount ? (
+          <div className="staff-account-success" role="status">
+            <h3>Linked login account</h3>
+            <dl>
+              <div>
+                <dt>Username</dt>
+                <dd>{member.accountUsername ?? 'Unavailable'}</dd>
+              </div>
+              <div>
+                <dt>Linked staff member</dt>
+                <dd>{member.displayName}</dd>
+              </div>
+            </dl>
+            <p className="staff-account-privacy">
+              The password and PIN are not shown. Changing them is not available
+              yet — deactivate the staff member to stop sign-in.
+            </p>
+            <div className="staff-modal-actions">
+              <button
+                ref={doneButtonRef}
+                className="catalog-button primary"
+                type="button"
+                onClick={() => onClose(false)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : success ? (
           <div className="staff-account-success" role="status" aria-live="polite">
             <h3>Login account created</h3>
             <p>The account is ready to use.</p>

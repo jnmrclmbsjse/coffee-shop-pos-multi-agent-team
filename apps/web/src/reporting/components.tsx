@@ -400,14 +400,20 @@ function RestockCount({ row }: { row: RestockStatusRow }) {
 }
 
 function RestockTarget({ row }: { row: RestockStatusRow }) {
-  if (row.countMethod === CountMethod.LEVEL || row.par === null) {
+  const target =
+    row.countMethod === CountMethod.LEVEL ? row.parLevel : row.par;
+  if (target === null) {
     return (
       <span className="unavailable" aria-label="Unavailable: no par target is configured for this item and day type.">
         Unavailable
       </span>
     );
   }
-  return <span className="num">{formatCount(row.par)}</span>;
+  return row.countMethod === CountMethod.LEVEL ? (
+    <span className="restock-level">{formatStockLevel(row.parLevel)}</span>
+  ) : (
+    <span className="num">{formatCount(row.par!)}</span>
+  );
 }
 
 export function RestockNeedsPanel({

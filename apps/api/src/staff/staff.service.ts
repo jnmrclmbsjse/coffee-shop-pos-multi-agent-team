@@ -19,6 +19,11 @@ import type {
   UpdateStaffMemberDto,
 } from './staff.dto';
 
+// Only the username is exposed; password and PIN hashes never leave the API.
+const staffMemberAccountInclude = {
+  user: { select: { username: true } },
+} satisfies Prisma.StaffMemberInclude;
+
 @Injectable()
 export class StaffService {
   constructor(
@@ -43,6 +48,7 @@ export class StaffService {
           : { isActive: query.active }),
       },
       orderBy: this.orderBy(query),
+      include: staffMemberAccountInclude,
     });
 
     return records.map((record) => this.toStaffMember(record));
@@ -74,6 +80,7 @@ export class StaffService {
         isActive: input.isActive,
         locationId: input.locationId ?? null,
       },
+      include: staffMemberAccountInclude,
     });
 
     return this.toStaffMember(record);
@@ -104,6 +111,7 @@ export class StaffService {
     const record = await this.prisma.staffMember.update({
       where: { id },
       data: input,
+      include: staffMemberAccountInclude,
     });
 
     return this.toStaffMember(record);
@@ -157,9 +165,13 @@ export class StaffService {
     locationId: string | null;
     createdAt: Date;
     updatedAt: Date;
+    user?: { username: string } | null;
   }): StaffMember {
+    const { user, ...rest } = record;
     return {
-      ...record,
+      ...rest,
+      hasAccount: user != null,
+      accountUsername: user?.username ?? null,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
     };

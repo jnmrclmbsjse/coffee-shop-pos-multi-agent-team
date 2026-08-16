@@ -14,6 +14,10 @@ import {
   type InventoryStaffOption,
   type MoneyCents,
 } from '@coffee-shop/shared';
+import {
+  defaultStaffSelection,
+  useSignedInStaffMemberId,
+} from '../auth/signed-in-staff';
 import { formatMoney } from '../reporting/format';
 import { StaffPageHeading } from '../staff/StaffPageHeading';
 import { useStaffWorkspaceBusinessDay } from '../staff/StaffWorkspace';
@@ -231,6 +235,7 @@ export function CashAndExpensesPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [closedDuringSubmit, setClosedDuringSubmit] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const signedInStaffMemberId = useSignedInStaffMemberId();
   const submitInFlight = useRef(false);
   const retryIdentity = useRef<RetryIdentity | null>(null);
 
@@ -250,6 +255,7 @@ export function CashAndExpensesPage() {
         if (!day.isOpen) {
           setMovements([]);
           setStaff([]);
+          setRecordedBy('');
           return;
         }
         const [ledger, activeStaff] = await Promise.all([
@@ -261,6 +267,9 @@ export function CashAndExpensesPage() {
         setWorkspaceBusinessDay(ledger.businessDay);
         setMovements(ledger.movements);
         setStaff(activeStaff);
+        setRecordedBy(
+          defaultStaffSelection(activeStaff, signedInStaffMemberId),
+        );
       })
       .catch(() => {
         if (active) setLoadError('Cash and expenses could not be loaded. Try again.');
@@ -271,7 +280,7 @@ export function CashAndExpensesPage() {
     return () => {
       active = false;
     };
-  }, [loadAttempt, setWorkspaceBusinessDay]);
+  }, [loadAttempt, setWorkspaceBusinessDay, signedInStaffMemberId]);
 
   function changeKind(nextKind: CashMovementKind) {
     setKind(nextKind);
@@ -336,7 +345,7 @@ export function CashAndExpensesPage() {
       setAmount('');
       setReason('');
       setCategory('');
-      setRecordedBy('');
+      setRecordedBy(defaultStaffSelection(staff, signedInStaffMemberId));
       retryIdentity.current = null;
       setSuccessMessage('Entry recorded. It is now the first row in today\'s ledger.');
     } catch (error) {

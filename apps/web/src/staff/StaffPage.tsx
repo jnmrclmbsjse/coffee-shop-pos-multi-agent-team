@@ -462,10 +462,16 @@ export function StaffPage() {
                           <button
                             className="catalog-button small"
                             type="button"
-                            aria-label={`Create login account for ${member.displayName}`}
+                            aria-label={`${
+                              member.hasAccount
+                                ? 'Manage login account for'
+                                : 'Create login account for'
+                            } ${member.displayName}`}
                             onClick={() => openAccountDialog(member)}
                           >
-                            Create login account
+                            {member.hasAccount
+                              ? 'Manage login account'
+                              : 'Create login account'}
                           </button>
                         ) : (
                           <span className="staff-account-unavailable">

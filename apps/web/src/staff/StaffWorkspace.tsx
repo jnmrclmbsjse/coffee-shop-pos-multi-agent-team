@@ -164,6 +164,34 @@ function isCurrentDestination(pathname: string, destination: string): boolean {
   return pathname === destination || pathname.startsWith(`${destination}/`);
 }
 
+const NAV_VISIBILITY_KEY = 'ucm.pos.nav-visible.v1';
+
+/**
+ * Remembers whether the workspace chrome is showing so a device set up for
+ * service keeps the extra screen space across reloads. Storage is best-effort:
+ * a device that refuses it simply starts with the chrome showing.
+ */
+function useNavVisibility(): [boolean, (visible: boolean) => void] {
+  const [visible, setVisible] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(NAV_VISIBILITY_KEY) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const update = (next: boolean) => {
+    setVisible(next);
+    try {
+      window.localStorage.setItem(NAV_VISIBILITY_KEY, String(next));
+    } catch {
+      // Preference persistence is optional; the toggle still works this session.
+    }
+  };
+
+  return [visible, update];
+}
+
 export function useStaffWorkspaceBusinessDay() {
   const context = useContext(StaffWorkspaceContext);
   return {
@@ -183,6 +211,7 @@ export function StaffWorkspaceLayout() {
     useState<CurrentOpenBusinessDay | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [loadVersion, setLoadVersion] = useState(0);
+  const [navVisible, setNavVisible] = useNavVisibility();
 
   useEffect(() => {
     let active = true;
@@ -202,6 +231,9 @@ export function StaffWorkspaceLayout() {
   }, [loadVersion]);
 
   useEffect(() => {
+    // A collapsed navigation has no layout to scroll; this reruns when it
+    // comes back so the current destination is still brought into view.
+    if (!navVisible) return;
     const navigation = navigationRef.current;
     const current = navigation?.querySelector<HTMLElement>(
       '[aria-current="page"]',
@@ -218,7 +250,7 @@ export function StaffWorkspaceLayout() {
     } else if (itemEnd > visibleEnd) {
       navigation.scrollLeft = itemEnd - navigation.clientWidth;
     }
-  }, [location.pathname]);
+  }, [location.pathname, navVisible]);
 
   return (
     <StaffWorkspaceContext.Provider
@@ -235,76 +267,93 @@ export function StaffWorkspaceLayout() {
         </a>
         <header className="staff-workspace-header">
           <div className="staff-workspace-header-inner">
-            <div className="staff-workspace-context-row">
-              <div className="staff-workspace-brand">
-                <UcmLogo size="inline" />
-                <div>
-                  <div className="staff-workspace-brand-title">
-                    <strong>UCM Coffee Studio</strong>
-                    <span className="staff-workspace-brand-role">Staff</span>
+            <div className="staff-workspace-top-bar">
+              <div className="staff-workspace-context-row">
+                <div className="staff-workspace-brand">
+                  <UcmLogo size="inline" />
+                  <div>
+                    <div className="staff-workspace-brand-title">
+                      <strong>UCM Coffee Studio</strong>
+                      <span className="staff-workspace-brand-role">Staff</span>
+                    </div>
+                    <small>
+                      Signed in as {auth.user?.displayName ?? auth.user?.username}
+                    </small>
                   </div>
-                  <small>
-                    Signed in as {auth.user?.displayName ?? auth.user?.username}
-                  </small>
+                </div>
+                <div className="staff-context-actions">
+                  <BusinessDayContext
+                    businessDay={businessDay}
+                    loadError={loadError}
+                    onRetry={() => setLoadVersion((version) => version + 1)}
+                  />
+                  <StaffLogoutControl />
                 </div>
               </div>
-              <div className="staff-context-actions">
-                <BusinessDayContext
-                  businessDay={businessDay}
-                  loadError={loadError}
-                  onRetry={() => setLoadVersion((version) => version + 1)}
-                />
-                <StaffLogoutControl />
-              </div>
+              <button
+                className="staff-workspace-nav-toggle"
+                type="button"
+                aria-expanded={navVisible}
+                aria-controls="staff-workspace-chrome"
+                onClick={() => setNavVisible(!navVisible)}
+              >
+                {navVisible ? 'Hide menu' : 'Show menu'}
+              </button>
             </div>
-            <CashierControl />
-            <nav
-              className="staff-inventory-nav"
-              aria-label="Staff workspace"
-              ref={navigationRef}
+            <div
+              className="staff-workspace-chrome"
+              id="staff-workspace-chrome"
+              hidden={!navVisible}
             >
-              <ul>
-                {STAFF_DESTINATIONS.map((destination) => {
-                  const isUnavailable =
-                    destination.requiresOpenDay && !businessDay?.isOpen;
-                  const isCurrent = isCurrentDestination(
-                    location.pathname,
-                    destination.to,
-                  );
-                  return (
-                    <li key={destination.to}>
-                      {isUnavailable ? (
-                        <span
-                          className="staff-nav-item is-unavailable"
-                          role="link"
-                          aria-disabled="true"
-                          aria-current={isCurrent ? 'page' : undefined}
-                          aria-label={`${destination.label}, unavailable until a business day is open`}
-                        >
-                          <LockIcon />
-                          <span>{destination.label}</span>
-                        </span>
-                      ) : (
-                        <NavLink
-                          className="staff-nav-item"
-                          to={destination.to}
-                          end={destination.to === '/pos'}
-                        >
-                          {destination.label}
-                        </NavLink>
-                      )}
-                      {destination.separatorAfter && (
-                        <span
-                          className="staff-nav-separator"
-                          role="separator"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
+              <CashierControl />
+              <nav
+                className="staff-inventory-nav"
+                aria-label="Staff workspace"
+                ref={navigationRef}
+              >
+                <ul>
+                  {STAFF_DESTINATIONS.map((destination) => {
+                    const isUnavailable =
+                      destination.requiresOpenDay && !businessDay?.isOpen;
+                    const isCurrent = isCurrentDestination(
+                      location.pathname,
+                      destination.to,
+                    );
+                    return (
+                      <li key={destination.to}>
+                        {isUnavailable ? (
+                          <span
+                            className="staff-nav-item is-unavailable"
+                            role="link"
+                            aria-disabled="true"
+                            aria-current={isCurrent ? 'page' : undefined}
+                            aria-label={`${destination.label}, unavailable until a business day is open`}
+                          >
+                            <LockIcon />
+                            <span>{destination.label}</span>
+                          </span>
+                        ) : (
+                          <NavLink
+                            className="staff-nav-item"
+                            to={destination.to}
+                            end={destination.to === '/pos'}
+                          >
+                            {destination.label}
+                          </NavLink>
+                        )}
+                        {destination.separatorAfter && (
+                          <span
+                            className="staff-nav-separator"
+                            role="separator"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </nav>
+            </div>
           </div>
         </header>
         <Outlet />

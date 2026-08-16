@@ -29,7 +29,9 @@ interface AuthContextValue {
   consumeNotice: () => void;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+// Exported so features can read the session without hard-requiring the
+// provider, and so tests can supply a session without booting the real one.
+export const AuthContext = createContext<AuthContextValue | null>(null);
 const LOGOUT_CHANNEL = 'ucm.auth.logout.v1';
 const LOGOUT_STORAGE_KEY = 'ucm.auth.logout-event.v1';
 
