@@ -1001,7 +1001,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
   transition:
     border-color 160ms ease-out,
     box-shadow 160ms ease-out;
@@ -1626,7 +1626,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .inventory-filters .search-control {
@@ -1806,7 +1806,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .staff-filters .search-control input {
@@ -2740,7 +2740,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .compensation-filters input:focus-visible,
@@ -3834,12 +3834,12 @@ button {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .payslip-filter select[aria-invalid='true'] {
   border-color: var(--danger);
-  background: var(--danger-surface);
+  background-color: var(--danger-surface);
 }
 
 .report-field-help,
@@ -4030,7 +4030,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .order-history-filters input::placeholder {
@@ -5214,18 +5214,13 @@ button {
 }
 
 /*
- * The toggle bar is outside the collapsible region on purpose: it is the one
- * control that must stay reachable when the chrome is hidden.
+ * The toggle sits beside the brand title rather than in a bar of its own, so
+ * it costs no vertical space. It is a sibling of the collapsible region, not a
+ * child: it is the one control that must stay reachable when the chrome is
+ * hidden.
  */
-.staff-workspace-toggle-bar {
-  width: min(100%, 1504px);
-  display: flex;
-  justify-content: flex-end;
-  margin: 0 auto;
-  padding: var(--space-1) var(--space-8);
-}
-
 .staff-workspace-nav-toggle {
+  flex: none;
   min-height: var(--touch-min);
   min-width: var(--touch-min);
   display: inline-flex;
@@ -5250,19 +5245,33 @@ button {
   outline-offset: 2px;
 }
 
+.staff-workspace-header-inner {
+  width: min(100%, 1504px);
+  display: flex;
+  align-items: flex-start;
+  /*
+   * flex-end only bites once the chrome is hidden and the toggle is the sole
+   * child; it keeps the control in the same corner in both states, so nobody
+   * has to hunt for it after collapsing.
+   */
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-8);
+}
+
 /* `display: grid` below outranks the UA rule for [hidden], so restate it. */
-.staff-workspace-header-inner[hidden] {
+.staff-workspace-chrome[hidden] {
   display: none;
 }
 
-.staff-workspace-header-inner {
-  width: min(100%, 1504px);
+.staff-workspace-chrome {
+  min-width: 0;
   min-height: 72px;
+  flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
-  margin: 0 auto;
-  padding: var(--space-3) var(--space-8);
 }
 
 .staff-workspace-context-row {
@@ -6017,7 +6026,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .staff-inventory-field textarea {
@@ -6050,7 +6059,7 @@ button {
 .staff-inventory-field textarea:disabled {
   cursor: not-allowed;
   color: var(--muted);
-  background: var(--surface-subtle);
+  background-color: var(--surface-subtle);
 }
 
 .staff-inventory-field-error {
@@ -6989,10 +6998,7 @@ button {
 @media (max-width: 767px) {
   .staff-workspace-header-inner {
     padding: var(--space-2) var(--space-4);
-  }
-
-  .staff-workspace-toggle-bar {
-    padding: var(--space-1) var(--space-4);
+    gap: var(--space-2);
   }
 
   .staff-workspace-context-row {
@@ -8535,7 +8541,7 @@ button {
   border-radius: var(--radius-sm);
   outline: 0;
   color: var(--fg);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .staff-order-filter-grid input::placeholder {
@@ -8551,7 +8557,7 @@ button {
 .staff-order-filter-grid select:disabled {
   cursor: not-allowed;
   color: var(--muted);
-  background: var(--surface-subtle);
+  background-color: var(--surface-subtle);
 }
 
 .staff-order-filter-grid select:focus-visible,
@@ -9427,6 +9433,14 @@ button {
  * shorthands. `select:not([multiple])` matches the specificity of the
  * component rules above and wins on source order, so it also reclaims the
  * padding the arrow needs without !important.
+ *
+ * INVARIANT: because the arrow lives in `background-image`, no rule anywhere
+ * may set the `background` SHORTHAND on a select — a shorthand resets
+ * background-image to none and strips the only dropdown affordance the
+ * control has left once appearance is reset. Source order does not save us
+ * either: a more specific rule (`select:disabled`, `select[aria-invalid]`)
+ * wins outright. Every select rule in this file therefore uses
+ * `background-color`. Keep it that way when adding new ones.
  */
 select:not([multiple]) {
   -webkit-appearance: none;

@@ -733,6 +733,7 @@ export function CloseBusinessDayPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [didClose, setDidClose] = useState(false);
   const clientGeneratedId = useRef<string | null>(null);
+  const signedInStaffMemberId = useSignedInStaffMemberId();
 
   const actualCashCents = useMemo(
     () => parsePesosToCents(actualCash),
@@ -760,6 +761,9 @@ export function CloseBusinessDayPage() {
         if (!cancelled) {
           setSummary(closingSummary);
           setStaff(activeStaff);
+          setClosedBy(
+            defaultStaffSelection(activeStaff, signedInStaffMemberId),
+          );
         }
       } catch (error) {
         if (!cancelled) {
@@ -776,7 +780,7 @@ export function CloseBusinessDayPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadVersion]);
+  }, [loadVersion, signedInStaffMemberId]);
 
   function resetAttemptId() {
     clientGeneratedId.current = null;

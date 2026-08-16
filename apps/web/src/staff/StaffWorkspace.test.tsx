@@ -72,6 +72,22 @@ describe('staff workspace navigation toggle', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps the toggle outside the collapsible region and out of its own bar', () => {
+    renderWorkspace();
+
+    const toggle = screen.getByRole('button', { name: 'Hide menu' });
+    const chrome = document.getElementById('staff-workspace-chrome')!;
+
+    // Reachable when collapsed only if it is a sibling, not a descendant.
+    expect(chrome.contains(toggle)).toBe(false);
+    expect(toggle.getAttribute('aria-controls')).toBe('staff-workspace-chrome');
+    // It shares the header row with the chrome rather than adding a bar.
+    expect(toggle.parentElement).toBe(chrome.parentElement);
+    expect(
+      document.querySelector('.staff-workspace-toggle-bar'),
+    ).toBeNull();
+  });
+
   it('remembers a hidden navigation across a remount', async () => {
     const user = userEvent.setup();
     const first = renderWorkspace();

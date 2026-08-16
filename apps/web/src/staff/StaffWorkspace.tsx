@@ -266,7 +266,83 @@ export function StaffWorkspaceLayout() {
           Skip to staff workspace
         </a>
         <header className="staff-workspace-header">
-          <div className="staff-workspace-toggle-bar">
+          <div className="staff-workspace-header-inner">
+            <div
+              className="staff-workspace-chrome"
+              id="staff-workspace-chrome"
+              hidden={!navVisible}
+            >
+              <div className="staff-workspace-context-row">
+                <div className="staff-workspace-brand">
+                  <UcmLogo size="inline" />
+                  <div>
+                    <div className="staff-workspace-brand-title">
+                      <strong>UCM Coffee Studio</strong>
+                      <span className="staff-workspace-brand-role">Staff</span>
+                    </div>
+                    <small>
+                      Signed in as {auth.user?.displayName ?? auth.user?.username}
+                    </small>
+                  </div>
+                </div>
+                <div className="staff-context-actions">
+                  <BusinessDayContext
+                    businessDay={businessDay}
+                    loadError={loadError}
+                    onRetry={() => setLoadVersion((version) => version + 1)}
+                  />
+                  <StaffLogoutControl />
+                </div>
+              </div>
+              <CashierControl />
+              <nav
+                className="staff-inventory-nav"
+                aria-label="Staff workspace"
+                ref={navigationRef}
+              >
+                <ul>
+                  {STAFF_DESTINATIONS.map((destination) => {
+                    const isUnavailable =
+                      destination.requiresOpenDay && !businessDay?.isOpen;
+                    const isCurrent = isCurrentDestination(
+                      location.pathname,
+                      destination.to,
+                    );
+                    return (
+                      <li key={destination.to}>
+                        {isUnavailable ? (
+                          <span
+                            className="staff-nav-item is-unavailable"
+                            role="link"
+                            aria-disabled="true"
+                            aria-current={isCurrent ? 'page' : undefined}
+                            aria-label={`${destination.label}, unavailable until a business day is open`}
+                          >
+                            <LockIcon />
+                            <span>{destination.label}</span>
+                          </span>
+                        ) : (
+                          <NavLink
+                            className="staff-nav-item"
+                            to={destination.to}
+                            end={destination.to === '/pos'}
+                          >
+                            {destination.label}
+                          </NavLink>
+                        )}
+                        {destination.separatorAfter && (
+                          <span
+                            className="staff-nav-separator"
+                            role="separator"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </nav>
+            </div>
             <button
               className="staff-workspace-nav-toggle"
               type="button"
@@ -276,82 +352,6 @@ export function StaffWorkspaceLayout() {
             >
               {navVisible ? 'Hide menu' : 'Show menu'}
             </button>
-          </div>
-          <div
-            className="staff-workspace-header-inner"
-            id="staff-workspace-chrome"
-            hidden={!navVisible}
-          >
-            <div className="staff-workspace-context-row">
-              <div className="staff-workspace-brand">
-                <UcmLogo size="inline" />
-                <div>
-                  <div className="staff-workspace-brand-title">
-                    <strong>UCM Coffee Studio</strong>
-                    <span className="staff-workspace-brand-role">Staff</span>
-                  </div>
-                  <small>
-                    Signed in as {auth.user?.displayName ?? auth.user?.username}
-                  </small>
-                </div>
-              </div>
-              <div className="staff-context-actions">
-                <BusinessDayContext
-                  businessDay={businessDay}
-                  loadError={loadError}
-                  onRetry={() => setLoadVersion((version) => version + 1)}
-                />
-                <StaffLogoutControl />
-              </div>
-            </div>
-            <CashierControl />
-            <nav
-              className="staff-inventory-nav"
-              aria-label="Staff workspace"
-              ref={navigationRef}
-            >
-              <ul>
-                {STAFF_DESTINATIONS.map((destination) => {
-                  const isUnavailable =
-                    destination.requiresOpenDay && !businessDay?.isOpen;
-                  const isCurrent = isCurrentDestination(
-                    location.pathname,
-                    destination.to,
-                  );
-                  return (
-                    <li key={destination.to}>
-                      {isUnavailable ? (
-                        <span
-                          className="staff-nav-item is-unavailable"
-                          role="link"
-                          aria-disabled="true"
-                          aria-current={isCurrent ? 'page' : undefined}
-                          aria-label={`${destination.label}, unavailable until a business day is open`}
-                        >
-                          <LockIcon />
-                          <span>{destination.label}</span>
-                        </span>
-                      ) : (
-                        <NavLink
-                          className="staff-nav-item"
-                          to={destination.to}
-                          end={destination.to === '/pos'}
-                        >
-                          {destination.label}
-                        </NavLink>
-                      )}
-                      {destination.separatorAfter && (
-                        <span
-                          className="staff-nav-separator"
-                          role="separator"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
           </div>
         </header>
         <Outlet />

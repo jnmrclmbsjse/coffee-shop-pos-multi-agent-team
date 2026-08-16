@@ -87,11 +87,13 @@ function renderOpenPage(signedInStaffMemberId: string | null = null) {
   );
 }
 
-function renderClosePage() {
+function renderClosePage(signedInStaffMemberId: string | null = null) {
   return render(
-    <MemoryRouter>
-      <CloseBusinessDayPage />
-    </MemoryRouter>,
+    <SignedInAs staffMemberId={signedInStaffMemberId}>
+      <MemoryRouter>
+        <CloseBusinessDayPage />
+      </MemoryRouter>
+    </SignedInAs>,
   );
 }
 
@@ -385,6 +387,57 @@ describe('staff business-day pages', () => {
     expect(
       screen.queryByText('No closing count submitted yet.'),
     ).not.toBeInTheDocument();
+  });
+
+  it('defaults Closed by to the signed-in staff member', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, closingSummary());
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+
+    renderClosePage(activeStaff[1]!.id);
+
+    expect(await screen.findByLabelText('Closed by *')).toHaveValue(
+      activeStaff[1]!.id,
+    );
+  });
+
+  it('keeps Closed by unselected when the signed-in user is not on the roster', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, closingSummary());
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+
+    renderClosePage('4a2a2f4e-0f2a-4a1e-9a0d-6d7c2c0e0000');
+
+    expect(await screen.findByLabelText('Closed by *')).toHaveValue('');
+  });
+
+  it('lets the signed-in Closed by default be changed', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, closingSummary());
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderClosePage(activeStaff[1]!.id);
+
+    const closedBy = await screen.findByLabelText('Closed by *');
+    await user.selectOptions(closedBy, activeStaff[0]!.id);
+
+    expect(closedBy).toHaveValue(activeStaff[0]!.id);
   });
 
   it('renders every cash-summary term, including excluded online sales and zeroes', async () => {
