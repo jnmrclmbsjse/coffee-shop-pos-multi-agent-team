@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Staff order history payment facts reference</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- NON-SHIPPING SCAFFOLD: .prototype, .prototype-head, .prototype-nav,
+       .mockup-section, .section-label, .assessment-note, .state-switcher,
+       and .preview-frame exist only for this advisory reference document. -->
+  <main class="prototype" data-od-id="prototype-reference">
+    <header class="prototype-head" data-od-id="prototype-header">
+      <div>
+        <p class="section-label">Advisory implementation reference</p>
+        <h1 data-od-id="reference-title">Staff order history payment facts</h1>
+        <p class="prototype-summary">Add two read-only historical values without changing the card’s existing hierarchy or operational change workflow.</p>
+      </div>
+      <div class="prototype-meta" aria-label="Reference settings">
+        <span>Story #340</span>
+        <span>Design task #341</span>
+        <span>Preserve mode</span>
+      </div>
+    </header>
+
+    <nav class="prototype-nav" aria-label="Reference sections" data-od-id="prototype-navigation">
+      <a href="#placement">Placement</a>
+      <a href="#states">State coverage</a>
+      <a href="#narrow">Narrow width</a>
+      <a href="DESIGN.md">Implementation notes</a>
+    </nav>
+
+    <section class="mockup-section" id="placement" data-od-id="placement-decision">
+      <p class="section-label">Recommended placement</p>
+      <h2>Extend the payment strip</h2>
+      <p class="section-intro">Add the two facts after the tender rows, separated by one internal rule. Keep metadata, order lines, and the existing change block untouched.</p>
+      <aside class="assessment-note" data-od-id="placement-note">
+        <strong>Why this placement:</strong> the values explain payment arithmetic, while the existing change block records an operational handover state. Keeping them as siblings would imply equal behavior.
+      </aside>
+    </section>
+
+    <section class="mockup-section" id="states" data-od-id="state-coverage">
+      <p class="section-label">State coverage</p>
+      <h2>One structure, ten data conditions</h2>
+      <p class="section-intro">The controls below belong to this reference only. They do not propose controls for the product.</p>
+
+      <fieldset class="state-switcher" data-od-id="state-switcher">
+        <legend>Choose an order state</legend>
+        <div class="state-switcher-options" id="state-options"></div>
+      </fieldset>
+
+      <div class="preview-frame" data-od-id="standard-preview">
+        <div class="preview-frame-head">
+          <strong>Standard card width</strong>
+          <span>Reference viewport</span>
+        </div>
+        <div class="preview-canvas">
+          <ul class="staff-order-list" id="desktop-card" aria-live="polite"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="mockup-section" id="narrow" data-od-id="narrow-width-reference">
+      <p class="section-label">Narrow-width rendering</p>
+      <h2>Same content at 390px</h2>
+      <p class="section-intro">Metadata collapses to two columns. Payment rows, the explanation, and any change handover block remain full width.</p>
+      <div class="preview-frame is-narrow" data-od-id="mobile-preview">
+        <div class="preview-frame-head">
+          <strong>Small touch screen</strong>
+          <span>390px content width</span>
+        </div>
+        <div class="preview-canvas">
+          <ul class="staff-order-list" id="mobile-card" aria-live="polite"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="mockup-section" data-od-id="non-shipping-scope">
+      <p class="section-label">Reference boundary</p>
+      <h2>Scaffolding is not product UI</h2>
+      <p class="section-intro"><code>.prototype</code>, <code>.prototype-head</code>, <code>.prototype-nav</code>, <code>.mockup-section</code>, <code>.section-label</code>, <code>.assessment-note</code>, <code>.state-switcher</code>, and <code>.preview-frame</code> are non-shipping.</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
