@@ -40,6 +40,15 @@ import {
 
 const STAFF_USERNAME = process.env.E2E_STAFF_USERNAME ?? 'staff';
 const STAFF_PASSWORD = process.env.E2E_STAFF_PASSWORD ?? 'replace-before-seeding';
+/**
+ * Roster member linked to the staff login these tests sign in as (seeded by
+ * `apps/api/prisma/seed.ts`). "Recorded by" defaults to it, so recording an
+ * unattributed entry is now a deliberate choice of "No one (Unattributed)"
+ * rather than something that happens by leaving the picker alone.
+ */
+const SIGNED_IN_STAFF_NAME =
+  process.env.E2E_STAFF_DISPLAY_NAME ?? 'Coffee Shop Staff';
+const UNATTRIBUTED_OPTION = 'No one (Unattributed)';
 const ADMIN_USERNAME = process.env.E2E_ADMIN_USERNAME ?? 'admin';
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'replace-before-seeding';
 
@@ -504,16 +513,32 @@ test('records an unattributed entry as "Unattributed" and an attributed one by n
   await signInAsStaff(page);
   await gotoCashScreen(page);
 
-  // Attribution is optional: the default selection records no staff member.
-  await expect(recordedByField(page)).toHaveValue('');
+  // The picker arrives pre-filled with the signed-in staff member, and
+  // attribution is still optional: "No one (Unattributed)" remains selectable.
+  await expect(page.locator('#cash-recorded-by option:checked')).toHaveText(
+    SIGNED_IN_STAFF_NAME,
+  );
+  await expect(recordedByField(page)).not.toHaveValue('');
+  await expect(
+    recordedByField(page).getByRole('option', { name: UNATTRIBUTED_OPTION }),
+  ).toHaveCount(1);
+
+  // Choosing it records no staff member at all.
   await recordEntry(page, {
     type: 'Cash in',
     amount: '120.00',
     reason: 'Float top-up',
+    recordedBy: UNATTRIBUTED_OPTION,
   });
 
   await expect(ledgerRows(page)).toHaveCount(1);
   expect((await ledgerRow(page, 0)).by).toBe('Unattributed');
+
+  // Recording resets the form, and the reset restores the default rather than
+  // carrying the previous "Unattributed" choice into the next entry.
+  await expect(page.locator('#cash-recorded-by option:checked')).toHaveText(
+    SIGNED_IN_STAFF_NAME,
+  );
 
   await recordEntry(page, {
     type: 'Cash out',
