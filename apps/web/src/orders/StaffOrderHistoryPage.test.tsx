@@ -52,6 +52,8 @@ function order(
     ],
     cashPortionCents: cents(15_000),
     onlinePortionCents: null,
+    cashReceivedCents: cents(15_000),
+    expectedChangeCents: cents(0),
     voidReason: null,
     changeOwedCents: cents(0),
     changeSettled: false,
