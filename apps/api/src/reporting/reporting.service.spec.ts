@@ -670,6 +670,8 @@ describe('order history read model', () => {
           ],
           cashPortionCents: 8_000,
           onlinePortionCents: 12_000,
+          cashReceivedCents: 8_000,
+          expectedChangeCents: 0,
           voidReason: null,
           changeOwedCents: 3_000,
           changeSettled: true,
@@ -686,6 +688,72 @@ describe('order history read model', () => {
       'ORDER BY history.day_order_number DESC, history.id ASC',
     );
   });
+
+  it.each([
+    {
+      name: 'exact cash',
+      row: {},
+      expected: { cashReceivedCents: 8_000, expectedChangeCents: 0 },
+    },
+    {
+      name: 'cash with change',
+      row: { cashReceivedCents: 9_000 },
+      expected: { cashReceivedCents: 9_000, expectedChangeCents: 1_000 },
+    },
+    {
+      name: 'online only',
+      row: {
+        hasCash: false,
+        hasOnline: true,
+        cashReceivedCents: null,
+      },
+      expected: { cashReceivedCents: null, expectedChangeCents: null },
+    },
+    {
+      name: 'split payment using only its cash portion',
+      row: { cashReceivedCents: 10_000 },
+      expected: { cashReceivedCents: 10_000, expectedChangeCents: 2_000 },
+    },
+    {
+      name: 'parked order',
+      row: {
+        storedStatus: OrderStatus.PARKED,
+        cashReceivedCents: 9_000,
+      },
+      expected: { cashReceivedCents: null, expectedChangeCents: null },
+    },
+    {
+      name: 'cash payment without recorded cash received',
+      row: { cashReceivedCents: null },
+      expected: { cashReceivedCents: null, expectedChangeCents: null },
+    },
+    {
+      name: 'legacy cash received without a cash payment portion',
+      row: { hasCash: false, cashReceivedCents: 7_500 },
+      expected: { cashReceivedCents: 7_500, expectedChangeCents: null },
+    },
+    {
+      name: 'legacy under-received cash',
+      row: { cashReceivedCents: 7_500 },
+      expected: { cashReceivedCents: 7_500, expectedChangeCents: -500 },
+    },
+  ])(
+    'maps $name without collapsing null or signed values',
+    async ({ row, expected }) => {
+      const prisma = createPrisma();
+      prisma.tradingDay.findUnique.mockResolvedValue({ id: 'day-id' });
+      prisma.$queryRaw.mockResolvedValue([
+        { ...baseOrder, lines: [], ...row },
+      ]);
+      const service = createReportingService(
+        prisma as unknown as PrismaService,
+      );
+
+      const ledger = await service.getStaffOrderLedger('day-id', {});
+
+      expect(ledger.orders[0]).toEqual(expect.objectContaining(expected));
+    },
+  );
 
   it.each([
     [{ status: 'Completed' }, "stored_status = 'COMPLETED'"],

@@ -808,6 +808,8 @@ export interface StaffOrderLedgerOrder {
   lines: OrderHistoryLine[];
   cashPortionCents: MoneyCents | null;
   onlinePortionCents: MoneyCents | null;
+  cashReceivedCents: MoneyCents | null;
+  expectedChangeCents: MoneyCents | null;
   voidReason: string | null;
   changeOwedCents: MoneyCents;
   changeSettled: boolean;

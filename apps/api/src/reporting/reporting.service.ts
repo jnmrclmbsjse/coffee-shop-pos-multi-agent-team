@@ -927,6 +927,13 @@ function toStaffOrderLedgerOrder(
     row.hasCorrection,
   );
   const isParked = status === 'Parked';
+  const cashReceivedCents =
+    isParked || row.cashReceivedCents === null
+      ? null
+      : cents(row.cashReceivedCents);
+  const cashPortionCents = row.hasCash
+    ? databaseCents(row.cashPortionCents)
+    : null;
 
   return {
     id: row.id,
@@ -942,12 +949,15 @@ function toStaffOrderLedgerOrder(
     completedAt: isParked ? null : toIsoTimestamp(row.completedAt),
     totalCents: cents(row.totalCents),
     lines: parseOrderHistoryLines(row.lines),
-    cashPortionCents: row.hasCash
-      ? databaseCents(row.cashPortionCents)
-      : null,
+    cashPortionCents,
     onlinePortionCents: row.hasOnline
       ? databaseCents(row.onlinePortionCents)
       : null,
+    cashReceivedCents,
+    expectedChangeCents:
+      cashReceivedCents === null || cashPortionCents === null
+        ? null
+        : cents(cashReceivedCents - cashPortionCents),
     voidReason: status === 'Void' ? row.voidReason : null,
     changeOwedCents: cents(row.changeOwedCents),
     changeSettled: row.changeSettledAt !== null,

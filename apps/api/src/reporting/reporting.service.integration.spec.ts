@@ -204,6 +204,8 @@ describeWithDatabase('Order History queries against Postgres', () => {
   const voidedOrderId = randomUUID();
   const correctingVoidId = randomUUID();
   const splitOrderId = randomUUID();
+  const underReceivedOrderId = randomUUID();
+  const cashReceivedWithoutCashPortionOrderId = randomUUID();
   const categoryId = randomUUID();
   const productId = randomUUID();
   const variantId = randomUUID();
@@ -309,12 +311,15 @@ describeWithDatabase('Order History queries against Postgres', () => {
           status: OrderStatus.PARKED,
           completedAt: null,
         },
-        completedOrder(
-          voidedOrderId,
-          olderTradingDayId,
-          4,
-          'Voided Customer',
-        ),
+        {
+          ...completedOrder(
+            voidedOrderId,
+            olderTradingDayId,
+            4,
+            'Voided Customer',
+          ),
+          cashReceivedCents: 5_000,
+        },
         {
           ...completedOrder(
             correctingVoidId,
@@ -342,6 +347,24 @@ describeWithDatabase('Order History queries against Postgres', () => {
           cashReceivedCents: 5_000,
           changeOwedCents: 1_000,
           changeSettledAt: new Date('2026-07-20T06:30:00.000Z'),
+        },
+        {
+          ...completedOrder(
+            underReceivedOrderId,
+            olderTradingDayId,
+            7,
+            'Legacy under-received cash',
+          ),
+          cashReceivedCents: 4_500,
+        },
+        {
+          ...completedOrder(
+            cashReceivedWithoutCashPortionOrderId,
+            olderTradingDayId,
+            8,
+            'Legacy cash received without cash payment',
+          ),
+          cashReceivedCents: 5_500,
         },
       ],
     });
@@ -371,6 +394,11 @@ describeWithDatabase('Order History queries against Postgres', () => {
           saleId: splitOrderId,
           method: PaymentMethod.ONLINE,
           amountCents: 4_000,
+        },
+        {
+          saleId: underReceivedOrderId,
+          method: PaymentMethod.CASH,
+          amountCents: 5_000,
         },
       ],
     });
@@ -403,6 +431,7 @@ describeWithDatabase('Order History queries against Postgres', () => {
             olderSecondOrderId,
             voidedOrderId,
             splitOrderId,
+            underReceivedOrderId,
           ],
         },
       },
@@ -418,6 +447,8 @@ describeWithDatabase('Order History queries against Postgres', () => {
             voidedOrderId,
             correctingVoidId,
             splitOrderId,
+            underReceivedOrderId,
+            cashReceivedWithoutCashPortionOrderId,
           ],
         },
       },
@@ -494,6 +525,16 @@ describeWithDatabase('Order History queries against Postgres', () => {
         status,
       })),
     ).toEqual([
+      {
+        id: cashReceivedWithoutCashPortionOrderId,
+        dayOrderNumber: 8,
+        status: 'Completed',
+      },
+      {
+        id: underReceivedOrderId,
+        dayOrderNumber: 7,
+        status: 'Completed',
+      },
       { id: splitOrderId, dayOrderNumber: 6, status: 'Completed' },
       { id: voidedOrderId, dayOrderNumber: 4, status: 'Void' },
       { id: parkedOrderId, dayOrderNumber: 3, status: 'Parked' },
@@ -506,6 +547,8 @@ describeWithDatabase('Order History queries against Postgres', () => {
       expect.objectContaining({
         voidReason: 'Incorrect item',
         completedAt: '2026-07-20T06:00:00.000Z',
+        cashReceivedCents: 5_000,
+        expectedChangeCents: 0,
       }),
     );
 
@@ -516,6 +559,8 @@ describeWithDatabase('Order History queries against Postgres', () => {
         paymentMethod: 'Split',
         cashPortionCents: 4_000,
         onlinePortionCents: 4_000,
+        cashReceivedCents: 5_000,
+        expectedChangeCents: 1_000,
         changeOwedCents: 1_000,
         changeSettled: true,
         lines: [
@@ -527,6 +572,49 @@ describeWithDatabase('Order History queries against Postgres', () => {
             discountCents: 2_000,
           }),
         ],
+      }),
+    );
+
+    expect(
+      ledger.orders.find(({ id }) => id === olderSecondOrderId),
+    ).toEqual(
+      expect.objectContaining({
+        cashReceivedCents: null,
+        expectedChangeCents: null,
+      }),
+    );
+    expect(
+      ledger.orders.find(({ id }) => id === parkedOrderId),
+    ).toEqual(
+      expect.objectContaining({
+        cashReceivedCents: null,
+        expectedChangeCents: null,
+      }),
+    );
+    expect(
+      ledger.orders.find(({ id }) => id === olderFirstOrderId),
+    ).toEqual(
+      expect.objectContaining({
+        cashReceivedCents: null,
+        expectedChangeCents: null,
+      }),
+    );
+    expect(
+      ledger.orders.find(({ id }) => id === underReceivedOrderId),
+    ).toEqual(
+      expect.objectContaining({
+        cashReceivedCents: 4_500,
+        expectedChangeCents: -500,
+      }),
+    );
+    expect(
+      ledger.orders.find(
+        ({ id }) => id === cashReceivedWithoutCashPortionOrderId,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        cashReceivedCents: 5_500,
+        expectedChangeCents: null,
       }),
     );
   });
@@ -564,6 +652,7 @@ describeWithDatabase('Order History queries against Postgres', () => {
       ]);
 
     expect(cash.orders.map(({ id }) => id)).toEqual([
+      underReceivedOrderId,
       voidedOrderId,
       olderFirstOrderId,
     ]);
