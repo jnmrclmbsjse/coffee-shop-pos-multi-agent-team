@@ -1,11 +1,15 @@
-import { cents } from '@coffee-shop/shared';
+import { cents, CompensationAdjustmentKind } from '@coffee-shop/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CompensationApiError,
+  createCompensationAdjustment,
   createCompensationEntry,
+  deleteCompensationAdjustment,
   deleteCompensationEntry,
   getPayslip,
+  listCompensationAdjustments,
   listCompensationEntries,
+  updateCompensationAdjustment,
 } from './api';
 
 function response(status: number, body?: unknown): Response {
@@ -61,6 +65,60 @@ describe('compensation API client', () => {
           commissionCents: 100,
         }),
       }),
+    );
+  });
+
+  it('uses shared adjustment contracts for filtered CRUD requests', async () => {
+    const returned = { id: 'adjustment-1', description: 'MiXeD  café bonus' };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response(200, [returned]))
+      .mockResolvedValueOnce(response(201, returned))
+      .mockResolvedValueOnce(response(200, returned))
+      .mockResolvedValueOnce(response(204));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listCompensationAdjustments({
+      staffMemberId: 'staff/member',
+      from: '2026-08-01',
+      to: '2026-08-31',
+    })).resolves.toEqual([returned]);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3000/compensation/adjustments?staffMemberId=staff%2Fmember&from=2026-08-01&to=2026-08-31',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+
+    const createInput = {
+      staffMemberId: 'staff-1',
+      kind: CompensationAdjustmentKind.BONUS,
+      effectiveDate: '2026-08-15',
+      amountCents: cents(7),
+      description: 'MiXeD  café bonus',
+    };
+    await expect(createCompensationAdjustment(createInput)).resolves.toEqual(returned);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3000/compensation/adjustments',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify(createInput) }),
+    );
+
+    const updateInput = {
+      effectiveDate: '2026-08-16',
+      amountCents: cents(8),
+      description: 'MiXeD  café bonus',
+    };
+    await expect(updateCompensationAdjustment('adjustment/id', updateInput)).resolves.toEqual(returned);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:3000/compensation/adjustments/adjustment%2Fid',
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify(updateInput) }),
+    );
+
+    await expect(deleteCompensationAdjustment('adjustment/id')).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      'http://localhost:3000/compensation/adjustments/adjustment%2Fid',
+      expect.objectContaining({ method: 'DELETE' }),
     );
   });
 

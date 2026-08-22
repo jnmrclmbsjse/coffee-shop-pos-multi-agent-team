@@ -1,16 +1,22 @@
 import {
   cents,
+  CompensationAdjustmentKind,
   type PayslipSummary,
+  type StaffCompensationAdjustment,
   type StaffCompensationEntry,
   type StaffMember,
 } from '@coffee-shop/shared';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CompensationPage, currencyToCents } from './CompensationPage';
 import { CompensationApiError } from './api';
 
 const api = vi.hoisted(() => ({
+  adjustCreate: vi.fn(),
+  adjustList: vi.fn(),
+  adjustRemove: vi.fn(),
+  adjustUpdate: vi.fn(),
   create: vi.fn(),
   remove: vi.fn(),
   list: vi.fn(),
@@ -23,11 +29,15 @@ vi.mock('./api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./api')>();
   return {
     ...actual,
+    createCompensationAdjustment: api.adjustCreate,
     createCompensationEntry: api.create,
+    deleteCompensationAdjustment: api.adjustRemove,
     deleteCompensationEntry: api.remove,
+    listCompensationAdjustments: api.adjustList,
     listCompensationEntries: api.list,
     getPayslip: api.payslip,
     updateCompensationEntry: api.update,
+    updateCompensationAdjustment: api.adjustUpdate,
   };
 });
 
@@ -69,6 +79,19 @@ const entry: StaffCompensationEntry = {
   updatedAt: '2026-08-14T00:00:00.000Z',
 };
 
+const adjustment: StaffCompensationAdjustment = {
+  id: 'adjustment-1',
+  staffMemberId: 'staff-1',
+  staffMemberDisplayName: 'Mara Santos',
+  kind: CompensationAdjustmentKind.ALLOWANCE,
+  effectiveDate: '2026-08-14',
+  amountCents: cents(45_000),
+  description: 'Transportation allowance',
+  locationId: null,
+  createdAt: '2026-08-14T00:00:00.000Z',
+  updatedAt: '2026-08-14T00:00:00.000Z',
+};
+
 const payslip: PayslipSummary = {
   staffMember: { id: 'staff-1', displayName: 'Mara Santos' },
   from: '2026-08-01',
@@ -87,8 +110,12 @@ const payslip: PayslipSummary = {
   grandTotalCents: cents(9_999),
 };
 
-function renderPage(records: StaffCompensationEntry[] = [entry]) {
+function renderPage(
+  records: StaffCompensationEntry[] = [entry],
+  adjustmentRecords: StaffCompensationAdjustment[] | null = [],
+) {
   api.list.mockResolvedValue(records);
+  if (adjustmentRecords !== null) api.adjustList.mockResolvedValue(adjustmentRecords);
   api.listStaff.mockResolvedValue(staff);
   return render(<CompensationPage />);
 }
@@ -97,6 +124,15 @@ async function openAddForm() {
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Add daily record' }));
   const dialog = screen.getByRole('dialog', { name: 'Add daily record' });
+  return { user, dialog };
+}
+
+async function openAdjustmentForm() {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Adjustments' }));
+  await screen.findByRole('heading', { name: 'Adjustments' });
+  await user.click(screen.getAllByRole('button', { name: /Add adjustment/ })[0]!);
+  const dialog = screen.getByRole('dialog', { name: 'Add adjustment' });
   return { user, dialog };
 }
 
@@ -356,5 +392,205 @@ describe('CompensationPage', () => {
     await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
     expect(await screen.findByText('₱123.45')).toBeInTheDocument();
     expect(api.payslip).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [CompensationAdjustmentKind.ADVANCE, 'Emergency cash advance'],
+    [CompensationAdjustmentKind.ALLOWANCE, 'Meal allowance'],
+    [CompensationAdjustmentKind.BONUS, 'Holiday bonus'],
+  ])('creates a %s adjustment and updates the list without reloading', async (kind, description) => {
+    const created: StaffCompensationAdjustment = {
+      ...adjustment,
+      id: `created-${kind}`,
+      kind,
+      effectiveDate: '2026-08-15',
+      amountCents: cents(123_45),
+      description,
+    };
+    api.adjustCreate.mockResolvedValue(created);
+    renderPage();
+    const { user, dialog } = await openAdjustmentForm();
+    await within(dialog).findByRole('option', { name: 'Mara Santos' });
+    await user.selectOptions(within(dialog).getByLabelText(/Staff member/), 'staff-1');
+    await user.click(within(dialog).getByRole('button', {
+      name: kind === CompensationAdjustmentKind.ADVANCE
+        ? 'Advance'
+        : kind === CompensationAdjustmentKind.ALLOWANCE ? 'Allowance' : 'Bonus',
+    }));
+    await user.type(within(dialog).getByLabelText('Description'), description);
+    await user.type(within(dialog).getByLabelText('Amount'), '123.45');
+    await user.click(within(dialog).getByRole('button', { name: 'Add adjustment' }));
+
+    await waitFor(() => expect(api.adjustCreate).toHaveBeenCalledWith({
+      staffMemberId: 'staff-1',
+      kind,
+      effectiveDate: '2026-08-15',
+      amountCents: cents(123_45),
+      description,
+    }));
+    expect(await screen.findByText(description)).toBeInTheDocument();
+    expect(api.adjustList).toHaveBeenCalledTimes(2);
+  });
+
+  it('sends identical payloads for a preset and the same hand-typed description and permits both rows', async () => {
+    api.adjustCreate
+      .mockResolvedValueOnce({ ...adjustment, id: 'preset-row' })
+      .mockResolvedValueOnce({ ...adjustment, id: 'typed-row' });
+    renderPage();
+    const { user, dialog } = await openAdjustmentForm();
+    await within(dialog).findByRole('option', { name: 'Mara Santos' });
+    await user.selectOptions(within(dialog).getByLabelText(/Staff member/), 'staff-1');
+    await user.click(within(dialog).getByRole('button', { name: 'Transportation allowance' }));
+    await user.type(within(dialog).getByLabelText('Amount'), '450.00');
+    await user.click(within(dialog).getByRole('button', { name: 'Add adjustment' }));
+    await waitFor(() => expect(api.adjustCreate).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole('button', { name: /Add adjustment/ }));
+    const secondDialog = screen.getByRole('dialog', { name: 'Add adjustment' });
+    await user.selectOptions(within(secondDialog).getByLabelText(/Staff member/), 'staff-1');
+    await user.type(within(secondDialog).getByLabelText('Description'), 'Transportation allowance');
+    await user.type(within(secondDialog).getByLabelText('Amount'), '450.00');
+    await user.click(within(secondDialog).getByRole('button', { name: 'Add adjustment' }));
+    await waitFor(() => expect(api.adjustCreate).toHaveBeenCalledTimes(2));
+
+    expect(api.adjustCreate.mock.calls[0]![0]).toEqual(api.adjustCreate.mock.calls[1]![0]);
+    const table = screen.getByRole('region', { name: /Compensation adjustments table/ });
+    expect(within(table).getAllByText('Transportation allowance')).toHaveLength(2);
+    expect(screen.queryByText(/duplicate|already exists/i)).not.toBeInTheDocument();
+  });
+
+  it('preserves a custom description byte-exactly through create, list, and edit', async () => {
+    const description = 'MiXeD  café allowance';
+    const created = { ...adjustment, id: 'custom-row', description };
+    api.adjustCreate.mockResolvedValue(created);
+    api.adjustUpdate.mockResolvedValue({ ...created, amountCents: cents(50_000) });
+    renderPage();
+    const { user, dialog } = await openAdjustmentForm();
+    await within(dialog).findByRole('option', { name: 'Mara Santos' });
+    await user.selectOptions(within(dialog).getByLabelText(/Staff member/), 'staff-1');
+    await user.type(within(dialog).getByLabelText('Description'), description);
+    await user.type(within(dialog).getByLabelText('Amount'), '450.00');
+    await user.click(within(dialog).getByRole('button', { name: 'Add adjustment' }));
+
+    const editButton = await screen.findByRole('button', { name: /Edit MiXeD café allowance/ });
+    await user.click(editButton);
+    const editDialog = screen.getByRole('dialog', { name: 'Edit adjustment' });
+    expect(within(editDialog).getByLabelText('Description')).toHaveValue(description);
+    const amount = within(editDialog).getByLabelText('Amount');
+    await user.clear(amount);
+    await user.type(amount, '500.00');
+    await user.click(within(editDialog).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(api.adjustUpdate).toHaveBeenCalledWith('custom-row', {
+      effectiveDate: '2026-08-14',
+      amountCents: cents(50_000),
+      description,
+    }));
+  });
+
+  it('shows per-field errors for missing, negative, sub-centavo, non-numeric, and empty values', async () => {
+    renderPage();
+    const { user, dialog } = await openAdjustmentForm();
+    await within(dialog).findByRole('option', { name: 'Mara Santos' });
+    await user.selectOptions(within(dialog).getByLabelText(/Staff member/), 'staff-1');
+    await user.click(within(dialog).getByRole('button', { name: 'Add adjustment' }));
+    expect(within(dialog).getAllByText('Enter a description. Spaces alone are not accepted.')).toHaveLength(2);
+    expect(within(dialog).getAllByText('Enter an amount.')).toHaveLength(2);
+
+    const description = within(dialog).getByLabelText('Description');
+    const amount = within(dialog).getByLabelText('Amount');
+    await user.type(description, 'Test allowance');
+    await user.type(amount, '-1');
+    await user.click(within(dialog).getByRole('button', { name: 'Add adjustment' }));
+    expect(within(dialog).getAllByText('Amount cannot be negative.')).toHaveLength(2);
+
+    await user.clear(amount);
+    await user.type(amount, '12.345');
+    await user.click(within(dialog).getByRole('button', { name: 'Add adjustment' }));
+    expect(within(dialog).getAllByText('Amount cannot have more than 2 decimal places.')).toHaveLength(2);
+
+    await user.clear(amount);
+    await user.type(amount, 'not money');
+    await user.click(within(dialog).getByRole('button', { name: 'Add adjustment' }));
+    expect(within(dialog).getAllByText('Amount must be a number.')).toHaveLength(2);
+
+    await user.clear(amount);
+    await user.type(amount, '0');
+    await user.click(within(dialog).getByRole('button', { name: 'Add adjustment' }));
+    expect(within(dialog).getAllByText('Amount must be at least ₱0.01.')).toHaveLength(2);
+
+    await user.clear(amount);
+    await user.type(amount, '1.00');
+    fireEvent.change(description, { target: { value: 'x'.repeat(121) } });
+    expect(within(dialog).getByText('121 / 120')).toHaveClass('over');
+    await user.click(within(dialog).getByRole('button', { name: 'Add adjustment' }));
+    expect(within(dialog).getAllByText('Description must be 120 characters or fewer.')).toHaveLength(2);
+    expect(api.adjustCreate).not.toHaveBeenCalled();
+  });
+
+  it('renders authoritative API field validation in the adjustment dialog', async () => {
+    api.adjustCreate.mockRejectedValue(new CompensationApiError(
+      400,
+      ['amountCents must be at least 1'],
+      'amountCents',
+    ));
+    renderPage();
+    const { user, dialog } = await openAdjustmentForm();
+    await within(dialog).findByRole('option', { name: 'Mara Santos' });
+    await user.selectOptions(within(dialog).getByLabelText(/Staff member/), 'staff-1');
+    await user.type(within(dialog).getByLabelText('Description'), 'Load allowance');
+    await user.type(within(dialog).getByLabelText('Amount'), '1.00');
+    await user.click(within(dialog).getByRole('button', { name: 'Add adjustment' }));
+
+    expect(await within(dialog).findAllByText('Enter a valid positive amount with no more than two decimal places.')).toHaveLength(2);
+    expect(within(dialog).getByLabelText('Amount')).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('edits an adjustment and confirms permanent deletion while cancel leaves it unchanged', async () => {
+    const updated = { ...adjustment, description: 'Edited allowance', amountCents: cents(50_000) };
+    api.adjustUpdate.mockResolvedValue(updated);
+    api.adjustRemove.mockResolvedValue(undefined);
+    renderPage([entry], [adjustment]);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Adjustments' }));
+    await user.click(await screen.findByRole('button', { name: /Edit Transportation allowance/ }));
+    const editDialog = screen.getByRole('dialog', { name: 'Edit adjustment' });
+    const description = within(editDialog).getByLabelText('Description');
+    const amount = within(editDialog).getByLabelText('Amount');
+    await user.clear(description);
+    await user.type(description, 'Edited allowance');
+    await user.clear(amount);
+    await user.type(amount, '500.00');
+    await user.click(within(editDialog).getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText('Edited allowance')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Delete Edited allowance/ }));
+    let deleteDialog = screen.getByRole('dialog', { name: 'Delete adjustment?' });
+    expect(deleteDialog).toHaveTextContent('Mara Santos');
+    expect(deleteDialog).toHaveTextContent('August 14, 2026');
+    expect(deleteDialog).toHaveTextContent('Allowance');
+    expect(deleteDialog).toHaveTextContent('Edited allowance');
+    expect(deleteDialog).toHaveTextContent('₱500.00');
+    expect(deleteDialog).toHaveTextContent('There is no undo');
+    await user.click(within(deleteDialog).getByRole('button', { name: 'Cancel' }));
+    expect(api.adjustRemove).not.toHaveBeenCalled();
+    expect(screen.getByText('Edited allowance')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Delete Edited allowance/ }));
+    deleteDialog = screen.getByRole('dialog', { name: 'Delete adjustment?' });
+    await user.click(within(deleteDialog).getByRole('button', { name: 'Delete permanently' }));
+    await waitFor(() => expect(api.adjustRemove).toHaveBeenCalledWith('adjustment-1'));
+    expect(screen.queryByRole('button', { name: /Edit Edited allowance/ })).not.toBeInTheDocument();
+  });
+
+  it('renders access denied when the adjustments API returns 403', async () => {
+    api.adjustList.mockRejectedValue(new CompensationApiError(403, ['Forbidden']));
+    renderPage([entry], null);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Adjustments' }));
+
+    expect(await screen.findByText('Access denied')).toBeInTheDocument();
+    expect(screen.getByText('You do not have permission to view staff compensation adjustments.')).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: /Compensation adjustments/ })).not.toBeInTheDocument();
   });
 });
