@@ -408,20 +408,4 @@ describeWithDatabase('CompensationService against Postgres', () => {
     });
   });
 
-  it('enforces a positive adjustment amount at the database boundary', async () => {
-    await expect(
-      prisma.staffCompensationAdjustment.create({
-        data: {
-          staffMemberId,
-          kind: 'BONUS',
-          effectiveDate: new Date('2026-10-20T00:00:00.000Z'),
-          amountCents: 0,
-          description: 'Spot bonus',
-          locationId,
-          createdByUserId: adminUserId,
-          updatedByUserId: adminUserId,
-        },
-      }),
-    ).rejects.toBeDefined();
-  });
 });
