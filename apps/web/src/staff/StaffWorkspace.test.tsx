@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SignedInAs } from '../auth/session-test-utils';
 import { StaffWorkspaceLayout } from './StaffWorkspace';
@@ -21,11 +21,22 @@ const noOpenDay = {
   openedAt: null,
 };
 
-function renderWorkspace() {
+function renderWorkspace(initialEntry = '/pos/order') {
   return render(
     <SignedInAs staffMemberId="roster-id">
-      <MemoryRouter initialEntries={['/pos/order']}>
-        <StaffWorkspaceLayout />
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/pos" element={<StaffWorkspaceLayout />}>
+            <Route
+              path="order"
+              element={<main id="staff-main">Take Order</main>}
+            />
+            <Route
+              path="orders"
+              element={<main id="staff-main">Order History</main>}
+            />
+          </Route>
+        </Routes>
       </MemoryRouter>
     </SignedInAs>,
   );
@@ -94,6 +105,34 @@ describe('staff workspace navigation toggle', () => {
 
     expect(toggle.getAttribute('aria-controls')).toBe('staff-workspace-chrome');
     expect(document.querySelector('.staff-workspace-toggle-bar')).toBeNull();
+  });
+
+  it('keeps route content in the workspace remainder across menu states', async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+
+    const content = document.querySelector<HTMLElement>(
+      '.staff-workspace-content',
+    );
+    const main = document.getElementById('staff-main');
+
+    expect(content).toContainElement(main);
+    expect(content).toHaveClass('is-fitted');
+
+    await user.click(screen.getByRole('button', { name: 'Hide menu' }));
+
+    expect(content).toContainElement(main);
+    expect(document.querySelector('.staff-inventory-shell')).toContainElement(
+      content,
+    );
+  });
+
+  it('keeps flow-height route content intrinsic', () => {
+    renderWorkspace('/pos/orders');
+
+    expect(document.querySelector('.staff-workspace-content')).not.toHaveClass(
+      'is-fitted',
+    );
   });
 
   it('keeps the brand, day context and logout on screen while collapsed', async () => {

@@ -206,6 +206,10 @@ export function useStaffWorkspaceBusinessDay() {
 export function StaffWorkspaceLayout() {
   const auth = useAuth();
   const location = useLocation();
+  const isFittedWorkspace = isCurrentDestination(
+    location.pathname,
+    '/pos/order',
+  );
   const navigationRef = useRef<HTMLElement>(null);
   const [businessDay, setBusinessDay] =
     useState<CurrentOpenBusinessDay | null>(null);
@@ -356,7 +360,11 @@ export function StaffWorkspaceLayout() {
             </div>
           </div>
         </header>
-        <Outlet />
+        <div
+          className={`staff-workspace-content${isFittedWorkspace ? ' is-fitted' : ''}`}
+        >
+          <Outlet />
+        </div>
       </div>
     </StaffWorkspaceContext.Provider>
   );
