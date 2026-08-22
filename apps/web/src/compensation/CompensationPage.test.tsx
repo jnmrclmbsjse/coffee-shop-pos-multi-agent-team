@@ -10,6 +10,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CompensationPage, currencyToCents } from './CompensationPage';
+import { payslipFilename } from './PayslipView';
 import { CompensationApiError } from './api';
 
 const api = vi.hoisted(() => ({
@@ -24,6 +25,10 @@ const api = vi.hoisted(() => ({
   update: vi.fn(),
   listStaff: vi.fn(),
 }));
+
+const image = vi.hoisted(() => ({ toPng: vi.fn() }));
+
+vi.mock('html-to-image', () => ({ toPng: image.toPng }));
 
 vi.mock('./api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./api')>();
@@ -92,6 +97,24 @@ const adjustment: StaffCompensationAdjustment = {
   updatedAt: '2026-08-14T00:00:00.000Z',
 };
 
+const bonus: StaffCompensationAdjustment = {
+  ...adjustment,
+  id: 'adjustment-bonus',
+  kind: CompensationAdjustmentKind.BONUS,
+  effectiveDate: '2026-08-20',
+  amountCents: cents(2_000),
+  description: 'Launch weekend bonus',
+};
+
+const advance: StaffCompensationAdjustment = {
+  ...adjustment,
+  id: 'adjustment-advance',
+  kind: CompensationAdjustmentKind.ADVANCE,
+  effectiveDate: '2026-08-22',
+  amountCents: cents(20_000),
+  description: 'Emergency cash advance',
+};
+
 const payslip: PayslipSummary = {
   staffMember: { id: 'staff-1', displayName: 'Mara Santos' },
   from: '2026-08-01',
@@ -114,6 +137,19 @@ const payslip: PayslipSummary = {
   advanceTotalCents: cents(0),
   earningsTotalCents: cents(9_999),
   netPayableCents: cents(9_999),
+};
+
+const adjustedPayslip: PayslipSummary = {
+  ...payslip,
+  adjustments: [adjustment, bonus, advance],
+  salaryTotalCents: cents(500),
+  commissionTotalCents: cents(600),
+  grandTotalCents: cents(1_100),
+  allowanceTotalCents: cents(45_000),
+  bonusTotalCents: cents(2_000),
+  advanceTotalCents: cents(20_000),
+  earningsTotalCents: cents(12_345),
+  netPayableCents: cents(-7_655),
 };
 
 function renderPage(
@@ -152,11 +188,20 @@ describe('currencyToCents', () => {
   });
 });
 
+describe('payslipFilename', () => {
+  it('creates a deterministic filename-safe staff slug', () => {
+    expect(payslipFilename('  Mara D. Santos  ', '2026-08-01', '2026-08-31'))
+      .toBe('payslip-mara-d-santos-2026-08-01-2026-08-31.png');
+  });
+});
+
 describe('CompensationPage', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date('2026-08-15T04:00:00.000Z'));
     Object.values(api).forEach((mock) => mock.mockReset());
+    image.toPng.mockReset();
+    image.toPng.mockResolvedValue('data:image/png;base64,payslip');
   });
 
   afterEach(() => {
@@ -294,8 +339,8 @@ describe('CompensationPage', () => {
     expect(screen.queryByText('₱1,650.00')).not.toBeInTheDocument();
   });
 
-  it('renders payslip lines and server totals verbatim', async () => {
-    api.payslip.mockResolvedValue(payslip);
+  it('itemizes earnings and advances and renders every server total verbatim', async () => {
+    api.payslip.mockResolvedValue(adjustedPayslip);
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Payslips' }));
@@ -304,20 +349,22 @@ describe('CompensationPage', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
 
-    const result = await screen.findByRole('region', {
-      name: 'Payslip daily entries, horizontally scrollable',
-    });
-    expect(screen.getByRole('heading', { name: 'Mara Santos' })).toBeInTheDocument();
-    expect(screen.getByText('Inclusive range: August 1, 2026 to August 31, 2026')).toBeInTheDocument();
-    expect(within(result).getByText('August 14, 2026')).toBeInTheDocument();
-    expect(within(result).getByText('₱1.00')).toBeInTheDocument();
-    expect(within(result).getByText('₱2.00')).toBeInTheDocument();
-    expect(within(result).getByText('₱9.99')).toBeInTheDocument();
+    const artifact = await screen.findByRole('article', { name: 'Mara Santos' });
+    expect(within(artifact).getByText('Inclusive range: August 1, 2026 to August 31, 2026')).toBeInTheDocument();
+    expect(within(artifact).getByText('Transportation allowance')).toBeInTheDocument();
+    expect(within(artifact).getByText('Launch weekend bonus')).toBeInTheDocument();
+    expect(within(artifact).getByText('Emergency cash advance')).toBeInTheDocument();
 
-    const totals = screen.getByRole('group', { name: 'Payslip totals' });
-    expect(within(totals).getByText('₱5.01')).toBeInTheDocument();
-    expect(within(totals).getByText('₱6.02')).toBeInTheDocument();
-    expect(within(totals).getByText('₱99.99')).toBeInTheDocument();
+    const earnings = within(artifact).getByLabelText('Earnings totals');
+    expect(earnings).toHaveTextContent('Salary total₱5.00');
+    expect(earnings).toHaveTextContent('Commission total₱6.00');
+    expect(earnings).toHaveTextContent('Allowance total₱450.00');
+    expect(earnings).toHaveTextContent('Bonus total₱20.00');
+    expect(earnings).toHaveTextContent('Earnings total₱123.45');
+    expect(within(artifact).getByLabelText('Deduction totals')).toHaveTextContent('Advance total−₱200.00');
+    expect(within(artifact).getByText('₱-76.55')).toBeInTheDocument();
+    expect(within(artifact).getByText(/Advances in this range exceed earnings/)).toBeInTheDocument();
+    expect(within(artifact).getByText(/^Generated .*2026/)).toBeInTheDocument();
   });
 
   it('offers a deactivated staff member when compensation history exists', async () => {
@@ -377,14 +424,16 @@ describe('CompensationPage', () => {
     expect(screen.getByText(/No payslip or totals were generated/)).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.queryByText('₱0.00')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Download PNG' })).not.toBeInTheDocument();
   });
 
-  it('fetches again and shows current figures when a payslip is regenerated', async () => {
+  it('fetches again and shows current server figures when a payslip is regenerated', async () => {
     api.payslip
       .mockResolvedValueOnce(payslip)
       .mockResolvedValueOnce({
         ...payslip,
-        grandTotalCents: cents(12_345),
+        earningsTotalCents: cents(12_345),
+        netPayableCents: cents(8_765),
       });
     renderPage();
     const user = userEvent.setup();
@@ -393,11 +442,96 @@ describe('CompensationPage', () => {
       expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'),
     );
     await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
-    expect(await screen.findByText('₱99.99')).toBeInTheDocument();
+    expect((await screen.findAllByText('₱99.99')).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
     expect(await screen.findByText('₱123.45')).toBeInTheDocument();
+    expect(await screen.findByText('₱87.65')).toBeInTheDocument();
     expect(api.payslip).toHaveBeenCalledTimes(2);
+  });
+
+  it('treats an adjustment-only range as downloadable instead of empty', async () => {
+    api.payslip.mockResolvedValue({
+      ...adjustedPayslip,
+      entries: [],
+      adjustments: [advance],
+      salaryTotalCents: cents(0),
+      commissionTotalCents: cents(0),
+      grandTotalCents: cents(0),
+      allowanceTotalCents: cents(0),
+      bonusTotalCents: cents(0),
+      earningsTotalCents: cents(0),
+      advanceTotalCents: cents(20_000),
+      netPayableCents: cents(-20_000),
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() => expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'));
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+
+    expect(await screen.findByText('Emergency cash advance')).toBeInTheDocument();
+    expect(screen.getByText('₱-200.00')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download PNG' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'No records in this range' })).not.toBeInTheDocument();
+  });
+
+  it('captures the rendered artifact and downloads it with the deterministic filename', async () => {
+    api.payslip.mockResolvedValue(adjustedPayslip);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() => expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'));
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+    await user.click(await screen.findByRole('button', { name: 'Download PNG' }));
+
+    await waitFor(() => expect(image.toPng).toHaveBeenCalledTimes(1));
+    const capturedNode = image.toPng.mock.calls[0]![0] as HTMLElement;
+    expect(capturedNode).toHaveAttribute('id', 'payslip-capture-node');
+    expect(capturedNode).toHaveTextContent('Mara Santos');
+    expect(capturedNode).toHaveTextContent('Inclusive range: August 1, 2026 to August 31, 2026');
+    expect(capturedNode).toHaveTextContent('Transportation allowance');
+    expect(capturedNode).toHaveTextContent('Launch weekend bonus');
+    expect(capturedNode).toHaveTextContent('Emergency cash advance');
+    expect(capturedNode).toHaveTextContent('Net payable');
+    expect(capturedNode).toHaveTextContent('Generated');
+    const options = image.toPng.mock.calls[0]![1] as {
+      filter?: (node: Node) => boolean;
+    };
+    const filter = options.filter;
+    const textNode = document
+      .createTreeWalker(capturedNode, NodeFilter.SHOW_TEXT)
+      .nextNode();
+    const excludedButton = within(capturedNode).getByRole('button', {
+      name: 'Download PNG',
+    });
+    expect(filter).toBeDefined();
+    expect(textNode).not.toBeNull();
+    expect(filter!(textNode!)).toBe(true);
+    expect(filter!(excludedButton)).toBe(false);
+    expect(click).toHaveBeenCalledTimes(1);
+    const link = click.mock.contexts[0] as HTMLAnchorElement;
+    expect(link.download).toBe('payslip-mara-santos-2026-08-01-2026-08-31.png');
+    expect(link.href).toBe('data:image/png;base64,payslip');
+    expect(await screen.findByRole('status')).toHaveTextContent('Downloaded: payslip-mara-santos-2026-08-01-2026-08-31.png');
+  });
+
+  it('surfaces rasterization failure and offers a retry without removing the payslip', async () => {
+    image.toPng.mockRejectedValue(new Error('canvas failed'));
+    api.payslip.mockResolvedValue(adjustedPayslip);
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() => expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'));
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+    await user.click(await screen.findByRole('button', { name: 'Download PNG' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Image could not be prepared.');
+    expect(alert).toHaveTextContent('The on-screen payslip is unchanged.');
+    expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: 'Mara Santos' })).toBeInTheDocument();
   });
 
   it.each([

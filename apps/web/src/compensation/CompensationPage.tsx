@@ -299,7 +299,7 @@ export function CompensationPage() {
               ? 'Daily salary and commission records'
               : section === 'adjustments'
                 ? 'Manage standalone allowances, bonuses, and advances'
-                : 'Generate a gross summary from entered daily records'}
+                : 'Review earnings, advances, and net payable'}
           </p>
         </div>
         {section === 'records' && (
