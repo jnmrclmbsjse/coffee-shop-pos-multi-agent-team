@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { CompensationAdjustmentKind } from '@coffee-shop/shared';
 import type { PrismaService } from '../prisma/prisma.service';
 import { CompensationService } from './compensation.service';
 
@@ -7,6 +8,7 @@ describe('CompensationService', () => {
   const staffMemberId = '9e55c455-879c-4ea8-8365-433e0e2cf4a3';
   const locationId = '0dd85c48-9de0-405e-a899-803108c161d4';
   const entryId = '190d7f48-9389-4a6d-9348-fe056148bb97';
+  const adjustmentId = '378de65f-e46d-45eb-a5c2-9d35cfe95d94';
   const adminUserId = '44fc441b-a59f-45c3-b7ae-7ea93d1b06d3';
   const updatedAdminUserId = '3e428f7e-d295-45a4-9fe7-c9c8e39f2b46';
   const now = new Date('2026-08-15T04:00:00.000Z');
@@ -87,6 +89,58 @@ describe('CompensationService', () => {
       code,
       clientVersion: '6.19.0',
     });
+  }
+
+  function setupAdjustments(options: {
+    staffMember?: { displayName: string; locationId: string | null } | null;
+    updateError?: Error;
+    deleteError?: Error;
+  } = {}) {
+    const adjustmentRecord = {
+      id: adjustmentId,
+      staffMemberId,
+      kind: 'ALLOWANCE' as const,
+      effectiveDate: new Date('2026-08-15T00:00:00.000Z'),
+      amountCents: 200,
+      description: 'MiXeD  café allowance',
+      locationId,
+      createdByUserId: adminUserId,
+      updatedByUserId: adminUserId,
+      createdAt: now,
+      updatedAt: now,
+      staffMember: { displayName: 'Jane Santos' },
+    };
+    const prisma = {
+      staffMember: {
+        findUnique: jest.fn().mockResolvedValue(
+          options.staffMember === undefined
+            ? { displayName: 'Jane Santos', locationId }
+            : options.staffMember,
+        ),
+      },
+      staffCompensationAdjustment: {
+        findMany: jest.fn().mockResolvedValue([adjustmentRecord]),
+        create: jest.fn().mockResolvedValue(adjustmentRecord),
+        update: options.updateError
+          ? jest.fn().mockRejectedValue(options.updateError)
+          : jest.fn().mockResolvedValue({
+              ...adjustmentRecord,
+              effectiveDate: new Date('2026-08-16T00:00:00.000Z'),
+              amountCents: 300,
+              description: 'Spot bonus',
+              updatedByUserId: updatedAdminUserId,
+            }),
+        delete: options.deleteError
+          ? jest.fn().mockRejectedValue(options.deleteError)
+          : jest.fn().mockResolvedValue(adjustmentRecord),
+      },
+    };
+
+    return {
+      adjustmentRecord,
+      prisma,
+      service: new CompensationService(prisma as unknown as PrismaService),
+    };
   }
 
   it('generates a payslip with inclusive bounds and integer totals', async () => {
@@ -415,5 +469,177 @@ describe('CompensationService', () => {
     await expect(service.create(createInput as never, adminUserId)).rejects.toBe(
       error,
     );
+  });
+
+  it('lists adjustments with inclusive filters in deterministic order', async () => {
+    const { prisma, service } = setupAdjustments();
+
+    await expect(
+      service.listAdjustments({
+        staffMemberId,
+        from: '2026-08-01',
+        to: '2026-08-15',
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        effectiveDate: '2026-08-15',
+        amountCents: 200,
+        description: 'MiXeD  café allowance',
+      }),
+    ]);
+    expect(prisma.staffCompensationAdjustment.findMany).toHaveBeenCalledWith({
+      where: {
+        staffMemberId,
+        effectiveDate: {
+          gte: new Date('2026-08-01T00:00:00.000Z'),
+          lte: new Date('2026-08-15T00:00:00.000Z'),
+        },
+      },
+      include: expect.any(Object),
+      orderBy: [{ effectiveDate: 'desc' }, { createdAt: 'asc' }],
+    });
+  });
+
+  it('refuses a reversed adjustment range before querying records', async () => {
+    const { prisma, service } = setupAdjustments();
+
+    await expect(
+      service.listAdjustments({ from: '2026-08-16', to: '2026-08-15' }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(prisma.staffCompensationAdjustment.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when an adjustment list filters by an unknown staff member', async () => {
+    const { prisma, service } = setupAdjustments({ staffMember: null });
+
+    await expect(
+      service.listAdjustments({ staffMemberId }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.staffCompensationAdjustment.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each(Object.values(CompensationAdjustmentKind))(
+    'creates a %s adjustment with a location snapshot and both audit users',
+    async (kind) => {
+      const { prisma, service } = setupAdjustments();
+
+      await expect(
+        service.createAdjustment(
+          {
+            staffMemberId,
+            kind,
+            effectiveDate: '2026-08-15',
+            amountCents: 200,
+            description: '  MiXeD  café allowance  ',
+          } as never,
+          adminUserId,
+        ),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          locationId,
+          description: 'MiXeD  café allowance',
+        }),
+      );
+      expect(prisma.staffCompensationAdjustment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            staffMemberId,
+            kind,
+            effectiveDate: new Date('2026-08-15T00:00:00.000Z'),
+            amountCents: 200,
+            description: 'MiXeD  café allowance',
+            locationId,
+            createdByUserId: adminUserId,
+            updatedByUserId: adminUserId,
+          },
+        }),
+      );
+    },
+  );
+
+  it('does not suppress identical adjustment creates', async () => {
+    const { prisma, service } = setupAdjustments();
+    const input = {
+      staffMemberId,
+      kind: CompensationAdjustmentKind.ALLOWANCE,
+      effectiveDate: '2026-08-15',
+      amountCents: 200,
+      description: 'Transportation allowance',
+    } as never;
+
+    await service.createAdjustment(input, adminUserId);
+    await service.createAdjustment(input, adminUserId);
+
+    expect(prisma.staffCompensationAdjustment.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('updates date, amount, verbatim description, and the authenticated updater', async () => {
+    const { prisma, service } = setupAdjustments();
+
+    await expect(
+      service.updateAdjustment(
+        adjustmentId,
+        {
+          effectiveDate: '2026-08-16',
+          amountCents: 300,
+          description: '  Spot bonus  ',
+        } as never,
+        updatedAdminUserId,
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        effectiveDate: '2026-08-16',
+        amountCents: 300,
+        description: 'Spot bonus',
+      }),
+    );
+    expect(prisma.staffCompensationAdjustment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: adjustmentId },
+        data: {
+          effectiveDate: new Date('2026-08-16T00:00:00.000Z'),
+          amountCents: 300,
+          description: 'Spot bonus',
+          updatedByUserId: updatedAdminUserId,
+        },
+      }),
+    );
+  });
+
+  it.each(['update', 'delete'] as const)(
+    'maps an unknown adjustment on %s to 404',
+    async (operation) => {
+      const { service } = setupAdjustments({
+        ...(operation === 'update'
+          ? { updateError: prismaError('P2025') }
+          : { deleteError: prismaError('P2025') }),
+      });
+      const result =
+        operation === 'update'
+          ? service.updateAdjustment(
+              adjustmentId,
+              {
+                effectiveDate: '2026-08-16',
+                amountCents: 300,
+                description: 'Spot bonus',
+              } as never,
+              updatedAdminUserId,
+            )
+          : service.removeAdjustment(adjustmentId);
+
+      await expect(result).rejects.toBeInstanceOf(NotFoundException);
+    },
+  );
+
+  it('hard-deletes an adjustment', async () => {
+    const { prisma, service } = setupAdjustments();
+
+    await expect(
+      service.removeAdjustment(adjustmentId),
+    ).resolves.toBeUndefined();
+    expect(prisma.staffCompensationAdjustment.delete).toHaveBeenCalledWith({
+      where: { id: adjustmentId },
+    });
   });
 });

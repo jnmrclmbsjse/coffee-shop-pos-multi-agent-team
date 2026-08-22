@@ -7,6 +7,8 @@ import {
 import {
   addMoney,
   cents,
+  CompensationAdjustmentKind,
+  type StaffCompensationAdjustment,
   type PayslipSummary,
   type StaffCompensationEntry,
 } from '@coffee-shop/shared';
@@ -14,8 +16,11 @@ import { Prisma, type StaffMember } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   CompensationEntryListQueryDto,
+  CompensationAdjustmentListQueryDto,
+  CreateCompensationAdjustmentDto,
   CreateCompensationEntryDto,
   PayslipQueryDto,
+  UpdateCompensationAdjustmentDto,
   UpdateCompensationEntryDto,
 } from './compensation.dto';
 
@@ -28,6 +33,15 @@ const compensationEntryInclude = {
 type CompensationEntryRecord =
   Prisma.StaffCompensationEntryGetPayload<{
     include: typeof compensationEntryInclude;
+  }>;
+
+const compensationAdjustmentInclude = {
+  staffMember: { select: { displayName: true } },
+} satisfies Prisma.StaffCompensationAdjustmentInclude;
+
+type CompensationAdjustmentRecord =
+  Prisma.StaffCompensationAdjustmentGetPayload<{
+    include: typeof compensationAdjustmentInclude;
   }>;
 
 @Injectable()
@@ -154,6 +168,100 @@ export class CompensationService {
     }
   }
 
+  async listAdjustments(
+    query: CompensationAdjustmentListQueryDto,
+  ): Promise<StaffCompensationAdjustment[]> {
+    if (query.from && query.to && query.to < query.from) {
+      throw new BadRequestException({
+        message: 'to must be on or after from',
+        field: 'to',
+        reason: 'INVALID_DATE_RANGE',
+      });
+    }
+    if (query.staffMemberId) {
+      await this.requireStaffMember(query.staffMemberId);
+    }
+
+    const records = await this.prisma.staffCompensationAdjustment.findMany({
+      where: {
+        ...(query.staffMemberId
+          ? { staffMemberId: query.staffMemberId }
+          : {}),
+        ...(query.from || query.to
+          ? {
+              effectiveDate: {
+                ...(query.from ? { gte: this.toDate(query.from) } : {}),
+                ...(query.to ? { lte: this.toDate(query.to) } : {}),
+              },
+            }
+          : {}),
+      },
+      include: compensationAdjustmentInclude,
+      orderBy: [{ effectiveDate: 'desc' }, { createdAt: 'asc' }],
+    });
+
+    return records.map((record) => this.toAdjustment(record));
+  }
+
+  async createAdjustment(
+    input: CreateCompensationAdjustmentDto,
+    userId: string,
+  ): Promise<StaffCompensationAdjustment> {
+    const staffMember = await this.requireStaffMember(input.staffMemberId);
+    const record = await this.prisma.staffCompensationAdjustment.create({
+      data: {
+        staffMemberId: input.staffMemberId,
+        kind: input.kind,
+        effectiveDate: this.toDate(input.effectiveDate),
+        amountCents: input.amountCents,
+        description: input.description.trim(),
+        locationId: staffMember.locationId,
+        createdByUserId: userId,
+        updatedByUserId: userId,
+      },
+      include: compensationAdjustmentInclude,
+    });
+
+    return this.toAdjustment(record);
+  }
+
+  async updateAdjustment(
+    id: string,
+    input: UpdateCompensationAdjustmentDto,
+    userId: string,
+  ): Promise<StaffCompensationAdjustment> {
+    try {
+      const record = await this.prisma.staffCompensationAdjustment.update({
+        where: { id },
+        data: {
+          effectiveDate: this.toDate(input.effectiveDate),
+          amountCents: input.amountCents,
+          description: input.description.trim(),
+          updatedByUserId: userId,
+        },
+        include: compensationAdjustmentInclude,
+      });
+
+      return this.toAdjustment(record);
+    } catch (error) {
+      if (this.isPrismaError(error, 'P2025')) {
+        throw new NotFoundException('Compensation adjustment not found');
+      }
+      throw error;
+    }
+  }
+
+  async removeAdjustment(id: string): Promise<void> {
+    try {
+      await this.prisma.staffCompensationAdjustment.delete({ where: { id } });
+    } catch (error) {
+      if (this.isPrismaError(error, 'P2025')) {
+        throw new NotFoundException('Compensation adjustment not found');
+      }
+      throw error;
+    }
+  }
+
   async update(
     id: string,
     input: UpdateCompensationEntryDto,
@@ -229,6 +337,25 @@ export class CompensationService {
       salaryCents,
       commissionCents,
       dailyTotalCents: addMoney(salaryCents, commissionCents),
+      locationId: record.locationId,
+      createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
+    };
+  }
+
+  private toAdjustment(
+    record: CompensationAdjustmentRecord,
+  ): StaffCompensationAdjustment {
+    return {
+      id: record.id,
+      staffMemberId: record.staffMemberId,
+      staffMemberDisplayName: record.staffMember.displayName,
+      kind: CompensationAdjustmentKind[record.kind],
+      effectiveDate: record.effectiveDate
+        .toISOString()
+        .slice(0, ISO_DATE_LENGTH),
+      amountCents: cents(record.amountCents),
+      description: record.description,
       locationId: record.locationId,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),

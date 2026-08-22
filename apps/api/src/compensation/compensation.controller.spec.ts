@@ -21,7 +21,17 @@ describe('CompensationController', () => {
     ).toEqual([JwtAuthGuard, RolesGuard]);
   });
 
-  it.each(['payslip', 'list', 'create', 'update', 'remove'] as const)(
+  it.each([
+    'payslip',
+    'list',
+    'create',
+    'update',
+    'remove',
+    'listAdjustments',
+    'createAdjustment',
+    'updateAdjustment',
+    'removeAdjustment',
+  ] as const)(
     'refuses a STAFF user on %s',
     (handlerName) => {
       const guard = new RolesGuard(new Reflector());
@@ -95,5 +105,43 @@ describe('CompensationController', () => {
       updateInput,
       'admin-user-id',
     );
+  });
+
+  it('delegates adjustment CRUD and attributes writes to the administrator', async () => {
+    const service = {
+      listAdjustments: jest.fn().mockResolvedValue([]),
+      createAdjustment: jest.fn().mockResolvedValue({ id: 'created' }),
+      updateAdjustment: jest.fn().mockResolvedValue({ id: 'updated' }),
+      removeAdjustment: jest.fn().mockResolvedValue(undefined),
+    };
+    const controller = new CompensationController(service as never);
+    const request = {
+      headers: {},
+      user: {
+        id: 'admin-user-id',
+        username: 'admin',
+        role: Role.ADMIN,
+      },
+    };
+    const query = { staffMemberId: 'staff-id' } as never;
+    const createInput = { kind: 'BONUS' } as never;
+    const updateInput = { amountCents: 250 } as never;
+
+    await controller.listAdjustments(query);
+    await controller.createAdjustment(createInput, request);
+    await controller.updateAdjustment('adjustment-id', updateInput, request);
+    await controller.removeAdjustment('adjustment-id');
+
+    expect(service.listAdjustments).toHaveBeenCalledWith(query);
+    expect(service.createAdjustment).toHaveBeenCalledWith(
+      createInput,
+      'admin-user-id',
+    );
+    expect(service.updateAdjustment).toHaveBeenCalledWith(
+      'adjustment-id',
+      updateInput,
+      'admin-user-id',
+    );
+    expect(service.removeAdjustment).toHaveBeenCalledWith('adjustment-id');
   });
 });
