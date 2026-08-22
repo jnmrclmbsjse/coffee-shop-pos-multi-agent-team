@@ -154,6 +154,56 @@ export interface UpdateStaffCompensationEntryInput {
   commissionCents: MoneyCents;
 }
 
+export enum CompensationAdjustmentKind {
+  ADVANCE = 'ADVANCE',
+  ALLOWANCE = 'ALLOWANCE',
+  BONUS = 'BONUS',
+}
+
+export const ALLOWANCE_DESCRIPTION_PRESETS = [
+  'Load allowance',
+  'Transportation allowance',
+  'Calamity allowance',
+] as const;
+
+export const BONUS_DESCRIPTION_PRESETS = [
+  'Performance bonus',
+  'Spot bonus',
+] as const;
+
+export interface StaffCompensationAdjustment {
+  id: string;
+  staffMemberId: string;
+  staffMemberDisplayName: string;
+  kind: CompensationAdjustmentKind;
+  effectiveDate: string;
+  amountCents: MoneyCents;
+  description: string;
+  locationId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StaffCompensationAdjustmentListQuery {
+  staffMemberId?: string;
+  from?: string;
+  to?: string;
+}
+
+export interface CreateStaffCompensationAdjustmentInput {
+  staffMemberId: string;
+  kind: CompensationAdjustmentKind;
+  effectiveDate: string;
+  amountCents: MoneyCents;
+  description: string;
+}
+
+export interface UpdateStaffCompensationAdjustmentInput {
+  effectiveDate: string;
+  amountCents: MoneyCents;
+  description: string;
+}
+
 export interface PayslipEntry {
   id: string;
   workDate: string;

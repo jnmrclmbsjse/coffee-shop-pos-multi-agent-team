@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ALLOWANCE_DESCRIPTION_PRESETS,
+  BONUS_DESCRIPTION_PRESETS,
   LineDiscountKind,
   LinePreference,
   MovementType,
@@ -37,6 +39,20 @@ describe('order capture enums', () => {
       'STRONGER',
       'LESS_SWEET',
       'LESS_ICE',
+    ]);
+  });
+});
+
+describe('compensation adjustment description presets', () => {
+  it('exports the approved allowance and bonus starter wording', () => {
+    expect(ALLOWANCE_DESCRIPTION_PRESETS).toEqual([
+      'Load allowance',
+      'Transportation allowance',
+      'Calamity allowance',
+    ]);
+    expect(BONUS_DESCRIPTION_PRESETS).toEqual([
+      'Performance bonus',
+      'Spot bonus',
     ]);
   });
 });

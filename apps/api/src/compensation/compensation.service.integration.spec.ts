@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
+import { CompensationAdjustmentKind } from '@coffee-shop/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompensationService } from './compensation.service';
 
@@ -66,6 +67,9 @@ describeWithDatabase('CompensationService against Postgres', () => {
 
   afterAll(async () => {
     if (!prisma) return;
+    await prisma.staffCompensationAdjustment.deleteMany({
+      where: { staffMemberId: { in: [staffMemberId, otherStaffMemberId] } },
+    });
     await prisma.staffCompensationEntry.deleteMany({
       where: { staffMemberId: { in: [staffMemberId, otherStaffMemberId] } },
     });
@@ -298,4 +302,110 @@ describeWithDatabase('CompensationService against Postgres', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('persists adjustment CRUD for all kinds, preserves duplicates and descriptions, and filters inclusively', async () => {
+    const createdIds: string[] = [];
+    const descriptions = {
+      [CompensationAdjustmentKind.ADVANCE]: 'Salary advance',
+      [CompensationAdjustmentKind.ALLOWANCE]: '  MiXeD  café allowance  ',
+      [CompensationAdjustmentKind.BONUS]: 'Spot bonus',
+    };
+
+    for (const kind of Object.values(CompensationAdjustmentKind)) {
+      const created = await service.createAdjustment(
+        {
+          staffMemberId,
+          kind,
+          effectiveDate: '2026-10-10',
+          amountCents: 200,
+          description: descriptions[kind],
+        } as never,
+        adminUserId,
+      );
+      createdIds.push(created.id);
+    }
+
+    const duplicate = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        effectiveDate: '2026-10-10',
+        amountCents: 200,
+        description: 'MiXeD  café allowance',
+      } as never,
+      adminUserId,
+    );
+    createdIds.push(duplicate.id);
+
+    const listed = await service.listAdjustments({
+      staffMemberId,
+      from: '2026-10-10',
+      to: '2026-10-10',
+    });
+    expect(listed).toHaveLength(4);
+    expect(listed.filter((item) => item.kind === 'ALLOWANCE')).toHaveLength(2);
+    expect(
+      listed.filter(
+        (item) =>
+          item.kind === 'ALLOWANCE' &&
+          item.amountCents === 200 &&
+          item.description === 'MiXeD  café allowance',
+      ),
+    ).toHaveLength(2);
+    expect(listed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'ADVANCE', locationId }),
+        expect.objectContaining({ kind: 'BONUS', locationId }),
+      ]),
+    );
+
+    const storedBeforeUpdate =
+      await prisma.staffCompensationAdjustment.findUniqueOrThrow({
+        where: { id: createdIds[0]! },
+      });
+    expect(storedBeforeUpdate).toMatchObject({
+      createdByUserId: adminUserId,
+      updatedByUserId: adminUserId,
+      locationId,
+    });
+
+    const updated = await service.updateAdjustment(
+      createdIds[0]!,
+      {
+        effectiveDate: '2026-10-11',
+        amountCents: 350,
+        description: '  Emergency advance  ',
+      } as never,
+      secondAdminUserId,
+    );
+    expect(updated).toEqual(
+      expect.objectContaining({
+        kind: 'ADVANCE',
+        effectiveDate: '2026-10-11',
+        amountCents: 350,
+        description: 'Emergency advance',
+      }),
+    );
+    const storedAfterUpdate =
+      await prisma.staffCompensationAdjustment.findUniqueOrThrow({
+        where: { id: createdIds[0]! },
+      });
+    expect(storedAfterUpdate).toMatchObject({
+      createdByUserId: adminUserId,
+      updatedByUserId: secondAdminUserId,
+    });
+
+    await service.removeAdjustment(createdIds[0]!);
+    createdIds.shift();
+    await expect(
+      prisma.staffCompensationAdjustment.findUnique({
+        where: { id: storedAfterUpdate.id },
+      }),
+    ).resolves.toBeNull();
+
+    await prisma.staffCompensationAdjustment.deleteMany({
+      where: { id: { in: createdIds } },
+    });
+  });
+
 });
