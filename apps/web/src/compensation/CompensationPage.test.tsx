@@ -367,6 +367,47 @@ describe('CompensationPage', () => {
     expect(within(artifact).getByText(/^Generated .*2026/)).toBeInTheDocument();
   });
 
+  it('itemizes every daily salary and commission entry with its server total', async () => {
+    api.payslip.mockResolvedValue({
+      ...adjustedPayslip,
+      entries: [
+        payslip.entries[0]!,
+        {
+          id: 'payslip-entry-2',
+          workDate: '2026-08-18',
+          salaryCents: cents(123_456),
+          commissionCents: cents(7),
+          dailyTotalCents: cents(123_463),
+        },
+        {
+          id: 'payslip-entry-3',
+          workDate: '2026-08-22',
+          salaryCents: cents(0),
+          commissionCents: cents(1),
+          dailyTotalCents: cents(1),
+        },
+      ],
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'),
+    );
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+
+    const dailyTable = await screen.findByRole('table', {
+      name: 'Daily salary and commission entries included in this payslip',
+    });
+    const rows = within(dailyTable).getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent('August 14, 2026₱1.00₱2.00₱9.99');
+    expect(rows[1]).toHaveTextContent(
+      'August 18, 2026₱1,234.56₱0.07₱1,234.63',
+    );
+    expect(rows[2]).toHaveTextContent('August 22, 2026₱0.00₱0.01₱0.01');
+  });
+
   it('offers a deactivated staff member when compensation history exists', async () => {
     const inactiveEntry: StaffCompensationEntry = {
       ...entry,
@@ -491,6 +532,9 @@ describe('CompensationPage', () => {
     expect(capturedNode).toHaveAttribute('id', 'payslip-capture-node');
     expect(capturedNode).toHaveTextContent('Mara Santos');
     expect(capturedNode).toHaveTextContent('Inclusive range: August 1, 2026 to August 31, 2026');
+    expect(capturedNode).toHaveTextContent('Daily salary and commission');
+    expect(capturedNode).toHaveTextContent('August 14, 2026');
+    expect(capturedNode).toHaveTextContent('₱9.99');
     expect(capturedNode).toHaveTextContent('Transportation allowance');
     expect(capturedNode).toHaveTextContent('Launch weekend bonus');
     expect(capturedNode).toHaveTextContent('Emergency cash advance');

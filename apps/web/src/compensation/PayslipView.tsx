@@ -326,6 +326,45 @@ export function PayslipView({
               <p className="payslip-zone-label" id="payslip-earnings-title">
                 Earnings
               </p>
+              {summary.entries.length > 0 && (
+                <div className="payslip-daily-block">
+                  <h3 className="payslip-subsection-title">
+                    Daily salary and commission
+                  </h3>
+                  <table className="payslip-table payslip-daily-table">
+                    <caption className="sr-only">
+                      Daily salary and commission entries included in this
+                      payslip
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Work date</th>
+                        <th scope="col">Salary</th>
+                        <th scope="col">Commission</th>
+                        <th scope="col">Daily total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summary.entries.map((entry) => (
+                        <tr key={entry.id}>
+                          <th scope="row" data-label="Work date">
+                            {formatBusinessDate(entry.workDate)}
+                          </th>
+                          <td data-label="Salary">
+                            {formatMoney(entry.salaryCents)}
+                          </td>
+                          <td data-label="Commission">
+                            {formatMoney(entry.commissionCents)}
+                          </td>
+                          <td data-label="Daily total">
+                            <strong>{formatMoney(entry.dailyTotalCents)}</strong>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               {summary.earningsTotalCents === 0 && (
                 <p className="payslip-zone-note">
                   No salary, commission, allowance, or bonus earnings fall
