@@ -238,9 +238,15 @@ describeWithDatabase('CompensationService against Postgres', () => {
           dailyTotalCents: 12_300,
         }),
       ],
+      adjustments: [],
       salaryTotalCents: 22_000,
       commissionTotalCents: 400,
       grandTotalCents: 22_400,
+      allowanceTotalCents: 0,
+      bonusTotalCents: 0,
+      advanceTotalCents: 0,
+      earningsTotalCents: 22_400,
+      netPayableCents: 22_400,
     });
     expect(initial.entries.map((entry) => entry.id)).not.toEqual(
       expect.arrayContaining([
@@ -301,6 +307,148 @@ describeWithDatabase('CompensationService against Postgres', () => {
         to: '2026-09-12',
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('returns a fresh adjustments-only payslip with inclusive boundaries and a negative net payable', async () => {
+    const before = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        effectiveDate: '2026-11-30',
+        amountCents: 9_999,
+        description: 'Before range',
+      } as never,
+      adminUserId,
+    );
+    const allowance = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        effectiveDate: '2026-12-01',
+        amountCents: 100,
+        description: 'Load allowance',
+      } as never,
+      adminUserId,
+    );
+    const bonus = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.BONUS,
+        effectiveDate: '2026-12-02',
+        amountCents: 200,
+        description: 'Spot bonus',
+      } as never,
+      adminUserId,
+    );
+    const advance = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.ADVANCE,
+        effectiveDate: '2026-12-03',
+        amountCents: 400,
+        description: 'Salary advance',
+      } as never,
+      adminUserId,
+    );
+    const after = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.BONUS,
+        effectiveDate: '2026-12-04',
+        amountCents: 9_999,
+        description: 'After range',
+      } as never,
+      adminUserId,
+    );
+    const otherStaff = await service.createAdjustment(
+      {
+        staffMemberId: otherStaffMemberId,
+        kind: CompensationAdjustmentKind.BONUS,
+        effectiveDate: '2026-12-02',
+        amountCents: 9_999,
+        description: 'Other staff',
+      } as never,
+      adminUserId,
+    );
+
+    const initial = await service.getPayslip({
+      staffMemberId,
+      from: '2026-12-01',
+      to: '2026-12-03',
+    });
+    expect(initial.entries).toEqual([]);
+    expect(initial.adjustments.map((item) => item.id)).toEqual([
+      allowance.id,
+      bonus.id,
+      advance.id,
+    ]);
+    expect(initial.adjustments.map((item) => item.id)).not.toEqual(
+      expect.arrayContaining([before.id, after.id, otherStaff.id]),
+    );
+    expect(initial).toMatchObject({
+      salaryTotalCents: 0,
+      commissionTotalCents: 0,
+      grandTotalCents: 0,
+      allowanceTotalCents: 100,
+      bonusTotalCents: 200,
+      advanceTotalCents: 400,
+      earningsTotalCents: 300,
+      netPayableCents: -100,
+    });
+
+    const added = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.BONUS,
+        effectiveDate: '2026-12-02',
+        amountCents: 50,
+        description: 'Performance bonus',
+      } as never,
+      adminUserId,
+    );
+    const afterAdd = await service.getPayslip({
+      staffMemberId,
+      from: '2026-12-01',
+      to: '2026-12-03',
+    });
+    expect(afterAdd.bonusTotalCents).toBe(250);
+    expect(afterAdd.netPayableCents).toBe(-50);
+
+    await service.updateAdjustment(
+      added.id,
+      {
+        effectiveDate: '2026-12-02',
+        amountCents: 75,
+        description: 'Updated performance bonus',
+      } as never,
+      secondAdminUserId,
+    );
+    const afterUpdate = await service.getPayslip({
+      staffMemberId,
+      from: '2026-12-01',
+      to: '2026-12-03',
+    });
+    expect(afterUpdate.bonusTotalCents).toBe(275);
+    expect(afterUpdate.adjustments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: added.id,
+          amountCents: 75,
+          description: 'Updated performance bonus',
+        }),
+      ]),
+    );
+
+    await service.removeAdjustment(added.id);
+    const afterDelete = await service.getPayslip({
+      staffMemberId,
+      from: '2026-12-01',
+      to: '2026-12-03',
+    });
+    expect(afterDelete.bonusTotalCents).toBe(200);
+    expect(afterDelete.adjustments.map((item) => item.id)).not.toContain(
+      added.id,
+    );
   });
 
   it('persists adjustment CRUD for all kinds, preserves duplicates and descriptions, and filters inclusively', async () => {

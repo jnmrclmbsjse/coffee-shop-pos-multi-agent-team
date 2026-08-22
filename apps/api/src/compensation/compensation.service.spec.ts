@@ -25,6 +25,20 @@ describe('CompensationService', () => {
     updatedAt: now,
     staffMember: { displayName: 'Jane Santos' },
   };
+  const adjustmentRecord = {
+    id: adjustmentId,
+    staffMemberId,
+    kind: 'ALLOWANCE' as const,
+    effectiveDate: new Date('2026-08-15T00:00:00.000Z'),
+    amountCents: 200,
+    description: 'MiXeD  café allowance',
+    locationId,
+    createdByUserId: adminUserId,
+    updatedByUserId: adminUserId,
+    createdAt: now,
+    updatedAt: now,
+    staffMember: { displayName: 'Jane Santos' },
+  };
   const createInput = {
     staffMemberId,
     workDate: '2026-08-15',
@@ -42,6 +56,11 @@ describe('CompensationService', () => {
     updateError?: Error;
     deleteError?: Error;
     findManyResult?: typeof record[];
+    adjustmentFindManyResult?: Array<
+      Omit<typeof adjustmentRecord, 'kind'> & {
+        kind: 'ADVANCE' | 'ALLOWANCE' | 'BONUS';
+      }
+    >;
   } = {}) {
     const prisma = {
       staffMember: {
@@ -75,6 +94,11 @@ describe('CompensationService', () => {
           ? jest.fn().mockRejectedValue(options.deleteError)
           : jest.fn().mockResolvedValue(record),
       },
+      staffCompensationAdjustment: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue(options.adjustmentFindManyResult ?? []),
+      },
     };
     return {
       prisma,
@@ -96,20 +120,6 @@ describe('CompensationService', () => {
     updateError?: Error;
     deleteError?: Error;
   } = {}) {
-    const adjustmentRecord = {
-      id: adjustmentId,
-      staffMemberId,
-      kind: 'ALLOWANCE' as const,
-      effectiveDate: new Date('2026-08-15T00:00:00.000Z'),
-      amountCents: 200,
-      description: 'MiXeD  café allowance',
-      locationId,
-      createdByUserId: adminUserId,
-      updatedByUserId: adminUserId,
-      createdAt: now,
-      updatedAt: now,
-      staffMember: { displayName: 'Jane Santos' },
-    };
     const prisma = {
       staffMember: {
         findUnique: jest.fn().mockResolvedValue(
@@ -185,9 +195,15 @@ describe('CompensationService', () => {
           dailyTotalCents: 10_500,
         }),
       ],
+      adjustments: [],
       salaryTotalCents: 18_000,
       commissionTotalCents: 750,
       grandTotalCents: 18_750,
+      allowanceTotalCents: 0,
+      bonusTotalCents: 0,
+      advanceTotalCents: 0,
+      earningsTotalCents: 18_750,
+      netPayableCents: 18_750,
     });
     expect(prisma.staffCompensationEntry.findMany).toHaveBeenCalledWith({
       where: {
@@ -198,6 +214,83 @@ describe('CompensationService', () => {
         },
       },
       orderBy: { workDate: 'asc' },
+    });
+    expect(prisma.staffCompensationAdjustment.findMany).toHaveBeenCalledWith({
+      where: {
+        staffMemberId,
+        effectiveDate: {
+          gte: new Date('2026-08-01T00:00:00.000Z'),
+          lt: new Date('2026-08-16T00:00:00.000Z'),
+        },
+      },
+      include: expect.any(Object),
+      orderBy: [{ effectiveDate: 'asc' }, { createdAt: 'asc' }],
+    });
+  });
+
+  it('itemizes adjustments and computes each total without changing the legacy grand total', async () => {
+    const adjustments = [
+      {
+        ...adjustmentRecord,
+        id: '65ee78ef-7936-4c12-9d95-1d522ee981f7',
+        kind: 'ALLOWANCE' as const,
+        effectiveDate: new Date('2026-08-01T00:00:00.000Z'),
+        amountCents: 1_000,
+        description: 'Transportation allowance',
+      },
+      {
+        ...adjustmentRecord,
+        id: 'cc71c6c7-b1b7-4bdf-a813-a959703d939f',
+        kind: 'BONUS' as const,
+        amountCents: 2_000,
+        description: 'Performance bonus',
+      },
+      {
+        ...adjustmentRecord,
+        id: 'bd6039f8-ee6f-4371-816e-e3aef0480572',
+        kind: 'ADVANCE' as const,
+        amountCents: 14_000,
+        description: 'Salary advance',
+      },
+    ];
+    const { service } = setup({
+      findManyResult: [{ ...record, salaryCents: 10_000, commissionCents: 500 }],
+      adjustmentFindManyResult: adjustments,
+    });
+
+    const result = await service.getPayslip({
+      staffMemberId,
+      from: '2026-08-01',
+      to: '2026-08-15',
+    });
+
+    expect(result.adjustments).toEqual([
+      expect.objectContaining({
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        effectiveDate: '2026-08-01',
+        amountCents: 1_000,
+        description: 'Transportation allowance',
+      }),
+      expect.objectContaining({
+        kind: CompensationAdjustmentKind.BONUS,
+        amountCents: 2_000,
+        description: 'Performance bonus',
+      }),
+      expect.objectContaining({
+        kind: CompensationAdjustmentKind.ADVANCE,
+        amountCents: 14_000,
+        description: 'Salary advance',
+      }),
+    ]);
+    expect(result).toMatchObject({
+      salaryTotalCents: 10_000,
+      commissionTotalCents: 500,
+      grandTotalCents: 10_500,
+      allowanceTotalCents: 1_000,
+      bonusTotalCents: 2_000,
+      advanceTotalCents: 14_000,
+      earningsTotalCents: 13_500,
+      netPayableCents: -500,
     });
   });
 
@@ -230,9 +323,15 @@ describe('CompensationService', () => {
       from: '2026-07-01',
       to: '2026-07-31',
       entries: [],
+      adjustments: [],
       salaryTotalCents: 0,
       commissionTotalCents: 0,
       grandTotalCents: 0,
+      allowanceTotalCents: 0,
+      bonusTotalCents: 0,
+      advanceTotalCents: 0,
+      earningsTotalCents: 0,
+      netPayableCents: 0,
     });
   });
 
@@ -255,6 +354,7 @@ describe('CompensationService', () => {
     });
     expect(prisma.staffMember.findUnique).not.toHaveBeenCalled();
     expect(prisma.staffCompensationEntry.findMany).not.toHaveBeenCalled();
+    expect(prisma.staffCompensationAdjustment.findMany).not.toHaveBeenCalled();
   });
 
   it('returns 404 for an unknown payslip staff member', async () => {
@@ -268,6 +368,7 @@ describe('CompensationService', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.staffCompensationEntry.findMany).not.toHaveBeenCalled();
+    expect(prisma.staffCompensationAdjustment.findMany).not.toHaveBeenCalled();
   });
 
   it('lists optional filters in deterministic order and derives the total', async () => {
