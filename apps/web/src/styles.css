@@ -2845,6 +2845,200 @@ button {
   margin-top: 0;
 }
 
+.compensation-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.compensation-panel-head h2,
+.compensation-panel-head p {
+  margin: 0;
+}
+
+.compensation-panel-head h2 {
+  font-size: 18px;
+}
+
+.compensation-panel-head p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.adjustment-description {
+  max-width: 320px;
+  white-space: normal;
+}
+
+.adjustment-kind {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.adjustment-kind.advance {
+  color: var(--danger);
+  background: var(--danger-surface);
+}
+
+.adjustment-kind.allowance {
+  color: var(--accent-pressed);
+  background: var(--success-surface);
+}
+
+.adjustment-kind.bonus {
+  color: var(--promotion-ink);
+  background: var(--promotion-surface);
+}
+
+.adjustment-amount.deduction {
+  color: var(--danger);
+}
+
+.adjustment-modal .inventory-modal-grid + .inventory-modal-grid {
+  margin-top: var(--space-4);
+}
+
+.adjustment-kind-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.adjustment-kind-field legend,
+.adjustment-presets > .catalog-field-label {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.adjustment-kind-control {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.adjustment-kind-control button,
+.adjustment-preset {
+  min-height: var(--touch-min);
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.adjustment-kind-control button[aria-pressed='true'],
+.adjustment-preset[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent-pressed);
+  background: var(--success-surface);
+}
+
+.adjustment-kind-control button:focus-visible,
+.adjustment-preset:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.adjustment-presets {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.adjustment-presets > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.adjustment-presets p {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--muted);
+  background: var(--surface-subtle);
+}
+
+.adjustment-description-field {
+  display: grid;
+  margin-top: var(--space-4);
+}
+
+.adjustment-character-count {
+  justify-self: end;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.adjustment-character-count.over {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.adjustment-amount-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.adjustment-amount-input > span {
+  padding-left: 10px;
+  color: var(--muted);
+}
+
+.adjustment-amount-input input {
+  border: 0;
+}
+
+.adjustment-amount-input:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.adjustment-amount-input:has(input[aria-invalid='true']) {
+  border-color: var(--danger);
+}
+
+.adjustment-delete-details {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.adjustment-delete-details div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.adjustment-delete-details dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.adjustment-delete-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 650;
+}
+
 @media (max-width: 760px) {
   .compensation-page .catalog-page-head {
     align-items: stretch;
@@ -2852,6 +3046,16 @@ button {
   }
 
   .compensation-page .catalog-page-head .catalog-button {
+    width: 100%;
+  }
+
+  .compensation-panel-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .compensation-panel-head .catalog-button {
+    justify-content: center;
     width: 100%;
   }
 
@@ -2920,6 +3124,11 @@ button {
   .compensation-table td::before {
     display: none;
     content: none;
+  }
+
+  .adjustment-delete-details div {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 }
 
