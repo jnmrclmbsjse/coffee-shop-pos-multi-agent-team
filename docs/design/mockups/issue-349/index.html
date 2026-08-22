@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en" data-nav-visible="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UCM Coffee Studio POS - Issue 349 layout mockup</title>
+  <script>
+    try {
+      if (localStorage.getItem('ucm.pos.nav-visible.v1') === 'false') {
+        document.documentElement.dataset.navVisible = 'false';
+      }
+    } catch (_) {}
+  </script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#staff-main">Skip to staff workspace</a>
+
+  <div class="staff-inventory-shell" data-od-id="staff-inventory-shell">
+    <header class="staff-header" id="staff-header" data-od-id="staff-header">
+      <div class="persistent-bar" data-od-id="persistent-top-bar">
+        <div class="brand-block">
+          <span class="brand-mark" aria-hidden="true">UCM</span>
+          <span class="brand-name">Coffee Studio POS</span>
+        </div>
+        <div class="session-context">
+          <span class="signed-in">Signed in as <strong>Mara</strong></span>
+          <span class="day-chip">Business day open</span>
+        </div>
+        <div class="session-actions">
+          <button class="button button-quiet" type="button" id="sign-out">Sign out</button>
+          <button class="button button-secondary" type="button" id="menu-toggle"
+            aria-expanded="true" aria-controls="staff-workspace-chrome">Hide menu</button>
+        </div>
+      </div>
+
+      <div id="staff-workspace-chrome" data-od-id="staff-workspace-chrome">
+        <div class="cashier-row">
+          <div>
+            <span class="control-label">Register</span>
+            <strong>Front counter</strong>
+          </div>
+          <div>
+            <span class="control-label">Cashier</span>
+            <strong>Mara Santos</strong>
+          </div>
+          <button class="button button-secondary" type="button" id="cashier-action">Cashier controls</button>
+        </div>
+        <nav class="destination-nav" aria-label="Staff workspace">
+          <button class="nav-link is-active" type="button" data-screen="order">Take Order</button>
+          <button class="nav-link" type="button" data-screen="history">Order History</button>
+          <button class="nav-link" type="button" data-screen="stock">Stock Counts</button>
+          <button class="nav-link" type="button" data-screen="cash">Cash &amp; Expenses</button>
+          <button class="nav-link" type="button" data-screen="trading">Trading Day</button>
+        </nav>
+      </div>
+    </header>
+
+    <div class="staff-content-track" id="content-track" data-od-id="staff-content-track">
+      <main id="staff-main" tabindex="-1" data-od-id="staff-main"></main>
+    </div>
+  </div>
+
+  <aside class="mockup-inspector" id="mockup-inspector" aria-label="Mockup geometry inspector" data-od-id="geometry-inspector">
+    <div class="inspector-heading">
+      <div>
+        <strong>Geometry inspector</strong>
+        <span>Mockup only</span>
+      </div>
+      <button class="icon-button" id="dismiss-inspector" type="button" aria-label="Dismiss geometry inspector">×</button>
+    </div>
+    <label class="field-label" for="screen-select">Screen</label>
+    <select id="screen-select">
+      <option value="order">Take Order</option>
+      <option value="closed">Take Order - no business day</option>
+      <option value="error">Take Order - load failure</option>
+      <option value="history">Order History</option>
+      <option value="history-short">Order History - short content</option>
+      <option value="stock">Stock Counts</option>
+      <option value="cash">Cash &amp; Expenses</option>
+      <option value="trading">Trading Day</option>
+    </select>
+    <dl class="measurements" id="measurements"></dl>
+    <div class="checks" id="geometry-checks" aria-live="polite"></div>
+    <button class="button button-quiet inspector-reset" id="reset-geometry" type="button">Reset references</button>
+  </aside>
+
+  <button class="inspector-reopen" id="reopen-inspector" type="button" hidden>Show geometry inspector</button>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
