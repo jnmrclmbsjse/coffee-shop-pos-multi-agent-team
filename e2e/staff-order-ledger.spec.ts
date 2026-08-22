@@ -231,7 +231,23 @@ test.describe('staff order history ledger (story #142, QA #148)', () => {
 
       const parked = orderCard(page, 3, 'Open Parked Guest');
       await expect(parked).toContainText('Parked');
-      await expect(parked).not.toContainText(/\b(?:Cash|Online|Split)\b/);
+      // Story #340 deliberately puts two read-only facts on every card,
+      // including a parked one, where both must read as unavailable (its AC:
+      // "a parked order has no recorded payment or cash settlement, so both
+      // values show as unavailable"). So the word "Cash" is now expected here
+      // as a *label*. #142's intent — a parked order exposes no settled tender
+      // — is asserted directly instead: no payment method, no tender amount,
+      // no money at all, and no completion time.
+      await expect(parked).toContainText('No recorded payment');
+      await expect(parked.locator('.staff-order-payment > div').first()).not
+        .toContainText(/\b(?:Cash|Online|Split)\b/);
+      await expect(
+        parked.getByLabel('Cash received not recorded'),
+      ).toBeVisible();
+      await expect(
+        parked.getByLabel('Expected change not available'),
+      ).toBeVisible();
+      await expect(parked.locator('.staff-order-fact-value')).toHaveCount(0);
       await expect(parked).not.toContainText(/\b\d{1,2}:\d{2}\b/);
 
       const split = orderCard(page, 4, 'Open Split Guest');
