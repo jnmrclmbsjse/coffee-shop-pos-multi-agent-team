@@ -496,6 +496,20 @@ describe('CompensationPage', () => {
     expect(capturedNode).toHaveTextContent('Emergency cash advance');
     expect(capturedNode).toHaveTextContent('Net payable');
     expect(capturedNode).toHaveTextContent('Generated');
+    const options = image.toPng.mock.calls[0]![1] as {
+      filter?: (node: Node) => boolean;
+    };
+    const filter = options.filter;
+    const textNode = document
+      .createTreeWalker(capturedNode, NodeFilter.SHOW_TEXT)
+      .nextNode();
+    const excludedButton = within(capturedNode).getByRole('button', {
+      name: 'Download PNG',
+    });
+    expect(filter).toBeDefined();
+    expect(textNode).not.toBeNull();
+    expect(filter!(textNode!)).toBe(true);
+    expect(filter!(excludedButton)).toBe(false);
     expect(click).toHaveBeenCalledTimes(1);
     const link = click.mock.contexts[0] as HTMLAnchorElement;
     expect(link.download).toBe('payslip-mara-santos-2026-08-01-2026-08-31.png');

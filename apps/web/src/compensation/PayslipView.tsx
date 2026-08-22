@@ -162,7 +162,9 @@ export function PayslipView({
         backgroundColor: '#ffffff',
         cacheBust: true,
         pixelRatio: 2,
-        filter: (node) => node.dataset.payslipExportExclude !== 'true',
+        filter: (node: Node) =>
+          node.nodeType !== Node.ELEMENT_NODE ||
+          (node as HTMLElement).dataset.payslipExportExclude !== 'true',
       });
       const link = document.createElement('a');
       link.download = filename;
