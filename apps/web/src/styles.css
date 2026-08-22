@@ -5194,9 +5194,14 @@ button {
   flex-direction: column;
 }
 
-.staff-workspace-content > #staff-main {
+.staff-workspace-content > :where(#staff-main) {
   min-height: 0;
   flex: 1 1 auto;
+}
+
+.staff-workspace-content.is-fitted,
+.staff-workspace-content.is-fitted > :where(#staff-main) {
+  flex-basis: 0;
 }
 
 .staff-skip-link {
@@ -8355,7 +8360,9 @@ button {
 
 @media (max-width: 767px) {
   .staff-workspace-content,
-  .staff-workspace-content > #staff-main {
+  .staff-workspace-content > :where(#staff-main),
+  .staff-workspace-content.is-fitted,
+  .staff-workspace-content.is-fitted > :where(#staff-main) {
     flex: 0 0 auto;
   }
 
