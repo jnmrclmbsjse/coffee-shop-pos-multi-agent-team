@@ -356,7 +356,9 @@ export function StaffWorkspaceLayout() {
             </div>
           </div>
         </header>
-        <Outlet />
+        <div className="staff-workspace-content">
+          <Outlet />
+        </div>
       </div>
     </StaffWorkspaceContext.Provider>
   );
