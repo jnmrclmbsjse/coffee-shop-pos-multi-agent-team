@@ -20,6 +20,7 @@ import {
   formatTimestamp,
 } from '../reporting/orderHistoryFormat';
 import { formatBusinessDate, formatMoney } from '../reporting/format';
+import { MoneyValue } from '../reporting/MoneyValue';
 import { StaffPageHeading } from '../staff/StaffPageHeading';
 import {
   getStaffOrderLedger,
@@ -85,33 +86,104 @@ function discountLabel(kind: LineDiscountKind): string {
   return kind === LineDiscountKind.SENIOR ? 'Senior discount' : '';
 }
 
-function PaymentBreakdown({ order }: { order: StaffOrderLedgerOrder }) {
-  if (!order.paymentMethod) return null;
-
-  if (order.paymentMethod === 'Split') {
+function StaffPaymentFact({
+  cents,
+  unavailableLabel,
+  annotateNegative = false,
+}: {
+  cents: number | null;
+  unavailableLabel: string;
+  annotateNegative?: boolean;
+}) {
+  if (cents === null) {
     return (
-      <div className="staff-order-payment" aria-label="Split payment">
-        <div>
-          <span>Cash</span>
-          <strong>{formatMoney(order.cashPortionCents ?? 0)}</strong>
-        </div>
-        <div>
-          <span>Online</span>
-          <strong>{formatMoney(order.onlinePortionCents ?? 0)}</strong>
-        </div>
-      </div>
+      <MoneyValue
+        cents={null}
+        unavailableLabel={unavailableLabel}
+        unavailableClassName="staff-order-unavailable"
+      />
     );
   }
 
-  const portion =
-    order.paymentMethod === 'Cash'
-      ? order.cashPortionCents
-      : order.onlinePortionCents;
   return (
-    <div className="staff-order-payment">
-      <div>
-        <span>{order.paymentMethod}</span>
-        <strong>{formatMoney(portion ?? order.totalCents)}</strong>
+    <span className="staff-order-fact-value-group">
+      <strong className="staff-order-fact-value">
+        <MoneyValue cents={cents} />
+      </strong>
+      {annotateNegative && cents < 0 && (
+        <span className="staff-order-recorded-note">Recorded as-is</span>
+      )}
+    </span>
+  );
+}
+
+function PaymentBreakdown({ order }: { order: StaffOrderLedgerOrder }) {
+  const noteId = `staff-order-payment-note-${order.id}`;
+  const contextId = `staff-order-payment-context-${order.id}`;
+  const describedBy =
+    order.status === 'Void' ? `${contextId} ${noteId}` : noteId;
+
+  return (
+    <div
+      className="staff-order-payment"
+      aria-label={order.paymentMethod === 'Split' ? 'Split payment' : undefined}
+    >
+      {order.paymentMethod === 'Split' ? (
+        <>
+          <div>
+            <span>Cash</span>
+            <strong>{formatMoney(order.cashPortionCents ?? 0)}</strong>
+          </div>
+          <div>
+            <span>Online</span>
+            <strong>{formatMoney(order.onlinePortionCents ?? 0)}</strong>
+          </div>
+        </>
+      ) : order.paymentMethod ? (
+        <div>
+          <span>{order.paymentMethod}</span>
+          <strong>
+            {formatMoney(
+              (order.paymentMethod === 'Cash'
+                ? order.cashPortionCents
+                : order.onlinePortionCents) ?? order.totalCents,
+            )}
+          </strong>
+        </div>
+      ) : (
+        <div>
+          <span>No recorded payment</span>
+        </div>
+      )}
+
+      <div
+        className="staff-order-payment-facts"
+        aria-describedby={describedBy}
+      >
+        {order.status === 'Void' && (
+          <p className="staff-order-payment-context" id={contextId}>
+            Original payment record
+          </p>
+        )}
+        <div className="staff-order-fact-row">
+          <span>Cash received</span>
+          <StaffPaymentFact
+            cents={order.cashReceivedCents}
+            unavailableLabel="Cash received not recorded"
+          />
+        </div>
+        <div className="staff-order-fact-row">
+          <span>Expected change</span>
+          <StaffPaymentFact
+            cents={order.expectedChangeCents}
+            unavailableLabel="Expected change not available"
+            annotateNegative
+          />
+        </div>
+        <p className="staff-order-payment-note" id={noteId}>
+          Expected change uses the Cash row only. Online payment and cash tips
+          are not included.
+        </p>
       </div>
     </div>
   );
@@ -178,7 +250,7 @@ export function StaffOrderCard({
           </dl>
         </header>
 
-        {showsCompletionFacts && <PaymentBreakdown order={order} />}
+        <PaymentBreakdown order={order} />
 
         <ul className="staff-order-lines" aria-label="Order lines">
           {order.lines.map((line) => (

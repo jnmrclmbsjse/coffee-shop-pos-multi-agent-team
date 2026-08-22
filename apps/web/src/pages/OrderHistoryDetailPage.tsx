@@ -10,6 +10,7 @@ import {
   ReportingApiError,
 } from '../reporting/api';
 import { ReportingLoading, ReportingNotice } from '../reporting/components';
+import { MoneyValue } from '../reporting/MoneyValue';
 import {
   formatOrderHistoryPaymentMethod,
   formatServiceType,
@@ -36,20 +37,6 @@ function DetailValue({
     <span className="order-unavailable">—</span>
   ) : (
     <>{children}</>
-  );
-}
-
-function MoneyValue({
-  cents,
-  unavailable = false,
-}: {
-  cents: number | null;
-  unavailable?: boolean;
-}) {
-  return (
-    <DetailValue unavailable={unavailable || cents === null}>
-      {cents === null ? '' : formatMoney(cents)}
-    </DetailValue>
   );
 }
 
