@@ -220,6 +220,9 @@ describe('staff order history page', () => {
         paymentMethod: null,
         completedAt: null,
         cashPortionCents: null,
+        onlinePortionCents: null,
+        cashReceivedCents: null,
+        expectedChangeCents: null,
       }),
       order({
         id: 'split',
@@ -230,6 +233,8 @@ describe('staff order history page', () => {
         cashPortionCents: cents(8_000),
         onlinePortionCents: cents(12_000),
         totalCents: cents(20_000),
+        cashReceivedCents: cents(10_000),
+        expectedChangeCents: cents(2_000),
       }),
       order({
         id: 'void',
@@ -247,6 +252,8 @@ describe('staff order history page', () => {
         cashPortionCents: null,
         onlinePortionCents: cents(24_000),
         totalCents: cents(24_000),
+        cashReceivedCents: null,
+        expectedChangeCents: null,
         lines: [
           {
             id: 'discount-line',
@@ -276,6 +283,12 @@ describe('staff order history page', () => {
     expect(within(parkedCard).queryByText('Payment')).not.toBeInTheDocument();
     expect(within(parkedCard).queryByText('Completion')).not.toBeInTheDocument();
     expect(within(parkedCard).queryByText('Cashier')).not.toBeInTheDocument();
+    expect(
+      within(parkedCard).getByLabelText('Cash received not recorded'),
+    ).toHaveTextContent('—');
+    expect(
+      within(parkedCard).getByLabelText('Expected change not available'),
+    ).toHaveTextContent('—');
     expect(parkedCard).not.toHaveTextContent('null');
 
     const splitCard = screen
@@ -289,6 +302,7 @@ describe('staff order history page', () => {
       .getByRole('heading', { name: 'Order #5 · Voided Guest' })
       .closest('article')!;
     expect(voidCard).toHaveTextContent('Void reason: Wrong milk selected');
+    expect(voidCard).toHaveTextContent('Original payment record');
 
     const discountCard = screen
       .getByRole('heading', { name: 'Order #4 · Senior Guest' })
@@ -297,6 +311,172 @@ describe('staff order history page', () => {
     expect(discountCard).toHaveTextContent('Cappuccino');
     expect(discountCard).toHaveTextContent('Regular');
     expect(discountCard).toHaveTextContent('Senior discount');
+  });
+
+  it('shows independently nullable cash settlement facts without recomputing them', async () => {
+    const variants = [
+      order({
+        id: 'exact-cash',
+        dayOrderNumber: 18,
+        status: 'Completed',
+        customerName: 'Exact Cash',
+        cashPortionCents: cents(15_000),
+        cashReceivedCents: cents(15_000),
+        expectedChangeCents: cents(0),
+      }),
+      order({
+        id: 'cash-change',
+        dayOrderNumber: 17,
+        status: 'Completed',
+        customerName: 'Cash Change',
+        cashPortionCents: cents(15_000),
+        cashReceivedCents: cents(20_000),
+        expectedChangeCents: cents(5_000),
+      }),
+      order({
+        id: 'online-only',
+        dayOrderNumber: 16,
+        status: 'Completed',
+        customerName: 'Online Only',
+        paymentMethod: 'Online',
+        cashPortionCents: null,
+        onlinePortionCents: cents(15_000),
+        cashReceivedCents: null,
+        expectedChangeCents: null,
+      }),
+      order({
+        id: 'split-payment',
+        dayOrderNumber: 15,
+        status: 'Completed',
+        customerName: 'Split Payment',
+        paymentMethod: 'Split',
+        cashPortionCents: cents(8_000),
+        onlinePortionCents: cents(12_000),
+        totalCents: cents(20_000),
+        cashReceivedCents: cents(10_000),
+        expectedChangeCents: cents(2_000),
+      }),
+      order({
+        id: 'parked-order',
+        dayOrderNumber: 14,
+        status: 'Parked',
+        customerName: 'Parked Order',
+        paymentMethod: null,
+        completedAt: null,
+        cashPortionCents: null,
+        onlinePortionCents: null,
+        cashReceivedCents: null,
+        expectedChangeCents: null,
+      }),
+      order({
+        id: 'cash-not-recorded',
+        dayOrderNumber: 13,
+        status: 'Completed',
+        customerName: 'Cash Not Recorded',
+        cashReceivedCents: null,
+        expectedChangeCents: null,
+      }),
+      order({
+        id: 'received-without-cash',
+        dayOrderNumber: 12,
+        status: 'Completed',
+        customerName: 'Received Without Cash',
+        paymentMethod: 'Online',
+        cashPortionCents: null,
+        onlinePortionCents: cents(15_000),
+        cashReceivedCents: cents(50_000),
+        expectedChangeCents: null,
+      }),
+      order({
+        id: 'negative-legacy',
+        dayOrderNumber: 11,
+        status: 'Completed',
+        customerName: 'Negative Legacy',
+        cashPortionCents: cents(10_000),
+        totalCents: cents(10_000),
+        cashReceivedCents: cents(9_000),
+        expectedChangeCents: cents(-1_000),
+      }),
+    ];
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day') return response(200, businessDays);
+      return response(200, ledger(variants));
+    });
+
+    renderPage();
+
+    const card = async (name: string) =>
+      (await screen.findByRole('heading', { name })).closest('article')!;
+    const exactCash = await card('Order #18 · Exact Cash');
+    const exactCashReceivedRow = within(exactCash)
+      .getByText('Cash received')
+      .closest<HTMLElement>('.staff-order-fact-row')!;
+    expect(within(exactCashReceivedRow).getByText('₱150.00')).toBeInTheDocument();
+    expect(within(exactCash).getByText('₱0.00')).toBeInTheDocument();
+    expect(
+      within(exactCash).queryByLabelText('Expected change not available'),
+    ).not.toBeInTheDocument();
+
+    const cashChange = await card('Order #17 · Cash Change');
+    expect(within(cashChange).getByText('₱200.00')).toBeInTheDocument();
+    expect(within(cashChange).getByText('₱50.00')).toBeInTheDocument();
+
+    const onlineOnly = await card('Order #16 · Online Only');
+    expect(
+      within(onlineOnly).getByLabelText('Cash received not recorded'),
+    ).toHaveTextContent('—');
+    expect(
+      within(onlineOnly).getByLabelText('Expected change not available'),
+    ).toHaveTextContent('—');
+
+    const split = await card('Order #15 · Split Payment');
+    expect(within(split).getByLabelText('Split payment')).toHaveTextContent(
+      'Cash₱80.00Online₱120.00',
+    );
+    expect(within(split).getByText('₱20.00')).toBeInTheDocument();
+
+    const parked = await card('Order #14 · Parked Order');
+    expect(parked).toHaveTextContent('No recorded payment');
+    expect(
+      within(parked).getByLabelText('Cash received not recorded'),
+    ).toBeInTheDocument();
+    expect(
+      within(parked).getByLabelText('Expected change not available'),
+    ).toBeInTheDocument();
+
+    const notRecorded = await card('Order #13 · Cash Not Recorded');
+    expect(
+      within(notRecorded).getByLabelText('Cash received not recorded'),
+    ).toBeInTheDocument();
+    expect(
+      within(notRecorded).getByLabelText('Expected change not available'),
+    ).toBeInTheDocument();
+
+    const independent = await card('Order #12 · Received Without Cash');
+    expect(within(independent).getByText('₱500.00')).toBeInTheDocument();
+    expect(
+      within(independent).getByLabelText('Expected change not available'),
+    ).toBeInTheDocument();
+    expect(
+      within(independent).queryByLabelText('Cash received not recorded'),
+    ).not.toBeInTheDocument();
+
+    const negative = await card('Order #11 · Negative Legacy');
+    expect(within(negative).getByText('₱-10.00')).toBeInTheDocument();
+    expect(within(negative).getByText('Recorded as-is')).toBeInTheDocument();
+    expect(
+      within(negative).queryByLabelText('Expected change not available'),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.getAllByText(
+        'Expected change uses the Cash row only. Online payment and cash tips are not included.',
+      ),
+    ).toHaveLength(variants.length);
+    expect(
+      fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === 'GET'),
+    ).toBe(true);
   });
 
   it('distinguishes change given from change still owed and omits a null cashier', async () => {

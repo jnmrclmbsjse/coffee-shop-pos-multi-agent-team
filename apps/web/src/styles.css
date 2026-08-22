@@ -8754,6 +8754,66 @@ button {
   color: var(--fg);
 }
 
+.staff-order-payment .staff-order-payment-facts {
+  display: block;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-strong);
+}
+
+.staff-order-fact-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 24px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.staff-order-fact-row + .staff-order-fact-row {
+  margin-top: var(--space-1);
+}
+
+.staff-order-payment-context {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.staff-order-unavailable {
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.staff-order-fact-value-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  text-align: right;
+}
+
+.staff-order-recorded-note {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.staff-order-payment-note {
+  max-width: 65ch;
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .staff-order-lines {
   margin: 0;
   padding: var(--space-3) var(--space-4) var(--space-4);
