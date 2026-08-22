@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Advisory implementation reference for UCM Coffee Studio POS compensation adjustments and payslip PNG export.">
+  <title>UCM Coffee Studio POS - Compensation adjustments reference</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="reference-head" data-od-id="reference-header">
+    <div>
+      <p class="reference-kicker">UCM Coffee Studio POS</p>
+      <h1 data-od-id="reference-title">Compensation adjustments</h1>
+      <p class="reference-summary">Advisory implementation reference for Story #346. This extends the shipped admin Compensation area; it does not define a second product.</p>
+    </div>
+    <aside class="reference-status" aria-label="Reference status">
+      <strong>Developer reference</strong>
+      <span>Static HTML, CSS, and vanilla JS</span>
+      <span>Admin-only surface</span>
+    </aside>
+  </header>
+
+  <main class="reference-main">
+    <nav class="reference-index" aria-label="Reference sections" data-od-id="reference-index">
+      <a href="#placement">A. Placement</a>
+      <a href="#adjustments-list">B. Adjustments list</a>
+      <a href="#adjustment-dialog">C. Add / edit</a>
+      <a href="#delete-confirmation">D. Delete</a>
+      <a href="#payslip">E. Payslip</a>
+      <a href="#png-download">F. PNG download</a>
+    </nav>
+
+    <section class="reference-section" id="placement" data-reference-section="placement" data-od-id="placement-reference">
+      <div class="section-heading">
+        <p class="section-label">A. Placement</p>
+        <h2>Extend Compensation in place</h2>
+      </div>
+      <div class="assessment-note">
+        <strong>Decision</strong>
+        <p>Add <b>Adjustments</b> as the third segment in the shipped Compensation switch. Standalone dated money rows have different fields, validation, and lifecycle from daily work records. Folding them into Daily records would blur that model and make earnings and deductions harder to scan.</p>
+      </div>
+      <div class="state-switcher" role="group" aria-label="Placement preview states" data-state-switcher="placement"></div>
+      <div class="preview-frame" id="preview-placement" aria-live="polite" aria-atomic="true" data-preview="placement"></div>
+    </section>
+
+    <section class="reference-section" id="adjustments-list" data-reference-section="adjustments" data-od-id="adjustments-list-reference">
+      <div class="section-heading">
+        <p class="section-label">B. Adjustments list</p>
+        <h2>Make kind and direction unmistakable</h2>
+      </div>
+      <div class="assessment-note">
+        <strong>Decision</strong>
+        <p>First load shows all adjustments for the current calendar month, newest effective date first. A badge, signed amount, and left-edge marker carry kind together, so meaning survives low colour perception and quick scanning. Identical rows are valid and remain unremarked.</p>
+      </div>
+      <div class="state-switcher" role="group" aria-label="Adjustment list preview states" data-state-switcher="adjustments"></div>
+      <div class="preview-frame" id="preview-adjustments" aria-live="polite" aria-atomic="true" data-preview="adjustments"></div>
+    </section>
+
+    <section class="reference-section" id="adjustment-dialog" data-reference-section="dialog" data-od-id="adjustment-dialog-reference">
+      <div class="section-heading">
+        <p class="section-label">C. Add / edit an adjustment</p>
+        <h2>One honest form for all three kinds</h2>
+      </div>
+      <div class="assessment-note">
+        <strong>Decision</strong>
+        <p>Description is always a required, editable text field. Presets only fill that field and never create a stored code. There is deliberately no duplicate warning state: the model permits identical adjustments on the same date.</p>
+      </div>
+      <div class="state-switcher" role="group" aria-label="Adjustment dialog preview states" data-state-switcher="dialog"></div>
+      <div class="preview-frame preview-frame-modal" id="preview-dialog" aria-live="polite" aria-atomic="true" data-preview="dialog"></div>
+    </section>
+
+    <section class="reference-section" id="delete-confirmation" data-reference-section="delete" data-od-id="delete-reference">
+      <div class="section-heading">
+        <p class="section-label">D. Delete confirmation</p>
+        <h2>Name the exact row before hard delete</h2>
+      </div>
+      <div class="assessment-note">
+        <strong>Decision</strong>
+        <p>The confirmation repeats staff member, date, kind, description, and amount. Delete is permanent and has no undo, so the dialog states that plainly before the destructive action.</p>
+      </div>
+      <div class="state-switcher" role="group" aria-label="Delete preview states" data-state-switcher="delete"></div>
+      <div class="preview-frame preview-frame-modal" id="preview-delete" aria-live="polite" aria-atomic="true" data-preview="delete"></div>
+    </section>
+
+    <section class="reference-section" id="payslip" data-reference-section="payslip" data-od-id="payslip-reference">
+      <div class="section-heading">
+        <p class="section-label">E. Payslip with adjustments</p>
+        <h2>Earnings above the rule, advances below</h2>
+      </div>
+      <div class="assessment-note">
+        <strong>Decision</strong>
+        <p>Every allowance and bonus remains itemized in earnings; advances are the only deduction. Net payable is the dominant total and may be negative. Keep <code>grandTotalCents</code> in the API only: showing it beside earnings total would introduce a confusing near-duplicate subtotal.</p>
+      </div>
+      <div class="state-switcher" role="group" aria-label="Payslip preview states" data-state-switcher="payslip"></div>
+      <div class="preview-frame" id="preview-payslip" aria-live="polite" aria-atomic="true" data-preview="payslip"></div>
+    </section>
+
+    <section class="reference-section" id="png-download" data-reference-section="download" data-od-id="download-reference">
+      <div class="section-heading">
+        <p class="section-label">F. PNG download</p>
+        <h2>Capture the visible artifact node</h2>
+      </div>
+      <div class="assessment-note">
+        <strong>Decision</strong>
+        <p>Place Download PNG in the artifact header after a successful non-empty generation. Export the same node the admin sees, preserving the itemization, range, totals, and generated timestamp.</p>
+      </div>
+      <div class="state-switcher" role="group" aria-label="PNG download preview states" data-state-switcher="download"></div>
+      <div class="preview-frame" id="preview-download" aria-live="polite" aria-atomic="true" data-preview="download"></div>
+      <aside class="safety-callout" data-od-id="rasterization-safety">
+        <h3>Rasterization safety</h3>
+        <p>DOM-to-image output can differ when web fonts are still loading, when a renderer cannot resolve <code>oklch()</code>, or when shadows and gradients are approximated. Scroll containers can clip content; sticky or positioned elements and off-screen overflow can move or disappear.</p>
+        <p><strong>Recommendation:</strong> capture a self-contained node with no horizontal scroll region, use fully loaded system fonts, and flatten unsupported paint effects in an export-only style if testing shows a mismatch.</p>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="reference-footer">
+    <p>UCM Coffee Studio POS - Story #346 advisory reference</p>
+    <p>Amounts shown in Philippine pesos. Server arithmetic remains integer centavos.</p>
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>
