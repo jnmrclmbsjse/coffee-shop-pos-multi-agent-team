@@ -1,9 +1,21 @@
-import type { PayslipSummary, StaffMember } from '@coffee-shop/shared';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import {
+  CompensationAdjustmentKind,
+  type PayslipSummary,
+  type StaffMember,
+} from '@coffee-shop/shared';
+import { toPng } from 'html-to-image';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 import { ReportingNotice } from '../reporting/components';
 import {
   formatBusinessDate,
   formatMoney,
+  formatSubmissionTime,
   rangeError,
 } from '../reporting/format';
 import { CompensationApiError, getPayslip } from './api';
@@ -20,6 +32,24 @@ function visibleRangeError(from: string, to: string): string {
     return 'End date must be on or after the start date. Dates were not changed.';
   }
   return error;
+}
+
+export function payslipFilename(
+  displayName: string,
+  from: string,
+  to: string,
+): string {
+  const slug = displayName
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'staff';
+  return `payslip-${slug}-${from}-${to}.png`;
+}
+
+function generatedTimestamp(value: string): string {
+  return `Generated ${formatSubmissionTime(value)}`;
 }
 
 export function PayslipView({
@@ -42,19 +72,29 @@ export function PayslipView({
   const [serverRangeError, setServerRangeError] = useState('');
   const [requestError, setRequestError] = useState('');
   const [summary, setSummary] = useState<PayslipSummary | null>(null);
+  const [generatedAt, setGeneratedAt] = useState('');
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+  const [downloadNotice, setDownloadNotice] = useState('');
+  const captureRef = useRef<HTMLElement>(null);
   const clientRangeError = visibleRangeError(from, to);
   const dateError = serverRangeError || clientRangeError;
   const summaryStaff = summary
     ? staff.find((member) => member.id === summary.staffMember.id)
     : undefined;
+  const hasPayslip = Boolean(
+    summary && (summary.entries.length > 0 || summary.adjustments.length > 0),
+  );
+  const earningsAdjustments = summary?.adjustments.filter(
+    (adjustment) => adjustment.kind !== CompensationAdjustmentKind.ADVANCE,
+  ) ?? [];
+  const advances = summary?.adjustments.filter(
+    (adjustment) => adjustment.kind === CompensationAdjustmentKind.ADVANCE,
+  ) ?? [];
 
   useEffect(() => {
-    if (
-      !staffMemberId &&
-      selectableStaff.length > 0 &&
-      selectableStaff[0]
-    ) {
+    if (!staffMemberId && selectableStaff.length > 0 && selectableStaff[0]) {
       setStaffMemberId(selectableStaff[0].id);
     }
   }, [selectableStaff, staffMemberId]);
@@ -65,12 +105,17 @@ export function PayslipView({
     setStaffError(nextStaffError);
     setServerRangeError('');
     setRequestError('');
+    setDownloadError('');
+    setDownloadNotice('');
     if (nextStaffError || clientRangeError || loading) return;
 
     setLoading(true);
     setSummary(null);
+    setGeneratedAt('');
     try {
-      setSummary(await getPayslip({ staffMemberId, from, to }));
+      const nextSummary = await getPayslip({ staffMemberId, from, to });
+      setSummary(nextSummary);
+      setGeneratedAt(new Date().toISOString());
     } catch (error) {
       if (
         error instanceof CompensationApiError &&
@@ -97,6 +142,40 @@ export function PayslipView({
     else setTo(value);
     setServerRangeError('');
     setRequestError('');
+    setDownloadError('');
+    setDownloadNotice('');
+  }
+
+  async function downloadPayslip() {
+    if (!summary || !hasPayslip || !captureRef.current || downloading) return;
+    const filename = payslipFilename(
+      summary.staffMember.displayName,
+      summary.from,
+      summary.to,
+    );
+    setDownloading(true);
+    setDownloadError('');
+    setDownloadNotice('');
+    try {
+      await document.fonts?.ready;
+      const dataUrl = await toPng(captureRef.current, {
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+        pixelRatio: 2,
+        filter: (node) => node.dataset.payslipExportExclude !== 'true',
+      });
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = dataUrl;
+      link.click();
+      setDownloadNotice(`Downloaded: ${filename}`);
+    } catch {
+      setDownloadError(
+        'The PNG could not be prepared. The on-screen payslip is unchanged.',
+      );
+    } finally {
+      setDownloading(false);
+    }
   }
 
   return (
@@ -105,8 +184,8 @@ export function PayslipView({
         <div className="report-filter-copy">
           <h2 id="payslip-range-title">Generate payslip</h2>
           <p>
-            <strong>Gross amounts only.</strong> This summary does not include
-            taxes, deductions, or net pay.
+            Review salary, commission, allowances, bonuses, advances, and net
+            payable for an inclusive date range.
           </p>
         </div>
         <form noValidate onSubmit={generatePayslip}>
@@ -122,6 +201,8 @@ export function PayslipView({
                 setStaffMemberId(event.target.value);
                 setStaffError('');
                 setRequestError('');
+                setDownloadError('');
+                setDownloadNotice('');
               }}
             >
               <option value="">Choose staff member</option>
@@ -191,95 +272,175 @@ export function PayslipView({
         </section>
       )}
 
-      {summary && summary.entries.length === 0 && (
+      {summary && !hasPayslip && (
         <section className="report-panel payslip-empty" role="status">
           <h2>No records in this range</h2>
           <p>
-            {summary.staffMember.displayName} has no entered compensation
-            records from {formatBusinessDate(summary.from)} through{' '}
+            {summary.staffMember.displayName} has no daily compensation records
+            or adjustments from {formatBusinessDate(summary.from)} through{' '}
             {formatBusinessDate(summary.to)}. No payslip or totals were
-            generated.
+            generated, so there is nothing to download.
           </p>
         </section>
       )}
 
-      {summary && summary.entries.length > 0 && (
-        <section className="report-panel payslip-result" aria-labelledby="payslip-result-title">
-          <header className="report-panel-head">
-            <div>
-              <h2 id="payslip-result-title">
-                {summary.staffMember.displayName}
-                {summaryStaff?.isActive === false && (
-                  <span className="payslip-inactive-badge">
-                    Inactive staff member
-                  </span>
-                )}
-              </h2>
-              <p>
-                Inclusive range: {formatBusinessDate(summary.from)} to{' '}
-                {formatBusinessDate(summary.to)}
+      {summary && hasPayslip && generatedAt && (
+        <div className="payslip-stage">
+          <article
+            className="payslip-artifact"
+            id="payslip-capture-node"
+            ref={captureRef}
+            aria-labelledby="payslip-result-title"
+            aria-busy={downloading}
+          >
+            <header className="payslip-artifact-head">
+              <div>
+                <p className="payslip-zone-label">Generated payslip</p>
+                <h2 id="payslip-result-title">
+                  {summary.staffMember.displayName}
+                  {summaryStaff?.isActive === false && (
+                    <span className="payslip-inactive-badge">
+                      Inactive staff member
+                    </span>
+                  )}
+                </h2>
+                <p>
+                  Inclusive range: {formatBusinessDate(summary.from)} to{' '}
+                  {formatBusinessDate(summary.to)}
+                </p>
+              </div>
+              <button
+                className="report-button report-button-primary"
+                type="button"
+                disabled={downloading}
+                data-payslip-export-exclude="true"
+                onClick={downloadPayslip}
+              >
+                {downloading ? 'Preparing image…' : 'Download PNG'}
+              </button>
+            </header>
+
+            <section className="payslip-zone" aria-labelledby="payslip-earnings-title">
+              <p className="payslip-zone-label" id="payslip-earnings-title">
+                Earnings
               </p>
+              {summary.earningsTotalCents === 0 && (
+                <p className="payslip-zone-note">
+                  No salary, commission, allowance, or bonus earnings fall
+                  inside this range.
+                </p>
+              )}
+              {summary.earningsTotalCents !== 0 && (
+                <table className="payslip-artifact-table">
+                  <caption className="sr-only">Payslip earnings</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Item</th>
+                      <th scope="col">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summary.salaryTotalCents !== 0 && (
+                      <tr>
+                        <td>Salary<span>Selected inclusive range</span></td>
+                        <td>{formatMoney(summary.salaryTotalCents)}</td>
+                      </tr>
+                    )}
+                    {summary.commissionTotalCents !== 0 && (
+                      <tr>
+                        <td>Commission<span>Selected inclusive range</span></td>
+                        <td>{formatMoney(summary.commissionTotalCents)}</td>
+                      </tr>
+                    )}
+                    {earningsAdjustments.map((adjustment) => (
+                      <tr key={adjustment.id}>
+                        <td>
+                          {adjustment.description}
+                          <span>
+                            {adjustment.kind === CompensationAdjustmentKind.ALLOWANCE
+                              ? 'Allowance'
+                              : 'Bonus'}
+                            , {formatBusinessDate(adjustment.effectiveDate)}
+                          </span>
+                        </td>
+                        <td>{formatMoney(adjustment.amountCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <dl className="payslip-category-totals" aria-label="Earnings totals">
+                <div><dt>Salary total</dt><dd>{formatMoney(summary.salaryTotalCents)}</dd></div>
+                <div><dt>Commission total</dt><dd>{formatMoney(summary.commissionTotalCents)}</dd></div>
+                <div><dt>Allowance total</dt><dd>{formatMoney(summary.allowanceTotalCents)}</dd></div>
+                <div><dt>Bonus total</dt><dd>{formatMoney(summary.bonusTotalCents)}</dd></div>
+                <div className="payslip-total-emphasis"><dt>Earnings total</dt><dd>{formatMoney(summary.earningsTotalCents)}</dd></div>
+              </dl>
+            </section>
+
+            <hr className="payslip-rule" />
+
+            <section className="payslip-zone" aria-labelledby="payslip-deductions-title">
+              <p className="payslip-zone-label" id="payslip-deductions-title">
+                Deductions
+              </p>
+              {advances.length === 0 ? (
+                <p className="payslip-zone-note">No salary advances in this range.</p>
+              ) : (
+                <table className="payslip-artifact-table payslip-advance-table">
+                  <caption className="sr-only">Salary advances</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Salary advance</th>
+                      <th scope="col">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {advances.map((advance) => (
+                      <tr key={advance.id}>
+                        <td>{advance.description}<span>{formatBusinessDate(advance.effectiveDate)}</span></td>
+                        <td>−{formatMoney(advance.amountCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <dl className="payslip-category-totals payslip-deduction-total" aria-label="Deduction totals">
+                <div><dt>Advance total</dt><dd>−{formatMoney(summary.advanceTotalCents)}</dd></div>
+              </dl>
+            </section>
+
+            <div className={`payslip-net${summary.netPayableCents < 0 ? ' negative' : ''}`}>
+              <div>
+                <p className="payslip-net-label">Net payable</p>
+                <p className="payslip-net-note">
+                  {summary.netPayableCents < 0
+                    ? 'Advances in this range exceed earnings. This amount is not carried into another range.'
+                    : 'Earnings total less salary advances.'}
+                </p>
+              </div>
+              <p className="payslip-net-value">{formatMoney(summary.netPayableCents)}</p>
             </div>
-            <p>
-              <strong>Gross compensation summary</strong>
-              <br />
-              No taxes, deductions, or net pay included.
+            <p className="payslip-generated-line">
+              {generatedTimestamp(generatedAt)}
             </p>
-          </header>
-          <p className="report-scroll-hint">
-            Scroll horizontally to inspect all payslip columns.
-          </p>
-          <div
-            className="report-table-region payslip-table-region"
-            tabIndex={0}
-            role="region"
-            aria-label="Payslip daily entries, horizontally scrollable"
-          >
-            <table className="report-table payslip-table">
-              <caption className="sr-only">
-                Daily compensation entries included in this payslip
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Work date</th>
-                  <th scope="col" className="num">Salary</th>
-                  <th scope="col" className="num">Commission</th>
-                  <th scope="col" className="num">Daily total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.entries.map((entry) => (
-                  <tr key={entry.id}>
-                    <th scope="row">{formatBusinessDate(entry.workDate)}</th>
-                    <td className="num">{formatMoney(entry.salaryCents)}</td>
-                    <td className="num">{formatMoney(entry.commissionCents)}</td>
-                    <td className="num">
-                      <strong>{formatMoney(entry.dailyTotalCents)}</strong>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <dl
-            className="report-totals payslip-totals"
-            role="group"
-            aria-label="Payslip totals"
-          >
-            <div className="report-metric">
-              <dt>Salary total</dt>
-              <dd>{formatMoney(summary.salaryTotalCents)}</dd>
+          </article>
+
+          {downloadNotice && (
+            <div className="catalog-notice success payslip-download-status" role="status">
+              <strong>{downloadNotice}</strong>
             </div>
-            <div className="report-metric">
-              <dt>Commission total</dt>
-              <dd>{formatMoney(summary.commissionTotalCents)}</dd>
+          )}
+          {downloadError && (
+            <div className="catalog-notice danger payslip-download-status" role="alert">
+              <strong>Image could not be prepared.</strong>
+              <p>{downloadError}</p>
+              <button className="catalog-button small" type="button" onClick={downloadPayslip}>
+                Try again
+              </button>
             </div>
-            <div className="report-metric">
-              <dt>Overall gross total</dt>
-              <dd>{formatMoney(summary.grandTotalCents)}</dd>
-            </div>
-          </dl>
-        </section>
+          )}
+        </div>
       )}
     </div>
   );

@@ -13,6 +13,7 @@
   "dependencies": {
     "@coffee-shop/shared": "workspace:*",
     "@vitejs/plugin-react": "^6.0.1",
+    "html-to-image": "1.11.13",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.1",
