@@ -1,7 +1,5 @@
 import {
   addMoney,
-  cents,
-  type MoneyCents,
   type StaffCompensationEntry,
   type StaffMember,
 } from '@coffee-shop/shared';
@@ -23,7 +21,11 @@ import {
   listCompensationEntries,
   updateCompensationEntry,
 } from './api';
+import { AdjustmentsView } from './AdjustmentsView';
 import { PayslipView } from './PayslipView';
+import { amountForInput, currencyToCents } from './money';
+
+export { currencyToCents } from './money';
 
 interface EntryDraft {
   id?: string;
@@ -36,9 +38,6 @@ interface EntryDraft {
 
 type DraftField = 'staffMemberId' | 'workDate' | 'salary' | 'commission';
 type DraftErrors = Partial<Record<DraftField, string>>;
-interface AmountResult { cents?: MoneyCents; error?: string }
-
-const MAX_AMOUNT_CENTS = 2_147_483_647;
 const EMPTY_DRAFT: EntryDraft = {
   staffMemberId: '',
   staffMemberDisplayName: '',
@@ -47,28 +46,12 @@ const EMPTY_DRAFT: EntryDraft = {
   commission: '',
 };
 
-export function currencyToCents(value: string, label = 'Amount'): AmountResult {
-  const trimmed = value.trim();
-  if (!trimmed) return { error: `Enter a ${label.toLowerCase()} amount. Zero is allowed.` };
-  if (trimmed.startsWith('-')) return { error: `${label} cannot be negative.` };
-  if (!/^\d+(?:\.\d+)?$/.test(trimmed)) return { error: `${label} must be a number.` };
-  const [whole = '0', fraction = ''] = trimmed.split('.');
-  if (fraction.length > 2) return { error: `${label} cannot have more than 2 decimal places.` };
-  const centavos = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'));
-  if (centavos > BigInt(MAX_AMOUNT_CENTS)) return { error: `${label} is too large.` };
-  return { cents: cents(Number(centavos)) };
-}
-
 export function compensationDefaultRange(now = new Date()): { from: string; to: string } {
   const today = shopDate(now);
   const [year, month] = today.split('-').map(Number);
   const finalDay = new Date(Date.UTC(year!, month!, 0)).getUTCDate();
   const prefix = `${year}-${String(month).padStart(2, '0')}`;
   return { from: `${prefix}-01`, to: `${prefix}-${finalDay}` };
-}
-
-function amountForInput(value: MoneyCents): string {
-  return `${Math.trunc(value / 100)}.${String(value % 100).padStart(2, '0')}`;
 }
 
 function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
@@ -111,7 +94,7 @@ function serverValidationErrors(error: CompensationApiError): DraftErrors {
 
 export function CompensationPage() {
   const [initialRange] = useState(compensationDefaultRange);
-  const [section, setSection] = useState<'records' | 'payslips'>('records');
+  const [section, setSection] = useState<'records' | 'adjustments' | 'payslips'>('records');
   const [entries, setEntries] = useState<StaffCompensationEntry[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffMemberId, setStaffMemberId] = useState('');
@@ -314,7 +297,9 @@ export function CompensationPage() {
           <p>
             {section === 'records'
               ? 'Daily salary and commission records'
-              : 'Generate a gross summary from entered daily records'}
+              : section === 'adjustments'
+                ? 'Manage standalone allowances, bonuses, and advances'
+                : 'Generate a gross summary from entered daily records'}
           </p>
         </div>
         {section === 'records' && (
@@ -328,6 +313,13 @@ export function CompensationPage() {
           onClick={() => setSection('records')}
         >
           Daily records
+        </button>
+        <button
+          type="button"
+          aria-current={section === 'adjustments' ? 'page' : undefined}
+          onClick={() => setSection('adjustments')}
+        >
+          Adjustments
         </button>
         <button
           type="button"
@@ -356,7 +348,9 @@ export function CompensationPage() {
             <tbody>{loading ? <LoadingRows columns={6} /> : noRecordsAtAll || noMatches ? <tr><td colSpan={6}><div className="catalog-empty compensation-empty"><Icon name={noRecordsAtAll ? 'document' : 'search'} /><h3>{noRecordsAtAll ? 'No compensation records yet' : 'No records match these filters'}</h3><p>{noRecordsAtAll ? 'Add the first daily record for a staff member. Salary and commission can each be zero.' : 'Try another staff member or date range.'}</p>{noRecordsAtAll ? <button className="catalog-button" type="button" onClick={openAdd}>Add daily record</button> : <button className="catalog-button" type="button" onClick={clearFilters}>Clear filters</button>}</div></td></tr> : entries.map((entry) => <tr key={entry.id}><td><strong>{entry.staffMemberDisplayName}</strong></td><td>{formatBusinessDate(entry.workDate)}</td><td className="num">{formatMoney(entry.salaryCents)}</td><td className="num">{formatMoney(entry.commissionCents)}</td><td className="num"><strong>{formatMoney(entry.dailyTotalCents)}</strong></td><td className="table-action"><div className="compensation-row-actions"><button className="catalog-button small" type="button" aria-label={`Edit ${entry.staffMemberDisplayName}'s ${entry.workDate} record`} onClick={() => openEdit(entry)}>Edit</button><button className="catalog-button small danger" type="button" aria-label={`Delete ${entry.staffMemberDisplayName}'s ${entry.workDate} record`} onClick={() => openDelete(entry)}>Delete</button></div></td></tr>)}</tbody>
           </table>
         </div>
-      </section> : (
+      </section> : section === 'adjustments' ? (
+        <AdjustmentsView staff={staff} initialRange={initialRange} />
+      ) : (
         <PayslipView
           staff={staff}
           staffMemberIdsWithEntries={staffMemberIdsWithEntries}

@@ -1,9 +1,13 @@
 import type {
+  CreateStaffCompensationAdjustmentInput,
   CreateStaffCompensationEntryInput,
   PayslipQuery,
   PayslipSummary,
+  StaffCompensationAdjustment,
+  StaffCompensationAdjustmentListQuery,
   StaffCompensationEntry,
   StaffCompensationEntryListQuery,
+  UpdateStaffCompensationAdjustmentInput,
   UpdateStaffCompensationEntryInput,
 } from '@coffee-shop/shared';
 import { sessionFetch } from '../auth/session-fetch';
@@ -56,6 +60,37 @@ export function listCompensationEntries(query: StaffCompensationEntryListQuery):
   if (query.to) params.set('to', query.to);
   const suffix = params.size ? `?${params.toString()}` : '';
   return request(`/compensation/entries${suffix}`);
+}
+
+export function listCompensationAdjustments(
+  query: StaffCompensationAdjustmentListQuery,
+): Promise<StaffCompensationAdjustment[]> {
+  const params = new URLSearchParams();
+  if (query.staffMemberId) params.set('staffMemberId', query.staffMemberId);
+  if (query.from) params.set('from', query.from);
+  if (query.to) params.set('to', query.to);
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request(`/compensation/adjustments${suffix}`);
+}
+
+export function createCompensationAdjustment(
+  input: CreateStaffCompensationAdjustmentInput,
+): Promise<StaffCompensationAdjustment> {
+  return request('/compensation/adjustments', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function updateCompensationAdjustment(
+  id: string,
+  input: UpdateStaffCompensationAdjustmentInput,
+): Promise<StaffCompensationAdjustment> {
+  return request(`/compensation/adjustments/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteCompensationAdjustment(id: string): Promise<void> {
+  return request(`/compensation/adjustments/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 export function getPayslip(query: PayslipQuery): Promise<PayslipSummary> {
