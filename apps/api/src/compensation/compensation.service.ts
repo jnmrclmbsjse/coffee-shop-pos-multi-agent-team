@@ -65,17 +65,30 @@ export class CompensationService {
       throw new NotFoundException('Staff member not found');
     }
 
-    const records = await this.prisma.staffCompensationEntry.findMany({
-      where: {
-        staffMemberId: query.staffMemberId,
-        workDate: {
-          gte: this.toDate(query.from),
-          lt: this.dayAfter(query.to),
+    const [entryRecords, adjustmentRecords] = await Promise.all([
+      this.prisma.staffCompensationEntry.findMany({
+        where: {
+          staffMemberId: query.staffMemberId,
+          workDate: {
+            gte: this.toDate(query.from),
+            lt: this.dayAfter(query.to),
+          },
         },
-      },
-      orderBy: { workDate: 'asc' },
-    });
-    const entries = records.map((record) => {
+        orderBy: { workDate: 'asc' },
+      }),
+      this.prisma.staffCompensationAdjustment.findMany({
+        where: {
+          staffMemberId: query.staffMemberId,
+          effectiveDate: {
+            gte: this.toDate(query.from),
+            lt: this.dayAfter(query.to),
+          },
+        },
+        include: compensationAdjustmentInclude,
+        orderBy: [{ effectiveDate: 'asc' }, { createdAt: 'asc' }],
+      }),
+    ]);
+    const entries = entryRecords.map((record) => {
       const salaryCents = cents(record.salaryCents);
       const commissionCents = cents(record.commissionCents);
 
@@ -93,6 +106,30 @@ export class CompensationService {
     const commissionTotalCents = addMoney(
       ...entries.map((entry) => entry.commissionCents),
     );
+    const adjustments = adjustmentRecords.map((record) =>
+      this.toAdjustment(record),
+    );
+    const allowanceTotalCents = this.sumAdjustments(
+      adjustments,
+      CompensationAdjustmentKind.ALLOWANCE,
+    );
+    const bonusTotalCents = this.sumAdjustments(
+      adjustments,
+      CompensationAdjustmentKind.BONUS,
+    );
+    const advanceTotalCents = this.sumAdjustments(
+      adjustments,
+      CompensationAdjustmentKind.ADVANCE,
+    );
+    const grandTotalCents = addMoney(
+      salaryTotalCents,
+      commissionTotalCents,
+    );
+    const earningsTotalCents = addMoney(
+      grandTotalCents,
+      allowanceTotalCents,
+      bonusTotalCents,
+    );
 
     return {
       staffMember: {
@@ -102,9 +139,18 @@ export class CompensationService {
       from: query.from,
       to: query.to,
       entries,
+      adjustments,
       salaryTotalCents,
       commissionTotalCents,
-      grandTotalCents: addMoney(salaryTotalCents, commissionTotalCents),
+      grandTotalCents,
+      allowanceTotalCents,
+      bonusTotalCents,
+      advanceTotalCents,
+      earningsTotalCents,
+      netPayableCents: addMoney(
+        earningsTotalCents,
+        cents(-advanceTotalCents),
+      ),
     };
   }
 
@@ -360,6 +406,17 @@ export class CompensationService {
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
     };
+  }
+
+  private sumAdjustments(
+    adjustments: readonly StaffCompensationAdjustment[],
+    kind: CompensationAdjustmentKind,
+  ) {
+    return addMoney(
+      ...adjustments
+        .filter((adjustment) => adjustment.kind === kind)
+        .map((adjustment) => adjustment.amountCents),
+    );
   }
 
   private isPrismaError(error: unknown, code: string): boolean {

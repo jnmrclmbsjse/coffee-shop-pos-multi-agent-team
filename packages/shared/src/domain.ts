@@ -223,9 +223,15 @@ export interface PayslipSummary {
   from: string;
   to: string;
   entries: PayslipEntry[];
+  adjustments: StaffCompensationAdjustment[];
   salaryTotalCents: MoneyCents;
   commissionTotalCents: MoneyCents;
   grandTotalCents: MoneyCents;
+  allowanceTotalCents: MoneyCents;
+  bonusTotalCents: MoneyCents;
+  advanceTotalCents: MoneyCents;
+  earningsTotalCents: MoneyCents;
+  netPayableCents: MoneyCents;
 }
 
 export interface SelectableStaffMember {

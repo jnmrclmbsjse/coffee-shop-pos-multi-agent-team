@@ -105,9 +105,15 @@ const payslip: PayslipSummary = {
       dailyTotalCents: cents(999),
     },
   ],
+  adjustments: [],
   salaryTotalCents: cents(501),
   commissionTotalCents: cents(602),
   grandTotalCents: cents(9_999),
+  allowanceTotalCents: cents(0),
+  bonusTotalCents: cents(0),
+  advanceTotalCents: cents(0),
+  earningsTotalCents: cents(9_999),
+  netPayableCents: cents(9_999),
 };
 
 function renderPage(
