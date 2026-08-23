@@ -647,6 +647,8 @@ export enum CashMovementKind {
 export interface CashMovement {
   id: string;
   tradingDayId: string;
+  amendsCashMovementId: string | null;
+  supersededByCashMovementId: string | null;
   kind: CashMovementKind;
   amountCents: MoneyCents;
   description: string;
@@ -664,6 +666,8 @@ export interface CreateCashMovementInput {
   category?: string | null;
   recordedByStaffMemberId?: string | null;
 }
+
+export type AmendCashMovementInput = CreateCashMovementInput;
 
 export interface CashMovementList {
   businessDay: CurrentOpenBusinessDay;

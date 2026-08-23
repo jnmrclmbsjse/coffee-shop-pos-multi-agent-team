@@ -17,6 +17,7 @@ import {
 import {
   CashMovementKind,
   DayType,
+  type AmendCashMovementInput,
   type CreateCashMovementInput,
   type CloseBusinessDayInput,
   type OpenBusinessDayInput,
@@ -136,3 +137,7 @@ export class CreateCashMovementDto
   })
   recordedByStaffMemberId?: string | null;
 }
+
+export class AmendCashMovementDto
+  extends CreateCashMovementDto
+  implements AmendCashMovementInput {}

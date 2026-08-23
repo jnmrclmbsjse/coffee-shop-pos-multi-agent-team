@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   addMoney,
@@ -30,6 +31,7 @@ import {
 import { PackagingReconciliationService } from '../inventory/packaging-reconciliation.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  AmendCashMovementDto,
   CloseBusinessDayDto,
   CreateCashMovementDto,
   OpenBusinessDayDto,
@@ -75,7 +77,15 @@ type DayClosingRecord = Prisma.DayClosingGetPayload<{
   include: typeof dayClosingInclude;
 }>;
 
-type CashMovementRecord = Prisma.CashMovementGetPayload<Record<string, never>>;
+const cashMovementInclude = {
+  amendedBy: {
+    select: { id: true },
+  },
+} satisfies Prisma.CashMovementInclude;
+
+type CashMovementRecord = Prisma.CashMovementGetPayload<{
+  include: typeof cashMovementInclude;
+}>;
 
 @Injectable()
 export class TradingDayService {
@@ -247,6 +257,7 @@ export class TradingDayService {
     const movements = await this.prisma.cashMovement.findMany({
       where: { tradingDayId: day.id },
       orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
+      include: cashMovementInclude,
     });
 
     return {
@@ -264,6 +275,7 @@ export class TradingDayService {
 
     const replay = await this.prisma.cashMovement.findUnique({
       where: { id: input.clientGeneratedId },
+      include: cashMovementInclude,
     });
     if (replay !== null) return this.toCashMovement(replay);
 
@@ -280,6 +292,7 @@ export class TradingDayService {
           const transactionReplay =
             await transaction.cashMovement.findUnique({
               where: { id: input.clientGeneratedId },
+              include: cashMovementInclude,
             });
           if (transactionReplay !== null) return transactionReplay;
 
@@ -322,6 +335,7 @@ export class TradingDayService {
               recordedByStaffMemberId: recorder?.id ?? null,
               recordedByNameSnapshot: recorder?.displayName ?? null,
             },
+            include: cashMovementInclude,
           });
         },
       );
@@ -334,8 +348,127 @@ export class TradingDayService {
       ) {
         const existing = await this.prisma.cashMovement.findUnique({
           where: { id: input.clientGeneratedId },
+          include: cashMovementInclude,
         });
         if (existing !== null) return this.toCashMovement(existing);
+      }
+      throw error;
+    }
+  }
+
+  async amendCashMovement(
+    targetId: string,
+    input: AmendCashMovementDto,
+  ): Promise<CashMovementResponse> {
+    this.validateCashMovementInput(input);
+
+    const replay = await this.prisma.cashMovement.findUnique({
+      where: { id: input.clientGeneratedId },
+      include: cashMovementInclude,
+    });
+    if (replay !== null) return this.toCashMovement(replay);
+
+    const target = await this.prisma.cashMovement.findUnique({
+      where: { id: targetId },
+      select: { tradingDayId: true },
+    });
+    if (target === null) {
+      throw new NotFoundException('Cash movement was not found');
+    }
+
+    try {
+      const correction = await this.prisma.$transaction(
+        async (transaction) => {
+          await this.lockTradingDay(transaction, target.tradingDayId);
+
+          const transactionReplay =
+            await transaction.cashMovement.findUnique({
+              where: { id: input.clientGeneratedId },
+              include: cashMovementInclude,
+            });
+          if (transactionReplay !== null) return transactionReplay;
+
+          const [lockedTarget, recorder] = await Promise.all([
+            transaction.cashMovement.findUnique({
+              where: { id: targetId },
+              select: {
+                tradingDayId: true,
+                tradingDay: { select: { status: true } },
+                amendedBy: { select: { id: true } },
+              },
+            }),
+            input.recordedByStaffMemberId
+              ? transaction.staffMember.findFirst({
+                  where: {
+                    id: input.recordedByStaffMemberId,
+                    isActive: true,
+                  },
+                  select: { id: true, displayName: true },
+                })
+              : Promise.resolve(null),
+          ]);
+
+          if (lockedTarget === null) {
+            throw new NotFoundException('Cash movement was not found');
+          }
+          if (lockedTarget.tradingDayId !== target.tradingDayId) {
+            throw new ConflictException(
+              'Cash movement cannot be amended across business days',
+            );
+          }
+          if (lockedTarget.tradingDay.status !== TradingDayStatus.OPEN) {
+            throw new ConflictException(
+              'Cash movement belongs to a closed business day',
+            );
+          }
+          if (lockedTarget.amendedBy !== null) {
+            throw this.supersededConflict(lockedTarget.amendedBy.id);
+          }
+          if (input.recordedByStaffMemberId && recorder === null) {
+            throw new BadRequestException(
+              'recordedByStaffMemberId must reference an active staff member',
+            );
+          }
+
+          return transaction.cashMovement.create({
+            data: {
+              id: input.clientGeneratedId,
+              tradingDayId: lockedTarget.tradingDayId,
+              amendsCashMovementId: targetId,
+              kind: input.kind as CashMovementKind,
+              amountCents: input.amountCents,
+              description: input.description.trim(),
+              category: input.category?.trim() || null,
+              recordedByStaffMemberId: recorder?.id ?? null,
+              recordedByNameSnapshot: recorder?.displayName ?? null,
+            },
+            include: cashMovementInclude,
+          });
+        },
+      );
+
+      return this.toCashMovement(correction);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const replayAfterConflict =
+          await this.prisma.cashMovement.findUnique({
+            where: { id: input.clientGeneratedId },
+            include: cashMovementInclude,
+          });
+        if (replayAfterConflict !== null) {
+          return this.toCashMovement(replayAfterConflict);
+        }
+
+        const superseding = await this.prisma.cashMovement.findUnique({
+          where: { amendsCashMovementId: targetId },
+          select: { id: true },
+        });
+        if (superseding !== null) {
+          throw this.supersededConflict(superseding.id);
+        }
       }
       throw error;
     }
@@ -518,7 +651,10 @@ export class TradingDayService {
         },
       }),
       client.cashMovement.findMany({
-        where: { tradingDayId: day.id },
+        where: {
+          tradingDayId: day.id,
+          amendedBy: { is: null },
+        },
         select: { kind: true, amountCents: true },
       }),
     ]);
@@ -661,6 +797,15 @@ export class TradingDayService {
     );
   }
 
+  private supersededConflict(
+    supersededByCashMovementId: string,
+  ): ConflictException {
+    return new ConflictException({
+      message: 'Cash movement was already superseded',
+      supersededByCashMovementId,
+    });
+  }
+
   private parseBusinessDate(value: string): Date {
     const date = new Date(`${value}T00:00:00.000Z`);
     if (
@@ -714,6 +859,8 @@ export class TradingDayService {
     return {
       id: record.id,
       tradingDayId: record.tradingDayId,
+      amendsCashMovementId: record.amendsCashMovementId ?? null,
+      supersededByCashMovementId: record.amendedBy?.id ?? null,
       kind: record.kind as SharedCashMovementKind,
       amountCents: cents(record.amountCents),
       description: record.description,

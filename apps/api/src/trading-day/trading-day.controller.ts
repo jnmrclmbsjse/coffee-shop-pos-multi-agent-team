@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseUUIDPipe,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -18,6 +20,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import {
+  AmendCashMovementDto,
   CloseBusinessDayDto,
   CreateCashMovementDto,
   OpenBusinessDayDto,
@@ -67,5 +70,13 @@ export class TradingDayController {
     @Body() input: CreateCashMovementDto,
   ): Promise<CashMovement> {
     return this.tradingDayService.recordCashMovement(input);
+  }
+
+  @Post('cash-movements/:id/amendments')
+  amendCashMovement(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() input: AmendCashMovementDto,
+  ): Promise<CashMovement> {
+    return this.tradingDayService.amendCashMovement(id, input);
   }
 }

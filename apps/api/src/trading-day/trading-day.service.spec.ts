@@ -14,6 +14,7 @@ import {
 import type { PackagingReconciliationService } from '../inventory/packaging-reconciliation.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type {
+  AmendCashMovementDto,
   CloseBusinessDayDto,
   CreateCashMovementDto,
   OpenBusinessDayDto,
@@ -55,6 +56,14 @@ describe('TradingDayService', () => {
     description: '  Cleaning supplies  ',
     category: '  Supplies  ',
     recordedByStaffMemberId: closer.id,
+  };
+  const amendmentInput: AmendCashMovementDto = {
+    ...movementInput,
+    clientGeneratedId: '90000000-0000-4000-8000-000000000002',
+    kind: SharedCashMovementKind.CASH_OUT,
+    amountCents: 500 as AmendCashMovementDto['amountCents'],
+    description: '  Corrected movement  ',
+    category: null,
   };
   const packagingRows = [
     {
@@ -501,6 +510,8 @@ describe('TradingDayService', () => {
         {
           id: movementInput.clientGeneratedId,
           tradingDayId: day.id,
+          amendsCashMovementId: null,
+          supersededByCashMovementId: null,
           kind: SharedCashMovementKind.EXPENSE,
           amountCents: 750,
           description: 'Cleaning supplies',
@@ -514,6 +525,9 @@ describe('TradingDayService', () => {
     expect(prisma.cashMovement.findMany).toHaveBeenCalledWith({
       where: { tradingDayId: day.id },
       orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
+      include: {
+        amendedBy: { select: { id: true } },
+      },
     });
   });
 
@@ -583,6 +597,9 @@ describe('TradingDayService', () => {
         recordedByStaffMemberId: closer.id,
         recordedByNameSnapshot: closer.displayName,
       },
+      include: {
+        amendedBy: { select: { id: true } },
+      },
     });
   });
 
@@ -611,6 +628,9 @@ describe('TradingDayService', () => {
         recordedByStaffMemberId: null,
         recordedByNameSnapshot: null,
       }),
+      include: {
+        amendedBy: { select: { id: true } },
+      },
     });
   });
 
@@ -676,6 +696,143 @@ describe('TradingDayService', () => {
       service.recordCashMovement(movementInput),
     ).rejects.toThrow(new ConflictException('No business day is open'));
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('appends a same-day correction after locking the target day', async () => {
+    const { prisma, service } = createHarness();
+    prisma.cashMovement.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ tradingDayId: day.id })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        tradingDayId: day.id,
+        tradingDay: { status: TradingDayStatus.OPEN },
+        amendedBy: null,
+      });
+    prisma.staffMember.findFirst.mockResolvedValue(closer);
+    prisma.cashMovement.create.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        ...data,
+        amendedBy: null,
+        recordedAt: new Date('2026-07-23T10:00:00.000Z'),
+      }),
+    );
+
+    await expect(
+      service.amendCashMovement(
+        movementInput.clientGeneratedId,
+        amendmentInput,
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: amendmentInput.clientGeneratedId,
+        tradingDayId: day.id,
+        amendsCashMovementId: movementInput.clientGeneratedId,
+        supersededByCashMovementId: null,
+        kind: SharedCashMovementKind.CASH_OUT,
+        amountCents: 500,
+        description: 'Corrected movement',
+      }),
+    );
+    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(prisma.cashMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: amendmentInput.clientGeneratedId,
+        tradingDayId: day.id,
+        amendsCashMovementId: movementInput.clientGeneratedId,
+      }),
+      include: {
+        amendedBy: { select: { id: true } },
+      },
+    });
+  });
+
+  it('replays an amendment client ID without another write', async () => {
+    const { prisma, service } = createHarness();
+    prisma.cashMovement.findUnique.mockResolvedValue({
+      id: amendmentInput.clientGeneratedId,
+      tradingDayId: day.id,
+      amendsCashMovementId: movementInput.clientGeneratedId,
+      kind: CashMovementKind.CASH_OUT,
+      amountCents: 500,
+      description: 'Corrected movement',
+      category: null,
+      recordedByStaffMemberId: closer.id,
+      recordedByNameSnapshot: closer.displayName,
+      recordedAt: new Date('2026-07-23T10:00:00.000Z'),
+      amendedBy: null,
+    });
+
+    await expect(
+      service.amendCashMovement(
+        movementInput.clientGeneratedId,
+        amendmentInput,
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({ id: amendmentInput.clientGeneratedId }),
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.cashMovement.create).not.toHaveBeenCalled();
+  });
+
+  it('returns the superseding row ID when the target was already amended', async () => {
+    const { prisma, service } = createHarness();
+    const supersedingId = '90000000-0000-4000-8000-000000000003';
+    prisma.cashMovement.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ tradingDayId: day.id })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        tradingDayId: day.id,
+        tradingDay: { status: TradingDayStatus.OPEN },
+        amendedBy: { id: supersedingId },
+      });
+    prisma.staffMember.findFirst.mockResolvedValue(closer);
+
+    await expect(
+      service.amendCashMovement(
+        movementInput.clientGeneratedId,
+        amendmentInput,
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Cash movement was already superseded',
+        supersededByCashMovementId: supersedingId,
+      },
+    });
+    expect(prisma.cashMovement.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses amendments for unknown movements and closed days', async () => {
+    const unknown = createHarness();
+    unknown.prisma.cashMovement.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    await expect(
+      unknown.service.amendCashMovement(
+        movementInput.clientGeneratedId,
+        amendmentInput,
+      ),
+    ).rejects.toThrow('Cash movement was not found');
+
+    const closed = createHarness();
+    closed.prisma.cashMovement.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ tradingDayId: day.id })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        tradingDayId: day.id,
+        tradingDay: { status: TradingDayStatus.CLOSED },
+        amendedBy: null,
+      });
+    closed.prisma.staffMember.findFirst.mockResolvedValue(closer);
+    await expect(
+      closed.service.amendCashMovement(
+        movementInput.clientGeneratedId,
+        amendmentInput,
+      ),
+    ).rejects.toThrow('Cash movement belongs to a closed business day');
+    expect(closed.prisma.cashMovement.create).not.toHaveBeenCalled();
   });
 
   it.each([

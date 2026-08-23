@@ -11,7 +11,10 @@ import {
 } from '@prisma/client';
 import type { PackagingReconciliationService } from '../inventory/packaging-reconciliation.service';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateCashMovementDto } from './trading-day.dto';
+import type {
+  AmendCashMovementDto,
+  CreateCashMovementDto,
+} from './trading-day.dto';
 import { TradingDayService } from './trading-day.service';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -30,6 +33,10 @@ describeWithDatabase('Cash movement capture against Postgres', () => {
   const categorizedExpenseId = randomUUID();
   const inactiveAttributionId = randomUUID();
   const closedDayMovementId = randomUUID();
+  const firstCorrectionId = randomUUID();
+  const secondCorrectionId = randomUUID();
+  const raceTargetId = randomUUID();
+  const raceCorrectionIds = [randomUUID(), randomUUID()];
   let prisma: PrismaService;
   let service: TradingDayService;
 
@@ -43,6 +50,17 @@ describeWithDatabase('Cash movement capture against Postgres', () => {
       description: 'Test movement',
       ...overrides,
     }) as CreateCashMovementDto;
+
+  const amendmentInput = (
+    overrides: Partial<AmendCashMovementDto>,
+  ): AmendCashMovementDto =>
+    ({
+      clientGeneratedId: randomUUID(),
+      kind: SharedCashMovementKind.CASH_IN,
+      amountCents: cents(100),
+      description: 'Corrected movement',
+      ...overrides,
+    }) as AmendCashMovementDto;
 
   beforeAll(async () => {
     prisma = new PrismaService({
@@ -258,6 +276,157 @@ describeWithDatabase('Cash movement capture against Postgres', () => {
         expectedCashCents: 5_150,
       }),
     );
+  });
+
+  it('records one idempotent correction and derives both sides of its link', async () => {
+    const correction = amendmentInput({
+      clientGeneratedId: firstCorrectionId,
+      kind: SharedCashMovementKind.CASH_OUT,
+      amountCents: cents(800),
+      description: 'Corrected float top-up',
+    });
+
+    const [first, replay] = await Promise.all([
+      service.amendCashMovement(cashInId, correction),
+      service.amendCashMovement(cashInId, correction),
+    ]);
+
+    expect(first.id).toBe(firstCorrectionId);
+    expect(first.tradingDayId).toBe(openDayId);
+    expect(replay.id).toBe(firstCorrectionId);
+    await expect(
+      prisma.cashMovement.count({
+        where: { amendsCashMovementId: cashInId },
+      }),
+    ).resolves.toBe(1);
+
+    const ledger = await service.getCashMovements();
+    expect(
+      ledger.movements.find((movement) => movement.id === cashInId),
+    ).toEqual(
+      expect.objectContaining({
+        amendsCashMovementId: null,
+        supersededByCashMovementId: firstCorrectionId,
+      }),
+    );
+    expect(
+      ledger.movements.find(
+        (movement) => movement.id === firstCorrectionId,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        amendsCashMovementId: cashInId,
+        supersededByCashMovementId: null,
+      }),
+    );
+
+    await expect(service.getClosingSummary()).resolves.toEqual(
+      expect.objectContaining({
+        cashInCents: 50,
+        cashOutCents: 1_000,
+        cashExpensesCents: 700,
+        expectedCashCents: 3_350,
+      }),
+    );
+  });
+
+  it('amends an amendment and counts only the chain tip across kinds', async () => {
+    await service.amendCashMovement(
+      firstCorrectionId,
+      amendmentInput({
+        clientGeneratedId: secondCorrectionId,
+        kind: SharedCashMovementKind.EXPENSE,
+        amountCents: cents(600),
+        description: 'Corrected as expense',
+        category: 'Supplies',
+      }),
+    );
+
+    await expect(service.getClosingSummary()).resolves.toEqual(
+      expect.objectContaining({
+        cashInCents: 50,
+        cashOutCents: 200,
+        cashExpensesCents: 1_300,
+        expectedCashCents: 3_550,
+      }),
+    );
+  });
+
+  it('lets only one different client ID win a race for one target', async () => {
+    await prisma.cashMovement.create({
+      data: {
+        id: raceTargetId,
+        tradingDayId: openDayId,
+        kind: CashMovementKind.CASH_IN,
+        amountCents: 1_000,
+        description: 'Race target',
+      },
+    });
+
+    const results = await Promise.allSettled(
+      raceCorrectionIds.map((clientGeneratedId) =>
+        service.amendCashMovement(
+          raceTargetId,
+          amendmentInput({
+            clientGeneratedId,
+            kind: SharedCashMovementKind.CASH_OUT,
+            amountCents: cents(900),
+            description: `Race correction ${clientGeneratedId}`,
+          }),
+        ),
+      ),
+    );
+
+    const fulfilled = results.filter(
+      (result) => result.status === 'fulfilled',
+    );
+    const rejected = results.filter(
+      (result) => result.status === 'rejected',
+    );
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+
+    const winner = await prisma.cashMovement.findUniqueOrThrow({
+      where: { amendsCashMovementId: raceTargetId },
+    });
+    const rejection = rejected[0] as PromiseRejectedResult;
+    expect(rejection.reason).toBeInstanceOf(ConflictException);
+    expect((rejection.reason as ConflictException).getResponse()).toEqual(
+      expect.objectContaining({
+        supersededByCashMovementId: winner.id,
+      }),
+    );
+    await expect(
+      prisma.cashMovement.count({
+        where: { amendsCashMovementId: raceTargetId },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('refuses unknown and closed-day targets without writing a correction', async () => {
+    const unknownCorrectionId = randomUUID();
+    await expect(
+      service.amendCashMovement(
+        randomUUID(),
+        amendmentInput({ clientGeneratedId: unknownCorrectionId }),
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+
+    const closedCorrectionId = randomUUID();
+    await expect(
+      service.amendCashMovement(
+        closedDayMovementId,
+        amendmentInput({ clientGeneratedId: closedCorrectionId }),
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+
+    await expect(
+      prisma.cashMovement.count({
+        where: {
+          id: { in: [unknownCorrectionId, closedCorrectionId] },
+        },
+      }),
+    ).resolves.toBe(0);
   });
 
   it('returns an empty state and rejects writes after the day closes', async () => {

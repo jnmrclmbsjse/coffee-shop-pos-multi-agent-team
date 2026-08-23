@@ -404,10 +404,11 @@ model CashCount {
   @@map("cash_counts")
 }
 
-// Append-only: corrections are additional signed rows of the same kind.
+// Append-only: corrections are additional positive rows linked by supersession.
 model CashMovement {
   id                      String           @id @default(uuid()) @db.Uuid
   tradingDayId            String           @map("trading_day_id") @db.Uuid
+  amendsCashMovementId    String?          @unique @map("amends_cash_movement_id") @db.Uuid
   kind                    CashMovementKind
   amountCents             Int              @map("amount_cents")
   description             String
@@ -417,6 +418,8 @@ model CashMovement {
   recordedAt              DateTime         @default(now()) @map("recorded_at")
   tradingDay              TradingDay       @relation(fields: [tradingDayId], references: [id], onDelete: Restrict)
   recordedByStaffMember   StaffMember?     @relation("CashMovementRecordedBy", fields: [recordedByStaffMemberId], references: [id], onDelete: Restrict)
+  amendsCashMovement      CashMovement?     @relation("CashMovementAmendment", fields: [amendsCashMovementId], references: [id], onDelete: Restrict)
+  amendedBy               CashMovement?     @relation("CashMovementAmendment")
 
   @@index([tradingDayId, recordedAt])
   @@map("cash_movements")

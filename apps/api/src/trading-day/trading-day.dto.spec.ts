@@ -5,6 +5,7 @@ import {
   CashMovementKind,
 } from '@coffee-shop/shared';
 import {
+  AmendCashMovementDto,
   CloseBusinessDayDto,
   CreateCashMovementDto,
   OpenBusinessDayDto,
@@ -124,6 +125,20 @@ describe('trading day DTOs', () => {
     await expect(validate(instance)).resolves.toEqual([]);
     expect(instance.description).toBe('Cleaning supplies');
     expect(instance.category).toBe('Supplies');
+  });
+
+  it('applies the full cash-movement validation contract to amendments', async () => {
+    const valid = plainToInstance(AmendCashMovementDto, validMovement);
+    await expect(validate(valid)).resolves.toEqual([]);
+    expect(valid.description).toBe('Cleaning supplies');
+
+    const invalid = await messages(AmendCashMovementDto, {
+      ...validMovement,
+      amountCents: 0,
+      description: '   ',
+    });
+    expect(invalid.join(' ')).toContain('amountCents');
+    expect(invalid.join(' ')).toContain('description');
   });
 
   it.each([

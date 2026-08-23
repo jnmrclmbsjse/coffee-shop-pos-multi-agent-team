@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   CashMovementKind,
+  DayType,
   LineDiscountKind,
   OrderStatus,
   PaymentMethod,
@@ -10,6 +11,8 @@ import {
   TradingDayStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { PackagingReconciliationService } from '../inventory/packaging-reconciliation.service';
+import { TradingDayService } from '../trading-day/trading-day.service';
 import { ReportingService } from './reporting.service';
 
 function createReportingService(prisma: PrismaService): ReportingService {
@@ -115,8 +118,9 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
         {
           id: movementIds[1],
           tradingDayId,
+          amendsCashMovementId: movementIds[0],
           kind: CashMovementKind.CASH_IN,
-          amountCents: -1_000,
+          amountCents: 4_000,
           description: 'Correct cash added',
         },
         {
@@ -136,8 +140,9 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
         {
           id: movementIds[4],
           tradingDayId,
+          amendsCashMovementId: movementIds[3],
           kind: CashMovementKind.EXPENSE,
-          amountCents: -250,
+          amountCents: 500,
           description: 'Correct supplies',
         },
       ],
@@ -170,7 +175,7 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
     await prisma.$disconnect();
   });
 
-  it('returns signed movement totals and only unsettled change', async () => {
+  it('returns effective movement totals and only unsettled change', async () => {
     const report = await service.getReport('2026-07-22', '2026-07-22');
 
     expect(report.dailyReconciliation).toEqual([
@@ -190,6 +195,120 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
         varianceCents: -300,
       },
     ]);
+  });
+});
+
+describeWithDatabase('Cash amendment totals across close and reporting paths', () => {
+  const locationId = randomUUID();
+  const staffMemberId = randomUUID();
+  const tradingDayId = randomUUID();
+  const movementIds = Array.from({ length: 3 }, () => randomUUID());
+  let prisma: PrismaService;
+  let reporting: ReportingService;
+  let tradingDay: TradingDayService;
+
+  beforeAll(async () => {
+    prisma = new PrismaService({
+      datasources: { db: { url: testDatabaseUrl } },
+    });
+    await prisma.$connect();
+    reporting = createReportingService(prisma);
+    tradingDay = new TradingDayService(
+      prisma,
+      {
+        getForTradingDay: jest.fn().mockResolvedValue([]),
+      } as unknown as PackagingReconciliationService,
+    );
+
+    await prisma.location.create({
+      data: { id: locationId, name: `Amendment totals ${locationId}` },
+    });
+    await prisma.staffMember.create({
+      data: {
+        id: staffMemberId,
+        locationId,
+        displayName: 'Amendment totals integration test',
+      },
+    });
+    await prisma.tradingDay.create({
+      data: {
+        id: tradingDayId,
+        locationId,
+        businessDate: new Date('2100-01-02T00:00:00.000Z'),
+        status: TradingDayStatus.OPEN,
+        dayType: DayType.NORMAL,
+        openedAt: new Date('2100-01-02T00:00:00.000Z'),
+        openingFloatCents: 1_000,
+        openedByStaffMemberId: staffMemberId,
+      },
+    });
+    await prisma.cashMovement.create({
+      data: {
+        id: movementIds[0],
+        tradingDayId,
+        kind: CashMovementKind.CASH_IN,
+        amountCents: 10_000,
+        description: 'Original',
+      },
+    });
+    await prisma.cashMovement.create({
+      data: {
+        id: movementIds[1],
+        tradingDayId,
+        amendsCashMovementId: movementIds[0],
+        kind: CashMovementKind.CASH_OUT,
+        amountCents: 8_000,
+        description: 'First correction',
+      },
+    });
+    await prisma.cashMovement.create({
+      data: {
+        id: movementIds[2],
+        tradingDayId,
+        amendsCashMovementId: movementIds[1],
+        kind: CashMovementKind.EXPENSE,
+        amountCents: 600,
+        description: 'Chain tip',
+      },
+    });
+  });
+
+  afterAll(async () => {
+    if (!prisma) return;
+    await prisma.cashMovement.deleteMany({
+      where: { tradingDayId },
+    });
+    await prisma.tradingDay.delete({ where: { id: tradingDayId } });
+    await prisma.staffMember.delete({ where: { id: staffMemberId } });
+    await prisma.location.delete({ where: { id: locationId } });
+    await prisma.$disconnect();
+  });
+
+  it('returns byte-identical effective totals for an amendment chain', async () => {
+    const [closingSummary, report] = await Promise.all([
+      tradingDay.getClosingSummary(),
+      reporting.getReport('2100-01-02', '2100-01-02'),
+    ]);
+    const daily = report.dailyReconciliation[0]!;
+
+    expect({
+      cashInCents: closingSummary.cashInCents,
+      cashOutCents: closingSummary.cashOutCents,
+      cashExpensesCents: closingSummary.cashExpensesCents,
+    }).toEqual({
+      cashInCents: daily.cashInCents,
+      cashOutCents: daily.cashOutCents,
+      cashExpensesCents: daily.cashExpensesCents,
+    });
+    expect({
+      cashInCents: daily.cashInCents,
+      cashOutCents: daily.cashOutCents,
+      cashExpensesCents: daily.cashExpensesCents,
+    }).toEqual({
+      cashInCents: 0,
+      cashOutCents: 0,
+      cashExpensesCents: 600,
+    });
   });
 });
 
