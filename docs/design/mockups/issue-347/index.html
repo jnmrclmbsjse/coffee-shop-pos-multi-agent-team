@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UCM Coffee Studio POS - Staff credentials</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell" data-od-id="staff-page">
+    <header class="app-bar" data-od-id="app-header">
+      <div class="app-bar__inner">
+        <a class="brand" href="#staff-heading">UCM Coffee Studio <span>POS</span></a>
+        <nav aria-label="Admin navigation">
+          <a href="#">Register</a>
+          <a href="#">Products</a>
+          <a href="#" aria-current="page">Staff</a>
+          <a href="#">Reports</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page" id="main-content">
+      <div class="page-heading" data-od-id="staff-heading-region">
+        <div>
+          <h1 id="staff-heading" data-od-id="staff-heading">Staff</h1>
+          <p>Manage staff access and login accounts.</p>
+        </div>
+        <button class="button button--primary" type="button">Add staff member</button>
+      </div>
+
+      <section aria-labelledby="staff-list-heading" data-od-id="staff-roster">
+        <h2 class="visually-hidden" id="staff-list-heading">Staff roster</h2>
+        <div class="filters" data-od-id="staff-filters">
+          <div class="filter-search">
+            <label for="staff-search">Search staff</label>
+            <input id="staff-search" type="search" placeholder="Search by name">
+          </div>
+          <div>
+            <label for="status-filter">Status</label>
+            <select id="status-filter">
+              <option>All staff</option>
+              <option>Active</option>
+              <option>Inactive</option>
+            </select>
+          </div>
+          <button class="button button--secondary sort-button" type="button" aria-label="Sort names ascending">Name A-Z</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Is active</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-od-id="staff-row-mara">
+                <td data-label="Name"><strong>Mara Villanueva</strong></td>
+                <td data-label="Is active">
+                  <div class="status-control"><span class="badge badge--active">Active</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Deactivate Mara Villanueva"><span></span></button></div>
+                </td>
+                <td data-label="Actions">
+                  <div class="row-actions">
+                    <button class="button button--secondary" type="button">Edit</button>
+                    <div class="account-action"><span class="account-username">Account: <strong>mara.v</strong></span><button class="button button--secondary manage-account" type="button" data-member="Mara Villanueva" data-username="mara.v" data-state="dialog-empty">Replace password or PIN</button></div>
+                  </div>
+                </td>
+              </tr>
+              <tr data-od-id="staff-row-paolo">
+                <td data-label="Name"><strong>Paolo Reyes</strong></td>
+                <td data-label="Is active">
+                  <div class="status-control"><span class="badge badge--active">Active</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Deactivate Paolo Reyes"><span></span></button></div>
+                </td>
+                <td data-label="Actions"><div class="row-actions"><button class="button button--secondary" type="button">Edit</button><button class="button button--secondary" type="button">Create login account</button></div></td>
+              </tr>
+              <tr data-od-id="staff-row-luningning">
+                <td data-label="Name"><strong>Luningning de la Cruz-Santos</strong></td>
+                <td data-label="Is active">
+                  <div class="status-control"><span class="badge">Inactive</span><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Activate Luningning de la Cruz-Santos"><span></span></button></div>
+                </td>
+                <td data-label="Actions"><div class="row-actions"><button class="button button--secondary" type="button">Edit</button><span class="muted-action">Activate staff to create an account</span></div></td>
+              </tr>
+              <tr data-od-id="staff-row-josefina">
+                <td data-label="Name"><strong>Josefina Pilar Manalastas-Bautista</strong></td>
+                <td data-label="Is active">
+                  <div class="status-control"><span class="badge badge--active">Active</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Deactivate Josefina Pilar Manalastas-Bautista"><span></span></button></div>
+                </td>
+                <td data-label="Actions">
+                  <div class="row-actions"><button class="button button--secondary" type="button">Edit</button><div class="account-action"><span class="account-username">Account: <strong>josefina.mb</strong></span><button class="button button--secondary manage-account" type="button" data-member="Josefina Pilar Manalastas-Bautista" data-username="josefina.mb" data-state="dialog-first-pin">Replace password or PIN</button></div></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <aside class="state-picker" aria-labelledby="state-picker-title" data-od-id="mockup-state-picker">
+    <div class="state-picker__head">
+      <strong id="state-picker-title">Mockup states</strong>
+      <button id="picker-toggle" class="picker-toggle" type="button" aria-expanded="true" aria-controls="state-buttons">Hide</button>
+    </div>
+    <div class="state-buttons" id="state-buttons"></div>
+  </aside>
+
+  <div id="modal-root"></div>
+  <script src="app.js"></script>
+</body>
+</html>
