@@ -51,4 +51,27 @@ describe('StaffController', () => {
       input,
     );
   });
+
+  it('delegates credential rotation for the route member', async () => {
+    const response = {
+      staffMember: { id: 'staff-id' },
+      passwordChanged: true,
+      pinChanged: false,
+      pinSet: true,
+    };
+    const updateCredentials = jest.fn().mockResolvedValue(response);
+    const controller = new StaffController({ updateCredentials } as never);
+    const input = { password: ' Exact Password ' };
+
+    await expect(
+      controller.updateCredentials(
+        '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+        input,
+      ),
+    ).resolves.toBe(response);
+    expect(updateCredentials).toHaveBeenCalledWith(
+      '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+      input,
+    );
+  });
 });

@@ -7,6 +7,7 @@ import type {
   CreateStaffAccountResponse,
   SelectableStaffMember,
   StaffMember,
+  UpdateStaffCredentialsResponse,
 } from '@coffee-shop/shared';
 import type { Prisma } from '@prisma/client';
 import { AuthService } from '../auth/auth.service';
@@ -16,6 +17,7 @@ import type {
   CreateStaffAccountDto,
   CreateStaffMemberDto,
   StaffMemberListQueryDto,
+  UpdateStaffCredentialsDto,
   UpdateStaffMemberDto,
 } from './staff.dto';
 
@@ -101,6 +103,33 @@ export class StaffService {
       displayName: input.displayName,
       ...hashes,
     });
+  }
+
+  async updateCredentials(
+    staffMemberId: string,
+    input: UpdateStaffCredentialsDto,
+  ): Promise<UpdateStaffCredentialsResponse> {
+    const [passwordHash, pinHash] = await Promise.all([
+      input.password === undefined
+        ? Promise.resolve(undefined)
+        : this.authService.hashStaffPassword(input.password),
+      input.pin === undefined
+        ? Promise.resolve(undefined)
+        : this.authService.hashStaffPin(input.pin),
+    ]);
+
+    const result = await this.usersService.updateStaffCredentials({
+      staffMemberId,
+      passwordHash,
+      pinHash,
+    });
+
+    return {
+      staffMember: this.toStaffMember(result.staffMember),
+      passwordChanged: input.password !== undefined,
+      pinChanged: input.pin !== undefined,
+      pinSet: result.pinSet,
+    };
   }
 
   async update(

@@ -284,4 +284,94 @@ describe('StaffService', () => {
       pinHash: 'pin-hash',
     });
   });
+
+  it('hashes both replacements before sending them to the transactional write path', async () => {
+    const prisma = createPrisma();
+    const hashStaffPassword = jest.fn().mockResolvedValue('new-password-hash');
+    const hashStaffPin = jest.fn().mockResolvedValue('new-pin-hash');
+    const updateStaffCredentials = jest.fn().mockResolvedValue({
+      staffMember: staffRecord({ user: { username: 'alex' } }),
+      pinSet: true,
+    });
+    const service = createService(
+      prisma,
+      { hashStaffPassword, hashStaffPin },
+      { updateStaffCredentials },
+    );
+
+    await expect(
+      service.updateCredentials(staffId, {
+        password: ' Exact Password ',
+        pin: '4826',
+      }),
+    ).resolves.toEqual({
+      staffMember: {
+        ...staffRecord(),
+        hasAccount: true,
+        accountUsername: 'alex',
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+      passwordChanged: true,
+      pinChanged: true,
+      pinSet: true,
+    });
+    expect(hashStaffPassword).toHaveBeenCalledWith(' Exact Password ');
+    expect(hashStaffPin).toHaveBeenCalledWith('4826');
+    expect(updateStaffCredentials).toHaveBeenCalledWith({
+      staffMemberId: staffId,
+      passwordHash: 'new-password-hash',
+      pinHash: 'new-pin-hash',
+    });
+  });
+
+  it('rotates one credential without hashing the omitted credential', async () => {
+    const prisma = createPrisma();
+    const hashStaffPassword = jest.fn().mockResolvedValue('new-password-hash');
+    const hashStaffPin = jest.fn();
+    const updateStaffCredentials = jest.fn().mockResolvedValue({
+      staffMember: staffRecord({ user: { username: 'alex' } }),
+      pinSet: false,
+    });
+    const service = createService(
+      prisma,
+      { hashStaffPassword, hashStaffPin },
+      { updateStaffCredentials },
+    );
+
+    await expect(
+      service.updateCredentials(staffId, { password: 'new password' }),
+    ).resolves.toMatchObject({
+      passwordChanged: true,
+      pinChanged: false,
+      pinSet: false,
+    });
+    expect(hashStaffPin).not.toHaveBeenCalled();
+    expect(updateStaffCredentials).toHaveBeenCalledWith({
+      staffMemberId: staffId,
+      passwordHash: 'new-password-hash',
+      pinHash: undefined,
+    });
+  });
+
+  it('does not start the write when either credential hash fails', async () => {
+    const prisma = createPrisma();
+    const updateStaffCredentials = jest.fn();
+    const service = createService(
+      prisma,
+      {
+        hashStaffPassword: jest.fn().mockResolvedValue('password-hash'),
+        hashStaffPin: jest.fn().mockRejectedValue(new Error('hash failed')),
+      },
+      { updateStaffCredentials },
+    );
+
+    await expect(
+      service.updateCredentials(staffId, {
+        password: 'new password',
+        pin: '4826',
+      }),
+    ).rejects.toThrow('hash failed');
+    expect(updateStaffCredentials).not.toHaveBeenCalled();
+  });
 });

@@ -293,6 +293,18 @@ export interface CreateStaffAccountResponse {
   displayName: string;
 }
 
+export interface UpdateStaffCredentialsInput {
+  password?: string;
+  pin?: string;
+}
+
+export interface UpdateStaffCredentialsResponse {
+  staffMember: StaffMember;
+  passwordChanged: boolean;
+  pinChanged: boolean;
+  pinSet: boolean;
+}
+
 export type ProductListSort = 'category' | 'name' | 'active';
 
 export type StockCountPhase = 'open' | 'close';

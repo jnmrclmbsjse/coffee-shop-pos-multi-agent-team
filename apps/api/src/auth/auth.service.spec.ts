@@ -88,6 +88,49 @@ describe('AuthService', () => {
     ).resolves.toMatchObject({ pinHash: null });
   });
 
+  it('uses rotated hashes across password sign-in, PIN sign-in, and cashier confirmation', async () => {
+    const foundUser = user(Role.STAFF);
+    const linkedMember = {
+      id: '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+      isActive: true,
+      locationId: null,
+    };
+    const usersService = {
+      findByUsername: jest.fn().mockImplementation(() => foundUser),
+      findById: jest.fn().mockImplementation(() => foundUser),
+      findByStaffMemberId: jest.fn().mockImplementation(() => foundUser),
+      findLinkedStaffMember: jest.fn().mockResolvedValue(linkedMember),
+    } as unknown as UsersService;
+    const service = new AuthService(
+      usersService,
+      jwtService,
+      throttleMock() as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
+    );
+
+    foundUser.passwordHash = await service.hashStaffPassword('new password');
+    foundUser.pinHash = await service.hashStaffPin('4826');
+
+    await expect(
+      service.staffPasswordLogin('staff', ' Exact Pass ', 'device-1'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(
+      service.staffPasswordLogin('staff', 'new password', 'device-1'),
+    ).resolves.toMatchObject({ response: { user: { id: foundUser.id } } });
+    await expect(
+      service.staffPinLogin(foundUser.id, '1234', 'device-1'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(
+      service.staffPinLogin(foundUser.id, '4826', 'device-1'),
+    ).resolves.toMatchObject({ response: { user: { id: foundUser.id } } });
+    await expect(
+      service.authorizeCashierPin(linkedMember.id, '1234', 'device-1'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(
+      service.authorizeCashierPin(linkedMember.id, '4826', 'device-1'),
+    ).resolves.toBeUndefined();
+  });
+
   it('authenticates an administrator and signs a cookie-safe token payload', async () => {
     const usersService = {
       findByUsername: jest.fn().mockResolvedValue(user(Role.ADMIN)),

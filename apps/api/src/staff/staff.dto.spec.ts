@@ -5,6 +5,7 @@ import {
   CreateStaffAccountDto,
   CreateStaffMemberDto,
   StaffMemberListQueryDto,
+  UpdateStaffCredentialsDto,
   UpdateStaffMemberDto,
 } from './staff.dto';
 
@@ -100,5 +101,44 @@ describe('Staff DTO validation', () => {
     expect(await validate(input)).toHaveLength(0);
     expect(input.password).toBe('   ');
     expect(input.pin).toBeUndefined();
+  });
+
+  it.each([
+    { password: ' Exact Password ' },
+    { pin: '4826' },
+    { password: '   ', pin: '4826' },
+  ])('accepts credential rotation input %j without trimming', async (value) => {
+    const input = plainToInstance(UpdateStaffCredentialsDto, value);
+
+    expect(await validate(input)).toHaveLength(0);
+    expect(input).toMatchObject(value);
+  });
+
+  it.each([
+    [{ password: '' }, 'password'],
+    [{ password: null }, 'password'],
+    [{ pin: '123' }, 'pin'],
+    [{ pin: '12345' }, 'pin'],
+    [{ pin: '12a4' }, 'pin'],
+    [{ pin: null }, 'pin'],
+  ])('rejects invalid credential rotation input %j on %s', async (value, field) => {
+    const input = plainToInstance(UpdateStaffCredentialsDto, value);
+    const errors = await validate(input);
+
+    expect(errors.some((error) => error.property === field)).toBe(true);
+  });
+
+  it('rejects an update with neither credential using a form-level message', async () => {
+    const input = plainToInstance(UpdateStaffCredentialsDto, {});
+    const errors = await validate(input);
+
+    expect(errors).toEqual([
+      expect.objectContaining({
+        property: 'credentialSelection',
+        constraints: {
+          hasReplacementCredential: 'Provide a new password or PIN',
+        },
+      }),
+    ]);
   });
 });
