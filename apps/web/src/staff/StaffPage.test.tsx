@@ -263,7 +263,70 @@ describe('staff roster page', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers account management, not creation, once a member has a login', async () => {
+  it('offers credential replacement, shows the username, and reconciles the row without reloading', async () => {
+    const linked: StaffMember = {
+      ...mara,
+      isActive: false,
+      hasAccount: true,
+      accountUsername: 'mara.login',
+    };
+    fetchMock.mockImplementation(async (url, init) => {
+      if (
+        new URL(String(url)).pathname ===
+          `/staff/${linked.id}/account/credentials` &&
+        init?.method === 'PATCH'
+      ) {
+        return response(200, {
+          staffMember: {
+            ...linked,
+            updatedAt: '2026-08-23T16:00:00.000Z',
+          },
+          passwordChanged: true,
+          pinChanged: false,
+          pinSet: true,
+        });
+      }
+      return response(200, [linked]);
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    const replace = await screen.findByRole('button', {
+      name: 'Replace password or PIN for Mara Villanueva',
+    });
+    expect(
+      screen.queryByRole('button', {
+        name: 'Create login account for Mara Villanueva',
+      }),
+    ).not.toBeInTheDocument();
+
+    expect(screen.getByText('mara.login')).toBeInTheDocument();
+    await user.click(replace);
+
+    const dialog = screen.getByRole('dialog', {
+      name: 'Replace password or PIN',
+    });
+    expect(within(dialog).getByText('mara.login')).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText('New password'), 'new pass');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Save credential changes' }),
+    );
+    expect(await within(dialog).findByText('Password replaced')).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          new URL(String(url)).pathname === '/staff' &&
+          (!init?.method || init.method === 'GET'),
+      ),
+    ).toHaveLength(1);
+    await user.click(within(dialog).getByRole('button', { name: 'Done' }));
+    expect(
+      await screen.findByText("Mara Villanueva's login credentials were updated."),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(replace).toHaveFocus());
+  });
+
+  it('clears credential drafts on cancel before the dialog is reopened', async () => {
     const linked: StaffMember = {
       ...mara,
       hasAccount: true,
@@ -273,24 +336,21 @@ describe('staff roster page', () => {
     const user = userEvent.setup();
     renderPage();
 
-    const manage = await screen.findByRole('button', {
-      name: 'Manage login account for Mara Villanueva',
+    const replace = await screen.findByRole('button', {
+      name: 'Replace password or PIN for Mara Villanueva',
     });
-    expect(
-      screen.queryByRole('button', {
-        name: 'Create login account for Mara Villanueva',
-      }),
-    ).not.toBeInTheDocument();
+    await user.click(replace);
+    await user.type(screen.getByLabelText('New password'), 'temporary secret');
+    await user.type(screen.getByLabelText('New PIN'), '2048');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    await user.click(manage);
-
-    const dialog = screen.getByRole('dialog', {
-      name: 'Manage login account',
-    });
-    expect(within(dialog).getByText('mara.login')).toBeInTheDocument();
     expect(
-      within(dialog).queryByLabelText('Password'),
+      screen.queryByRole('dialog', { name: 'Replace password or PIN' }),
     ).not.toBeInTheDocument();
+    await waitFor(() => expect(replace).toHaveFocus());
+    await user.click(replace);
+    expect(screen.getByLabelText('New password')).toHaveValue('');
+    expect(screen.getByLabelText('New PIN')).toHaveValue('');
   });
 
   it('creates an account once with a normalized payload and never echoes credentials after success', async () => {
