@@ -38,6 +38,23 @@ const noOpenDay: CurrentOpenBusinessDay = {
   openedAt: null,
 };
 
+const closingSummary = {
+  isOpen: true,
+  businessDate: openDay.businessDate,
+  openingFloatCents: cents(50000),
+  cashSalesCents: cents(0),
+  onlineSalesCents: cents(0),
+  grossSalesCents: cents(0),
+  cashTipsCents: cents(0),
+  cashInCents: cents(0),
+  cashOutCents: cents(0),
+  cashExpensesCents: cents(0),
+  outstandingChangeCents: cents(0),
+  expectedCashCents: cents(50000),
+  packaging: [],
+  hasClosingStockCount: false,
+};
+
 function movement(
   overrides: Partial<CashMovement> = {},
 ): CashMovement {
@@ -73,6 +90,9 @@ function openPageFetch(
     if (path === '/trading-day/current') return response(200, openDay);
     if (path === '/trading-day/current/cash-movements') {
       return response(200, { businessDay: openDay, movements });
+    }
+    if (path === '/trading-day/current/closing-summary') {
+      return response(200, closingSummary);
     }
     if (path === '/inventory/counts/staff') return response(200, staff);
     return response(500);
@@ -233,7 +253,7 @@ describe('cash and expenses page', () => {
     expect(within(noCategoryRow!).getByText('Unattributed')).toBeInTheDocument();
     expect(noCategoryRow).not.toHaveTextContent('/ Emergency ice purchase');
     expect(within(table).getByText('Rina Lopez')).toBeInTheDocument();
-    expect(within(table).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(table).getAllByRole('button', { name: /Amend Expense/ })).toHaveLength(2);
   });
 
   it('shows local amount and reason errors beside required fields and records nothing', async () => {
@@ -336,6 +356,285 @@ describe('cash and expenses page', () => {
     expect(await screen.findByRole('heading', { name: 'No business day is open' })).toBeInTheDocument();
     expect(screen.getByText('The business day closed before the entry was recorded. No entry was saved.')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('renders linked amendment chains and only enables Amend on effective rows', async () => {
+    const original = movement({
+      id: 'original-entry',
+      supersededByCashMovementId: 'correction-one',
+      amountCents: cents(10000),
+    });
+    const firstCorrection = movement({
+      id: 'correction-one',
+      amendsCashMovementId: original.id,
+      supersededByCashMovementId: 'correction-two',
+      amountCents: cents(8000),
+    });
+    const finalCorrection = movement({
+      id: 'correction-two',
+      amendsCashMovementId: firstCorrection.id,
+      amountCents: cents(7500),
+    });
+    openPageFetch(fetchMock, [finalCorrection, firstCorrection, original]);
+
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    const originalRow = within(table).getByText('Original').closest('tr');
+    expect(originalRow).not.toBeNull();
+    expect(within(originalRow!).getByText('Superseded')).toBeInTheDocument();
+    expect(within(originalRow!).getByText(/Corrected by Entry correction-one to ₱80.00 Cash in/)).toBeInTheDocument();
+    expect(within(originalRow!).getByRole('button', { name: 'Amend' })).toBeDisabled();
+    expect(within(originalRow!).getByText('Already corrected by Entry correction-one.')).toBeInTheDocument();
+
+    const middleRow = within(table).getByText('Correction 1 of 2').closest('tr');
+    expect(middleRow).not.toBeNull();
+    expect(middleRow).toHaveTextContent('Corrects Entry original-entry. Corrected again by Entry correction-two to ₱75.00 Cash in.');
+    expect(within(middleRow!).getByRole('button', { name: 'Amend' })).toBeDisabled();
+
+    const finalRow = within(table).getByText('Correction 2 of 2').closest('tr');
+    expect(finalRow).not.toBeNull();
+    expect(within(finalRow!).getByText('Effective')).toBeInTheDocument();
+    expect(within(finalRow!).getByRole('button', { name: /Amend Cash in ₱75.00/ })).toBeEnabled();
+  });
+
+  it('prefills all correctable values, clears Expense category accessibly, and cancels without a request', async () => {
+    openPageFetch(fetchMock, [movement({
+      id: 'expense-entry',
+      kind: CashMovementKind.EXPENSE,
+      amountCents: cents(2450),
+      description: 'Cleaning cloths',
+      category: 'Supplies',
+    })]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /Amend Expense ₱24.50/ }));
+    expect(screen.getByRole('heading', { name: 'Amend entry' })).toHaveFocus();
+    expect(screen.getByLabelText(/^Correct amount/)).toHaveValue('24.50');
+    expect(screen.getByLabelText(/^Correct description/)).toHaveValue('Cleaning cloths');
+    expect(screen.getByLabelText(/^Category/)).toHaveValue('Supplies');
+
+    await user.click(screen.getByRole('radio', { name: /Cash out/ }));
+    expect(screen.queryByLabelText(/^Category/)).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Category was cleared and is no longer available');
+    await user.click(screen.getByRole('button', { name: 'Cancel, record nothing' }));
+
+    expect(await screen.findByText('Correction cancelled. Nothing was recorded.')).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+  });
+
+  it('validates amendment fields before review and cancelling review records nothing', async () => {
+    openPageFetch(fetchMock, [movement()]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /Amend Cash in/ }));
+    await user.clear(screen.getByLabelText(/^Correct amount/));
+    await user.type(screen.getByLabelText(/^Correct amount/), '0');
+    await user.clear(screen.getByLabelText(/^Correct description/));
+    await user.click(screen.getByRole('button', { name: 'Review correction' }));
+    expect(screen.getByText(/Enter an amount from ₱0.01/)).toBeInTheDocument();
+    expect(screen.getByText(/Enter a reason containing/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Correct amount/)).toHaveFocus();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+
+    await user.clear(screen.getByLabelText(/^Correct amount/));
+    await user.type(screen.getByLabelText(/^Correct amount/), '10.00');
+    await user.type(screen.getByLabelText(/^Correct description/), 'Correct float');
+    await user.click(screen.getByRole('button', { name: 'Review correction' }));
+    expect(screen.getByRole('heading', { name: 'Review correction' })).toHaveFocus();
+    expect(screen.getByText('Nothing has been recorded yet. Compare both records before confirming.')).toBeInTheDocument();
+    expect(screen.getByText('₱10.00')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel, record nothing' }));
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+  });
+
+  it('reuses the review id for a retry and blocks double confirmation', async () => {
+    const requestBodies: Array<Record<string, unknown>> = [];
+    let postCount = 0;
+    let finishRetry: ((value: Response) => void) | undefined;
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current') return response(200, openDay);
+      if (path === '/trading-day/current/cash-movements') return response(200, { businessDay: openDay, movements: [movement()] });
+      if (path === '/inventory/counts/staff') return response(200, staff);
+      if (path === '/trading-day/cash-movements/movement-1/amendments' && init?.method === 'POST') {
+        postCount += 1;
+        requestBodies.push(JSON.parse(String(init.body)));
+        if (postCount === 1) return response(500, { message: 'Temporary failure' });
+        return new Promise<Response>((resolve) => { finishRetry = resolve; });
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+    renderPage(staff[0]!.id);
+    await user.click(await screen.findByRole('button', { name: /Amend Cash in/ }));
+    await user.click(screen.getByRole('button', { name: 'Review correction' }));
+
+    await user.click(screen.getByRole('button', { name: 'Confirm correction' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Temporary failure No correction was recorded.');
+    await user.dblClick(screen.getByRole('button', { name: 'Confirm correction' }));
+    expect(screen.getByRole('button', { name: 'Confirming…' })).toBeDisabled();
+    expect(postCount).toBe(2);
+    expect(requestBodies[1]!.clientGeneratedId).toBe(requestBodies[0]!.clientGeneratedId);
+    expect(requestBodies[1]).toMatchObject({
+      kind: CashMovementKind.CASH_IN,
+      amountCents: 1234,
+      description: 'Change fund top-up',
+      recordedByStaffMemberId: staff[0]!.id,
+    });
+    finishRetry?.(response(201, movement({ id: 'correction' })));
+    expect(await screen.findByText(/Correction recorded once/)).toBeInTheDocument();
+  });
+
+  it('refreshes the full ledger after a successful amendment', async () => {
+    const original = movement({ id: 'target-entry', amountCents: cents(10000) });
+    const correction = movement({
+      id: 'corrected-entry',
+      amendsCashMovementId: original.id,
+      amountCents: cents(8000),
+      description: 'Correct float',
+    });
+    let ledgerRequests = 0;
+    let summaryRequests = 0;
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current') return response(200, openDay);
+      if (path === '/inventory/counts/staff') return response(200, staff);
+      if (path === '/trading-day/current/closing-summary') {
+        summaryRequests += 1;
+        return response(200, {
+          ...closingSummary,
+          cashInCents: cents(summaryRequests === 1 ? 10000 : 8000),
+          expectedCashCents: cents(summaryRequests === 1 ? 60000 : 58000),
+        });
+      }
+      if (path === '/trading-day/current/cash-movements') {
+        ledgerRequests += 1;
+        return response(200, {
+          businessDay: openDay,
+          movements: ledgerRequests === 1 ? [original] : [correction, { ...original, supersededByCashMovementId: correction.id }],
+        });
+      }
+      if (path === '/trading-day/cash-movements/target-entry/amendments' && init?.method === 'POST') {
+        return response(201, correction);
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /Amend Cash in ₱100.00/ }));
+    await user.clear(screen.getByLabelText(/^Correct amount/));
+    await user.type(screen.getByLabelText(/^Correct amount/), '80.00');
+    await user.click(screen.getByRole('button', { name: 'Review correction' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm correction' }));
+
+    expect(await screen.findByText(/Correction recorded once/)).toBeInTheDocument();
+    expect(ledgerRequests).toBe(2);
+    expect(summaryRequests).toBe(2);
+    expect(screen.getByText('₱580.00')).toBeInTheDocument();
+    expect(screen.getByText(/Corrected by Entry corrected-entry to ₱80.00 Cash in/)).toBeInTheDocument();
+    expect(screen.getByText(/Effective amount: ₱80.00 Cash in/)).toBeInTheDocument();
+  });
+
+  it('handles an already-superseded conflict distinctly and refreshes from the supplied correction id', async () => {
+    const original = movement({ id: 'race-target' });
+    const winner = movement({ id: 'race-winner', amendsCashMovementId: original.id, amountCents: cents(1100) });
+    let ledgerRequests = 0;
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current') return response(200, openDay);
+      if (path === '/inventory/counts/staff') return response(200, staff);
+      if (path === '/trading-day/current/cash-movements') {
+        ledgerRequests += 1;
+        return response(200, { businessDay: openDay, movements: ledgerRequests === 1 ? [original] : [winner, { ...original, supersededByCashMovementId: winner.id }] });
+      }
+      if (path === '/trading-day/cash-movements/race-target/amendments' && init?.method === 'POST') {
+        return response(409, { message: 'Cash movement was already superseded', supersededByCashMovementId: winner.id });
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /Amend Cash in/ }));
+    await user.click(screen.getByRole('button', { name: 'Review correction' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm correction' }));
+
+    expect(await screen.findByText(/Entry race-target was already corrected by Entry race-winner/)).toBeInTheDocument();
+    expect(ledgerRequests).toBe(2);
+    expect(screen.getByText(/Corrected by Entry race-winner to ₱11.00 Cash in/)).toBeInTheDocument();
+  });
+
+  it('moves to the read-only closed-day state when the day closes before amendment confirmation', async () => {
+    let currentDayRequests = 0;
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current') {
+        currentDayRequests += 1;
+        return response(200, currentDayRequests === 1 ? openDay : noOpenDay);
+      }
+      if (path === '/trading-day/current/cash-movements') return response(200, { businessDay: openDay, movements: [movement()] });
+      if (path === '/inventory/counts/staff') return response(200, staff);
+      if (path === '/trading-day/cash-movements/movement-1/amendments' && init?.method === 'POST') {
+        return response(409, { message: 'Trading day is closed' });
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /Amend Cash in/ }));
+    await user.click(screen.getByRole('button', { name: 'Review correction' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm correction' }));
+
+    expect(await screen.findByRole('heading', { name: 'No business day is open' })).toBeInTheDocument();
+    expect(screen.getByText('The business day closed before confirmation. No correction was recorded. The recorded close and totals did not change.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Amend' })).not.toBeInTheDocument();
+  });
+
+  it('returns server validation to the amendment fields with a no-write explanation', async () => {
+    openPageFetch(fetchMock, [movement()]);
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current') return response(200, openDay);
+      if (path === '/trading-day/current/cash-movements') return response(200, { businessDay: openDay, movements: [movement()] });
+      if (path === '/inventory/counts/staff') return response(200, staff);
+      if (path === '/trading-day/cash-movements/movement-1/amendments' && init?.method === 'POST') {
+        return response(400, { message: ['description should not be empty'] });
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /Amend Cash in/ }));
+    await user.click(screen.getByRole('button', { name: 'Review correction' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm correction' }));
+
+    expect(await screen.findByText('No correction was recorded. Correct the highlighted fields; the ledger and totals are unchanged.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Correct description/)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText(/^Correct description/)).toHaveFocus();
+  });
+
+  it('surfaces a missing amendment target distinctly and offers a ledger refresh', async () => {
+    openPageFetch(fetchMock, [movement()]);
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current') return response(200, openDay);
+      if (path === '/trading-day/current/cash-movements') return response(200, { businessDay: openDay, movements: [movement()] });
+      if (path === '/inventory/counts/staff') return response(200, staff);
+      if (path === '/trading-day/cash-movements/movement-1/amendments' && init?.method === 'POST') {
+        return response(404, { message: 'Cash movement not found' });
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /Amend Cash in/ }));
+    await user.click(screen.getByRole('button', { name: 'Review correction' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm correction' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('This entry could not be found. No correction was recorded');
+    expect(screen.getByRole('button', { name: 'Refresh ledger' })).toBeEnabled();
   });
 
   it('defaults Recorded by to the signed-in staff member', async () => {

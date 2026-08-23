@@ -1,6 +1,7 @@
 import type {
   CashMovement,
   CashMovementList,
+  AmendCashMovementInput,
   CloseBusinessDayInput,
   CreateCashMovementInput,
   CurrentOpenBusinessDay,
@@ -15,6 +16,7 @@ export class TradingDayApiError extends Error {
   constructor(
     readonly status: number,
     readonly messages: string[],
+    readonly supersededByCashMovementId: string | null = null,
   ) {
     super(messages[0] ?? 'The business day request failed.');
   }
@@ -31,8 +33,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     let messages = ['The business day request could not be completed. Try again.'];
+    let supersededByCashMovementId: string | null = null;
     try {
-      const body = (await response.json()) as { message?: unknown };
+      const body = (await response.json()) as {
+        message?: unknown;
+        supersededByCashMovementId?: unknown;
+      };
       if (Array.isArray(body.message)) {
         messages = body.message.filter(
           (message): message is string => typeof message === 'string',
@@ -40,10 +46,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       } else if (typeof body.message === 'string') {
         messages = [body.message];
       }
+      if (typeof body.supersededByCashMovementId === 'string') {
+        supersededByCashMovementId = body.supersededByCashMovementId;
+      }
     } catch {
       // Keep the user-facing fallback when the response is not JSON.
     }
-    throw new TradingDayApiError(response.status, messages);
+    throw new TradingDayApiError(
+      response.status,
+      messages,
+      supersededByCashMovementId,
+    );
   }
 
   return (await response.json()) as T;
@@ -87,6 +100,16 @@ export function recordCashMovement(
   input: CreateCashMovementInput,
 ): Promise<CashMovement> {
   return request('/trading-day/cash-movements', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function amendCashMovement(
+  cashMovementId: string,
+  input: AmendCashMovementInput,
+): Promise<CashMovement> {
+  return request(`/trading-day/cash-movements/${cashMovementId}/amendments`, {
     method: 'POST',
     body: JSON.stringify(input),
   });
