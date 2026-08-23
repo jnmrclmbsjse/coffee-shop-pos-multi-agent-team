@@ -942,6 +942,11 @@ export function CashAndExpensesPage() {
       setCategory('');
       setRecordedBy(defaultStaffSelection(staff, signedInStaffMemberId));
       retryIdentity.current = null;
+      const summaryResult = await getClosingSummary()
+        .then((summary) => ({ summary, error: false }))
+        .catch(() => ({ summary: null, error: true }));
+      setCashSummary(summaryResult.summary);
+      setCashSummaryError(summaryResult.error);
       setSuccessMessage('Entry recorded. It is now the first row in today\'s ledger.');
     } catch (error) {
       if (error instanceof TradingDayApiError) {

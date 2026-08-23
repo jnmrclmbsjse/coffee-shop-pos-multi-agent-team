@@ -224,6 +224,45 @@ describe('cash and expenses page', () => {
     expect(screen.getByRole('cell', { name: '₱12.34' })).toBeInTheDocument();
   });
 
+  it('refreshes the effective cash summary after recording an entry', async () => {
+    let summaryRequests = 0;
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current') return response(200, openDay);
+      if (path === '/trading-day/current/cash-movements') {
+        return response(200, { businessDay: openDay, movements: [] });
+      }
+      if (path === '/inventory/counts/staff') return response(200, staff);
+      if (path === '/trading-day/current/closing-summary') {
+        summaryRequests += 1;
+        return response(200, {
+          ...closingSummary,
+          cashOutCents: cents(summaryRequests === 1 ? 0 : 1000),
+          expectedCashCents: cents(summaryRequests === 1 ? 50000 : 49000),
+        });
+      }
+      if (path === '/trading-day/cash-movements' && init?.method === 'POST') {
+        return response(201, movement({
+          id: 'recorded-cash-out',
+          kind: CashMovementKind.CASH_OUT,
+          amountCents: cents(1000),
+        }));
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('radio', { name: /Cash out/ }));
+    await user.type(screen.getByLabelText(/^Amount/), '10.00');
+    await user.type(screen.getByLabelText(/^Reason/), 'Petty cash');
+    await user.click(screen.getByRole('button', { name: 'Record entry' }));
+
+    expect(await screen.findByText(/Entry recorded/)).toBeInTheDocument();
+    expect(summaryRequests).toBe(2);
+    expect(screen.getByText('₱490.00')).toBeInTheDocument();
+  });
+
   it('renders category and no-category expense details without invented placeholders and keeps snapshot names', async () => {
     openPageFetch(fetchMock, [
       movement({
