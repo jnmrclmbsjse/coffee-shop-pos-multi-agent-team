@@ -144,6 +144,70 @@ export class UsersService {
     }
   }
 
+  async updateStaffCredentials(input: {
+    staffMemberId: string;
+    passwordHash?: string;
+    pinHash?: string;
+  }): Promise<{
+    staffMember: {
+      id: string;
+      displayName: string;
+      isActive: boolean;
+      locationId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      user: { username: string };
+    };
+    pinSet: boolean;
+  }> {
+    return this.prisma.$transaction(async (transaction) => {
+      const staffMember = await transaction.staffMember.findUnique({
+        where: { id: input.staffMemberId },
+        select: {
+          id: true,
+          displayName: true,
+          isActive: true,
+          locationId: true,
+          createdAt: true,
+          updatedAt: true,
+          userId: true,
+          user: { select: { username: true, pinHash: true } },
+        },
+      });
+
+      if (!staffMember) {
+        throw new NotFoundException('Staff member not found');
+      }
+      if (!staffMember.userId || !staffMember.user) {
+        throw this.noStaffAccountConflict();
+      }
+
+      const updatedUser = await transaction.user.update({
+        where: { id: staffMember.userId },
+        data: {
+          ...(input.passwordHash === undefined
+            ? {}
+            : { passwordHash: input.passwordHash }),
+          ...(input.pinHash === undefined ? {} : { pinHash: input.pinHash }),
+        },
+        select: { pinHash: true },
+      });
+
+      return {
+        staffMember: {
+          id: staffMember.id,
+          displayName: staffMember.displayName,
+          isActive: staffMember.isActive,
+          locationId: staffMember.locationId,
+          createdAt: staffMember.createdAt,
+          updatedAt: staffMember.updatedAt,
+          user: { username: staffMember.user.username },
+        },
+        pinSet: updatedUser.pinHash != null,
+      };
+    });
+  }
+
   private usernameConflict(): ConflictException {
     return new ConflictException({
       message: 'This username is already in use',
@@ -163,6 +227,13 @@ export class UsersService {
     return new ConflictException({
       message: 'This staff member already has a login account',
       reason: 'STAFF_MEMBER_ALREADY_HAS_ACCOUNT',
+    });
+  }
+
+  private noStaffAccountConflict(): ConflictException {
+    return new ConflictException({
+      message: 'This staff member has no login account',
+      reason: 'STAFF_MEMBER_HAS_NO_ACCOUNT',
     });
   }
 }

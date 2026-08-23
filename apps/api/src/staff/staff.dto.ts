@@ -5,6 +5,7 @@ import type {
   StaffMemberListSort,
   SortDirection,
   UpdateStaffMemberInput,
+  UpdateStaffCredentialsInput,
 } from '@coffee-shop/shared';
 import { Transform } from 'class-transformer';
 import {
@@ -15,7 +16,11 @@ import {
   Matches,
   IsString,
   IsUUID,
+  Validate,
   ValidateIf,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 
 const trimString = ({ value }: { value: unknown }): unknown =>
@@ -69,6 +74,33 @@ export class CreateStaffAccountDto implements CreateStaffAccountInput {
   @IsString()
   @IsNotEmpty({ message: 'password must not be empty' })
   password!: string;
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsString()
+  @Matches(/^\d{4}$/, { message: 'pin must be exactly 4 digits' })
+  pin?: string;
+}
+
+@ValidatorConstraint({ name: 'hasReplacementCredential', async: false })
+class HasReplacementCredential implements ValidatorConstraintInterface {
+  validate(_value: unknown, args: ValidationArguments): boolean {
+    const input = args.object as UpdateStaffCredentialsInput;
+    return input.password !== undefined || input.pin !== undefined;
+  }
+}
+
+export class UpdateStaffCredentialsDto
+  implements UpdateStaffCredentialsInput
+{
+  @Validate(HasReplacementCredential, {
+    message: 'Provide a new password or PIN',
+  })
+  private readonly credentialSelection?: never;
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsString()
+  @IsNotEmpty({ message: 'password must not be empty' })
+  password?: string;
 
   @ValidateIf((_object, value) => value !== undefined)
   @IsString()

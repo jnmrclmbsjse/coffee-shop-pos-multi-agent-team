@@ -13,6 +13,7 @@ import { Role } from '@coffee-shop/shared';
 import type {
   CreateStaffAccountResponse,
   StaffMember,
+  UpdateStaffCredentialsResponse,
 } from '@coffee-shop/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -21,6 +22,7 @@ import {
   CreateStaffAccountDto,
   CreateStaffMemberDto,
   StaffMemberListQueryDto,
+  UpdateStaffCredentialsDto,
   UpdateStaffMemberDto,
 } from './staff.dto';
 import { StaffService } from './staff.service';
@@ -51,6 +53,14 @@ export class StaffController {
     @Body() input: CreateStaffAccountDto,
   ): Promise<CreateStaffAccountResponse> {
     return this.staffService.createAccount(id, input);
+  }
+
+  @Patch(':id/account/credentials')
+  updateCredentials(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() input: UpdateStaffCredentialsDto,
+  ): Promise<UpdateStaffCredentialsResponse> {
+    return this.staffService.updateCredentials(id, input);
   }
 
   @Patch(':id')

@@ -69,6 +69,48 @@ describe('UsersService', () => {
     return { prisma, transaction };
   }
 
+  function credentialPrisma(
+    staffMember:
+      | {
+          id: string;
+          displayName: string;
+          isActive: boolean;
+          locationId: string | null;
+          createdAt: Date;
+          updatedAt: Date;
+          userId: string | null;
+          user: { username: string; pinHash: string | null } | null;
+        }
+      | null = {
+        id: staffMemberId,
+        displayName: 'Jane Santos',
+        isActive: true,
+        locationId: null,
+        createdAt: new Date('2026-08-23T00:00:00Z'),
+        updatedAt: new Date('2026-08-23T00:00:00Z'),
+        userId: 'user-id',
+        user: { username: 'jane', pinHash: 'old-pin-hash' },
+      },
+    updatedPinHash: string | null = 'old-pin-hash',
+  ) {
+    const transaction = {
+      staffMember: {
+        findUnique: jest.fn().mockResolvedValue(staffMember),
+      },
+      user: {
+        update: jest.fn().mockResolvedValue({ pinHash: updatedPinHash }),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn().mockImplementation(
+        (operation: (client: typeof transaction) => unknown) =>
+          operation(transaction),
+      ),
+    };
+
+    return { prisma, transaction };
+  }
+
   it('looks up a trimmed username without regard to case', async () => {
     const findFirst = jest.fn().mockResolvedValue(null);
     const prisma = {
@@ -350,4 +392,143 @@ describe('UsersService', () => {
     expect(stagedUsers).toHaveLength(1);
     expect(durableUsers).toHaveLength(0);
   });
+
+  it('updates both supplied hashes in one statement and returns no credential material', async () => {
+    const { prisma, transaction } = credentialPrisma(
+      undefined,
+      'new-pin-hash',
+    );
+    const service = new UsersService(prisma as unknown as PrismaService);
+
+    const result = await service.updateStaffCredentials({
+      staffMemberId,
+      passwordHash: 'new-password-hash',
+      pinHash: 'new-pin-hash',
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.staffMember.findUnique).toHaveBeenCalledWith({
+      where: { id: staffMemberId },
+      select: {
+        id: true,
+        displayName: true,
+        isActive: true,
+        locationId: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
+        user: { select: { username: true, pinHash: true } },
+      },
+    });
+    expect(transaction.user.update).toHaveBeenCalledTimes(1);
+    expect(transaction.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-id' },
+      data: {
+        passwordHash: 'new-password-hash',
+        pinHash: 'new-pin-hash',
+      },
+      select: { pinHash: true },
+    });
+    expect(result).toEqual({
+      staffMember: {
+        id: staffMemberId,
+        displayName: 'Jane Santos',
+        isActive: true,
+        locationId: null,
+        createdAt: new Date('2026-08-23T00:00:00Z'),
+        updatedAt: new Date('2026-08-23T00:00:00Z'),
+        user: { username: 'jane' },
+      },
+      pinSet: true,
+    });
+    expect(JSON.stringify(result)).not.toContain('hash');
+  });
+
+  it.each([
+    [
+      'password',
+      { passwordHash: 'new-password-hash' },
+      { passwordHash: 'new-password-hash' },
+    ],
+    ['PIN', { pinHash: 'new-pin-hash' }, { pinHash: 'new-pin-hash' }],
+  ])(
+    'updates only the supplied %s hash',
+    async (_credential, input, expectedData) => {
+      const { prisma, transaction } = credentialPrisma(
+        undefined,
+        'pinHash' in input ? input.pinHash : 'old-pin-hash',
+      );
+      const service = new UsersService(prisma as unknown as PrismaService);
+
+      await service.updateStaffCredentials({ staffMemberId, ...input });
+
+      expect(transaction.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expectedData }),
+      );
+      expect(transaction.user.update.mock.calls[0][0].data).toEqual(
+        expectedData,
+      );
+    },
+  );
+
+  it('sets the first PIN and reports that the account now has one', async () => {
+    const memberWithoutPin = {
+      id: staffMemberId,
+      displayName: 'Jane Santos',
+      isActive: true,
+      locationId: null,
+      createdAt: new Date('2026-08-23T00:00:00Z'),
+      updatedAt: new Date('2026-08-23T00:00:00Z'),
+      userId: 'user-id',
+      user: { username: 'jane', pinHash: null },
+    };
+    const { prisma } = credentialPrisma(memberWithoutPin, 'new-pin-hash');
+    const service = new UsersService(prisma as unknown as PrismaService);
+
+    await expect(
+      service.updateStaffCredentials({
+        staffMemberId,
+        pinHash: 'new-pin-hash',
+      }),
+    ).resolves.toMatchObject({ pinSet: true });
+  });
+
+  it.each([
+    ['missing roster member', null, NotFoundException, undefined],
+    [
+      'roster member without an account',
+      {
+        id: staffMemberId,
+        displayName: 'Jane Santos',
+        isActive: true,
+        locationId: null,
+        createdAt: new Date('2026-08-23T00:00:00Z'),
+        updatedAt: new Date('2026-08-23T00:00:00Z'),
+        userId: null,
+        user: null,
+      },
+      ConflictException,
+      'STAFF_MEMBER_HAS_NO_ACCOUNT',
+    ],
+  ])(
+    'refuses a %s without updating a user',
+    async (_case, member, errorType, reason) => {
+      const { prisma, transaction } = credentialPrisma(member);
+      const service = new UsersService(prisma as unknown as PrismaService);
+
+      const result = service.updateStaffCredentials({
+        staffMemberId,
+        passwordHash: 'new-password-hash',
+      });
+
+      await expect(result).rejects.toBeInstanceOf(errorType);
+      if (reason) {
+        await expect(result).rejects.toMatchObject({
+          status: 409,
+          response: expect.objectContaining({ reason }),
+        });
+      }
+      expect(transaction.user.update).not.toHaveBeenCalled();
+    },
+  );
 });

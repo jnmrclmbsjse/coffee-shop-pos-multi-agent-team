@@ -53,13 +53,21 @@ export class AuthService {
     pin?: string,
   ): Promise<{ passwordHash: string; pinHash: string | null }> {
     const [passwordHash, pinHash] = await Promise.all([
-      argon2.hash(password, { type: argon2.argon2id }),
+      this.hashStaffPassword(password),
       pin === undefined
         ? Promise.resolve(null)
-        : argon2.hash(pin, { type: argon2.argon2id }),
+        : this.hashStaffPin(pin),
     ]);
 
     return { passwordHash, pinHash };
+  }
+
+  hashStaffPassword(password: string): Promise<string> {
+    return this.hashStaffCredential(password);
+  }
+
+  hashStaffPin(pin: string): Promise<string> {
+    return this.hashStaffCredential(pin);
   }
 
   async login(username: string, password: string): Promise<LoginResult> {
@@ -217,6 +225,10 @@ export class AuthService {
     } catch {
       return false;
     }
+  }
+
+  private hashStaffCredential(credential: string): Promise<string> {
+    return argon2.hash(credential, { type: argon2.argon2id });
   }
 
   private throwIfThrottled(key: string): void {
