@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="UCM Coffee Studio cash movement amendment mockup for story 351">
+  <title>Cash &amp; Expenses | UCM Coffee Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to cash and expenses</a>
+
+  <header class="shell-header" data-od-id="staff-header">
+    <div class="header-bar">
+      <div class="brand">
+        <span>UCM Coffee Studio</span>
+        <span class="brand-role">Staff</span>
+      </div>
+      <div class="header-meta" aria-label="Current workspace context">
+        <span class="meta-user">Marilou Bagtas</span>
+        <span>UCM Main</span>
+        <span class="chip chip--open" id="header-day-state">Day open</span>
+        <span class="chip">Register 1</span>
+      </div>
+    </div>
+    <nav class="shell-nav" aria-label="Staff workspace">
+      <div class="nav-scroll">
+        <ul class="nav-list">
+          <li><a href="#" aria-disabled="true">Open Day</a></li>
+          <li><a href="#" aria-disabled="true">Take Order</a></li>
+          <li><a href="#" aria-disabled="true">Order History</a></li>
+          <li><a href="#cash" aria-current="page">Cash &amp; Expenses</a></li>
+          <li><a href="#" aria-disabled="true">Close Day</a></li>
+          <li class="nav-sep-item" aria-hidden="true"><span class="nav-sep"></span></li>
+          <li><a href="#" aria-disabled="true">Opening</a></li>
+          <li><a href="#" aria-disabled="true">Closing</a></li>
+          <li><a href="#" aria-disabled="true">Restock</a></li>
+          <li><a href="#" aria-disabled="true">Deliveries &amp; wastage</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <main class="workspace" id="workspace" tabindex="-1" data-od-id="cash-expenses-workspace">
+    <div class="page-head" data-od-id="cash-expenses-heading">
+      <h1>Cash &amp; expenses</h1>
+      <p>Record permanent drawer movements, correct mistakes without deleting history, then review the current business day ledger.</p>
+    </div>
+
+    <section class="review-panel" aria-labelledby="review-title" data-od-id="story-state-navigation">
+      <header>
+        <h2 id="review-title">Story #351 review states</h2>
+        <span class="advisory-tag">Mockup only</span>
+      </header>
+      <p class="review-sub" id="review-note">Each button shows a state on this same Cash &amp; Expenses page.</p>
+      <div class="review-buttons" role="group" aria-describedby="review-note">
+        <button type="button" data-state="affordance">1. Amend affordance</button>
+        <button type="button" data-state="amend">2. Amendment flow</button>
+        <button type="button" data-state="review">3. Review before confirm</button>
+        <button type="button" data-state="ledger">4. Corrected ledger</button>
+        <button type="button" data-state="totals">5. Effective totals</button>
+        <button type="button" data-state="failures">6. Failures and conflicts</button>
+      </div>
+    </section>
+
+    <div id="cash-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="screen-mount" data-od-id="state-preview"></div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
