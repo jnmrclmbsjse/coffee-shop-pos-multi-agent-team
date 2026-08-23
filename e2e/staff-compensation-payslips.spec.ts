@@ -234,20 +234,52 @@ async function generatePayslip(
   options: { staffName?: string; from: string; to: string },
 ): Promise<void> {
   const form = page.locator('.payslip-filter form');
+  const staffSelect = form.locator('select');
   if (options.staffName) {
-    await form.locator('select').selectOption({ label: options.staffName });
+    // The view preselects the first selectable member from an effect that runs
+    // once the roster request resolves. Choosing before that effect lands lets
+    // it overwrite the choice, and the payslip is then generated for the wrong
+    // person. Wait for the default to arrive, then assert the choice stuck.
+    await expect(staffSelect).not.toHaveValue('');
+    await staffSelect.selectOption({ label: options.staffName });
+    await expect(staffSelect.locator('option:checked')).toHaveText(
+      options.staffName,
+    );
   }
   await form.locator('input[type="date"]').first().fill(options.from);
   await form.locator('input[type="date"]').nth(1).fill(options.to);
+  if (options.staffName) {
+    await expect(staffSelect.locator('option:checked')).toHaveText(
+      options.staffName,
+    );
+  }
   await page.getByRole('button', { name: 'Generate payslip' }).click();
 }
 
-const payslipResult = (page: Page) => page.locator('.payslip-result');
-const payslipRows = (page: Page) => page.locator('.payslip-table tbody tr');
+// Story #346 (PR #376, itemization restored by #379) rebuilt the payslip as a
+// rasterizable artifact: `.payslip-result` became `.payslip-artifact` /
+// `#payslip-capture-node`, and the flat `.payslip-totals` metric list became one
+// `.payslip-category-totals` definition list per zone. The per-day salary and
+// commission rows this story requires are the `.payslip-daily-table`; the
+// aggregated Salary/Commission/allowance/bonus rows are a separate
+// `.payslip-artifact-table`, so the daily table is addressed explicitly here
+// rather than by the shared `.payslip-table` class.
+const payslipResult = (page: Page) => page.locator('#payslip-capture-node');
+const payslipRows = (page: Page) =>
+  page.locator('.payslip-daily-table tbody tr');
 const payslipTotal = (page: Page, label: string) =>
-  page.locator('.payslip-totals .report-metric').filter({
-    has: page.getByText(label, { exact: true }),
-  });
+  page
+    .locator('.payslip-category-totals > div')
+    .filter({
+      has: page.locator('dt').filter({ hasText: new RegExp(`^${label}$`) }),
+    })
+    .locator('dd');
+
+// #309's "overall total for the period" is now labelled `Earnings total`.
+// `grandTotalCents` keeps its salary-plus-commission meaning in the read model
+// (ADR 0014 §3), and every scenario in this file seeds daily entries only — no
+// allowances or bonuses — so the two figures are the same number here.
+const OVERALL_TOTAL = 'Earnings total';
 
 test.afterAll(() => {
   deleteStoredEntriesForStaff(seededStaffIds);
@@ -450,6 +482,13 @@ test.describe('Daily compensation records (story #309)', () => {
     await gotoCompensation(page);
     await applyFilters(page, { from: oldDay, to: newDay });
     const names = page.locator('.compensation-table tbody tr td:first-child');
+    // `allInnerTexts()` is a one-shot read with no auto-waiting. Changing the
+    // filter refetches the list, so the three seeded rows have to be on screen
+    // before the read or it returns the pre-refetch rows — or none at all.
+    await expect(page.locator('.results-meta')).not.toContainText('Loading');
+    for (const seeded of [newerA, newerB, older]) {
+      await expect(names.filter({ hasText: seeded })).toHaveCount(1);
+    }
     const listed = (await names.allInnerTexts()).filter((value) =>
       value.startsWith('QA316'),
     );
@@ -786,7 +825,7 @@ test.describe('Deactivated staff members (story #309)', () => {
       to: workDate,
     });
     await expect(payslipRows(page)).toHaveCount(1);
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(41000),
     );
   });
@@ -1001,7 +1040,7 @@ test.describe('Deleting a daily record (story #309)', () => {
       to: deletedDay,
     });
     await expect(payslipRows(page)).toHaveCount(2);
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(35000),
     );
 
@@ -1027,7 +1066,7 @@ test.describe('Deleting a daily record (story #309)', () => {
       to: deletedDay,
     });
     await expect(payslipRows(page)).toHaveCount(1);
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(10000),
     );
   });
@@ -1123,7 +1162,7 @@ test.describe('Payslip generation (story #309)', () => {
     await expect(payslipTotal(page, 'Commission total')).toContainText(
       peso(commissionTotal),
     );
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(salaryTotal + commissionTotal),
     );
   });
@@ -1144,7 +1183,7 @@ test.describe('Payslip generation (story #309)', () => {
       from: RANGE.start,
       to: RANGE.end,
     });
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(originalGrand),
     );
 
@@ -1167,10 +1206,10 @@ test.describe('Payslip generation (story #309)', () => {
       from: RANGE.start,
       to: RANGE.end,
     });
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(mutatedGrand),
     );
-    await expect(payslipTotal(page, 'Overall gross total')).not.toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).not.toContainText(
       peso(originalGrand),
     );
   });
@@ -1192,7 +1231,7 @@ test.describe('Payslip generation (story #309)', () => {
     await expect(payslipResult(page)).toContainText(
       peso(amounts.middle.salaryCents),
     );
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(amounts.middle.salaryCents + amounts.middle.commissionCents),
     );
   });
@@ -1221,7 +1260,7 @@ test.describe('Payslip generation (story #309)', () => {
     await expect(payslipRows(page)).toHaveCount(3);
     await expect(payslipResult(page)).not.toContainText(peso(77777));
     await expect(payslipResult(page)).not.toContainText(otherName);
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(67272),
     );
   });
@@ -1279,9 +1318,13 @@ test.describe('Payslip generation (story #309)', () => {
 
     // The point of this criterion: no ₱0.00 payslip that reads like earnings.
     await expect(payslipResult(page)).toHaveCount(0);
-    await expect(page.locator('.payslip-totals')).toHaveCount(0);
+    await expect(page.locator('.payslip-category-totals')).toHaveCount(0);
     await expect(page.locator('.payslip-table')).toHaveCount(0);
     await expect(page.locator('.payslip-view')).not.toContainText(peso(0));
+    // #346: an empty range offers no export either.
+    await expect(
+      page.getByRole('button', { name: 'Download PNG' }),
+    ).toHaveCount(0);
   });
 
   test('a payslip generated after an add and an edit reflects the current records', async ({
@@ -1302,7 +1345,7 @@ test.describe('Payslip generation (story #309)', () => {
     await payslipsTab(page).click();
     await generatePayslip(page, { staffName: name, from: first, to: added });
     await expect(payslipRows(page)).toHaveCount(1);
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(20000),
     );
 
@@ -1323,7 +1366,7 @@ test.describe('Payslip generation (story #309)', () => {
     await payslipsTab(page).click();
     await generatePayslip(page, { staffName: name, from: first, to: added });
     await expect(payslipRows(page)).toHaveCount(2);
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(20000 + 15025 + 75),
     );
 
@@ -1342,16 +1385,19 @@ test.describe('Payslip generation (story #309)', () => {
     await payslipsTab(page).click();
     await generatePayslip(page, { staffName: name, from: first, to: added });
     await expect(payslipRows(page)).toHaveCount(2);
-    await expect(payslipTotal(page, 'Overall gross total')).toContainText(
+    await expect(payslipTotal(page, OVERALL_TOTAL)).toContainText(
       peso(20000 + 1000),
     );
   });
 
-  test('the payslip stays inside v1 scope: gross totals only, with no print, export, email or payment affordance', async ({
+  test('the payslip carries the PNG export #346 added and still no print, email or payment affordance', async ({
     page,
   }) => {
-    // Scope Notes on #309 + ADR 0013 §5. Anything here is scope the PO did not
-    // accept, so it is asserted absent rather than left to review.
+    // Successor to #309's "no print, export, email or payment affordance"
+    // assertion. Story #346 deliberately supersedes the export half of it: the
+    // PNG download is now accepted scope, and deductions and net payable are
+    // shown. Everything the PO still has not accepted — print, PDF, CSV, email,
+    // and any payment or mark-as-paid action — is asserted absent as before.
     const { name } = await seedBoundaryScenario(page);
 
     await gotoCompensation(page);
@@ -1364,35 +1410,45 @@ test.describe('Payslip generation (story #309)', () => {
     await expect(payslipResult(page)).toBeVisible();
 
     const view = page.locator('.payslip-view');
+    // The one export affordance #346 accepted, and nothing else that exports.
+    await expect(
+      view.getByRole('button', { name: 'Download PNG' }),
+    ).toHaveCount(1);
+
     for (const forbidden of [
       /print/i,
-      /download/i,
       /\bpdf\b/i,
       /\bcsv\b/i,
-      /export/i,
       /e-?mail/i,
       /mark as paid/i,
       /\bpay (now|slip as paid)\b/i,
     ]) {
       await expect(
         view.getByRole('button', { name: forbidden }),
-        `no ${forbidden} control belongs on the v1 payslip`,
+        `no ${forbidden} control belongs on the payslip`,
       ).toHaveCount(0);
       await expect(
         view.getByRole('link', { name: forbidden }),
-        `no ${forbidden} link belongs on the v1 payslip`,
+        `no ${forbidden} link belongs on the payslip`,
       ).toHaveCount(0);
     }
 
-    // Exactly three totals, all gross. No deduction, tax or net-pay figure is
-    // computed — the only mention of them is the explicit disclaimer.
-    await expect(page.locator('.payslip-totals dt')).toHaveText([
+    // The totals #346 defines, in order, across both zones. `Overall gross
+    // total` is gone as a label; `Earnings total` carries that meaning, and
+    // `Advance total` plus the net payable are the deductions #346 introduced.
+    await expect(page.locator('.payslip-category-totals dt')).toHaveText([
       'Salary total',
       'Commission total',
-      'Overall gross total',
+      'Allowance total',
+      'Bonus total',
+      'Earnings total',
+      'Advance total',
     ]);
+    await expect(payslipResult(page)).toContainText('Net payable');
+    // No tax or statutory deduction is computed — advances are the only one.
+    await expect(payslipResult(page)).not.toContainText(/tax/i);
     await expect(payslipResult(page)).toContainText(
-      'No taxes, deductions, or net pay included.',
+      'No salary advances in this range.',
     );
   });
 });
