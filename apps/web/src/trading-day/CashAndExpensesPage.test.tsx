@@ -44,6 +44,8 @@ function movement(
   return {
     id: 'movement-1',
     tradingDayId: 'day-1',
+    amendsCashMovementId: null,
+    supersededByCashMovementId: null,
     kind: CashMovementKind.CASH_IN,
     amountCents: cents(1234),
     description: 'Change fund top-up',

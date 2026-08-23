@@ -489,6 +489,11 @@ export class ReportingService {
         FROM cash_movements AS movement
         INNER JOIN selected_days AS selected_day
           ON selected_day.id = movement.trading_day_id
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM cash_movements AS amendment
+          WHERE amendment.amends_cash_movement_id = movement.id
+        )
         GROUP BY movement.trading_day_id
       ),
       outstanding_change_totals AS (
