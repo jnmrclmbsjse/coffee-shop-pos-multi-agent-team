@@ -341,9 +341,22 @@ async function generatePayslip(
   options: { staffName: string; from: string; to: string },
 ): Promise<void> {
   const form = page.locator('.payslip-filter form');
-  await form.locator('select').selectOption({ label: options.staffName });
+  const staffSelect = form.locator('select');
+  // The view preselects the first selectable member from an effect that runs
+  // once the roster request resolves. Choosing before that effect lands lets it
+  // overwrite the choice with the first member, and the payslip is then
+  // generated for the wrong person. Wait for the default to arrive first, and
+  // assert afterwards that the choice actually stuck.
+  await expect(staffSelect).not.toHaveValue('');
+  await staffSelect.selectOption({ label: options.staffName });
+  await expect(staffSelect.locator('option:checked')).toHaveText(
+    options.staffName,
+  );
   await form.locator('input[type="date"]').first().fill(options.from);
   await form.locator('input[type="date"]').nth(1).fill(options.to);
+  await expect(staffSelect.locator('option:checked')).toHaveText(
+    options.staffName,
+  );
   await page.getByRole('button', { name: 'Generate payslip' }).click();
 }
 
