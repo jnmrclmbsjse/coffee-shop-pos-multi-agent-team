@@ -248,17 +248,30 @@ function ledgerRows(page: Page): Locator {
   return page.locator('.staff-cash-ledger tbody tr');
 }
 
-/** One ledger row as the five columns the criteria name. */
+/**
+ * One ledger row as the four columns these criteria name.
+ *
+ * Story #351 turned the type cell into the row's `<th scope="row">` and
+ * appended Record status and Action columns, so the type is read from the row
+ * header and the remaining columns from the first three `<td>`s. The criteria
+ * under test here are about the values a person reads, not about which element
+ * carries them.
+ */
 async function ledgerRow(
   page: Page,
   index: number,
 ): Promise<{ type: string; amount: string; detail: string; by: string }> {
-  const cells = ledgerRows(page).nth(index).locator('td');
-  const [type, amount, detail, by] = await cells.allInnerTexts();
+  const row = ledgerRows(page).nth(index);
+  // `textContent`, not `innerText`: the row header now inherits the column
+  // header's `text-transform: uppercase`, and the criterion is about which
+  // label the row carries, not how it is cased on screen.
+  const type =
+    (await row.locator('th[scope="row"] .staff-cash-kind').textContent()) ?? '';
+  const [amount, detail, by] = await row.locator('td').allInnerTexts();
   return {
     // The type cell carries a decorative +/− glyph that is aria-hidden; the
     // criterion is about the label, so it is stripped here.
-    type: type!.replace(/[+−]/g, '').trim(),
+    type: type.replace(/[+−]/g, '').trim(),
     amount: amount!.trim(),
     detail: detail!.trim(),
     by: by!.trim(),
@@ -913,9 +926,12 @@ test('offers no way to edit or delete a recorded entry, and a later entry leaves
   const firstRowBefore = await ledgerRow(page, 0);
   const firstStoredBefore = readCashMovements()[0]!;
 
-  // No affordance on any row: no button, no link, no editable control.
+  // No way to change what a row says: no link, no editable control, and the
+  // only button is the Amend affordance story #351 deliberately added, which
+  // appends a linked correction rather than editing this row. (Its own suite,
+  // cash-movement-amendments.spec.ts, holds that story to append-only.)
   const firstRow = ledgerRows(page).first();
-  await expect(firstRow.locator('button')).toHaveCount(0);
+  await expect(firstRow.locator('button')).toHaveText(['Amend']);
   await expect(firstRow.locator('a')).toHaveCount(0);
   await expect(firstRow.locator('input, select, textarea')).toHaveCount(0);
   await expect(firstRow.locator('[contenteditable="true"]')).toHaveCount(0);
