@@ -96,7 +96,6 @@ export function StaffCredentialDialog({
   const [errors, setErrors] = useState<CredentialErrors>({});
   const [formError, setFormError] = useState('');
   const [refusal, setRefusal] = useState<Refusal | null>(null);
-  const [passwordAttempted, setPasswordAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] =
     useState<UpdateStaffCredentialsResponse | null>(null);
@@ -144,7 +143,6 @@ export function StaffCredentialDialog({
   }, [onClose, saving, success]);
 
   function updateField(field: CredentialField, value: string) {
-    if (field === 'password' && value.length > 0) setPasswordAttempted(true);
     setDraft((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
     setFormError('');
@@ -165,9 +163,6 @@ export function StaffCredentialDialog({
     if (saving) return;
 
     const nextErrors: CredentialErrors = {};
-    if (passwordAttempted && !draft.password) {
-      nextErrors.password = PASSWORD_REQUIRED;
-    }
     if (draft.pin && !/^\d{4}$/.test(draft.pin)) nextErrors.pin = PIN_INVALID;
 
     const neitherEntered = !draft.password && !draft.pin;
@@ -189,7 +184,6 @@ export function StaffCredentialDialog({
     try {
       const updated = await updateStaffCredentials(member.id, input);
       setDraft(EMPTY_DRAFT);
-      setPasswordAttempted(false);
       setSuccess(updated);
       onUpdated(updated.staffMember);
     } catch (error) {

@@ -162,7 +162,8 @@ describe('StaffCredentialDialog', () => {
     expect(credentialRequest(fetchMock)).toBeUndefined();
   });
 
-  it('refuses an explicitly emptied password and an invalid PIN with field-specific errors', async () => {
+  it('treats a cleared password as unchanged and submits a PIN-only update', async () => {
+    fetchMock.mockResolvedValue(response(200, success(false, true)));
     const user = userEvent.setup();
     renderDialog();
     const dialog = screen.getByRole('dialog', { name: 'Replace password or PIN' });
@@ -171,18 +172,17 @@ describe('StaffCredentialDialog', () => {
 
     await user.type(password, 'x');
     await user.clear(password);
-    await user.type(pin, '12a4');
+    await user.type(pin, '2048');
     await user.click(
       within(dialog).getByRole('button', { name: 'Save credential changes' }),
     );
 
-    expect(within(dialog).getAllByText('Enter a new password with at least 1 character.'))
-      .toHaveLength(2);
-    expect(within(dialog).getAllByText('Enter exactly four digits using 0 to 9 only.'))
-      .toHaveLength(2);
-    expect(password).toHaveAttribute('aria-invalid', 'true');
-    expect(pin).toHaveAttribute('aria-invalid', 'true');
-    expect(credentialRequest(fetchMock)).toBeUndefined();
+    expect(
+      await within(dialog).findByRole('heading', { name: 'PIN replaced' }),
+    ).toBeInTheDocument();
+    expect(JSON.parse(String(credentialRequest(fetchMock)?.[1]?.body))).toEqual({
+      pin: '2048',
+    });
   });
 
   it('maps a field-attributed server validation error back to the PIN input', async () => {
