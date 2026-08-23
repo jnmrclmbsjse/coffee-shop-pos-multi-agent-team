@@ -4,6 +4,8 @@ import type {
   CreateStaffMemberInput,
   StaffMember,
   StaffMemberListQuery,
+  UpdateStaffCredentialsInput,
+  UpdateStaffCredentialsResponse,
   UpdateStaffMemberInput,
 } from '@coffee-shop/shared';
 import { sessionFetch } from '../auth/session-fetch';
@@ -86,6 +88,16 @@ export function createStaffAccount(
 ): Promise<CreateStaffAccountResponse> {
   return request(`/staff/${staffMemberId}/account`, {
     method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateStaffCredentials(
+  staffMemberId: string,
+  input: UpdateStaffCredentialsInput,
+): Promise<UpdateStaffCredentialsResponse> {
+  return request(`/staff/${staffMemberId}/account/credentials`, {
+    method: 'PATCH',
     body: JSON.stringify(input),
   });
 }

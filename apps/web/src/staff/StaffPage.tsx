@@ -23,6 +23,7 @@ import {
   updateStaffMember,
 } from './api';
 import { StaffAccountDialog } from './StaffAccountDialog';
+import { StaffCredentialDialog } from './StaffCredentialDialog';
 
 type ActiveFilter = 'all' | 'true' | 'false';
 
@@ -63,6 +64,8 @@ export function StaffPage() {
   const [notice, setNotice] = useState('');
   const [draft, setDraft] = useState<StaffDraft | null>(null);
   const [accountMember, setAccountMember] = useState<StaffMember | null>(null);
+  const [credentialMember, setCredentialMember] =
+    useState<StaffMember | null>(null);
   const [nameError, setNameError] = useState('');
   const [modalError, setModalError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -163,6 +166,15 @@ export function StaffPage() {
     setAccountMember(member);
   }
 
+  function openCredentialDialog(member: StaffMember) {
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setNotice('');
+    setCredentialMember(member);
+  }
+
   function closeAccountDialog(created: boolean) {
     const memberName = accountMember?.displayName;
     setAccountMember(null);
@@ -170,6 +182,22 @@ export function StaffPage() {
       setNotice(`${memberName}'s login account was created.`);
     }
     requestAnimationFrame(() => previousFocusRef.current?.focus());
+  }
+
+  function closeCredentialDialog(changed: boolean) {
+    const memberName = credentialMember?.displayName;
+    setCredentialMember(null);
+    if (changed && memberName) {
+      setNotice(`${memberName}'s login credentials were updated.`);
+    }
+    requestAnimationFrame(() => previousFocusRef.current?.focus());
+  }
+
+  function reconcileCredentialMember(updated: StaffMember) {
+    setMembers((current) =>
+      current.map((member) => (member.id === updated.id ? updated : member)),
+    );
+    setCredentialMember(updated);
   }
 
   async function saveStaff(event: FormEvent<HTMLFormElement>) {
@@ -458,20 +486,28 @@ export function StaffPage() {
                         >
                           Edit
                         </button>
-                        {member.isActive ? (
+                        {member.hasAccount ? (
+                          <div className="staff-account-action">
+                            <span>
+                              Account: <strong>{member.accountUsername}</strong>
+                            </span>
+                            <button
+                              className="catalog-button small"
+                              type="button"
+                              aria-label={`Replace password or PIN for ${member.displayName}`}
+                              onClick={() => openCredentialDialog(member)}
+                            >
+                              Replace password or PIN
+                            </button>
+                          </div>
+                        ) : member.isActive ? (
                           <button
                             className="catalog-button small"
                             type="button"
-                            aria-label={`${
-                              member.hasAccount
-                                ? 'Manage login account for'
-                                : 'Create login account for'
-                            } ${member.displayName}`}
+                            aria-label={`Create login account for ${member.displayName}`}
                             onClick={() => openAccountDialog(member)}
                           >
-                            {member.hasAccount
-                              ? 'Manage login account'
-                              : 'Create login account'}
+                            Create login account
                           </button>
                         ) : (
                           <span className="staff-account-unavailable">
@@ -607,6 +643,13 @@ export function StaffPage() {
         <StaffAccountDialog
           member={accountMember}
           onClose={closeAccountDialog}
+        />
+      )}
+      {credentialMember && (
+        <StaffCredentialDialog
+          member={credentialMember}
+          onClose={closeCredentialDialog}
+          onUpdated={reconcileCredentialMember}
         />
       )}
     </main>
