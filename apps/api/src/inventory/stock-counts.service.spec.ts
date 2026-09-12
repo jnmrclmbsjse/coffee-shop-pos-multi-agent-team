@@ -79,6 +79,7 @@ describe('StockCountsService', () => {
       submittedByNameSnapshot: 'Alex',
       shiftLeadStaffMemberId: null,
       shiftLeadNameSnapshot: null,
+      notes: null,
       correctsStockCountId: null,
       lines: [
         {
@@ -296,6 +297,77 @@ describe('StockCountsService', () => {
         }),
       }),
     );
+  });
+
+  // The barista's note. Opening and closing counts are the SAME record shape
+  // distinguished only by `phase`, so both phases are exercised here — that
+  // equivalence is the reason the field was not restricted to closing.
+  it.each([['open'], ['close']] as const)(
+    'persists the session note on a %s count',
+    async (phase) => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+      prisma.inventoryItem.findMany.mockResolvedValue([
+        {
+          id: 'item-id',
+          active: true,
+          critical: true,
+          countMethod: CountMethod.QUANTITY,
+        },
+      ]);
+
+      await service.submit({
+        ...validInput(),
+        phase,
+        notes: 'Chest freezer reading 4C, flagged to maintenance.',
+      });
+
+      expect(prisma.stockCount.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            notes: 'Chest freezer reading 4C, flagged to maintenance.',
+          }),
+        }),
+      );
+    },
+  );
+
+  it('stores null when no note was given', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+
+    await service.submit(validInput());
+
+    expect(prisma.stockCount.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ notes: null }),
+      }),
+    );
+  });
+
+  it('returns the stored note on the submitted count', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+    prisma.stockCount.create.mockResolvedValue(
+      countRecord({ notes: 'Two crates of beans arrived mid-count.' }),
+    );
+
+    const submitted = await service.submit(validInput());
+
+    expect(submitted.notes).toBe('Two crates of beans arrived mid-count.');
+  });
+
+  it('reports a null note rather than omitting the field', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+
+    const submitted = await service.submit(validInput());
+
+    // `notes` is `string | null` in the shared contract, so an absent note
+    // must read back as an explicit null — `undefined` would serialise the key
+    // away and make the web client's `!== null` check silently wrong.
+    expect(submitted.notes).toBeNull();
+    expect('notes' in submitted).toBe(true);
   });
 
   it('snapshots submitter and shift-lead names in one transaction', async () => {

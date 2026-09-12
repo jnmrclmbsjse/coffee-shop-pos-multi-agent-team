@@ -316,6 +316,10 @@ model StockCount {
   submittedByNameSnapshot  String           @map("submitted_by_name_snapshot")
   shiftLeadStaffMemberId   String?          @map("shift_lead_staff_member_id") @db.Uuid
   shiftLeadNameSnapshot    String?          @map("shift_lead_name_snapshot")
+  // Free-text note the counter may add during the session, on either phase.
+  // Immutable like the count itself: a correction is a new StockCount row, so
+  // an amended note arrives as the correction's own note.
+  notes                    String?          @db.Text
   correctsStockCountId     String?          @map("corrects_stock_count_id") @db.Uuid
   location                 Location?        @relation(fields: [locationId], references: [id], onDelete: Restrict)
   submittedByStaffMember   StaffMember      @relation("StockCountSubmittedBy", fields: [submittedByStaffMemberId], references: [id], onDelete: Restrict)

@@ -51,6 +51,7 @@ function dailyReport(
     locationId: null,
     hasInventoryInformation: true,
     reconciliation: [reconciliationRow()],
+    countNotes: [],
     restock: {
       businessDay: {
         isOpen: false,
@@ -84,6 +85,69 @@ describe('daily inventory report page', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it('shows both phases of session notes, attributed, marking corrections', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({
+          countNotes: [
+            {
+              stockCountId: 'open-count',
+              phase: 'open',
+              notes: 'Chest freezer reading 4C.',
+              submittedByNameSnapshot: 'Maya Santos',
+              recordedAt: '2026-07-26T01:00:00.000Z',
+              isCorrection: false,
+            },
+            {
+              stockCountId: 'close-count',
+              phase: 'close',
+              notes: 'Recount after the late delivery.',
+              submittedByNameSnapshot: 'Ana Cruz',
+              recordedAt: '2026-07-26T13:00:00.000Z',
+              isCorrection: true,
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Inventory session notes' }),
+    ).toBeInTheDocument();
+
+    // Scoped to the panel: the report renders staff names elsewhere too (the
+    // business day's openedByDisplayName), so a page-wide text query would
+    // match the wrong node and pass for the wrong reason.
+    const panel = within(
+      screen.getByRole('region', { name: 'Inventory session notes' }),
+    );
+    expect(panel.getByText('Chest freezer reading 4C.')).toBeInTheDocument();
+    expect(
+      panel.getByText('Recount after the late delivery.'),
+    ).toBeInTheDocument();
+    expect(panel.getByText('Opening')).toBeInTheDocument();
+    expect(panel.getByText('Closing')).toBeInTheDocument();
+    expect(panel.getByText(/Maya Santos/)).toBeInTheDocument();
+    expect(panel.getByText(/Ana Cruz/)).toBeInTheDocument();
+    // Append-only counts mean a day can carry an original and a correction.
+    // Without the label the two notes read as a contradiction.
+    expect(panel.getByText('Correction')).toBeInTheDocument();
+  });
+
+  it('states plainly when no note was recorded', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(dailyReport({ countNotes: [] })),
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByText('No notes recorded for this day'),
+    ).toBeInTheDocument();
   });
 
   it('renders recorded zeroes separately from every unavailable count combination', async () => {

@@ -11,6 +11,7 @@ import {
   ServiceType as SharedServiceType,
 } from '@coffee-shop/shared';
 import type {
+  DailyInventoryCountNote,
   DailyInventoryReport,
   DailyReconciliation,
   MoneyCents,
@@ -32,6 +33,7 @@ import {
   OrderStatus as StoredOrderStatus,
   Prisma,
   ServiceType,
+  StockCountPhase as PrismaStockCountPhase,
   TradingDayStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -150,6 +152,7 @@ export class ReportingService {
         locationId: null,
         hasInventoryInformation: false,
         reconciliation: [],
+        countNotes: [],
         restock: {
           businessDay: this.tradingDayService.toResponse(null),
           hasCount: false,
@@ -161,12 +164,14 @@ export class ReportingService {
       };
     }
 
-    const [reconciliation, restock] = await Promise.all([
+    const [reconciliation, restock, countNotes] = await Promise.all([
       this.packagingReconciliation.getForTradingDay(day),
       this.restockService.getStatusForDay(day),
+      this.loadCountNotes(day.businessDate, day.locationId),
     ]);
     const hasInventoryInformation =
       restock.hasCount ||
+      countNotes.length > 0 ||
       reconciliation.some(
         (row) =>
           row.openingQty !== null ||
@@ -181,11 +186,51 @@ export class ReportingService {
       locationId: day.locationId,
       hasInventoryInformation,
       reconciliation: hasInventoryInformation ? reconciliation : [],
+      // Notes are never filtered by hasInventoryInformation: they are the
+      // record of what the counter said, and a note on an otherwise empty day
+      // is exactly the case worth surfacing.
+      countNotes,
       restock: {
         ...restock,
         rows: restock.rows.filter((row) => row.status !== 'ENOUGH'),
       },
     };
+  }
+
+  // Counts are append-only, so a day can hold several counts per phase — an
+  // original plus its corrections. Return every one that carries a note,
+  // oldest first, rather than collapsing them to the latest: the earlier note
+  // is part of what happened and the admin decides what it means.
+  private async loadCountNotes(
+    businessDate: Date,
+    locationId: string | null,
+  ): Promise<DailyInventoryCountNote[]> {
+    const counts = await this.prisma.stockCount.findMany({
+      where: {
+        businessDate,
+        locationId,
+        notes: { not: null },
+      },
+      select: {
+        id: true,
+        phase: true,
+        notes: true,
+        submittedByNameSnapshot: true,
+        recordedAt: true,
+        correctsStockCountId: true,
+      },
+      orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }],
+    });
+
+    return counts.map((count) => ({
+      stockCountId: count.id,
+      phase: count.phase === PrismaStockCountPhase.OPEN ? 'open' : 'close',
+      // `notes: { not: null }` narrows the row set but not the TS type.
+      notes: count.notes ?? '',
+      submittedByNameSnapshot: count.submittedByNameSnapshot,
+      recordedAt: count.recordedAt.toISOString(),
+      isCorrection: count.correctsStockCountId !== null,
+    }));
   }
 
   async getDashboard(): Promise<ReportingDashboard> {

@@ -26,6 +26,9 @@ describe('ReportingService', () => {
       tradingDay: {
         findUnique: jest.fn(),
       },
+      stockCount: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       $queryRaw: jest.fn(),
       $transaction: jest.fn(
         async (queries: Promise<unknown>[]) => Promise.all(queries),
@@ -111,6 +114,134 @@ describe('ReportingService', () => {
     expect(restock.getStatusForDay).toHaveBeenCalledWith(day);
   });
 
+  it('returns every note for the day, oldest first, labelling corrections', async () => {
+    const prisma = createPrisma();
+    const day = {
+      id: 'day-id',
+      locationId: null,
+      businessDate: new Date('2026-08-15T00:00:00.000Z'),
+      dayType: 'NORMAL',
+    };
+    prisma.stockCount.findMany.mockResolvedValue([
+      {
+        id: 'open-count',
+        phase: 'OPEN',
+        notes: 'Chest freezer reading 4C.',
+        submittedByNameSnapshot: 'Alex',
+        recordedAt: new Date('2026-08-15T01:00:00.000Z'),
+        correctsStockCountId: null,
+      },
+      {
+        id: 'close-count',
+        phase: 'CLOSE',
+        notes: 'Recount after the delivery.',
+        submittedByNameSnapshot: 'Sam',
+        recordedAt: new Date('2026-08-15T13:00:00.000Z'),
+        correctsStockCountId: 'earlier-close',
+      },
+    ]);
+    const tradingDayService = {
+      findByBusinessDate: jest.fn().mockResolvedValue(day),
+    };
+    const packaging = { getForTradingDay: jest.fn().mockResolvedValue([]) };
+    const restock = {
+      getStatusForDay: jest.fn().mockResolvedValue({
+        businessDay: { businessDate: '2026-08-15' },
+        hasCount: true,
+        selectedPhase: 'close',
+        selectedCountId: 'close-count',
+        selectedCountRecordedAt: '2026-08-15T13:00:00.000Z',
+        rows: [],
+      }),
+    };
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+      tradingDayService as never,
+      packaging as never,
+      restock as never,
+    );
+
+    const report = await service.getDailyInventory('2026-08-15');
+
+    expect(report.countNotes).toEqual([
+      {
+        stockCountId: 'open-count',
+        phase: 'open',
+        notes: 'Chest freezer reading 4C.',
+        submittedByNameSnapshot: 'Alex',
+        recordedAt: '2026-08-15T01:00:00.000Z',
+        isCorrection: false,
+      },
+      {
+        stockCountId: 'close-count',
+        phase: 'close',
+        notes: 'Recount after the delivery.',
+        submittedByNameSnapshot: 'Sam',
+        recordedAt: '2026-08-15T13:00:00.000Z',
+        isCorrection: true,
+      },
+    ]);
+    // Scoped to the day AND the location, and only rows that carry a note.
+    expect(prisma.stockCount.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          businessDate: day.businessDate,
+          locationId: null,
+          notes: { not: null },
+        },
+        orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }],
+      }),
+    );
+  });
+
+  it('treats a note as inventory information on an otherwise empty day', async () => {
+    const prisma = createPrisma();
+    const day = {
+      id: 'day-id',
+      locationId: null,
+      businessDate: new Date('2026-08-16T00:00:00.000Z'),
+      dayType: 'NORMAL',
+    };
+    prisma.stockCount.findMany.mockResolvedValue([
+      {
+        id: 'open-count',
+        phase: 'OPEN',
+        notes: 'Opened late, no stock moved yet.',
+        submittedByNameSnapshot: 'Alex',
+        recordedAt: new Date('2026-08-16T01:00:00.000Z'),
+        correctsStockCountId: null,
+      },
+    ]);
+    const tradingDayService = {
+      findByBusinessDate: jest.fn().mockResolvedValue(day),
+    };
+    // Nothing else to report: no counts for restock, no packaging movement.
+    const packaging = { getForTradingDay: jest.fn().mockResolvedValue([]) };
+    const restock = {
+      getStatusForDay: jest.fn().mockResolvedValue({
+        businessDay: { businessDate: '2026-08-16' },
+        hasCount: false,
+        selectedPhase: null,
+        selectedCountId: null,
+        selectedCountRecordedAt: null,
+        rows: [],
+      }),
+    };
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+      tradingDayService as never,
+      packaging as never,
+      restock as never,
+    );
+
+    const report = await service.getDailyInventory('2026-08-16');
+
+    // Without this the panel would be hidden behind hasInventoryInformation
+    // and the note the barista deliberately left would never be read.
+    expect(report.hasInventoryInformation).toBe(true);
+    expect(report.countNotes).toHaveLength(1);
+  });
+
   it('returns a safe empty report when the date has no trading day', async () => {
     const prisma = createPrisma();
     const tradingDayService = {
@@ -136,6 +267,7 @@ describe('ReportingService', () => {
       locationId: null,
       hasInventoryInformation: false,
       reconciliation: [],
+      countNotes: [],
       restock: {
         businessDay: { isOpen: false, businessDate: null },
         hasCount: false,

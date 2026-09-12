@@ -68,8 +68,14 @@ type CountDraft = Record<string, string>;
 interface CountFieldErrors {
   submittedBy?: string;
   shiftLead?: string;
+  notes?: string;
   lines?: string;
 }
+
+// Mirrors the API's MaxLength(500) on SubmitStockCountDto.notes and the
+// stock_counts_notes_length_check database constraint. Kept as one constant so
+// the counter is warned before submitting rather than after a 400.
+const NOTES_MAX_LENGTH = 500;
 
 function formatBusinessDate(value: string | null): string {
   if (!value) return '';
@@ -224,6 +230,11 @@ function toCountLines(
 
 function countServerErrors(messages: string[]): CountFieldErrors {
   const joined = messages.join(' ');
+  // Checked before the staff branches: a notes message is specific, whereas
+  // /shift lead/ is broad enough to swallow one that happens to mention it.
+  if (/\bnotes?\b/i.test(joined)) {
+    return { notes: joined };
+  }
   if (/submittedBy|submitting staff|submitter/i.test(joined)) {
     return { submittedBy: joined };
   }
@@ -264,6 +275,15 @@ function ReadOnlyCount({
           Record another {sheet.phase === 'open' ? 'opening' : 'closing'} count
         </button>
       </div>
+      {submitted.notes !== null && (
+        <section
+          className="staff-submitted-notes"
+          aria-labelledby="submitted-notes-title"
+        >
+          <h3 id="submitted-notes-title">Notes</h3>
+          <p>{submitted.notes}</p>
+        </section>
+      )}
       <div className="staff-count-groups">
         {toCountGroups(sheet.items).map((group) => (
           <section
@@ -327,6 +347,7 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
   const [loadError, setLoadError] = useState('');
   const [submittedBy, setSubmittedBy] = useState('');
   const [shiftLead, setShiftLead] = useState('');
+  const [notes, setNotes] = useState('');
   const [values, setValues] = useState<CountDraft>({});
   const [fieldErrors, setFieldErrors] = useState<CountFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -374,6 +395,7 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
   function resetDraft() {
     setSubmittedBy(defaultStaffSelection(staff, signedInStaffMemberId));
     setShiftLead('');
+    setNotes('');
     setValues({});
     setFieldErrors({});
   }
@@ -397,6 +419,9 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
     ) {
       nextErrors.lines = 'Quantities must be whole numbers at or above zero.';
     }
+    if (notes.trim().length > NOTES_MAX_LENGTH) {
+      nextErrors.notes = `Notes must not exceed ${NOTES_MAX_LENGTH} characters.`;
+    }
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -406,6 +431,7 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
         phase,
         submittedByStaffMemberId: submittedBy,
         shiftLeadStaffMemberId: shiftLead || null,
+        notes: notes.trim() || null,
         lines,
       });
       setSheet({ ...sheet, submittedCount: submitted });
@@ -639,6 +665,42 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
                 {fieldErrors.lines}
               </p>
             )}
+            <Field
+              label="Notes"
+              htmlFor={`${phase}-notes`}
+              optional
+              error={fieldErrors.notes}
+            >
+              <textarea
+                id={`${phase}-notes`}
+                className="staff-count-notes"
+                value={notes}
+                rows={3}
+                maxLength={NOTES_MAX_LENGTH}
+                placeholder={
+                  phase === 'open'
+                    ? 'Anything worth recording about this opening count'
+                    : 'Anything worth recording about this closing count'
+                }
+                aria-invalid={Boolean(fieldErrors.notes)}
+                aria-describedby={
+                  fieldErrors.notes
+                    ? `${phase}-notes-error`
+                    : `${phase}-notes-hint`
+                }
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  setNotes(event.target.value);
+                  setFieldErrors((current) => ({
+                    ...current,
+                    notes: undefined,
+                  }));
+                }}
+              />
+              <p className="staff-count-notes-hint" id={`${phase}-notes-hint`}>
+                {`${notes.trim().length} of ${NOTES_MAX_LENGTH} characters. A submitted note cannot be edited — record a new count to correct it.`}
+              </p>
+            </Field>
             <div className="staff-inventory-actions">
               <button
                 className="staff-inventory-button primary"

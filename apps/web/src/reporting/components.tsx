@@ -416,6 +416,57 @@ function RestockTarget({ row }: { row: RestockStatusRow }) {
   );
 }
 
+export function CountNotesPanel({
+  countNotes,
+  businessDate,
+  location,
+}: {
+  countNotes: DailyInventoryReport['countNotes'];
+  businessDate: string;
+  location: string;
+}) {
+  return (
+    <section className="report-panel" aria-labelledby="count-notes-title">
+      <header className="report-panel-head">
+        <div>
+          <h2 id="count-notes-title">Inventory session notes</h2>
+          <p>Notes recorded by staff while counting, opening and closing.</p>
+        </div>
+      </header>
+      {countNotes.length === 0 ? (
+        <div className="report-empty">
+          <strong>No notes recorded for this day</strong>
+          <span>
+            No opening or closing count for {formatBusinessDate(businessDate)} at{' '}
+            {location} carried a note. Notes are optional.
+          </span>
+        </div>
+      ) : (
+        <ul className="count-notes-list">
+          {countNotes.map((note) => (
+            <li className="count-note" key={note.stockCountId}>
+              <div className="count-note-meta">
+                <strong>{note.phase === 'open' ? 'Opening' : 'Closing'}</strong>
+                <span>
+                  {formatSubmissionTime(note.recordedAt)} ·{' '}
+                  {note.submittedByNameSnapshot}
+                </span>
+                {/* Counts are append-only, so a day can carry an original note
+                    and a later correction's note. Labelling the correction is
+                    what stops the pair reading as a contradiction. */}
+                {note.isCorrection && (
+                  <span className="count-note-correction">Correction</span>
+                )}
+              </div>
+              <p className="count-note-body">{note.notes}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function RestockNeedsPanel({
   restock,
   businessDate,

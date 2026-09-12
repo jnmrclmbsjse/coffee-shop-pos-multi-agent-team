@@ -306,11 +306,104 @@ describe('staff inventory screens', () => {
         submittedByNameSnapshot: 'Maya Santos',
         shiftLeadStaffMemberId: null,
         shiftLeadNameSnapshot: null,
+        notes: null,
         recordedAt: '2026-07-30T08:00:00.000Z',
         lines: [],
       }),
     );
     expect(await screen.findByText('Count submitted')).toBeInTheDocument();
+  });
+
+  it('sends the session note with the count and trims it', async () => {
+    installCountFetch(sheet('open'));
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    // Wait for the sheet to load before touching its fields.
+    const submit = await screen.findByRole('button', {
+      name: 'Submit opening count',
+    });
+    await user.type(screen.getByLabelText(/Quantity for Cup/), '4');
+    await user.selectOptions(
+      screen.getByLabelText(/Submitted by/),
+      activeStaff[0]!.id,
+    );
+    await user.type(
+      screen.getByLabelText(/Notes/),
+      '  Chest freezer reading 4C.  ',
+    );
+    await user.click(submit);
+
+    const post = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        new URL(String(url)).pathname === '/inventory/counts' &&
+        init?.method === 'POST',
+    );
+    expect(post).toBeDefined();
+    expect(JSON.parse(String(post![1]!.body))).toMatchObject({
+      notes: 'Chest freezer reading 4C.',
+    });
+  });
+
+  it('sends null rather than an empty string when no note is written', async () => {
+    installCountFetch(sheet('open'));
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    // Wait for the sheet to load before touching its fields.
+    const submit = await screen.findByRole('button', {
+      name: 'Submit opening count',
+    });
+    await user.type(screen.getByLabelText(/Quantity for Cup/), '4');
+    await user.selectOptions(
+      screen.getByLabelText(/Submitted by/),
+      activeStaff[0]!.id,
+    );
+    await user.click(submit);
+
+    const post = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        new URL(String(url)).pathname === '/inventory/counts' &&
+        init?.method === 'POST',
+    );
+    expect(JSON.parse(String(post![1]!.body)).notes).toBeNull();
+  });
+
+  it('offers the note on a closing count too, not only opening', async () => {
+    installCountFetch(sheet('close'));
+    renderPage(<ClosingCountPage />);
+
+    // Opening and closing are the same record shape; the field is deliberately
+    // not restricted to one phase.
+    expect(await screen.findByLabelText(/Notes/)).toBeInTheDocument();
+  });
+
+  it('reads a submitted note back without offering to edit it', async () => {
+    installCountFetch(
+      sheet('open', [quantityItem, levelItem], openDay, {
+        id: 'count-id',
+        locationId: null,
+        businessDate: '2026-07-30',
+        phase: 'open',
+        submittedByStaffMemberId: activeStaff[0]!.id,
+        submittedByNameSnapshot: 'Maya Santos',
+        shiftLeadStaffMemberId: null,
+        shiftLeadNameSnapshot: null,
+        notes: 'Chest freezer reading 4C, flagged to maintenance.',
+        recordedAt: '2026-07-30T08:00:00.000Z',
+        lines: [],
+      }),
+    );
+
+    renderPage(<OpeningCountPage />);
+
+    expect(await screen.findByText('Count submitted')).toBeInTheDocument();
+    expect(
+      screen.getByText('Chest freezer reading 4C, flagged to maintenance.'),
+    ).toBeInTheDocument();
+    // Counts are append-only, so the note is immutable once submitted. No
+    // editable control may appear on the read-only view.
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('shows submitted counts read-only with no edit or delete affordance', async () => {
@@ -324,6 +417,7 @@ describe('staff inventory screens', () => {
         submittedByNameSnapshot: 'Maya Santos',
         shiftLeadStaffMemberId: null,
         shiftLeadNameSnapshot: null,
+        notes: null,
         recordedAt: '2026-07-30T08:00:00.000Z',
         lines: [
           {

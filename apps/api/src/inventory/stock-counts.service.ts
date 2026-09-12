@@ -143,6 +143,7 @@ export class StockCountsService {
           submittedByNameSnapshot: submitter.displayName,
           shiftLeadStaffMemberId: shiftLead?.id ?? null,
           shiftLeadNameSnapshot: shiftLead?.displayName ?? null,
+          notes: input.notes ?? null,
           lines: {
             create: input.lines.map((line) => ({
               inventoryItemId: line.inventoryItemId,
@@ -308,6 +309,7 @@ export class StockCountsService {
       submittedByNameSnapshot: count.submittedByNameSnapshot,
       shiftLeadStaffMemberId: count.shiftLeadStaffMemberId,
       shiftLeadNameSnapshot: count.shiftLeadNameSnapshot,
+      notes: count.notes,
       recordedAt: count.recordedAt.toISOString(),
       lines: count.lines.map((line) => ({
         inventoryItemId: line.inventoryItemId,

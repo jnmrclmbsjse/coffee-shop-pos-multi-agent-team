@@ -318,6 +318,9 @@ export interface StockCount {
   submittedByNameSnapshot: string;
   shiftLeadStaffMemberId: string | null;
   shiftLeadNameSnapshot: string | null;
+  // Free-text note added during the session, either phase. Null when none was
+  // given. Immutable once submitted, like the counts it accompanies.
+  notes: string | null;
   recordedAt: string;
   lines: StockCountLine[];
 }
@@ -435,6 +438,7 @@ export interface SubmitStockCountInput {
   phase: StockCountPhase;
   submittedByStaffMemberId: string;
   shiftLeadStaffMemberId?: string | null;
+  notes?: string | null;
   lines: SubmitStockCountLineInput[];
 }
 
@@ -496,12 +500,28 @@ export interface PackagingReconciliationRow {
   varianceQty: number | null;
 }
 
+// One submitted note, attributed. A phase can appear more than once: counts are
+// append-only, so a correction is a new row carrying its own note, and the
+// back-office shows the sequence rather than silently preferring one.
+export interface DailyInventoryCountNote {
+  stockCountId: string;
+  phase: StockCountPhase;
+  notes: string;
+  submittedByNameSnapshot: string;
+  recordedAt: string;
+  // True when this count corrects an earlier one, so the reader can tell an
+  // amended note from a first submission.
+  isCorrection: boolean;
+}
+
 export interface DailyInventoryReport {
   businessDate: string;
   locationId: string | null;
   hasInventoryInformation: boolean;
   reconciliation: PackagingReconciliationRow[];
   restock: RestockStatusResult;
+  // Only counts that actually carry a note, oldest first.
+  countNotes: DailyInventoryCountNote[];
 }
 
 export enum OrderStatus {
