@@ -23,7 +23,12 @@ sha="$(prompt_sha)"
 # Substitute placeholders literally (handles arbitrary chars incl. & / \ % in
 # the requirement) by passing values via env and using awk index/substr, which
 # does NOT interpret & in replacements the way gsub does.
-export OD_REQ="$REQUIREMENT" OD_SHA="$sha"
+# The PO charter is injected here rather than via render(), because intake
+# takes free requirement text instead of an issue number and so does not go
+# through render() at all. Without this the template's {{CHARTER}} would reach
+# the engine as literal text.
+OD_CHARTER="$(charter po)" || exit 1
+export OD_REQ="$REQUIREMENT" OD_SHA="$sha" OD_CHARTER
 PROMPT="$(awk '
   function repl(line, key, val,   i, out) {
     while ((i = index(line, key)) > 0) {
@@ -34,6 +39,7 @@ PROMPT="$(awk '
   }
   { line = repl($0, "{{REQUIREMENT}}", ENVIRON["OD_REQ"])
     line = repl(line, "{{PROMPT_SHA}}", ENVIRON["OD_SHA"])
+    line = repl(line, "{{CHARTER}}", ENVIRON["OD_CHARTER"])
     print line }
 ' "$PROMPTS_DIR/po-intake.md")"
 

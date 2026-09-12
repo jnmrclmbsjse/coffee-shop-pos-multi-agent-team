@@ -16,110 +16,96 @@ repo-root `e2e/`. Deployed containerized on AWS.
 **Bounded contexts:** Catalog (menu definitions), Inventory (manual open/close
 counts, NOT a live ledger in v1), Sales/Orders. Keep them distinct.
 
-**v1 Non-Goals** — bounce any story implying these back to PO: offline mode,
-hardware integration, recipe/BOM depletion, inter-branch logistics, real-time
-stock ledger.
+**v1 Non-Goals:** offline mode, hardware integration, recipe/BOM depletion,
+inter-branch logistics, real-time stock ledger. PO: write stories in
+user-facing terms; if a request implies one of these, it needs explicit
+scoping. Dev: bounce anything implying these via `needs-clarification`.
 
-Full architecture decisions live in docs/adr/ — read that before assuming
+**VCS rule (hard):** no AI attribution anywhere. Never add a `Co-Authored-By:
+Claude …` trailer, a "Generated with Claude Code" line, or any similar
+attribution to a commit message or PR description.
+
+Full architecture decisions live in `docs/adr/` — read that before assuming
 anything not stated here.
 
----
-
-## Role: Technical Lead
-
-You are the Technical Lead agent for this project.
-
-**Responsibilities**
-- During `In Preparation` (invoked by PO via shell-out, see prompts/techlead-feasibility.md):
-  translate the story's user-facing description into real components and an
-  implementation approach — PO writes in business terms by design and does
-  not name modules or services, that mapping is your job. If the mapping is
-  ambiguous (could reasonably map to more than one implementation, or PO's
-  intent isn't clear), relabel `needs-clarification` and ask PO directly
-  rather than picking an interpretation and moving on.
-- Check technical feasibility, then break the story into Design Task, Dev
-  Task, and QA Task issues, setting dependencies via GitHub's native
-  blocked-by relationships.
-- Review PRs labeled for you against these conventions and the linked issue's
-  acceptance criteria.
-- Own docs/adr/ — architecture decisions are yours to write and maintain.
-
-**Boundaries**
-- Read-only on the codebase outside docs/adr/. You do not write feature code.
-- No access to docs/design/ or Claude Design.
-- One review pass per PR: request changes once. If it fails again on
-  re-review, relabel `agent:human` and stop — do not loop a second time.
-- On approval: leave status as "Ready for Review" — the human merges, you don't.
-- On requesting changes: relabel `agent:dev`, set status "Changes Requested",
-  leave a specific, actionable comment.
-- UI/UX and QA PRs do not route to you — the human reviews/approves those
-  directly (current workflow decision, flagged as a future improvement).
-
-**Self-reporting**: end every run by updating the issue/PR yourself via `gh`.
-No separate process infers your outcome — if you don't report it, it didn't happen.
+`AGENTS.md` is a symlink to this file. Codex reads that name, Claude Code reads
+this one, and they must not be allowed to say different things. They used to be
+two separate files documenting two disjoint halves of the role set, which is
+how the Tech Lead's merge rights came to be documented backwards in one and
+correctly in the other.
 
 ---
 
-## Role: QA
+# The agentic pipeline
 
-You are the QA agent for this project.
+**If you are an agent dispatched by a lane, the role sections are not in this
+file.** Your charter was injected into your prompt by `render()`. This section
+exists for someone working on the pipeline itself.
 
-**Responsibilities**
-- During `In Preparation`: review acceptance criteria for testability, clarity,
-  and edge-case coverage. If gaps exist, say so specifically — don't sign off
-  on vague criteria to keep the pipeline moving.
-- After merge: write and run e2e tests against the acceptance criteria.
-- On failure: create a Bug issue, link it `blocks` to the parent story, set
-  the story status to "QA Rejected", relabel the story `agent:dev`.
-- On pass: set status to "QA Accepted", then hand the parent story to the
-  deploy lane (label `agent:deploy`, status "Ready for Deploy") — see
-  infra/DEPLOYMENT.md §8. You do not deploy or set "Deployed"/"Done"
-  yourself; that's the Release/Deploy agent's job.
+## Where things live
 
-**Boundaries**
-- Codebase write access limited to `e2e/` ONLY (Playwright, per ADR 0001).
-- No access to docs/design/ or Claude Design.
-- No PR approve/change-request/merge rights.
-- Single instance at a time — enforced by amux's atomic task claiming, not by
-  you. If a task looks already claimed, don't start it.
+| Path | What it is |
+|---|---|
+| `charters/_shared.md` | cross-role contract — self-reporting, board statuses, scope discipline. Injected into EVERY lane |
+| `charters/<role>.md` | one charter per role: `po`, `techlead`, `uiux`, `qa`, `dev`, `deploy`, `discovery` |
+| `prompts/` | one template per lane, plus `_conventions.md` |
+| `scripts/` | wrappers, the poller, `ci/`, `setup/`, `tests/` |
+| `docs/adr/` | architecture decisions (Tech Lead owns) |
+| `docs/design/` | mockups + design tokens (UI/UX owns) |
+| `infra/` | Pulumi + `DEPLOYMENT.md` (Release/Deploy owns) |
 
-**Self-reporting**: same as Tech Lead — post your outcome to the issue
-yourself at the end of each run.
+## The charter rule
 
----
+**A charter belongs to a role. The engine is swappable; the role is not.**
 
-## Role: Release/Deploy
+Codex runs the PO, Dev and Deploy lanes; Claude runs Tech Lead and QA; UI/UX and
+Discovery run on either. That is a scheduling fact, not a boundary — so charters
+are keyed on the **role** and injected, never discovered by file name and never
+split across two documents by engine.
 
-You are the Release/Deploy agent for this project. See
-infra/DEPLOYMENT.md and docs/adr/0009-deployment-architecture.md for the
-full deployment design this role executes.
+`render()` substitutes `{{CHARTER}}` with `charters/_shared.md` plus the role's
+own charter. A template that declares `{{CHARTER}}` and is rendered **without a
+role fails loudly**, because a lane running with the literal text `{{CHARTER}}`
+in its prompt would run with no boundaries at all and still look like it worked.
 
-**Responsibilities**
-- Triggered when a story's QA Task passes and QA hands it to you (label
-  `agent:deploy`, status "Ready for Deploy").
-- Verify the go-live prerequisite checklist (infra/DEPLOYMENT.md §4,
-  app-code section) is actually satisfied in the checked-out repo before
-  triggering anything.
-- Trigger `.github/workflows/deploy.yml` via `gh workflow run` and watch it to
-  completion — you do not push to AWS yourself and hold no AWS credentials;
-  the pipeline authenticates via GitHub OIDC.
-- On a passing health check: set the story's status to "Deployed" and remove
-  `agent:deploy`. This is the autonomous replacement for the old manual
-  human "Done" confirmation — direct-to-production is accepted for this
-  internal tool (see ADR 0009).
-- On failure: if it's an app-code regression, hand back to Tech Lead
-  (relabel `agent:tech-lead`, status back to "QA Accepted"); if it's an
-  infra/AWS failure, escalate to `agent:human`. Never retry within a single
-  run — `poll.sh`'s own attempt/dispatch caps govern retries.
+Two lanes do not take an issue number and so cannot use `render()` —
+`po-intake.sh` (free requirement text, awk-substituted) and `discovery.sh` (no
+issue at all). Both call `charter <role>` directly. If you add a third such
+lane, it must do the same.
 
-**Boundaries**
-- May write to `infra/` (Pulumi), `.github/workflows/deploy.yml`, and
-  `infra/DEPLOYMENT.md`.
-- Read-only on application code (`apps/`, `packages/`) — a missing app-code
-  prerequisite gets filed/relabeled to Tech Lead, never fixed directly by you.
-- No access to docs/design/ or Claude Design.
-- One deploy attempt per run — do not loop past the checklist-verify step
-  yourself; the poller's caps and escalation handle repeated failures.
+Verify the whole mechanism with:
 
-**Self-reporting**: same as every other role — post your outcome to the issue
-yourself at the end of each run.
+```bash
+./scripts/tests/charter-injection.test.sh
+```
+
+## Lane map
+
+| Lane | Trigger | Script | Engine | Role charter |
+|---|---|---|---|---|
+| intake | human, no label | `po-intake.sh` | Codex | `po` |
+| `prepare` | no `agent:*`, In Preparation | `po-prepare.sh` | Codex | `po` |
+| ├─ Step 1 | spawned by prepare | `techlead-feasibility.sh` | Claude | `techlead` |
+| ├─ Step 2 | spawned by prepare | `qa-testability.sh` | Claude | `qa` |
+| └─ Step 3 | spawned by prepare | `uiux-mockup.sh` | either | `uiux` |
+| `po` | `agent:po` + `needs-clarification` | `po-clarify.sh` | Codex | `po` |
+| `dev` | `agent:dev` | `dev-pickup.sh` | Codex | `dev` |
+| `tech-lead` | `agent:tech-lead` | `techlead-review.sh` | Claude | `techlead` |
+| `adr` | `blocked-on-adr` + revise trigger | `techlead-adr-revise.sh` | Claude | `techlead` |
+| `qa` | `agent:qa` | `qa-test.sh` | Claude | `qa` |
+| `deploy` | `agent:deploy` | `deploy.sh` | Codex | `deploy` |
+| `discovery` | backlog empty + cooldown | `discovery.sh` | either | `discovery` |
+
+The one label nothing else applies is `agent:deploy` — QA applies it on pass
+(`prompts/qa-test.md`). Break that and the deploy lane silently starves.
+
+## Editing rules
+
+- **Edit a charter in `charters/`, never in a rendered prompt.** The prompts
+  hold a placeholder, not a copy.
+- **Adding a lane means three entries in `poll.sh`** — `label_for`,
+  `script_for`, `single_for`. A lane missing from either of the first two is
+  refused loudly on purpose (`NOT WIRED`); without that guard every open issue
+  gets escalated to `agent:human` in one cycle.
+- A new role means a new `charters/<role>.md`, a `{{CHARTER}}` placeholder in
+  its template, and the role passed at the `render()` call site.

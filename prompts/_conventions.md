@@ -75,6 +75,14 @@ half-finish, never loop past the stated ceiling.
 `{{ISSUE}}` — the issue number. `{{PROMPT_SHA}}` — the prompts SHA above.
 Wrapper scripts substitute these before invoking the CLI.
 
+`{{CHARTER}}` — the dispatched role's charter: `charters/_shared.md` followed by
+`charters/<role>.md`. `render()` substitutes it when the wrapper passes a role as
+its third argument. **A template declaring `{{CHARTER}}` that is rendered without
+a role is refused**, because shipping the literal placeholder would run the lane
+with no boundaries at all and still look like it worked. Edit the charter in
+`charters/`, never a rendered prompt. See the charter rule in `CLAUDE.md` and
+`scripts/tests/charter-injection.test.sh`.
+
 ## CLI invocation placeholders
 
 Exact non-interactive flags depend on your installed tool versions — fill these

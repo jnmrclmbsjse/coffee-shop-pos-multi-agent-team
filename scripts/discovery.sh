@@ -26,6 +26,13 @@ as_human
 select_agent "${DISCOVERY_ENGINE:-}"   # sets AGENT_EXEC and runs the engine's auth preflight
 
 sha="$(prompt_sha)"
-PROMPT="$(sed "s/{{PROMPT_SHA}}/${sha}/g" "$PROMPTS_DIR/discovery.md")"
+# Discovery has no issue number, so it does not go through render(). Inject the
+# charter here or the template's {{CHARTER}} ships as literal text — and this is
+# the one lane that touches something outside the team's own output, so its
+# read-only boundary is the last one that should go missing.
+CHARTER_TEXT="$(charter discovery)" || exit 1
+PROMPT="$(SHA="$sha" BODY="$(sed "s/{{PROMPT_SHA}}/${sha}/g" "$PROMPTS_DIR/discovery.md")" \
+  CHARTER_TEXT="$CHARTER_TEXT" \
+  python3 -c 'import os; print(os.environ["BODY"].replace("{{CHARTER}}", os.environ["CHARTER_TEXT"]))')"
 
 $AGENT_EXEC "$PROMPT"

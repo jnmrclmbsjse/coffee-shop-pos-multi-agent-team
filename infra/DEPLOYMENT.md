@@ -34,8 +34,15 @@ What exists in the repo today vs. what still requires hands-on, real-AWS work.
   not yet run.
 - [x] Agentic wiring: `agent:deploy` label/lane in `scripts/poll.sh`,
   `scripts/deploy.sh`, `prompts/deploy.md`, the Release/Deploy role in
-  `CLAUDE.md`, and `prompts/qa-test.md`'s hand-off on QA pass — all code
-  complete, exercised only via syntax checks (`bash -n`), not a live run.
+  `charters/deploy.md`, and `prompts/qa-test.md`'s hand-off on QA pass — all
+  code complete, exercised only via syntax checks (`bash -n`), not a live run.
+
+  **Correction (2026-09-12):** this entry claimed the QA hand-off for months
+  while `prompts/qa-test.md` contained no reference to deploy at all. Nothing
+  applied `agent:deploy`, so the lane could never fire — poll.sh watched a label
+  no agent set. The hand-off is now actually present in the PASS branch. The
+  Release/Deploy role also moved out of `CLAUDE.md` into `charters/deploy.md`,
+  because the deploy lane runs on Codex and never read `CLAUDE.md`.
 - [x] `infra/Dockerfile.bootstrap` — the one-time bootstrap environment
   (replaces an earlier AWS CloudShell attempt that hit that environment's
   storage quota — see §5a). Built and smoke-tested locally: `pulumi version`,

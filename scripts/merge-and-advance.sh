@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # merge-and-advance.sh <pr-number> <dev-task-issue-number>
 #
-# Human merge gate + status advancement.
+# Merge + status advancement. Run by the Tech Lead agent on APPROVE (see
+# charters/techlead.md and prompts/techlead-review.md), and by the human
+# directly when picking up a merge an agent escalated. Originally a
+# human-only gate, hence the name.
 #   - merges the PR, closes the dev task, sets its Status to `Done`
 #   - advances the story's QA Task to `Ready for QA` ONLY when ALL dev tasks
 #     for the parent story are closed (option (a): e2e needs the whole feature)

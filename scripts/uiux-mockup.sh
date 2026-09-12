@@ -20,7 +20,7 @@ ISSUE="${1:?Usage: uiux-mockup.sh <issue-number>}"
 
 select_agent "${DESIGN_ENGINE:-}"   # sets AGENT_EXEC and runs the engine's auth preflight
 
-PROMPT="$(render uiux-mockup.md "$ISSUE")"
+PROMPT="$(render uiux-mockup.md "$ISSUE" uiux)"
 
 # Claude Code may automatically delegate a long design run to a background
 # sub-agent. In print mode the parent can then exit 0 after a progress update,

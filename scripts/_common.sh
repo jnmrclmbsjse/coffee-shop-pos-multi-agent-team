@@ -18,6 +18,7 @@ CLAUDE_EXEC="claude --dangerously-skip-permissions -p"
 # step. Its MCP server is registered in Codex's config.toml (see plan §6).
 
 PROMPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../prompts" && pwd)"
+CHARTERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../charters" && pwd)"
 source "$(dirname "${BASH_SOURCE[0]}")/dependency-utils.sh"
 
 # Per-role GitHub identities.
@@ -94,10 +95,53 @@ select_agent() {
   export AGENT_EXEC AGENT_ENGINE_RESOLVED
 }
 
-# render <template-name> <issue-number>  → prints the interpolated prompt
+# charter <role>  → prints _shared.md followed by that role's charter
+#
+# A charter belongs to a ROLE. The engine is swappable; the role is not. Codex
+# runs the PO, Dev and Deploy lanes and Claude runs Tech Lead and QA, but that
+# is a scheduling fact, not a boundary — so charters are keyed on the role and
+# injected, never discovered by file name.
+charter() {
+  # SPLIT ASSIGNMENTS. bash expands an entire `local` line before it assigns any
+  # of it, so `local role="$1" own=".../${role}.md"` reads an EMPTY role and
+  # silently resolves to `charters/.md`.
+  local role="$1"
+  local shared="$CHARTERS_DIR/_shared.md"
+  local own="$CHARTERS_DIR/${role}.md"
+  if [[ ! -f "$own" ]]; then
+    echo "charter: no charter for role '$role' — expected $own" >&2
+    return 1
+  fi
+  cat "$shared" "$own"
+}
+
+# render <template-name> <issue-number> [role]  → prints the interpolated prompt
+#
+# When <role> is given, {{CHARTER}} is replaced by that role's charter. A
+# template containing {{CHARTER}} that is rendered WITHOUT a role is a wiring
+# bug and fails loudly: shipping the literal text "{{CHARTER}}" to an engine
+# would run the lane with no boundaries at all, silently, which is the exact
+# failure this mechanism exists to end.
 render() {
-  local template="$1" issue="$2" sha
+  local template="$1"
+  local issue="$2"
+  local role="${3:-}"
+  local sha body
   sha="$(prompt_sha)"
-  sed -e "s/{{ISSUE}}/${issue}/g" -e "s/{{PROMPT_SHA}}/${sha}/g" \
-    "${PROMPTS_DIR}/${template}"
+  body="$(sed -e "s/{{ISSUE}}/${issue}/g" -e "s/{{PROMPT_SHA}}/${sha}/g" \
+    "${PROMPTS_DIR}/${template}")"
+
+  if [[ "$body" != *"{{CHARTER}}"* ]]; then
+    printf '%s\n' "$body"
+    return 0
+  fi
+  if [[ -z "$role" ]]; then
+    echo "render: ${template} contains {{CHARTER}} but no role was passed" >&2
+    echo "        the lane would run with no charter — refusing" >&2
+    return 1
+  fi
+  local text; text="$(charter "$role")" || return 1
+  # python, not sed: the charter is a multi-line document full of pipes,
+  # slashes, and ampersands, every one of which sed would treat as syntax.
+  CHARTER_TEXT="$text" BODY="$body" python3 -c 'import os; print(os.environ["BODY"].replace("{{CHARTER}}", os.environ["CHARTER_TEXT"]))'
 }

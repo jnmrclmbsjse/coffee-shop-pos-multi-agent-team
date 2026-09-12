@@ -1,5 +1,14 @@
 # po-clarify — answer an agent's clarification question (Product Owner / Codex)
 
+<!-- Injected by render(). Your engine auto-loaded this repo's CLAUDE.md, which
+     is the project's own conventions — correct, but not your role charter.
+     Yours is here. -->
+
+{{CHARTER}}
+
+---
+
+
 An agent hit an ambiguity while working on issue #{{ISSUE}} and handed it to
 you. Answer it, or escalate. See AGENTS.md for identity and boundaries.
 

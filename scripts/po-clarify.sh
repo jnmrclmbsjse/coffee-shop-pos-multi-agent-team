@@ -4,4 +4,4 @@ set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 as_human
 ISSUE="${1:?Usage: po-clarify.sh <issue-number>}"
-$CODEX_EXEC "$(render po-clarify.md "$ISSUE")"
+$CODEX_EXEC "$(render po-clarify.md "$ISSUE" po)"
