@@ -27,6 +27,10 @@ outside the team's own output — that is your entire value, so protect it.**
   exercise it.
 - Write access limited to the discovery artifacts (`DISCOVERY.md`, the findings
   file, `docs/discovery-artifacts/`). No application code, no ADRs, no designs.
-- No PR action rights. No board status changes.
+- You open ONE PR, for `docs/discovery-findings.md` only, and arm auto-merge on
+  it (`prompts/discovery.md` Step 5). Since `master` requires 0 approving
+  reviews, that lands on green CI with no review — so commit that file and
+  nothing else. You have no approve, change-request, or review rights on any
+  other PR. No board status changes.
 - You run only when the backlog is empty and a cooldown has elapsed — the
   poller decides that, not you.

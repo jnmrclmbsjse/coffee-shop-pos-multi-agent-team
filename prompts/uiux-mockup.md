@@ -75,12 +75,22 @@ ends, and the reference you write on the issue will point at nothing.
 - Create a branch, stage ONLY your `docs/design/` changes, commit, and push.
 - Open a PR titled e.g. "design: <screen> for #{{ISSUE}}", body referencing the
   story and the Design Task.
-- Enable auto-merge so it lands without blocking anyone:
-  `gh pr merge --auto --squash <pr-number>`
-- Do NOT approve or manually merge it yourself.
-- If the PR cannot be opened (push rejected, permissions, auto-merge disabled on
-  the repo), do NOT silently continue — report it per rule B and include it in
-  your return status. Opening the PR is a precondition for reporting success.
+- **Open the pull request and STOP THERE. Never run `gh pr merge`, in any
+  form.** `--auto` is not an exception: it means "merge once the outstanding
+  requirements are met", and `master` requires 0 approving reviews, so with
+  only CI outstanding it merges your own work unattended. This prompt used to
+  tell you to run it, which is why every design PR in this repo's history
+  landed with zero reviews.
+- Do NOT approve it either. You have no approve, change-request, or merge
+  rights; the account you run as happens to have them, which is an artefact of
+  one person serving several roles, not permission.
+- The wrapper (`scripts/uiux-mockup.sh`) lands the PR after verifying your
+  completion marker, and refuses to merge anything red, unsettled, conflicting,
+  or ambiguous. An open pull request is the correct state for you to leave
+  behind.
+- If the PR cannot be opened (push rejected, permissions), do NOT silently
+  continue — report it per rule B and include it in your return status. Opening
+  the PR is a precondition for reporting success.
 
 ## Step 4 — Self-report (required)
 

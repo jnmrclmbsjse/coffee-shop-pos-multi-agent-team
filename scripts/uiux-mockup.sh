@@ -45,3 +45,11 @@ if ! gh issue view "$ISSUE" --json comments \
   echo "DESIGN ERROR — engine exited without writing the design:done marker for #$ISSUE" >&2
   exit 1
 fi
+
+# Land the design PR HERE, not from inside the agent prompt. The agent has no
+# merge path of its own (see charters/uiux.md): it opens the PR and stops. Only
+# a run that wrote the design:done marker above reaches this line, and
+# auto_merge_story_pr additionally refuses anything red, unsettled,
+# conflicting, or ambiguous — leaving those for a human instead of arming a
+# merge that fires unattended whenever CI eventually goes green.
+auto_merge_story_pr uiux "$ISSUE"

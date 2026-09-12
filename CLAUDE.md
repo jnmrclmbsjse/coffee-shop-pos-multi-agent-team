@@ -99,6 +99,14 @@ Verify the whole mechanism with:
 The one label nothing else applies is `agent:deploy` — QA applies it on pass
 (`prompts/qa-test.md`). Break that and the deploy lane silently starves.
 
+Two lanes land their own PR. The **design** lane's merge lives in its wrapper
+(`auto_merge_story_pr uiux` in `scripts/uiux-mockup.sh`), CI-gated, with the
+agent holding no merge path at all — do not put `gh pr merge` back into
+`prompts/uiux-mockup.md`. The **QA** lane still arms `--auto` from inside its
+own prompt; since `master` requires 0 approving reviews, that merges on green CI
+with no review. `auto_merge_story_pr` already carries a `qa` scope
+(`e2e/`) if you want to move QA behind the same gate.
+
 ## Editing rules
 
 - **Edit a charter in `charters/`, never in a rendered prompt.** The prompts

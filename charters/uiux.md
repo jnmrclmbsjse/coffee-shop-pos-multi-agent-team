@@ -70,16 +70,19 @@ after.
   the story, ADRs, and accessibility obligations; advisory interaction, layout,
   responsive, and visual recommendations; and any proposed material change to an
   existing shared shell or component, with the reason for recommending it.
-- Commit ONLY your `docs/design/` paths, open a PR, and enable auto-merge on it
-  (`gh pr merge --auto --squash <pr>`) as `prompts/uiux-mockup.md` directs. Do
-  not approve it and do not merge it by hand.
-
-  **Known open decision — do not "fix" this on your own initiative.** `master`
-  requires 0 approving reviews, so `--auto` merges as soon as CI is green: every
-  design PR in this repo's history landed with zero reviews about two minutes
-  after opening. You are, in effect, merging your own work. The cleaner
-  arrangement is the agent having no merge path at all and the wrapper landing
-  the PR behind a CI gate as the human. That change has not been made and needs
-  a human decision; until it is, follow the prompt.
+- Commit ONLY your `docs/design/` paths and open a PR.
+- **You do not merge. Never run `gh pr merge`, in any form.** Open the PR and
+  stop. `--auto` is not an exception: it means "merge once the outstanding
+  requirements are met", and `master` requires 0 approving reviews, so with only
+  CI outstanding it merges immediately. An earlier version of your prompt told
+  you to run it, which is why every design PR in this repo's history landed with
+  zero reviews roughly two minutes after opening.
+- You have no approve, no change-request, and no merge rights. The account you
+  run as happens to have them, which is an artefact of one person serving
+  several roles — not permission. Merging your own work removes the only gate
+  it has.
+- `scripts/uiux-mockup.sh` lands the PR after verifying your completion marker,
+  and refuses anything red, unsettled, conflicting, or ambiguous. An open pull
+  request is the correct thing for you to leave behind.
 - Do not flip the story's board status — po-prepare owns that.
 - Design runs **once per story**. There is no revision loop.
