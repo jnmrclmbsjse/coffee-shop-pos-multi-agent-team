@@ -517,6 +517,68 @@ describe('CompensationPage', () => {
     expect(screen.queryByRole('heading', { name: 'No records in this range' })).not.toBeInTheDocument();
   });
 
+  // Stub the decoder so the export's measured height is ours to choose. jsdom
+  // never loads a data: URL image on its own, which is also why the production
+  // check treats an unmeasurable image as unknown rather than broken.
+  function stubImageHeight(naturalHeight: number | 'error') {
+    class StubImage {
+      naturalHeight = naturalHeight === 'error' ? 0 : naturalHeight;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(_value: string) {
+        setTimeout(() => {
+          if (naturalHeight === 'error') this.onerror?.();
+          else this.onload?.();
+        }, 0);
+      }
+    }
+    vi.stubGlobal('Image', StubImage as unknown as typeof Image);
+  }
+
+  it('refuses to download a PNG that came out short, and says so', async () => {
+    api.payslip.mockResolvedValue(adjustedPayslip);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    // jsdom reports offsetHeight as 0 for everything, so the element's expected
+    // export height has to be stubbed as well — otherwise the check compares
+    // against zero and can never find a shortfall.
+    const offsetHeight = vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockReturnValue(1000);
+    // Half the payslip: the exact symptom reported from the field.
+    stubImageHeight(1000);
+    expect(offsetHeight).toBeDefined();
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() => expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'));
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+    await user.click(await screen.findByRole('button', { name: 'Download PNG' }));
+
+    const alert = await screen.findByRole('alert', {}, { timeout: 4000 });
+    expect(alert).toHaveTextContent(/came out incomplete/);
+    // 1000 delivered against 2000 expected (1000 CSS px at pixelRatio 2).
+    expect(alert).toHaveTextContent(/1000 pixels tall instead of about 2000/);
+    // A broken payslip must never reach the file system.
+    expect(click).not.toHaveBeenCalled();
+  });
+
+  it('still downloads when the export cannot be measured at all', async () => {
+    api.payslip.mockResolvedValue(adjustedPayslip);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    stubImageHeight('error');
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() => expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'));
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+    await user.click(await screen.findByRole('button', { name: 'Download PNG' }));
+
+    // Unmeasurable is not the same as broken. Withholding the file here would
+    // turn a working download into a failure.
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1), { timeout: 4000 });
+    expect(await screen.findByRole('status')).toHaveTextContent('Downloaded:');
+  });
+
   it('captures the rendered artifact and downloads it with the deterministic filename', async () => {
     api.payslip.mockResolvedValue(adjustedPayslip);
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
@@ -527,8 +589,11 @@ describe('CompensationPage', () => {
     await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
     await user.click(await screen.findByRole('button', { name: 'Download PNG' }));
 
-    await waitFor(() => expect(image.toPng).toHaveBeenCalledTimes(1));
+    // TWO passes: the first primes html-to-image's font and image caches, the
+    // second is the one downloaded. See the comment in downloadPayslip.
+    await waitFor(() => expect(image.toPng).toHaveBeenCalledTimes(2));
     const capturedNode = image.toPng.mock.calls[0]![0] as HTMLElement;
+    expect(image.toPng.mock.calls[1]![0]).toBe(capturedNode);
     expect(capturedNode).toHaveAttribute('id', 'payslip-capture-node');
     expect(capturedNode).toHaveTextContent('Mara Santos');
     expect(capturedNode).toHaveTextContent('Inclusive range: August 1, 2026 to August 31, 2026');
@@ -542,14 +607,30 @@ describe('CompensationPage', () => {
     expect(capturedNode).toHaveTextContent('Generated');
     const options = image.toPng.mock.calls[0]![1] as {
       filter?: (node: Node) => boolean;
+      width?: number;
+      height?: number;
+      pixelRatio?: number;
     };
+    // The output box is pinned to the element's own measured size rather than
+    // inferred, so a stale or partial height cannot truncate the export.
+    expect(options.width).toBe(capturedNode.offsetWidth);
+    expect(options.height).toBe(capturedNode.offsetHeight);
+    expect(options.pixelRatio).toBe(2);
     const filter = options.filter;
     const textNode = document
       .createTreeWalker(capturedNode, NodeFilter.SHOW_TEXT)
       .nextNode();
-    const excludedButton = within(capturedNode).getByRole('button', {
-      name: 'Download PNG',
-    });
+    // The export now awaits two render passes and a size check, so the button
+    // still reads "Preparing image…" at this point. Wait for it to settle back
+    // before querying it by name.
+    // jsdom never fires load/error for a data: URL image, so the size check
+    // falls back to its own timeout before the button settles. A real browser
+    // decodes a data: URL immediately and never waits.
+    const excludedButton = await within(capturedNode).findByRole(
+      'button',
+      { name: 'Download PNG' },
+      { timeout: 4000 },
+    );
     expect(filter).toBeDefined();
     expect(textNode).not.toBeNull();
     expect(filter!(textNode!)).toBe(true);

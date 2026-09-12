@@ -10477,3 +10477,42 @@ select:not([multiple])::-ms-expand {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* Restock needs scope toggle — switches the panel between restock-needs-only
+   (the default, and its long-standing behaviour) and every counted item. */
+
+.restock-scope-toggle {
+  margin: 0 0 var(--space-4);
+}
+
+.restock-scope-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* Full touch target: this panel is read on a tablet in the back office. */
+  min-height: var(--touch-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.restock-scope-toggle label:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+}
+
+.restock-scope-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.restock-scope-toggle label:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
