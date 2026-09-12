@@ -52,7 +52,7 @@ describe('ReportingService', () => {
     orderCount: 3n,
   } as const;
 
-  it('composes the selected day read model and removes Enough restock rows', async () => {
+  it('composes the selected day read model and passes through every restock row', async () => {
     const prisma = createPrisma();
     const day = {
       id: 'day-id',
@@ -107,7 +107,13 @@ describe('ReportingService', () => {
       reconciliation: [{ soldQty: 4, varianceQty: -2 }],
       restock: {
         selectedPhase: 'close',
-        rows: [{ inventoryItemId: 'low', status: 'LOW' }],
+        // ENOUGH rows are NOT dropped here any more. The back office needs the
+        // full stock picture available to its "Show all counted items" toggle,
+        // and a row the server filters out can never be toggled back into view.
+        rows: [
+          { inventoryItemId: 'low', status: 'LOW' },
+          { inventoryItemId: 'enough', status: 'ENOUGH' },
+        ],
       },
     });
     expect(packaging.getForTradingDay).toHaveBeenCalledWith(day);

@@ -289,6 +289,94 @@ describe('daily inventory report page', () => {
     expect(within(table).queryByText('Unavailable')).not.toBeInTheDocument();
   });
 
+  it('hides Enough items by default and reveals them with the toggle', async () => {
+    const rows = [
+      {
+        inventoryItemId: 'beans',
+        itemName: 'House blend beans',
+        critical: true,
+        countMethod: CountMethod.QUANTITY,
+        quantity: 2,
+        level: null,
+        par: 10,
+        parLevel: null,
+        status: 'LOW' as const,
+      },
+      {
+        inventoryItemId: 'cups',
+        itemName: 'Plenty of cups',
+        critical: false,
+        countMethod: CountMethod.QUANTITY,
+        quantity: 90,
+        level: null,
+        par: 20,
+        parLevel: null,
+        status: 'ENOUGH' as const,
+      },
+    ];
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({ restock: { ...dailyReport().restock, rows } }),
+      ),
+    );
+    renderPage();
+
+    // Default: restock needs only, exactly as before the toggle existed.
+    const table = await screen.findByRole('table', {
+      name: /Items below their restock threshold/,
+    });
+    expect(within(table).getByRole('row', { name: /House blend beans/ })).toBeInTheDocument();
+    expect(within(table).queryByRole('row', { name: /Plenty of cups/ })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/1 item with Enough stock is hidden/),
+    ).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText('Show all counted items'));
+
+    const allTable = await screen.findByRole('table', {
+      name: /All counted items/,
+    });
+    expect(within(allTable).getByRole('row', { name: /House blend beans/ })).toBeInTheDocument();
+    expect(within(allTable).getByRole('row', { name: /Plenty of cups/ })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Showing all 2 counted items/),
+    ).toBeInTheDocument();
+  });
+
+  it('shows every item when the toggle is on even if nothing needs restocking', async () => {
+    const rows = [
+      {
+        inventoryItemId: 'cups',
+        itemName: 'Plenty of cups',
+        critical: false,
+        countMethod: CountMethod.QUANTITY,
+        quantity: 90,
+        level: null,
+        par: 20,
+        parLevel: null,
+        status: 'ENOUGH' as const,
+      },
+    ];
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({ restock: { ...dailyReport().restock, rows } }),
+      ),
+    );
+    renderPage();
+
+    // This is the case the old server-side filter made impossible to reach:
+    // every row was ENOUGH, so the page received none and could only ever say
+    // "nothing needs restocking".
+    expect(await screen.findByText('Nothing needs restocking')).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText('Show all counted items'));
+
+    const allTable = await screen.findByRole('table', { name: /All counted items/ });
+    expect(within(allTable).getByRole('row', { name: /Plenty of cups/ })).toBeInTheDocument();
+  });
+
   it('shows a positive empty state when a submitted count needs no restocking', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(dailyReport()));
     renderPage();

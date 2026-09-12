@@ -190,10 +190,11 @@ export class ReportingService {
       // record of what the counter said, and a note on an otherwise empty day
       // is exactly the case worth surfacing.
       countNotes,
-      restock: {
-        ...restock,
-        rows: restock.rows.filter((row) => row.status !== 'ENOUGH'),
-      },
+      // EVERY row, including ENOUGH. This used to drop ENOUGH server-side, which
+      // meant the back office could not show a full stock picture at all — the
+      // data never reached the page. Filtering is now the panel's job, behind a
+      // toggle that still defaults to restock-needs-only.
+      restock,
     };
   }
 

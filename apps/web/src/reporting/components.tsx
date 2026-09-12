@@ -6,6 +6,7 @@ import type {
   RestockStatusRow,
   SalesReportTotals,
 } from '@coffee-shop/shared';
+import { useState } from 'react';
 import { CountMethod } from '@coffee-shop/shared';
 import { NavLink } from 'react-router-dom';
 import {
@@ -480,6 +481,16 @@ export function RestockNeedsPanel({
   const submittedAt = restock.selectedCountRecordedAt
     ? formatSubmissionTime(restock.selectedCountRecordedAt)
     : '';
+  // Defaults to restock-needs-only, which is what this panel has always shown.
+  // The toggle reveals ENOUGH items so the same count can be read as a full
+  // stock picture without leaving the report.
+  const [showAll, setShowAll] = useState(false);
+  const rows = showAll
+    ? restock.rows
+    : restock.rows.filter((row) => row.status !== 'ENOUGH');
+  const enoughCount = restock.rows.length - restock.rows.filter(
+    (row) => row.status !== 'ENOUGH',
+  ).length;
 
   return (
     <section className="report-panel" aria-labelledby="restock-needs-title">
@@ -504,15 +515,34 @@ export function RestockNeedsPanel({
             This list uses the {phase} count submitted on {submittedAt}.
           </p>
           <p className="restock-copy restock-copy-secondary">
-            Only Urgent, Low, and Below par items are shown. Items with Enough
-            stock do not appear.
+            {showAll
+              ? `Showing all ${restock.rows.length} counted items, including those with Enough stock.`
+              : `Showing Urgent, Low, and Below par items only.${
+                  enoughCount > 0
+                    ? ` ${enoughCount} item${enoughCount === 1 ? '' : 's'} with Enough stock ${enoughCount === 1 ? 'is' : 'are'} hidden.`
+                    : ''
+                }`}
           </p>
-          {restock.rows.length === 0 ? (
+          <div className="restock-scope-toggle">
+            <label htmlFor="restock-show-all">
+              <input
+                id="restock-show-all"
+                type="checkbox"
+                checked={showAll}
+                onChange={(event) => setShowAll(event.target.checked)}
+              />
+              <span>Show all counted items</span>
+            </label>
+          </div>
+          {rows.length === 0 ? (
             <div className="report-empty report-empty-positive">
-              <strong>Nothing needs restocking</strong>
+              <strong>
+                {showAll ? 'No items counted' : 'Nothing needs restocking'}
+              </strong>
               <span>
-                The {phase} count for {formatBusinessDate(businessDate)} at{' '}
-                {location} has no Urgent, Low, or Below par items.
+                {showAll
+                  ? `The ${phase} count for ${formatBusinessDate(businessDate)} at ${location} recorded no items.`
+                  : `The ${phase} count for ${formatBusinessDate(businessDate)} at ${location} has no Urgent, Low, or Below par items.`}
               </span>
             </div>
           ) : (
@@ -528,8 +558,9 @@ export function RestockNeedsPanel({
               >
                 <table className="report-table restock-report-table">
                   <caption>
-                    Items below their restock threshold, ordered by status,
-                    Critical setting, then item name.
+                    {showAll
+                      ? 'All counted items, ordered by status, Critical setting, then item name.'
+                      : 'Items below their restock threshold, ordered by status, Critical setting, then item name.'}
                   </caption>
                   <thead>
                     <tr>
@@ -540,7 +571,7 @@ export function RestockNeedsPanel({
                     </tr>
                   </thead>
                   <tbody>
-                    {restock.rows.map((row) => (
+                    {rows.map((row) => (
                       <tr key={row.inventoryItemId}>
                         <th scope="row">
                           {row.itemName}
