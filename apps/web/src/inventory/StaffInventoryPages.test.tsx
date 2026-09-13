@@ -414,6 +414,31 @@ describe('staff inventory screens', () => {
     expect(note).toBeEnabled();
   });
 
+  it('clears an item note when its count is cleared, rather than dropping it silently', async () => {
+    installCountFetch(sheet('open'));
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    await screen.findByRole('button', { name: 'Submit opening count' });
+    const quantity = screen.getByLabelText(/Quantity for Cup/);
+    const note = screen.getByLabelText(/Note for Cup/);
+
+    await user.type(quantity, '4');
+    await user.type(note, '3 lids cracked');
+    expect(note).toHaveValue('3 lids cracked');
+
+    // Uncounting the item leaves no line for the note to travel on. The field
+    // must not keep showing text that the submit would then discard.
+    await user.clear(quantity);
+    expect(note).toBeDisabled();
+    expect(note).toHaveValue('');
+
+    // Counting it again starts from an empty note, not the discarded one.
+    await user.type(quantity, '5');
+    expect(note).toBeEnabled();
+    expect(note).toHaveValue('');
+  });
+
   it('reads a submitted item note back on the read-only view', async () => {
     installCountFetch(
       sheet('open', [quantityItem, levelItem], openDay, {

@@ -645,6 +645,18 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
                             ...current,
                             [item.id]: next,
                           }));
+                          // Clearing the count clears its note too. Otherwise
+                          // the note field disables while still showing text
+                          // that the submit would silently drop, because an
+                          // uncounted item produces no line to carry it.
+                          if (next === '') {
+                            setItemNotes((current) => {
+                              if (!(item.id in current)) return current;
+                              const rest = { ...current };
+                              delete rest[item.id];
+                              return rest;
+                            });
+                          }
                           setFieldErrors((current) => ({
                             ...current,
                             lines: undefined,

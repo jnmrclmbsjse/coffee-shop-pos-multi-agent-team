@@ -879,10 +879,13 @@ test('the restock list shows counted amount, target and urgency, ordered by stat
 
   for (const [item, counted, itemTarget, status] of expected) {
     const cells = restockRow(page, item).locator('td');
-    await expect(cells, `restock cells for ${item.name}`).toHaveCount(3);
+    // Counted, target, status, and the per-item Notes column. The seeded
+    // counts carry no item notes, so every Notes cell reads as empty.
+    await expect(cells, `restock cells for ${item.name}`).toHaveCount(4);
     await expect(cells.nth(0)).toHaveText(counted);
     await expect(cells.nth(1)).toHaveText(itemTarget);
     await expect(cells.nth(2)).toHaveText(status);
+    await expect(cells.nth(3)).toContainText('No note');
   }
 
   // An item with no applicable target reads Unavailable, never 0.
