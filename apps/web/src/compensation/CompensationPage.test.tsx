@@ -610,12 +610,16 @@ describe('CompensationPage', () => {
       width?: number;
       height?: number;
       pixelRatio?: number;
+      style?: Partial<CSSStyleDeclaration>;
     };
     // The output box is pinned to the element's own measured size rather than
     // inferred, so a stale or partial height cannot truncate the export.
     expect(options.width).toBe(capturedNode.offsetWidth);
     expect(options.height).toBe(capturedNode.offsetHeight);
     expect(options.pixelRatio).toBe(2);
+    // The centred artifact's resolved `auto` margin must not travel into the
+    // clone, or the export is shifted right and its right-hand side is cut.
+    expect(options.style?.margin).toBe('0');
     const filter = options.filter;
     const textNode = document
       .createTreeWalker(capturedNode, NodeFilter.SHOW_TEXT)

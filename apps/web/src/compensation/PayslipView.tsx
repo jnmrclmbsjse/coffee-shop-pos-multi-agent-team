@@ -198,6 +198,13 @@ export function PayslipView({
         // PNG holding only the top of the payslip.
         width: node.offsetWidth,
         height: node.offsetHeight,
+        // Zero the clone's margin. The on-screen artifact is centred with
+        // `margin: 0 auto`, and html-to-image copies COMPUTED styles — which
+        // resolve `auto` to real pixels. On a wide screen that pushed the clone
+        // hundreds of pixels right inside a box pinned to its own width, so
+        // the PNG came out with blank space on the left and the right-hand
+        // columns (commission, totals, net payable) cut off.
+        style: { margin: '0' },
         filter: (candidate: Node) =>
           candidate.nodeType !== Node.ELEMENT_NODE ||
           (candidate as HTMLElement).dataset.payslipExportExclude !== 'true',
