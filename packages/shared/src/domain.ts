@@ -329,6 +329,9 @@ export interface StockCountLine {
   inventoryItemId: string;
   quantity: number | null;
   level: StockLevel | null;
+  // Note about this item during the count. Null when none was given. Distinct
+  // from StockCount.notes, which is about the session as a whole.
+  notes: string | null;
 }
 
 export interface StockMovement {
@@ -432,6 +435,7 @@ export interface SubmitStockCountLineInput {
   inventoryItemId: string;
   quantity?: number;
   level?: StockLevel;
+  notes?: string | null;
 }
 
 export interface SubmitStockCountInput {
@@ -477,6 +481,8 @@ export interface RestockStatusRow {
   par: number | null;
   parLevel: StockLevel | null;
   status: RestockStatus;
+  // The counter's note about this item on the count this row came from.
+  notes: string | null;
 }
 
 export interface RestockStatusResult {
@@ -500,13 +506,24 @@ export interface PackagingReconciliationRow {
   varianceQty: number | null;
 }
 
-// One submitted note, attributed. A phase can appear more than once: counts are
-// append-only, so a correction is a new row carrying its own note, and the
-// back-office shows the sequence rather than silently preferring one.
+export interface DailyInventoryItemNote {
+  inventoryItemId: string;
+  itemName: string;
+  notes: string;
+}
+
+// The notes from one submitted count, attributed. A phase can appear more than
+// once: counts are append-only, so a correction is a new row carrying its own
+// notes, and the back office shows the sequence rather than silently
+// preferring one.
 export interface DailyInventoryCountNote {
   stockCountId: string;
   phase: StockCountPhase;
-  notes: string;
+  // The session-level note. Null when the counter only annotated items — such
+  // a count still appears, because its item notes are the point.
+  notes: string | null;
+  // Per-item notes from this count, in the sheet's own item order.
+  itemNotes: DailyInventoryItemNote[];
   submittedByNameSnapshot: string;
   recordedAt: string;
   // True when this count corrects an earlier one, so the reader can tell an
@@ -520,7 +537,8 @@ export interface DailyInventoryReport {
   hasInventoryInformation: boolean;
   reconciliation: PackagingReconciliationRow[];
   restock: RestockStatusResult;
-  // Only counts that actually carry a note, oldest first.
+  // Only counts carrying a session note or at least one item note, oldest
+  // first.
   countNotes: DailyInventoryCountNote[];
 }
 

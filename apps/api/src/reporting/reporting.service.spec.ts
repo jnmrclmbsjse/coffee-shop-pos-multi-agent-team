@@ -136,6 +136,7 @@ describe('ReportingService', () => {
         submittedByNameSnapshot: 'Alex',
         recordedAt: new Date('2026-08-15T01:00:00.000Z'),
         correctsStockCountId: null,
+        lines: [],
       },
       {
         id: 'close-count',
@@ -144,6 +145,7 @@ describe('ReportingService', () => {
         submittedByNameSnapshot: 'Sam',
         recordedAt: new Date('2026-08-15T13:00:00.000Z'),
         correctsStockCountId: 'earlier-close',
+        lines: [],
       },
     ]);
     const tradingDayService = {
@@ -177,6 +179,7 @@ describe('ReportingService', () => {
         submittedByNameSnapshot: 'Alex',
         recordedAt: '2026-08-15T01:00:00.000Z',
         isCorrection: false,
+        itemNotes: [],
       },
       {
         stockCountId: 'close-count',
@@ -185,19 +188,89 @@ describe('ReportingService', () => {
         submittedByNameSnapshot: 'Sam',
         recordedAt: '2026-08-15T13:00:00.000Z',
         isCorrection: true,
+        itemNotes: [],
       },
     ]);
-    // Scoped to the day AND the location, and only rows that carry a note.
+    // Scoped to the day AND the location, and only counts carrying a note of
+    // either kind — session or item.
     expect(prisma.stockCount.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           businessDate: day.businessDate,
           locationId: null,
-          notes: { not: null },
+          OR: [
+            { notes: { not: null } },
+            { lines: { some: { notes: { not: null } } } },
+          ],
         },
         orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }],
       }),
     );
+  });
+
+  it('surfaces a count that carries only item notes and no session note', async () => {
+    const prisma = createPrisma();
+    const day = {
+      id: 'day-id',
+      locationId: null,
+      businessDate: new Date('2026-08-17T00:00:00.000Z'),
+      dayType: 'NORMAL',
+    };
+    prisma.stockCount.findMany.mockResolvedValue([
+      {
+        id: 'close-count',
+        phase: 'CLOSE',
+        notes: null,
+        submittedByNameSnapshot: 'Sam',
+        recordedAt: new Date('2026-08-17T13:00:00.000Z'),
+        correctsStockCountId: null,
+        lines: [
+          {
+            inventoryItemId: 'lids',
+            notes: '3 lids cracked',
+            inventoryItem: { name: '8 oz lids' },
+          },
+        ],
+      },
+    ]);
+    const tradingDayService = {
+      findByBusinessDate: jest.fn().mockResolvedValue(day),
+    };
+    const packaging = { getForTradingDay: jest.fn().mockResolvedValue([]) };
+    const restock = {
+      getStatusForDay: jest.fn().mockResolvedValue({
+        businessDay: { businessDate: '2026-08-17' },
+        hasCount: true,
+        selectedPhase: 'close',
+        selectedCountId: 'close-count',
+        selectedCountRecordedAt: '2026-08-17T13:00:00.000Z',
+        rows: [],
+      }),
+    };
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+      tradingDayService as never,
+      packaging as never,
+      restock as never,
+    );
+
+    const report = await service.getDailyInventory('2026-08-17');
+
+    // A session note and item notes are independent. Requiring the former
+    // would hide a count whose item notes are the whole point.
+    expect(report.countNotes).toHaveLength(1);
+    expect(report.countNotes[0]!.notes).toBeNull();
+    expect(report.countNotes[0]!.itemNotes).toEqual([
+      { inventoryItemId: 'lids', itemName: '8 oz lids', notes: '3 lids cracked' },
+    ]);
+    expect(report.hasInventoryInformation).toBe(true);
+
+    // The query must match on EITHER kind of note.
+    const where = prisma.stockCount.findMany.mock.calls[0][0].where;
+    expect(where.OR).toEqual([
+      { notes: { not: null } },
+      { lines: { some: { notes: { not: null } } } },
+    ]);
   });
 
   it('treats a note as inventory information on an otherwise empty day', async () => {
@@ -216,6 +289,7 @@ describe('ReportingService', () => {
         submittedByNameSnapshot: 'Alex',
         recordedAt: new Date('2026-08-16T01:00:00.000Z'),
         correctsStockCountId: null,
+        lines: [],
       },
     ]);
     const tradingDayService = {

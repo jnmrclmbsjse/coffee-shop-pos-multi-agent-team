@@ -3797,7 +3797,8 @@ button {
 }
 
 .restock-report-table {
-  min-width: 660px;
+  /* Wide enough for the Notes column; narrower screens scroll the region. */
+  min-width: 820px;
 }
 
 .packaging-report-table tbody th,
@@ -10482,7 +10483,11 @@ select:not([multiple])::-ms-expand {
    (the default, and its long-standing behaviour) and every counted item. */
 
 .restock-scope-toggle {
-  margin: 0 0 var(--space-4);
+  /* Inset to line up with the .restock-copy text above it, which is padded
+     rather than margined; a bare margin left the toggle flush against the
+     panel's left edge and touching the copy's divider. */
+  margin: 0;
+  padding: var(--space-4) var(--space-6);
 }
 
 .restock-scope-toggle label {
@@ -10515,4 +10520,85 @@ select:not([multiple])::-ms-expand {
 .restock-scope-toggle label:focus-within {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+/* Per-item notes: one line per annotated item, on the POS read-back and in the
+   back-office session-notes panel. */
+
+.staff-item-note-input {
+  width: 100%;
+}
+
+.staff-readonly-item-note {
+  grid-column: 1 / -1;
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border-strong);
+  color: var(--ink-soft);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.count-item-notes {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.count-item-notes-label {
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.count-item-notes ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.count-item-notes li {
+  display: grid;
+  /* Item name and note side by side on a wide screen, stacked on a narrow one. */
+  grid-template-columns: minmax(140px, 0.4fr) 1fr;
+  gap: var(--space-3);
+  font-size: 14px;
+}
+
+.count-item-notes li span {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .count-item-notes li {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+}
+
+/* The session Notes field follows the count groups directly, and
+   .staff-inventory-field carries no margin of its own, so without this the
+   label sat flush against the last item row. */
+.staff-count-groups ~ .staff-inventory-field {
+  margin-top: var(--space-6);
+}
+
+/* Per-item note, in the restock table's Notes column. */
+.restock-report-table .restock-note {
+  min-width: 200px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.restock-report-table .restock-note-empty {
+  color: var(--muted);
 }

@@ -338,6 +338,10 @@ model StockCountLine {
   inventoryItemId String        @map("inventory_item_id") @db.Uuid
   quantity        Int?
   level           StockLevel?
+  // Note about THIS item during the count — "lid cracked, 3 unusable". Distinct
+  // from StockCount.notes, which is about the session as a whole. Immutable for
+  // the same reason: a correction is a new count, carrying its own notes.
+  notes           String?       @db.Text
   stockCount      StockCount    @relation(fields: [stockCountId], references: [id], onDelete: Restrict)
   inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
 

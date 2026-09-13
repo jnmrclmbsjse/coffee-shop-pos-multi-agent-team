@@ -214,16 +214,22 @@ function toCountGroups(items: CountSheetItem[]): CountCategoryGroup[] {
 function toCountLines(
   items: CountSheetItem[],
   values: CountDraft,
+  itemNotes: CountDraft,
 ): SubmitStockCountLineInput[] {
   const lines: SubmitStockCountLineInput[] = [];
   for (const item of items) {
     const value = values[item.id];
+    // A note without a count has nowhere to live: lines are keyed to a counted
+    // item, and an uncounted item produces no line at all. The UI disables the
+    // note field until the item is counted so this cannot surprise anyone.
     if (value === undefined || value === '') continue;
-    lines.push(
-      item.countMethod === CountMethod.QUANTITY
+    const note = (itemNotes[item.id] ?? '').trim();
+    lines.push({
+      ...(item.countMethod === CountMethod.QUANTITY
         ? { inventoryItemId: item.id, quantity: Number(value) }
-        : { inventoryItemId: item.id, level: value as StockLevel },
-    );
+        : { inventoryItemId: item.id, level: value as StockLevel }),
+      notes: note === '' ? null : note,
+    });
   }
   return lines;
 }
@@ -314,6 +320,14 @@ function ReadOnlyCount({
                     >
                       {value}
                     </div>
+                    {line?.notes && (
+                      <p className="staff-readonly-item-note">
+                        <span className="sr-only">
+                          Note for {item.name}:{' '}
+                        </span>
+                        {line.notes}
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -349,6 +363,9 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
   const [shiftLead, setShiftLead] = useState('');
   const [notes, setNotes] = useState('');
   const [values, setValues] = useState<CountDraft>({});
+  // Per-item notes, keyed by inventory item id — the same shape as `values`,
+  // so one item's note travels with its count.
+  const [itemNotes, setItemNotes] = useState<CountDraft>({});
   const [fieldErrors, setFieldErrors] = useState<CountFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recordingAnother, setRecordingAnother] = useState(false);
@@ -383,8 +400,11 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
   }, [phase, loadVersion, signedInStaffMemberId]);
 
   const lines = useMemo(
-    () => (sheet ? toCountLines(sheet.items, values) : []),
-    [sheet, values],
+    () => (sheet ? toCountLines(sheet.items, values, itemNotes) : []),
+    // itemNotes belongs here: without it a note typed after the count is
+    // entered never reaches the memoised lines, and the submit silently posts
+    // notes: null.
+    [sheet, values, itemNotes],
   );
   const countGroups = useMemo(
     () => (sheet ? toCountGroups(sheet.items) : []),
@@ -397,6 +417,7 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
     setShiftLead('');
     setNotes('');
     setValues({});
+    setItemNotes({});
     setFieldErrors({});
   }
 
@@ -421,6 +442,13 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
     }
     if (notes.trim().length > NOTES_MAX_LENGTH) {
       nextErrors.notes = `Notes must not exceed ${NOTES_MAX_LENGTH} characters.`;
+    }
+    if (
+      Object.values(itemNotes).some(
+        (note) => note.trim().length > NOTES_MAX_LENGTH,
+      )
+    ) {
+      nextErrors.lines = `An item note must not exceed ${NOTES_MAX_LENGTH} characters.`;
     }
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
@@ -654,6 +682,38 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
                       </div>
                     </fieldset>
                   )}
+                  <Field
+                    label={`Note for ${item.name}`}
+                    htmlFor={`${phase}-${item.id}-note`}
+                    optional
+                  >
+                    <input
+                      className="staff-item-note-input"
+                      id={`${phase}-${item.id}-note`}
+                      type="text"
+                      value={itemNotes[item.id] ?? ''}
+                      maxLength={NOTES_MAX_LENGTH}
+                      placeholder="e.g. 3 lids cracked"
+                      // A note needs a line to attach to, and an uncounted item
+                      // produces no line. Disabling until the item is counted
+                      // makes that visible instead of silently dropping it.
+                      disabled={
+                        isSubmitting ||
+                        values[item.id] === undefined ||
+                        values[item.id] === ''
+                      }
+                      onChange={(event) => {
+                        setItemNotes((current) => ({
+                          ...current,
+                          [item.id]: event.target.value,
+                        }));
+                        setFieldErrors((current) => ({
+                          ...current,
+                          lines: undefined,
+                        }));
+                      }}
+                    />
+                  </Field>
                 </div>
                     ))}
                   </div>

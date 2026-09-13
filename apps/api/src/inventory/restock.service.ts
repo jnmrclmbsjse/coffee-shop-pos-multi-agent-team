@@ -212,6 +212,7 @@ export class RestockService {
         par: null,
         parLevel: parLevel as SharedStockLevel | null,
         status: levelRestockStatus(level, parLevel),
+        notes: line.notes,
       };
     }
 
@@ -234,6 +235,7 @@ export class RestockService {
       par: quantityBands?.parQty ?? null,
       parLevel: null,
       status: quantityRestockStatus(quantity, quantityBands),
+      notes: line.notes,
     };
   }
 }

@@ -43,6 +43,24 @@ function reconciliationRow(
   };
 }
 
+function restockRow(
+  overrides: Partial<DailyInventoryReport['restock']['rows'][number]> = {},
+): DailyInventoryReport['restock']['rows'][number] {
+  return {
+    inventoryItemId: 'item',
+    itemName: 'Item',
+    critical: false,
+    countMethod: CountMethod.QUANTITY,
+    quantity: 2,
+    level: null,
+    par: 10,
+    parLevel: null,
+    status: 'LOW',
+    notes: null,
+    ...overrides,
+  };
+}
+
 function dailyReport(
   overrides: Partial<DailyInventoryReport> = {},
 ): DailyInventoryReport {
@@ -99,6 +117,7 @@ describe('daily inventory report page', () => {
               submittedByNameSnapshot: 'Maya Santos',
               recordedAt: '2026-07-26T01:00:00.000Z',
               isCorrection: false,
+              itemNotes: [],
             },
             {
               stockCountId: 'close-count',
@@ -107,6 +126,7 @@ describe('daily inventory report page', () => {
               submittedByNameSnapshot: 'Ana Cruz',
               recordedAt: '2026-07-26T13:00:00.000Z',
               isCorrection: true,
+              itemNotes: [],
             },
           ],
         }),
@@ -138,6 +158,97 @@ describe('daily inventory report page', () => {
     expect(panel.getByText('Correction')).toBeInTheDocument();
   });
 
+  it('shows item notes in the restock table, not repeated in the notes panel', async () => {
+    const base = dailyReport();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({
+          restock: {
+            ...base.restock,
+            rows: [
+              restockRow({
+                inventoryItemId: 'lids',
+                itemName: '8 oz lids',
+                status: 'LOW',
+                notes: '3 cracked, set aside',
+              }),
+            ],
+          },
+          countNotes: [
+            {
+              // The same count the table is built from.
+              stockCountId: 'closing-count',
+              phase: 'close',
+              notes: null,
+              itemNotes: [
+                {
+                  inventoryItemId: 'lids',
+                  itemName: '8 oz lids',
+                  notes: '3 cracked, set aside',
+                },
+              ],
+              submittedByNameSnapshot: 'Ana Cruz',
+              recordedAt: '2026-07-26T13:42:00.000Z',
+              isCorrection: false,
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderPage();
+
+    const table = await screen.findByRole('table', {
+      name: /Items below their restock threshold/,
+    });
+    expect(
+      within(table).getByRole('columnheader', { name: 'Notes' }),
+    ).toBeInTheDocument();
+    expect(within(table).getByText('3 cracked, set aside')).toBeInTheDocument();
+
+    // A count whose only notes are shown in the table leaves no entry behind.
+    const panel = within(
+      screen.getByRole('region', { name: 'Inventory session notes' }),
+    );
+    expect(panel.queryByText('3 cracked, set aside')).not.toBeInTheDocument();
+    expect(panel.getByText('No session notes for this day')).toBeInTheDocument();
+  });
+
+  it("keeps a different count's item notes in the panel so they are not lost", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({
+          countNotes: [
+            {
+              // The table uses the closing count; this is the opening one.
+              stockCountId: 'opening-count',
+              phase: 'open',
+              notes: null,
+              itemNotes: [
+                {
+                  inventoryItemId: 'beans',
+                  itemName: 'House blend beans',
+                  notes: 'Bag split in transit',
+                },
+              ],
+              submittedByNameSnapshot: 'Maya Santos',
+              recordedAt: '2026-07-26T01:00:00.000Z',
+              isCorrection: false,
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderPage();
+
+    const panel = within(
+      await screen.findByRole('region', { name: 'Inventory session notes' }),
+    );
+    expect(panel.getByText('House blend beans')).toBeInTheDocument();
+    expect(panel.getByText('Bag split in transit')).toBeInTheDocument();
+  });
+
   it('states plainly when no note was recorded', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(dailyReport({ countNotes: [] })),
@@ -146,7 +257,7 @@ describe('daily inventory report page', () => {
     renderPage();
 
     expect(
-      await screen.findByText('No notes recorded for this day'),
+      await screen.findByText('No session notes for this day'),
     ).toBeInTheDocument();
   });
 
@@ -225,6 +336,7 @@ describe('daily inventory report page', () => {
                 par: null,
                 parLevel: null,
                 status: 'URGENT',
+                notes: null,
               },
               {
                 inventoryItemId: 'chocolate',
@@ -236,6 +348,7 @@ describe('daily inventory report page', () => {
                 par: null,
                 parLevel: null,
                 status: 'BELOW_PAR',
+                notes: null,
               },
             ],
           },
@@ -273,6 +386,7 @@ describe('daily inventory report page', () => {
                 par: null,
                 parLevel: StockLevel.FULL,
                 status: 'LOW',
+                notes: null,
               },
             ],
           },
@@ -301,6 +415,7 @@ describe('daily inventory report page', () => {
         par: 10,
         parLevel: null,
         status: 'LOW' as const,
+        notes: null,
       },
       {
         inventoryItemId: 'cups',
@@ -312,6 +427,7 @@ describe('daily inventory report page', () => {
         par: 20,
         parLevel: null,
         status: 'ENOUGH' as const,
+        notes: null,
       },
     ];
     fetchMock.mockResolvedValueOnce(
@@ -356,6 +472,7 @@ describe('daily inventory report page', () => {
         par: 20,
         parLevel: null,
         status: 'ENOUGH' as const,
+        notes: null,
       },
     ];
     fetchMock.mockResolvedValueOnce(

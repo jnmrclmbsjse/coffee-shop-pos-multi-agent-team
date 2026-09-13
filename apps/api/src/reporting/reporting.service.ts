@@ -12,6 +12,7 @@ import {
 } from '@coffee-shop/shared';
 import type {
   DailyInventoryCountNote,
+  DailyInventoryItemNote,
   DailyInventoryReport,
   DailyReconciliation,
   MoneyCents,
@@ -202,6 +203,10 @@ export class ReportingService {
   // original plus its corrections. Return every one that carries a note,
   // oldest first, rather than collapsing them to the latest: the earlier note
   // is part of what happened and the admin decides what it means.
+  //
+  // A count qualifies on EITHER a session note or at least one item note. The
+  // two are independent: a barista may annotate three items and say nothing
+  // about the shift, and that count is exactly the one worth reading.
   private async loadCountNotes(
     businessDate: Date,
     locationId: string | null,
@@ -210,7 +215,7 @@ export class ReportingService {
       where: {
         businessDate,
         locationId,
-        notes: { not: null },
+        OR: [{ notes: { not: null } }, { lines: { some: { notes: { not: null } } } }],
       },
       select: {
         id: true,
@@ -219,6 +224,15 @@ export class ReportingService {
         submittedByNameSnapshot: true,
         recordedAt: true,
         correctsStockCountId: true,
+        lines: {
+          where: { notes: { not: null } },
+          select: {
+            inventoryItemId: true,
+            notes: true,
+            inventoryItem: { select: { name: true } },
+          },
+          orderBy: { inventoryItem: { name: 'asc' } },
+        },
       },
       orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }],
     });
@@ -226,8 +240,15 @@ export class ReportingService {
     return counts.map((count) => ({
       stockCountId: count.id,
       phase: count.phase === PrismaStockCountPhase.OPEN ? 'open' : 'close',
-      // `notes: { not: null }` narrows the row set but not the TS type.
-      notes: count.notes ?? '',
+      notes: count.notes,
+      itemNotes: count.lines.map(
+        (line): DailyInventoryItemNote => ({
+          inventoryItemId: line.inventoryItemId,
+          itemName: line.inventoryItem.name,
+          // The `where` narrows the rows, not the TS type.
+          notes: line.notes ?? '',
+        }),
+      ),
       submittedByNameSnapshot: count.submittedByNameSnapshot,
       recordedAt: count.recordedAt.toISOString(),
       isCorrection: count.correctsStockCountId !== null,

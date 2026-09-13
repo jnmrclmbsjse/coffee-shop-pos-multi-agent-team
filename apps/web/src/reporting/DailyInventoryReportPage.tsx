@@ -147,6 +147,7 @@ export function DailyInventoryReportPage() {
               />
               <CountNotesPanel
                 countNotes={report.countNotes}
+                tableCountId={report.restock.selectedCountId}
                 businessDate={report.businessDate}
                 location={location}
               />

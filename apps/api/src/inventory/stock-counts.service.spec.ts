@@ -88,6 +88,7 @@ describe('StockCountsService', () => {
           inventoryItemId: 'item-id',
           quantity: 4,
           level: null,
+          notes: null,
           inventoryItem: { name: 'Beans' },
         },
       ],
@@ -291,6 +292,7 @@ describe('StockCountsService', () => {
                 inventoryItemId: 'item-id',
                 quantity: 4,
                 level: null,
+                notes: null,
               },
             ],
           },
@@ -331,6 +333,75 @@ describe('StockCountsService', () => {
       );
     },
   );
+
+  it('persists a per-item note on the line it belongs to', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+
+    await service.submit({
+      ...validInput(),
+      lines: [
+        { inventoryItemId: 'item-id', quantity: 4, notes: '3 lids cracked' },
+      ],
+    });
+
+    expect(prisma.stockCount.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lines: {
+            create: [
+              expect.objectContaining({
+                inventoryItemId: 'item-id',
+                quantity: 4,
+                notes: '3 lids cracked',
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it('stores a null item note when the line carries none', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+
+    await service.submit(validInput());
+
+    const data = prisma.stockCount.create.mock.calls[0]![0].data;
+    expect(data.lines.create[0]).toEqual(
+      expect.objectContaining({ notes: null }),
+    );
+  });
+
+  it('returns the item note on the submitted count line', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+    prisma.stockCount.create.mockResolvedValue(
+      countRecord({
+        lines: [
+          {
+            id: 'line-id',
+            stockCountId: 'count-id',
+            inventoryItemId: 'item-id',
+            quantity: 4,
+            level: null,
+            notes: 'Bag split, repacked',
+            inventoryItem: { name: 'Beans' },
+          },
+        ],
+      }),
+    );
+
+    const submitted = await service.submit(validInput());
+
+    expect(submitted.lines[0]).toEqual(
+      expect.objectContaining({
+        itemName: 'Beans',
+        notes: 'Bag split, repacked',
+      }),
+    );
+  });
 
   it('stores null when no note was given', async () => {
     const { prisma, service } = createService();

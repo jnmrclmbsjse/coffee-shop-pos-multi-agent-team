@@ -419,32 +419,50 @@ function RestockTarget({ row }: { row: RestockStatusRow }) {
 
 export function CountNotesPanel({
   countNotes,
+  tableCountId,
   businessDate,
   location,
 }: {
   countNotes: DailyInventoryReport['countNotes'];
+  // The count the Restock needs table is built from. Its item notes are shown
+  // in that table's Notes column, so they are not repeated here.
+  tableCountId: string | null;
   businessDate: string;
   location: string;
 }) {
+  // Item notes from any OTHER count (e.g. the opening count when the table
+  // uses the closing one) have no table row to live in, so they stay here —
+  // otherwise they would vanish from the report entirely.
+  const visible = countNotes
+    .map((note) => ({
+      ...note,
+      itemNotes: note.stockCountId === tableCountId ? [] : note.itemNotes,
+    }))
+    .filter((note) => note.notes !== null || note.itemNotes.length > 0);
+
   return (
     <section className="report-panel" aria-labelledby="count-notes-title">
       <header className="report-panel-head">
         <div>
           <h2 id="count-notes-title">Inventory session notes</h2>
-          <p>Notes recorded by staff while counting, opening and closing.</p>
+          <p>
+            Notes recorded by staff while counting, opening and closing. Item
+            notes for the count used above appear in the Restock needs table.
+          </p>
         </div>
       </header>
-      {countNotes.length === 0 ? (
+      {visible.length === 0 ? (
         <div className="report-empty">
-          <strong>No notes recorded for this day</strong>
+          <strong>No session notes for this day</strong>
           <span>
             No opening or closing count for {formatBusinessDate(businessDate)} at{' '}
-            {location} carried a note. Notes are optional.
+            {location} carried a session note. Item notes, if any, are in the
+            Restock needs table. Notes are optional.
           </span>
         </div>
       ) : (
         <ul className="count-notes-list">
-          {countNotes.map((note) => (
+          {visible.map((note) => (
             <li className="count-note" key={note.stockCountId}>
               <div className="count-note-meta">
                 <strong>{note.phase === 'open' ? 'Opening' : 'Closing'}</strong>
@@ -459,7 +477,24 @@ export function CountNotesPanel({
                   <span className="count-note-correction">Correction</span>
                 )}
               </div>
-              <p className="count-note-body">{note.notes}</p>
+              {note.notes && <p className="count-note-body">{note.notes}</p>}
+              {note.itemNotes.length > 0 && (
+                <div className="count-item-notes">
+                  <p className="count-item-notes-label">
+                    {note.itemNotes.length === 1
+                      ? '1 item noted'
+                      : `${note.itemNotes.length} items noted`}
+                  </p>
+                  <ul>
+                    {note.itemNotes.map((item) => (
+                      <li key={item.inventoryItemId}>
+                        <strong>{item.itemName}</strong>
+                        <span>{item.notes}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -491,6 +526,10 @@ export function RestockNeedsPanel({
   const enoughCount = restock.rows.length - restock.rows.filter(
     (row) => row.status !== 'ENOUGH',
   ).length;
+  // A note is easy to lose behind the default filter, so say when one is hidden.
+  const hiddenNotedCount = restock.rows.filter(
+    (row) => row.status === 'ENOUGH' && row.notes !== null,
+  ).length;
 
   return (
     <section className="report-panel" aria-labelledby="restock-needs-title">
@@ -519,7 +558,11 @@ export function RestockNeedsPanel({
               ? `Showing all ${restock.rows.length} counted items, including those with Enough stock.`
               : `Showing Urgent, Low, and Below par items only.${
                   enoughCount > 0
-                    ? ` ${enoughCount} item${enoughCount === 1 ? '' : 's'} with Enough stock ${enoughCount === 1 ? 'is' : 'are'} hidden.`
+                    ? ` ${enoughCount} item${enoughCount === 1 ? '' : 's'} with Enough stock ${enoughCount === 1 ? 'is' : 'are'} hidden${
+                        hiddenNotedCount > 0
+                          ? `, ${hiddenNotedCount} with a note`
+                          : ''
+                      }.`
                     : ''
                 }`}
           </p>
@@ -568,6 +611,7 @@ export function RestockNeedsPanel({
                       <th scope="col" className="num">Counted amount</th>
                       <th scope="col" className="num">Target (par)</th>
                       <th scope="col">Status</th>
+                      <th scope="col">Notes</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -585,6 +629,14 @@ export function RestockNeedsPanel({
                           >
                             {formatRestockStatus(row.status)}
                           </span>
+                        </td>
+                        <td className="restock-note">
+                          {row.notes ?? (
+                            <span className="restock-note-empty">
+                              <span aria-hidden="true">—</span>
+                              <span className="sr-only">No note</span>
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}

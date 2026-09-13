@@ -222,6 +222,14 @@ export class SubmitStockCountLineDto
   @IsOptional()
   @IsEnum(StockLevel)
   level?: StockLevel;
+
+  // Same trim-to-null and cap as the session note, so a whitespace-only item
+  // note is stored as absent rather than as a blank note.
+  @IsOptional()
+  @Transform(optionalTrimmedString)
+  @IsString()
+  @MaxLength(500, { message: 'item notes must not exceed 500 characters' })
+  notes?: string | null;
 }
 
 export class SubmitStockCountDto implements SubmitStockCountInput {

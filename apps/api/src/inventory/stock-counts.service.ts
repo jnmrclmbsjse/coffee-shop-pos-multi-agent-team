@@ -149,6 +149,7 @@ export class StockCountsService {
               inventoryItemId: line.inventoryItemId,
               quantity: line.quantity ?? null,
               level: line.level ?? null,
+              notes: line.notes ?? null,
             })),
           },
         },
@@ -316,6 +317,7 @@ export class StockCountsService {
         itemName: line.inventoryItem.name,
         quantity: line.quantity,
         level: line.level as SharedStockLevel | null,
+        notes: line.notes,
       })),
     };
   }
