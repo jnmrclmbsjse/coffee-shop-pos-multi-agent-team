@@ -445,14 +445,16 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
     const rows = await tableRows(page.getByRole('table', { name: 'Daily reconciliation' }));
 
     // One row per TRADING DAY (not per calendar date), oldest to newest, with
-    // date, status, cash, online, gross, tips, expected, actual and variance.
+    // date, status, cash, online, gross, tips, cash in, cash out, cash expenses,
+    // outstanding change, expected, actual and variance. The four drawer
+    // columns were added with cash movements (#154) and change settlement.
     expect(rows).toEqual([
-      [DAY_BOUNDARY, 'Closed', '₱500.00', '₱300.00', '₱800.00', '₱20.00', '₱1,470.00', '₱1,470.00', '₱0.00'],
-      [DAY_FLOAT_ONLY, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱2,000.00', '₱1,950.00', 'Short₱-50.00'],
-      [DAY_ZERO_COUNT, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00'],
-      [DAY_TWO_COUNTS, 'Closed', '₱200.00', '₱100.00', '₱300.00', '₱10.00', '₱1,210.00', '₱1,240.00', 'Over₱30.00'],
-      [DAY_NO_COUNT, 'Closed', '₱130.00', '₱0.00', '₱130.00', '₱0.00', '₱630.00', '—', '—'],
-      [DAY_OPEN, 'Open', '₱450.00', '₱400.00', '₱850.00', '₱30.00', '₱1,955.00', '—', '—'],
+      [DAY_BOUNDARY, 'Closed', '₱500.00', '₱300.00', '₱800.00', '₱20.00', '₱0.00', '₱0.00', '₱50.00', '₱0.00', '₱1,470.00', '₱1,470.00', '₱0.00'],
+      [DAY_FLOAT_ONLY, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱2,000.00', '₱1,950.00', 'Short₱-50.00'],
+      [DAY_ZERO_COUNT, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00'],
+      [DAY_TWO_COUNTS, 'Closed', '₱200.00', '₱100.00', '₱300.00', '₱10.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱1,210.00', '₱1,240.00', 'Over₱30.00'],
+      [DAY_NO_COUNT, 'Closed', '₱130.00', '₱0.00', '₱130.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱630.00', '—', '—'],
+      [DAY_OPEN, 'Open', '₱450.00', '₱400.00', '₱850.00', '₱30.00', '₱0.00', '₱0.00', '₱25.00', '₱0.00', '₱1,955.00', '—', '—'],
     ]);
 
     // Calendar dates without a trading day produce no row.
@@ -461,26 +463,26 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
 
     // crit 8 — the open day has an expected figure but a genuinely absent
     // actual and variance. "—", never ₱0.00.
+    // Columns: 10 expected, 11 actual, 12 variance.
     const openRow = rows[5]!;
-    expect(openRow[6]).toBe('₱1,955.00');
-    expect(openRow[7]).toBe('—');
-    expect(openRow[8]).toBe('—');
-    expect(openRow[7]).not.toBe('₱0.00');
-    expect(openRow[8]).not.toBe('₱0.00');
+    expect(openRow[10]).toBe('₱1,955.00');
+    expect(openRow[11]).toBe('—');
+    expect(openRow[12]).toBe('—');
+    expect(openRow[11]).not.toBe('₱0.00');
+    expect(openRow[12]).not.toBe('₱0.00');
 
     // A closed day that was never counted renders the same way …
-    expect(rows[4]![7]).toBe('—');
-    expect(rows[4]![8]).toBe('—');
+    expect(rows[4]![11]).toBe('—');
+    expect(rows[4]![12]).toBe('—');
     // … while a RECORDED zero count is ₱0.00 and is not treated as missing.
-    expect(rows[2]![7]).toBe('₱0.00');
-    expect(rows[2]![8]).toBe('₱0.00');
+    expect(rows[2]![11]).toBe('₱0.00');
+    expect(rows[2]![12]).toBe('₱0.00');
 
     // Tips move expected cash but never gross sales; a cash expense reduces
-    // expected cash without appearing on screen.
+    // expected cash, and is now shown in its own column (index 8).
     // DAY_OPEN: float 1500 + cash 450 + tips 30 − expense 25 = 1955.
-    await expect(page.getByRole('table', { name: 'Daily reconciliation' })).not.toContainText(
-      'Cash expenses',
-    );
+    expect(openRow[8]).toBe('₱25.00');
+    expect(rows[0]![8]).toBe('₱50.00');
   });
 
   test('crit 9: product sales for the range show signed quantity and revenue per base product', async ({
@@ -566,7 +568,7 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
     await expect(page.getByRole('table', { name: 'Product sales' })).toHaveCount(0);
   });
 
-  test('crit 11: Export CSV downloads a named file carrying the on-screen values plus cash expenses', async ({
+  test('crit 11: Export CSV downloads a named file carrying the on-screen reconciliation columns', async ({
     page,
   }) => {
     await gotoReports(page);
@@ -588,21 +590,24 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
     const lines = csv.trim().split(/\r?\n/);
 
     expect(lines[0]).toBe(
-      'Date,Status,Cash sales,Online sales,Gross,Tips,Cash expenses,Expected cash,Actual cash,Variance',
+      'Date,Status,Cash sales,Online sales,Gross,Tips,Cash in,Cash out,Cash expenses,Outstanding change,Expected cash,Actual cash,Variance',
     );
     expect(lines.slice(1)).toEqual([
-      `${DAY_BOUNDARY},closed,500.00,300.00,800.00,20.00,50.00,1470.00,1470.00,0.00`,
-      `${DAY_FLOAT_ONLY},closed,0.00,0.00,0.00,0.00,0.00,2000.00,1950.00,-50.00`,
-      `${DAY_ZERO_COUNT},closed,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00`,
-      `${DAY_TWO_COUNTS},closed,200.00,100.00,300.00,10.00,0.00,1210.00,1240.00,30.00`,
+      `${DAY_BOUNDARY},closed,500.00,300.00,800.00,20.00,0.00,0.00,50.00,0.00,1470.00,1470.00,0.00`,
+      `${DAY_FLOAT_ONLY},closed,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,2000.00,1950.00,-50.00`,
+      `${DAY_ZERO_COUNT},closed,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00`,
+      `${DAY_TWO_COUNTS},closed,200.00,100.00,300.00,10.00,0.00,0.00,0.00,0.00,1210.00,1240.00,30.00`,
       // Missing actual cash and variance are EMPTY fields, never 0.00.
-      `${DAY_NO_COUNT},closed,130.00,0.00,130.00,0.00,0.00,630.00,,`,
-      `${DAY_OPEN},open,450.00,400.00,850.00,30.00,25.00,1955.00,,`,
+      `${DAY_NO_COUNT},closed,130.00,0.00,130.00,0.00,0.00,0.00,0.00,0.00,630.00,,`,
+      `${DAY_OPEN},open,450.00,400.00,850.00,30.00,0.00,0.00,25.00,0.00,1955.00,,`,
     ]);
 
-    // The cash-expenses column exists in the CSV and nowhere on screen.
-    expect(lines[1]!.split(',')[6]).toBe('50.00');
-    await expect(page.locator('.reporting-page')).not.toContainText('Cash expenses');
+    // The CSV carries exactly the on-screen reconciliation columns, including
+    // cash expenses (index 8), which the page now shows as well.
+    expect(lines[1]!.split(',')[8]).toBe('50.00');
+    await expect(page.getByRole('table', { name: 'Daily reconciliation' })).toContainText(
+      'Cash expenses',
+    );
   });
 
   test('crit 11: a valid range with no trading days exports a header-only CSV', async ({

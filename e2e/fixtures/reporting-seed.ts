@@ -399,10 +399,12 @@ export function seedTradingDay(
       });
     }
 
+    // CashExpense was replaced by CashMovement (kind EXPENSE) in #154.
     for (const amountCents of fixture.cashExpenses) {
-      await prisma.cashExpense.create({
+      await prisma.cashMovement.create({
         data: {
           tradingDayId: fixture.tradingDay.id,
+          kind: 'EXPENSE',
           amountCents,
           description: 'QA seeded expense',
           recordedAt: new Date(businessDate.getTime() + 5 * 3600000),

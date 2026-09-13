@@ -602,7 +602,12 @@ test.describe('Named controls stay reachable in both menu states', () => {
     for (const menuVisible of [true, false, true]) {
       await setMenu(page, menuVisible);
       const state = menuVisible ? 'shown' : 'hidden';
-      await page.evaluate(() => window.scrollTo(0, 0));
+      // Since #389 the effective cash summary sits above the entry form, so
+      // the amount field can start below the fold. AC6 is that the sticky top
+      // bar does not cover it, so bring it into view first, as the submission
+      // check below already does.
+      await amount.scrollIntoViewIfNeeded();
+      await settle(page);
       await expectHittable(amount, `the amount field with the menu ${state}`);
       await amount.fill('12.50');
       await expect(amount).toHaveValue('12.50');
@@ -683,6 +688,13 @@ test.describe('Take Order at 390x844', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await signInAsStaff(page);
     await gotoScreen(page, TAKE_ORDER);
+    // The heading renders before the catalog arrives. Measured that early the
+    // stacked page is only as tall as the viewport, so wait for the seeded
+    // catalog's last product before judging document scrolling.
+    await expect(
+      page.getByRole('heading', { name: catalog.lastProductName }),
+    ).toBeAttached();
+    await settle(page);
 
     const { shown, hidden, headerDelta } = await measureBothStates(page);
 

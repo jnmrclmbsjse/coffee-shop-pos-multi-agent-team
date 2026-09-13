@@ -213,6 +213,9 @@ async function clickOnScreen(
   control: Locator,
   label: string,
 ): Promise<void> {
+  // boundingBox() does not wait: measured before the control renders it is
+  // null, which failed this intermittently under a full-suite run.
+  await expect(control, `${label} should be visible`).toBeVisible();
   const box = await control.boundingBox();
   expect(box, `${label} should be laid out`).not.toBeNull();
   const viewportHeight = page.viewportSize()!.height;
@@ -319,6 +322,8 @@ test.describe('Touch layout at 1024×768', () => {
       ['totals', currentOrder(page).locator('dl.current-order-totals')],
       ['order actions', currentOrder(page).locator('.current-order-actions')],
     ] as Array<[string, Locator]>) {
+      // boundingBox() does not wait for the element to render.
+      await expect(locator, `${label} should be visible`).toBeVisible();
       const box = await locator.boundingBox();
       expect(box, `${label} should be laid out`).not.toBeNull();
       expect(

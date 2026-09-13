@@ -61,11 +61,24 @@ function seedStockItems(): void {
       { sku: 'E2E-LID-STD', name: ${JSON.stringify(LID_ITEM)}, unit: 'piece' },
     ];
     (async () => {
+      // InventoryItem also requires a stock category. Reuse one tagged category
+      // across runs rather than leaking a new one each time.
+      const category =
+        (await prisma.stockCategory.findFirst({
+          where: { name: 'E2E Catalog Packaging' },
+          select: { id: true },
+        })) ??
+        (await prisma.stockCategory.create({
+          data: { name: 'E2E Catalog Packaging', sortWeight: 999 },
+          select: { id: true },
+        }));
       for (const it of items) {
         await prisma.inventoryItem.upsert({
           where: { sku: it.sku },
           update: { name: it.name, unit: it.unit, active: true },
-          create: { ...it, active: true },
+          // countMethod became required on InventoryItem with the inventory
+          // schema work; cups and lids are counted by quantity.
+          create: { ...it, countMethod: 'QUANTITY', categoryId: category.id, active: true },
         });
       }
       await prisma.$disconnect();

@@ -700,7 +700,7 @@ test.describe('Restock status is unchanged by saved level targets (#286 / #108)'
    * so a Restock implementation that started reading them could not land on
    * `Low` by luck in both halves of the test.
    */
-  test('a level item with saved level targets still shows "—" for Par and the fixed level-derived status', async ({
+  test('a level item shows its saved Normal-day target as Par, and restock status follows that target (#338)', async ({
     page,
     browser,
   }) => {
@@ -734,15 +734,16 @@ test.describe('Restock status is unchanged by saved level targets (#286 / #108)'
         return rows.first();
       };
 
-      // Saved targets: Normal = Full, Peak = Empty. Neither appears, and the
-      // status is the fixed One-third → Low mapping.
+      // Since #338 Restock reads the saved level target for the day type. The
+      // open day is Normal, so Par shows the Normal target (Full). One-third is
+      // below Full, so the row keeps its fixed band: Low.
       let row = await restockRow();
       await expect(row.locator('td').nth(1)).toContainText('One-third');
-      await expect(row.locator('td').nth(2)).toHaveText('—');
+      await expect(row.locator('td').nth(2)).toHaveText('Full');
       await expect(row.locator('td').nth(3)).toHaveText('Low');
 
-      // Flip the Normal-day target to the opposite end of the scale. If Restock
-      // read it, the row would have to move; it must not.
+      // Flip the Normal-day target to the opposite end of the scale. Restock
+      // must follow it: One-third is at or above Empty, so the item has Enough.
       await page.goto(`/inventory/items/${itemId}/edit`);
       await expect(page.getByRole('heading', { level: 1 })).toContainText(name);
       await chooseLevel(page, 'Normal day', 'Empty');
@@ -754,8 +755,8 @@ test.describe('Restock status is unchanged by saved level targets (#286 / #108)'
 
       row = await restockRow();
       await expect(row.locator('td').nth(1)).toContainText('One-third');
-      await expect(row.locator('td').nth(2)).toHaveText('—');
-      await expect(row.locator('td').nth(3)).toHaveText('Low');
+      await expect(row.locator('td').nth(2)).toHaveText('Empty');
+      await expect(row.locator('td').nth(3)).toHaveText('Enough');
     } finally {
       await staffContext.close();
     }

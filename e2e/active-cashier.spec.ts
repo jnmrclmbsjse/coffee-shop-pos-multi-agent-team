@@ -246,6 +246,28 @@ async function serverActiveCashier(
 }
 
 /**
+ * Start from "no cashier selected" on this device.
+ *
+ * Since #303 (ADR 0012 §4) every staff sign-in appends the signed-in account's
+ * linked roster member as the default cashier. These criteria are about the
+ * picker and the PIN gate starting from nobody, so clear that default the same
+ * way staff do — DELETE /sales/active-cashier, which needs no PIN — and reload
+ * so the shell renders the cleared state.
+ */
+async function clearDefaultCashier(page: Page): Promise<void> {
+  const deviceId = await page.evaluate(() =>
+    window.localStorage.getItem('ucm.staff-auth.device-id.v1'),
+  );
+  expect(deviceId, 'the POS should have a device id').toBeTruthy();
+  const response = await page.request.delete(`${API_BASE_URL}/sales/active-cashier`, {
+    data: { deviceId },
+  });
+  expect(response.ok(), 'clearing the default cashier').toBe(true);
+  await page.reload();
+  await expect(indicatorName(page)).toHaveText(NO_CASHIER_LABEL);
+}
+
+/**
  * A message is "non-identifying" when it neither names the person being
  * selected nor says which part of the attempt was wrong (ADR 0007 §3).
  */
@@ -321,6 +343,7 @@ test('AC3: the POS shows the active cashier by name, or that none is selected', 
   const tag = newTag();
   const member = await createMember(`Indicator ${tag}`);
   await signInAsStaff(page);
+  await clearDefaultCashier(page);
 
   await expect(indicator(page)).toContainText('Active cashier');
   await expect(indicatorName(page)).toHaveText(NO_CASHIER_LABEL);
@@ -367,6 +390,7 @@ test('AC5/AC6: a PIN-gated member is prompted, and the correct PIN activates the
   page,
 }) => {
   await signInAsStaff(page);
+  await clearDefaultCashier(page);
   const sessionBefore = await page.request.get(`${API_BASE_URL}/auth/session`);
   expect(sessionBefore.ok()).toBe(true);
   const signedInBefore = await sessionBefore.json();
@@ -409,6 +433,7 @@ test('AC7: incorrect and incomplete PINs are refused with one identical, non-ide
   page,
 }) => {
   await signInAsStaff(page);
+  await clearDefaultCashier(page);
 
   await attemptPinCashier(page, '9999');
   await expect(failure(page)).toBeVisible();
@@ -440,6 +465,7 @@ test('AC8: cancelling PIN entry shows no unsuccessful-attempt error and activate
   page,
 }) => {
   await signInAsStaff(page);
+  await clearDefaultCashier(page);
 
   await openPicker(page);
   await card(page, PIN_CASHIER).click();
@@ -527,6 +553,7 @@ test('AC10: repeated failures throttle every attempt for the cooldown, then work
 }) => {
   test.setTimeout(120_000 + THROTTLE_COOLDOWN_SECONDS * 1000);
   await signInAsStaff(page);
+  await clearDefaultCashier(page);
 
   await attemptPinCashier(page, '9999');
   await expect(failure(page)).toHaveText(GENERIC_PIN_FAILURE);
@@ -655,7 +682,7 @@ test('AC13: the active cashier stays active after being deactivated, but is no l
 // AC 14 — the selection survives a reload and a sign-out/sign-in on the device
 // ---------------------------------------------------------------------------
 
-test('AC14: the selection survives a reload and signing out and back in on the same device', async ({
+test('AC14: the selection survives a reload; signing back in replaces it with the account default (ADR 0012 §4)', async ({
   page,
   context,
 }) => {
@@ -671,7 +698,10 @@ test('AC14: the selection survives a reload and signing out and back in on the s
   await page.goto('/pos');
   await expect(page).toHaveURL(/\/staff\/sign-in(?:\?|$)/);
   await signInAsStaff(page);
-  await expect(indicatorName(page)).toHaveText(member.displayName);
+  // ADR 0012 §4 (#303): every staff sign-in appends the signed-in account's
+  // default cashier, so signing back in on this device replaces the earlier
+  // manual choice. Covered in depth by staff-accounts-default-cashier.spec.ts.
+  await expect(indicatorName(page)).toHaveText(PIN_CASHIER);
 });
 
 // ---------------------------------------------------------------------------
@@ -694,7 +724,9 @@ test('AC15: selecting on one device does not change the cashier on another', asy
   const otherPage = await otherDevice.newPage();
   try {
     await signInAsStaff(otherPage);
-    await expect(indicatorName(otherPage)).toHaveText(NO_CASHIER_LABEL);
+    // Sign-in on this device appends its own default cashier (ADR 0012 §4);
+    // start this device from nobody so per-device scoping is what's tested.
+    await clearDefaultCashier(otherPage);
 
     await selectPinFree(otherPage, second.displayName);
     await expect(indicatorName(otherPage)).toHaveText(second.displayName);
