@@ -102,6 +102,7 @@ const ADMIN_ROUTES = [
   '/inventory',
   '/staff',
   '/reports',
+  '/compensation',
   '/order-history',
 ] as const;
 

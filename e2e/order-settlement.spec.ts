@@ -110,8 +110,21 @@ async function searchFor(page: Page, productName: string): Promise<void> {
  * Every settlement criterion needs a chargeable order and none of them are
  * about how it was built, so this is deliberately the shortest path there.
  */
-async function orderReadyToCharge(page: Page): Promise<void> {
+async function orderReadyToCharge(
+  page: Page,
+  options: { noCashier?: boolean } = {},
+): Promise<void> {
   await signInAsStaff(page);
+  if (options.noCashier) {
+    // Since #303 (ADR 0012 §4) sign-in selects the account's default cashier.
+    // Record a cleared selection before the order starts, because the cashier
+    // is fixed when the order is created.
+    seedCashierSelection({
+      deviceId: await deviceId(page),
+      staffMemberId: null,
+      username: STAFF_USERNAME,
+    });
+  }
   await openTakeOrder(page);
   await searchFor(page, catalog.products.espresso.name);
   await sizeButton(page, catalog.products.espresso.name, 'Regular').click();
@@ -663,7 +676,7 @@ test.describe('Cashier attribution', () => {
   test('an order started with no active cashier is recorded without attribution', async ({
     page,
   }) => {
-    await orderReadyToCharge(page);
+    await orderReadyToCharge(page, { noCashier: true });
 
     await expect(currentOrder(page)).toContainText('No cashier');
     expect(readOrders()[0].cashierNameSnapshot).toBeNull();
@@ -678,7 +691,7 @@ test.describe('Cashier attribution', () => {
   test('selecting a cashier later never rewrites attribution already fixed', async ({
     page,
   }) => {
-    await orderReadyToCharge(page);
+    await orderReadyToCharge(page, { noCashier: true });
     expect(readOrders()[0].cashierNameSnapshot).toBeNull();
 
     // A cashier is chosen on this device after the order was started.

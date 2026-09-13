@@ -11,6 +11,7 @@ import {
   type SeedItemSpec,
   type SeededItem,
   type SeededStaff,
+  deactivateStaleInventoryItems,
 } from './fixtures/inventory-operations';
 
 /**
@@ -146,6 +147,7 @@ function businessDateLabel(isoDate: string): string {
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(() => {
+  deactivateStaleInventoryItems(TAG);
   items = seedInventoryItems(TAG, ITEM_SPECS);
   staff = seedStaffMembers({
     ada: { displayName: `QA Ada ${TAG}`, isActive: true },
@@ -516,18 +518,31 @@ test.describe('closing count sheet (#108)', () => {
       await expect(countRow(page, item.name)).toHaveCount(1);
     }
 
-    // Ordering is asserted as a partition over the whole sheet, not just this
-    // run's items: every Critical row must precede every non-Critical row.
-    const criticalFlags = await page
-      .locator('.staff-count-row .staff-count-item-name')
-      .evaluateAll((nodes) =>
-        nodes.map((node) => node.querySelector('span') !== null),
+    // Since #338 the sheet groups items by category, so ordering is a
+    // partition within each category group, over every row on the sheet (not
+    // just this run's items): each Critical row precedes every non-Critical row
+    // of the same category.
+    const groups = await page
+      .locator('.staff-count-group')
+      .evaluateAll((sections) =>
+        sections.map((section) =>
+          Array.from(
+            section.querySelectorAll('.staff-count-row .staff-count-item-name'),
+          ).map((node) => node.querySelector('span') !== null),
+        ),
       );
-    expect(criticalFlags.length).toBeGreaterThan(1);
-    const lastCritical = criticalFlags.lastIndexOf(true);
-    const firstNonCritical = criticalFlags.indexOf(false);
-    expect(firstNonCritical).toBeGreaterThan(-1);
-    expect(lastCritical).toBeLessThan(firstNonCritical);
+    const allFlags = groups.flat();
+    expect(allFlags.length).toBeGreaterThan(1);
+    expect(allFlags).toContain(false);
+    groups.forEach((flags, index) => {
+      const lastCritical = flags.lastIndexOf(true);
+      const firstNonCritical = flags.indexOf(false);
+      if (lastCritical === -1 || firstNonCritical === -1) return;
+      expect(
+        lastCritical,
+        `category group ${index + 1}: Critical rows come before non-Critical rows`,
+      ).toBeLessThan(firstNonCritical);
+    });
   });
 
   test('uses the same staff selects and counting controls as the opening sheet', async ({

@@ -684,15 +684,19 @@ test('provisioning: a roster member with an account cannot be given a second one
   expect(readStaffMemberLink(member.id).userId).toBe(firstAccount.id);
   expect(countMembersLinkedToAccount(firstAccount.id)).toBe(1);
 
-  // The administrator sees the same refusal in the dialog, which stays open
-  // and states that nothing was created.
+  // The staff page no longer offers a second account at all (#392): a linked
+  // member's row shows the account and the credential-replacement action in
+  // place of "Create login account", so the refusal above is API-only.
   await signInAsAdmin(page);
   await gotoStaffRow(page, member);
-  await openAccountDialog(page, member);
-  await fillAccountForm(page, { username: second, password: 'second-password' });
-  await submitAccountForm(page);
-  await expect(dialog(page)).toContainText('No account was created.');
-  await expect(dialog(page)).toContainText('already has a login account');
+  const row = page.locator('.staff-table tbody tr').filter({ hasText: member.displayName });
+  await expect(row).toContainText(`Account: ${first}`);
+  await expect(
+    row.getByRole('button', { name: `Replace password or PIN for ${member.displayName}` }),
+  ).toBeVisible();
+  await expect(
+    row.getByRole('button', { name: `Create login account for ${member.displayName}` }),
+  ).toHaveCount(0);
   expect(readAccountsByUsername(second)).toHaveLength(0);
   expect(readStaffMemberLink(member.id).userId).toBe(firstAccount.id);
   expect(countMembersLinkedToAccount(firstAccount.id)).toBe(1);

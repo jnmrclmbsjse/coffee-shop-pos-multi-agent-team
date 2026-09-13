@@ -501,6 +501,23 @@ function searchField(page: Page): Locator {
   return page.locator('.order-history-filters input[type="search"]');
 }
 
+/**
+ * Type a search, then wait for the list request that carries it (see
+ * `whenListReloads`) and for the page's URL to carry it too.
+ *
+ * Waiting here keeps this spec about what the list shows rather than about
+ * input timing.
+ */
+async function applySearch(page: Page, value: string): Promise<void> {
+  // The API receives the search trimmed, and no parameter at all when empty.
+  const requested = value.trim() === '' ? null : value.trim();
+  const urlValue = value === '' ? null : value;
+  await whenListReloads(page, 'search', requested, urlValue, async () => {
+    await searchField(page).fill(value);
+  });
+  await expectQueryParam(page, 'search', urlValue);
+}
+
 function filterSelect(page: Page, label: string): Locator {
   return page
     .locator('.order-history-filters label')
@@ -512,16 +529,78 @@ function sortHeader(page: Page, label: string): Locator {
   return table(page).locator('thead button').filter({ hasText: label });
 }
 
+/**
+ * Wait until one query parameter in the page URL reads as expected (null means
+ * absent). Order History applies every control by rewriting the URL, so this
+ * confirms a change was applied before the spec asserts on the list.
+ */
+async function expectQueryParam(
+  page: Page,
+  name: string,
+  value: string | null,
+): Promise<void> {
+  await expect.poll(() => new URL(page.url()).searchParams.get(name)).toBe(value);
+}
+
+/**
+ * Make a control change and wait for the list request it triggers.
+ *
+ * Waiting on the URL alone is not enough: React Router rewrites the URL before
+ * the page re-renders, so a second change made in that gap still starts from
+ * the stale query and drops the first. The page only requests the list after
+ * it has re-rendered, so the request carrying the new value proves the change
+ * took. `requested` is the parameter as the API receives it (null = absent).
+ *
+ * That dropped-change race is a page bug, fixed separately in the web app by
+ * PR #397; this wait keeps the spec independent of it.
+ */
+async function whenListReloads(
+  page: Page,
+  name: string,
+  requested: string | null,
+  urlValue: string | null,
+  change: () => Promise<void>,
+): Promise<void> {
+  // Re-selecting the value already applied changes nothing, so the page sends
+  // no request; waiting for one would hang.
+  if (new URL(page.url()).searchParams.get(name) === urlValue) {
+    await change();
+    return;
+  }
+  const reloaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname.endsWith('/reporting/order-history') &&
+      url.searchParams.get(name) === requested
+    );
+  });
+  await change();
+  await reloaded;
+}
+
 async function setStatusFilter(page: Page, value: string): Promise<void> {
-  await filterSelect(page, 'Status').selectOption(value);
+  const param = value === '' ? null : value;
+  await whenListReloads(page, 'status', param, param, async () => {
+    await filterSelect(page, 'Status').selectOption(value);
+  });
+  await expectQueryParam(page, 'status', param);
 }
 
 async function setPaymentFilter(page: Page, value: string): Promise<void> {
-  await filterSelect(page, 'Payment').selectOption(value);
+  const param = value === '' ? null : value;
+  await whenListReloads(page, 'paymentMethod', param, param, async () => {
+    await filterSelect(page, 'Payment').selectOption(value);
+  });
+  await expectQueryParam(page, 'paymentMethod', param);
 }
 
 async function setPageSize(page: Page, size: number): Promise<void> {
-  await filterSelect(page, 'Rows per page').selectOption(String(size));
+  // The API request always carries pageSize; the page URL omits the default 10.
+  const urlValue = size === 10 ? null : String(size);
+  await whenListReloads(page, 'pageSize', String(size), urlValue, async () => {
+    await filterSelect(page, 'Rows per page').selectOption(String(size));
+  });
+  await expectQueryParam(page, 'pageSize', urlValue);
 }
 
 function pagination(page: Page): Locator {
@@ -760,7 +839,7 @@ test.describe('Order History list (story #93)', () => {
     // #4 void — one sequence shared across all three statuses, with the
     // correcting record consuming #5 and never appearing as a row.
     await setStatusFilter(page, '');
-    await searchField(page).fill('');
+    await applySearch(page, '');
     await setPageSize(page, 50);
     await expectCount(page, TOTAL_ORDERS);
 
@@ -820,7 +899,7 @@ test.describe('Order History list (story #93)', () => {
   test('AC: settled and outstanding change are distinguished, at the same amount', async ({
     page,
   }) => {
-    await searchField(page).fill('Buyer');
+    await applySearch(page, 'Buyer');
     await setPageSize(page, 50);
     await expectRows(page, [
       key(DAY_C, 12),
@@ -964,13 +1043,13 @@ test.describe('Order History filtering, search, sorting and paging (story #93)',
     // Three controls at once.
     await setStatusFilter(page, 'Completed');
     await setPaymentFilter(page, 'Online');
-    await searchField(page).fill('guest');
+    await applySearch(page, 'guest');
     await expectRows(page, [key(DAY_B, 7), key(DAY_B, 6), key(DAY_B, 5)]);
 
     // Clearing every control removes every restriction.
     await setStatusFilter(page, '');
     await setPaymentFilter(page, '');
-    await searchField(page).fill('');
+    await applySearch(page, '');
     await expectCount(page, TOTAL_ORDERS);
   });
 
@@ -979,23 +1058,23 @@ test.describe('Order History filtering, search, sorting and paging (story #93)',
   }) => {
     await setPageSize(page, 50);
 
-    await searchField(page).fill('sant');
+    await applySearch(page, 'sant');
     await expectRows(page, [key(DAY_A, 2)]);
 
-    await searchField(page).fill('SANT');
+    await applySearch(page, 'SANT');
     await expectRows(page, [key(DAY_A, 2)]);
 
-    await searchField(page).fill('   Mina Santos   ');
+    await applySearch(page, '   Mina Santos   ');
     await expectRows(page, [key(DAY_A, 2)]);
 
     // The displayed "Walk-in" label is not searchable — it is a rendering of
     // NULL, and matching it would be matching the UI, not the record
     // (ADR 0005 §6).
-    await searchField(page).fill('walk');
+    await applySearch(page, 'walk');
     await expect(page.getByRole('heading', { name: 'No sales orders' })).toBeVisible();
 
     // A search matching nothing at all.
-    await searchField(page).fill('zzzznotacustomer');
+    await applySearch(page, 'zzzznotacustomer');
     await expect(page.getByRole('heading', { name: 'No sales orders' })).toBeVisible();
   });
 
@@ -1034,7 +1113,7 @@ test.describe('Order History filtering, search, sorting and paging (story #93)',
   }) => {
     // Six orders spanning two days, so the ordering is visibly day-then-number
     // and not a flat number sort.
-    await searchField(page).fill('guest');
+    await applySearch(page, 'guest');
     await setPageSize(page, 50);
     await expectRows(page, [
       key(DAY_B, 7),
@@ -1064,7 +1143,7 @@ test.describe('Order History filtering, search, sorting and paging (story #93)',
   test('AC: status sort is Parked, Completed, Void ascending, reversed descending', async ({
     page,
   }) => {
-    await searchField(page).fill('guest');
+    await applySearch(page, 'guest');
     await setPageSize(page, 50);
     await expectRows(page, [
       key(DAY_B, 7),
@@ -1105,7 +1184,7 @@ test.describe('Order History filtering, search, sorting and paging (story #93)',
   });
 
   test('AC: sort by total, both directions', async ({ page }) => {
-    await searchField(page).fill('guest');
+    await applySearch(page, 'guest');
     await setPageSize(page, 50);
     await expectRows(page, [
       key(DAY_B, 7),
@@ -1136,7 +1215,7 @@ test.describe('Order History filtering, search, sorting and paging (story #93)',
   test('AC: sort by completed timestamp keeps orders without one last in both directions', async ({
     page,
   }) => {
-    await searchField(page).fill('guest');
+    await applySearch(page, 'guest');
     await setPageSize(page, 50);
     await expectRows(page, [
       key(DAY_B, 7),
@@ -1243,7 +1322,7 @@ test.describe('Order History filtering, search, sorting and paging (story #93)',
       await expect(first).toHaveAttribute('aria-current', 'page');
     }
 
-    await searchField(page).fill('Buyer');
+    await applySearch(page, 'Buyer');
     await expectFirstPage();
 
     await gotoPage(page, 3);
@@ -1408,14 +1487,14 @@ test.describe('Order detail (story #93)', () => {
     page,
   }) => {
     await gotoOrderHistory(page);
-    await searchField(page).fill('Owed Buyer');
+    await applySearch(page, 'Owed Buyer');
     await expectRows(page, [key(DAY_B, 1)]);
     await orderRow(page, DAY_B, 1).locator('a.order-number-link').click();
     await expect(paymentValue(page, 'Change owed')).toHaveText('₱50.00');
     await expect(paymentValue(page, 'Change settled')).toHaveText('—');
 
     await gotoOrderHistory(page);
-    await searchField(page).fill('Settled Buyer');
+    await applySearch(page, 'Settled Buyer');
     await expectRows(page, [key(DAY_B, 2)]);
     await orderRow(page, DAY_B, 2).locator('a.order-number-link').click();
     await expect(paymentValue(page, 'Change owed')).toHaveText('₱50.00');
@@ -1557,7 +1636,7 @@ test.describe('Order History is read-only (story #93)', () => {
     // Every control the screen has, exercised in turn, each one settled before
     // the next so the sequence is real reviewing and not a burst of clicks.
     await gotoOrderHistory(page);
-    await searchField(page).fill('guest');
+    await applySearch(page, 'guest');
     await expectCount(page, 6);
     await setStatusFilter(page, 'Completed');
     await expectCount(page, 4);
@@ -1569,7 +1648,7 @@ test.describe('Order History is read-only (story #93)', () => {
     await expectRows(page, [key(DAY_B, 7), key(DAY_B, 6), key(DAY_B, 5)]);
     await setStatusFilter(page, '');
     await setPaymentFilter(page, '');
-    await searchField(page).fill('');
+    await applySearch(page, '');
     await expectCount(page, 10);
     await expect(resultsSummary(page)).toHaveText(
       `Showing 1-10 of ${TOTAL_ORDERS} orders`,

@@ -132,6 +132,31 @@ export function openBusinessDay(
 }
 
 /**
+ * Deactivate the inventory items that earlier runs of this suite seeded.
+ *
+ * Every run creates a fresh tagged set and nothing removed the old ones, so the
+ * closing count sheet — which renders every active item — had grown to well
+ * over a thousand rows and became slow enough to time out. Items are
+ * deactivated rather than deleted because counts, movements and par levels
+ * reference them. Only this suite's own SKUs are touched.
+ */
+export function deactivateStaleInventoryItems(tag: string): number {
+  const output = runPrisma(`
+    const input = ${JSON.stringify({ tag })};
+    const result = await prisma.inventoryItem.updateMany({
+      where: {
+        active: true,
+        sku: { startsWith: 'E2E-108-' },
+        NOT: { sku: { endsWith: '-' + input.tag } },
+      },
+      data: { active: false },
+    });
+    process.stdout.write(String(result.count));
+  `);
+  return Number(output);
+}
+
+/**
  * Create the stock category, inventory items (with NORMAL-day par levels) and
  * staff members the suite needs. Keys are stable so the spec can name what each
  * row is for.
