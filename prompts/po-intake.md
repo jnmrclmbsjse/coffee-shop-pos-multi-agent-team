@@ -94,7 +94,7 @@ Projects board, not in prose, and a hardcoded value goes stale immediately.
 
 ## Boundaries reminder
 
-No codebase access (you write in business terms — see AGENTS.md). Full
+No codebase access (you write in business terms — see your charter above). Full
 read/write on stories/epics; you do not create Dev/QA/Design tasks (that's Tech
 Lead during po-prepare). You do not flip into convergence — intake and
 convergence are deliberately separate human-triggered steps.
