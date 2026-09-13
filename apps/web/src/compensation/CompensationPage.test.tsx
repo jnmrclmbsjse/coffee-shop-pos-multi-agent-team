@@ -520,9 +520,15 @@ describe('CompensationPage', () => {
   // Stub the decoder so the export's measured height is ours to choose. jsdom
   // never loads a data: URL image on its own, which is also why the production
   // check treats an unmeasurable image as unknown rather than broken.
-  function stubImageHeight(naturalHeight: number | 'error') {
+  // Width defaults to far wider than any payslip, so a test about height is
+  // never tripped by the width check.
+  function stubImageHeight(
+    naturalHeight: number | 'error',
+    naturalWidth = 100_000,
+  ) {
     class StubImage {
       naturalHeight = naturalHeight === 'error' ? 0 : naturalHeight;
+      naturalWidth = naturalHeight === 'error' ? 0 : naturalWidth;
       onload: (() => void) | null = null;
       onerror: (() => void) | null = null;
       set src(_value: string) {
@@ -577,6 +583,30 @@ describe('CompensationPage', () => {
     // turn a working download into a failure.
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1), { timeout: 4000 });
     expect(await screen.findByRole('status')).toHaveTextContent('Downloaded:');
+  });
+
+  it('refuses to download a PNG that came out too narrow, and says so', async () => {
+    api.payslip.mockResolvedValue(adjustedPayslip);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    // jsdom reports offsetWidth as 0, so the expected export width is stubbed.
+    const offsetWidth = vi
+      .spyOn(HTMLElement.prototype, 'offsetWidth', 'get')
+      .mockReturnValue(760);
+    // Full height but cropped horizontally: the defect actually reported from
+    // the field, which the height check alone could not catch.
+    stubImageHeight(100_000, 1000);
+    expect(offsetWidth).toBeDefined();
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() => expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'));
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+    await user.click(await screen.findByRole('button', { name: 'Download PNG' }));
+
+    const alert = await screen.findByRole('alert', {}, { timeout: 4000 });
+    // 1000 delivered against 1520 expected (760 CSS px at pixelRatio 2).
+    expect(alert).toHaveTextContent(/1000 pixels wide instead of about 1520/);
+    expect(click).not.toHaveBeenCalled();
   });
 
   it('captures the rendered artifact and downloads it with the deterministic filename', async () => {
