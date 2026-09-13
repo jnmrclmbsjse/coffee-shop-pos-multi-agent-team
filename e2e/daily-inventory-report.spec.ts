@@ -997,7 +997,8 @@ test('a level-counted item shows its level, has no target, and never appears in 
       continue;
     }
     const cells = row.locator('td');
-    await expect(cells, `restock cells for ${level}`).toHaveCount(3);
+    // Counted, target, status, and the per-item Notes column.
+    await expect(cells, `restock cells for ${level}`).toHaveCount(4);
     // The level is shown rather than a quantity, and it has no numeric target.
     await expect(cells.nth(0)).toHaveText(labels[level]!);
     await expect(cells.nth(1)).toHaveText('Unavailable');
@@ -1147,6 +1148,11 @@ test('loading the report and changing the day issue no write request and change 
   await gotoReport(page, populated);
   await selectDate(page, other);
   await selectDate(page, populated);
+  // The restock scope toggle only filters rows already on the page. Using it
+  // must not issue a request of any kind that could change data.
+  const showAll = page.locator('#restock-show-all');
+  await showAll.check();
+  await showAll.uncheck();
 
   expect(requests.length, 'the report issued no API request at all').toBeGreaterThan(0);
   expect(
@@ -1154,12 +1160,14 @@ test('loading the report and changing the day issue no write request and change 
     `the read-only report issued a write: ${requests.join(', ')}`,
   ).toEqual([]);
 
-  // Nothing on the page offers to change anything: the only control is the
-  // date, and every link leads away to another read surface.
+  // Nothing on the page offers to change anything. The only controls are the
+  // date and the restock scope toggle, which filters what is shown and writes
+  // nothing; every link leads away to another read surface.
   await expect(page.locator('.reporting-content button')).toHaveCount(0);
   const inputs = page.locator('.reporting-page input');
-  await expect(inputs).toHaveCount(1);
-  await expect(inputs).toHaveAttribute('type', 'date');
+  await expect(inputs).toHaveCount(2);
+  await expect(page.locator('.reporting-page input[type="date"]')).toHaveCount(1);
+  await expect(showAll).toHaveAttribute('type', 'checkbox');
 
   // Counts, movements, sales, par levels and cup/lid mappings are untouched.
   expect(snapshotInventoryWorld()).toBe(before);
