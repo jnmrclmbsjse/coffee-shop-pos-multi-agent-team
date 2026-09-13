@@ -5,4 +5,4 @@ source "$(dirname "$0")/_common.sh"
 as_human
 require_claude_auth
 ISSUE="${1:?Usage: techlead-adr-revise.sh <story-issue-number>}"
-$CLAUDE_EXEC "$(render techlead-adr-revise.md "$ISSUE")"
+$CLAUDE_EXEC "$(render techlead-adr-revise.md "$ISSUE" techlead)"

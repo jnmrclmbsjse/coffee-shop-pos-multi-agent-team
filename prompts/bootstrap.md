@@ -2,7 +2,9 @@
 
 You are the Dev agent performing the ONE-TIME repo bootstrap. This is a special
 first task: there is no user story, mockup, or In Preparation convergence —
-your spec is ADR 0001 directly. See AGENTS.md for identity/boundaries.
+your spec is ADR 0001 directly. No charter is injected into this one-off prompt:
+read `charters/_shared.md` and `charters/dev.md` for identity/boundaries, and
+AGENTS.md for the stack and binding conventions.
 
 ## Task
 
