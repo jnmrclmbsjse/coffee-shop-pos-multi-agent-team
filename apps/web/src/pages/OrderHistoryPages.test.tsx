@@ -4,6 +4,8 @@ import {
   screen,
   waitFor,
   within,
+  fireEvent,
+  act,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -206,6 +208,32 @@ describe('Order History pages', () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenLastCalledWith(
         expect.stringContaining('page=2'),
+        expect.objectContaining({ credentials: 'include' }),
+      ),
+    );
+  });
+
+  it('keeps a search when the page size changes before the page re-renders', async () => {
+    fetchMock.mockImplementation(async () => jsonResponse(orderList));
+    renderList();
+    await screen.findByRole('table', {
+      name: 'Read-only order history across business days',
+    });
+
+    // Two changes in one batch: the second handler runs before the page
+    // re-renders with the first. A fast hand, a barcode
+    // wedge or an automated test can all do this. Building the next query from
+    // the render-time URL would drop the search here and list every order.
+    const customer = screen.getByLabelText('Customer');
+    const rowsPerPage = screen.getByLabelText('Rows per page');
+    act(() => {
+      fireEvent.change(customer, { target: { value: 'Buyer' } });
+      fireEvent.change(rowsPerPage, { target: { value: '50' } });
+    });
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'http://localhost:3000/reporting/order-history?search=Buyer&sort=businessDay&direction=desc&page=1&pageSize=50',
         expect.objectContaining({ credentials: 'include' }),
       ),
     );

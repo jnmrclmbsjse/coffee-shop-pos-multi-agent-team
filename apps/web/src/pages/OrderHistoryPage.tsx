@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
   type ChangeEvent,
   type ReactNode,
@@ -154,6 +155,13 @@ function TableCellUnavailable({ children }: { children?: ReactNode }) {
 export function OrderHistoryPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  // The most recent query this page asked for. Synced from the URL after each
+  // render, and advanced immediately by updateQuery, so back-to-back changes
+  // chain instead of each starting from the same stale snapshot.
+  const latestParams = useRef(searchParams);
+  useEffect(() => {
+    latestParams.current = searchParams;
+  }, [searchParams]);
   const query = parseOrderHistoryQuery(searchParams);
   const queryKey = searchParams.toString();
   const [orders, setOrders] = useState<OrderHistoryList | null>(null);
@@ -189,12 +197,19 @@ export function OrderHistoryPage() {
     changes: Record<string, string | number | undefined>,
     resetPage = true,
   ) {
-    const next = new URLSearchParams(searchParams);
+    // Build from the LATEST query, not the `searchParams` this render captured.
+    // Two changes in quick succession (typing a search, then changing rows per
+    // page) can both run before the page re-renders. Starting each from the
+    // render-time copy made the second silently drop the first, so a searched
+    // list reverted to every order. React Router's function form of
+    // setSearchParams does not help: it also hands back the render-time value.
+    const next = new URLSearchParams(latestParams.current);
     Object.entries(changes).forEach(([key, value]) => {
       if (value === undefined || value === '') next.delete(key);
       else next.set(key, String(value));
     });
     if (resetPage) next.delete('page');
+    latestParams.current = next;
     setSearchParams(next, { replace: true });
   }
 
