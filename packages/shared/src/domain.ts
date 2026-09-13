@@ -525,7 +525,7 @@ export interface DailyInventoryCountNote {
   // The session-level note. Null when the counter only annotated items — such
   // a count still appears, because its item notes are the point.
   notes: string | null;
-  // Per-item notes from this count, in the sheet's own item order.
+  // Per-item notes from this count, ordered by item name.
   itemNotes: DailyInventoryItemNote[];
   submittedByNameSnapshot: string;
   recordedAt: string;

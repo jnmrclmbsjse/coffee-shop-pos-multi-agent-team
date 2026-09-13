@@ -5,6 +5,7 @@ import {
 import {
   CountMethod,
   StockCountPhase,
+  Prisma,
 } from '@prisma/client';
 import { StockLevel } from '@coffee-shop/shared';
 import type { PrismaService } from '../prisma/prisma.service';
@@ -481,6 +482,43 @@ describe('StockCountsService', () => {
           data: expect.objectContaining({ correctsStockCountId: null }),
         }),
       );
+    });
+
+    it('turns a concurrent duplicate correction into the same 400, not a 500', async () => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+      prisma.stockCount.findFirst
+        .mockResolvedValueOnce(priorCount())
+        .mockResolvedValueOnce(null);
+      // The pre-check passed, but another correction won the race: the
+      // database unique index refuses this insert.
+      prisma.stockCount.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { target: ['corrects_stock_count_id'] },
+        }),
+      );
+
+      await expect(
+        service.submit({ ...validInput(), correctsStockCountId: priorId }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('does not disguise an unrelated unique violation as a correction conflict', async () => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+      const lineConflict = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { target: ['stock_count_id', 'inventory_item_id'] },
+        },
+      );
+      prisma.stockCount.create.mockRejectedValue(lineConflict);
+
+      await expect(service.submit(validInput())).rejects.toBe(lineConflict);
     });
 
     it.each([

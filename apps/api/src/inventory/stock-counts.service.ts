@@ -197,7 +197,7 @@ export class StockCountsService {
       });
 
       return this.toSubmittedCount(count);
-    });
+    }).catch((error: unknown) => this.rethrowCorrectionConflict(error));
   }
 
   private async sheet(phase: 'open' | 'close'): Promise<CountSheet> {
@@ -335,6 +335,27 @@ export class StockCountsService {
       countMethod: item.countMethod as SharedCountMethod,
       categoryName: category.name,
     };
+  }
+
+  // The unique index on corrects_stock_count_id is the real guarantee that a
+  // count is corrected at most once. The pre-check inside submit only gives the
+  // common case a clear message; a concurrent correction that slips past it is
+  // refused by the database and lands here, getting the same 400 rather than a
+  // 500. Any other unique violation is not a correction conflict and is left
+  // untouched.
+  private rethrowCorrectionConflict(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      /corrects_stock_count_id|correctsStockCountId/.test(
+        String(error.meta?.target ?? ''),
+      )
+    ) {
+      throw new BadRequestException(
+        'That count has already been corrected. Correct the latest count instead.',
+      );
+    }
+    throw error;
   }
 
   private toSubmittedCount(
