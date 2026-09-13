@@ -3797,7 +3797,8 @@ button {
 }
 
 .restock-report-table {
-  min-width: 660px;
+  /* Wide enough for the Notes column; narrower screens scroll the region. */
+  min-width: 820px;
 }
 
 .packaging-report-table tbody th,
@@ -10386,4 +10387,218 @@ select:not([multiple])::-ms-expand {
 .order-history-filters select:not([multiple]) {
   height: auto;
   min-height: var(--field-h);
+}
+
+/* Inventory session notes (#stock-count notes).
+   The textarea itself needs no rules: it sits inside `.staff-inventory-field`,
+   which already styles `textarea`. Only the character hint, the read-back on
+   the submitted count, and the back-office panel are new. */
+
+.staff-count-notes {
+  /* Keep the counter's own resizing, but never let a long note push the
+     count sheet into horizontal overflow on a 390px POS screen. */
+  width: 100%;
+  min-height: calc(var(--field-h) * 1.5);
+  resize: vertical;
+}
+
+.staff-count-notes-hint {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.staff-submitted-notes {
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.staff-submitted-notes h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.staff-submitted-notes p {
+  margin: 0;
+  /* A note is free text typed by a person: honour their line breaks, and break
+     an unbroken string rather than overflowing the panel. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.count-notes-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.count-note {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.count-note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.count-note-meta strong {
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.count-note-correction {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-sm);
+  background: var(--warn-surface);
+  color: var(--warn-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.count-note-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Restock needs scope toggle — switches the panel between restock-needs-only
+   (the default, and its long-standing behaviour) and every counted item. */
+
+.restock-scope-toggle {
+  /* Inset to line up with the .restock-copy text above it, which is padded
+     rather than margined; a bare margin left the toggle flush against the
+     panel's left edge and touching the copy's divider. */
+  margin: 0;
+  padding: var(--space-4) var(--space-6);
+}
+
+.restock-scope-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* Full touch target: this panel is read on a tablet in the back office. */
+  min-height: var(--touch-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.restock-scope-toggle label:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+}
+
+.restock-scope-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.restock-scope-toggle label:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Per-item notes: one line per annotated item, on the POS read-back and in the
+   back-office session-notes panel. */
+
+.staff-item-note-input {
+  width: 100%;
+}
+
+.staff-readonly-item-note {
+  grid-column: 1 / -1;
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border-strong);
+  color: var(--ink-soft);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.count-item-notes {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.count-item-notes-label {
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.count-item-notes ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.count-item-notes li {
+  display: grid;
+  /* Item name and note side by side on a wide screen, stacked on a narrow one. */
+  grid-template-columns: minmax(140px, 0.4fr) 1fr;
+  gap: var(--space-3);
+  font-size: 14px;
+}
+
+.count-item-notes li span {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .count-item-notes li {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+}
+
+/* The session Notes field follows the count groups directly, and
+   .staff-inventory-field carries no margin of its own, so without this the
+   label sat flush against the last item row. */
+.staff-count-groups ~ .staff-inventory-field {
+  margin-top: var(--space-6);
+}
+
+/* Per-item note, in the restock table's Notes column. */
+.restock-report-table .restock-note {
+  min-width: 200px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.restock-report-table .restock-note-empty {
+  color: var(--muted);
 }

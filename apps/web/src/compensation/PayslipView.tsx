@@ -48,6 +48,42 @@ export function payslipFilename(
   return `payslip-${slug}-${from}-${to}.png`;
 }
 
+// Exported at 2x so the text stays crisp when printed or zoomed.
+const PIXEL_RATIO = 2;
+
+// A couple of device pixels of rounding between the element's box and the
+// rasterised canvas is normal; anything more means content was dropped.
+const PNG_SIZE_TOLERANCE = 4;
+
+const MEASURE_TIMEOUT_MS = 2_000;
+
+// Resolves the exported PNG's pixel size, or null when it cannot be determined
+// — no decoder, an environment that never fires the events, or a payload this
+// browser will not read. Null means "unknown", never "bad".
+function measureImageSize(
+  dataUrl: string,
+): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: { width: number; height: number } | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    const image = new Image();
+    image.onload = () =>
+      finish(
+        image.naturalWidth && image.naturalHeight
+          ? { width: image.naturalWidth, height: image.naturalHeight }
+          : null,
+      );
+    image.onerror = () => finish(null);
+    // Never let the check itself hang the download button.
+    setTimeout(() => finish(null), MEASURE_TIMEOUT_MS);
+    image.src = dataUrl;
+  });
+}
+
 function generatedTimestamp(value: string): string {
   return `Generated ${formatSubmissionTime(value)}`;
 }
@@ -157,15 +193,71 @@ export function PayslipView({
     setDownloadError('');
     setDownloadNotice('');
     try {
+      const node = captureRef.current;
       await document.fonts?.ready;
-      const dataUrl = await toPng(captureRef.current, {
+
+      const options = {
         backgroundColor: '#ffffff',
         cacheBust: true,
-        pixelRatio: 2,
-        filter: (node: Node) =>
-          node.nodeType !== Node.ELEMENT_NODE ||
-          (node as HTMLElement).dataset.payslipExportExclude !== 'true',
-      });
+        pixelRatio: PIXEL_RATIO,
+        // Pin the output box to the element's own measured size. Left to infer
+        // it, html-to-image can settle on a stale or partial height and emit a
+        // PNG holding only the top of the payslip.
+        width: node.offsetWidth,
+        height: node.offsetHeight,
+        // Zero the clone's margin. The on-screen artifact is centred with
+        // `margin: 0 auto`, and html-to-image copies COMPUTED styles — which
+        // resolve `auto` to real pixels. On a wide screen that pushed the clone
+        // hundreds of pixels right inside a box pinned to its own width, so
+        // the PNG came out with blank space on the left and the right-hand
+        // columns (commission, totals, net payable) cut off.
+        style: { margin: '0' },
+        filter: (candidate: Node) =>
+          candidate.nodeType !== Node.ELEMENT_NODE ||
+          (candidate as HTMLElement).dataset.payslipExportExclude !== 'true',
+      };
+
+      // Render TWICE and keep the second. html-to-image inlines fonts and
+      // images while it walks the clone, and on the first pass those resources
+      // are often still in flight — the pass completes anyway and produces a
+      // short or partly blank image. The first pass primes its caches; the
+      // second is the one worth keeping. `await document.fonts.ready` above
+      // covers fonts the page already uses, not resources the clone fetches.
+      await toPng(node, options);
+      const dataUrl = await toPng(node, options);
+
+      // VERIFY before handing it over. A truncated export is indistinguishable
+      // from a good one until you open it, so a silent bad download is the
+      // worst outcome: the payslip looks delivered and is not.
+      //
+      // FAIL OPEN. Only a measurement that SUCCEEDS and comes up short blocks
+      // the download. If the image cannot be measured at all, that is a fact
+      // about the measuring, not about the export — withholding the file then
+      // would turn a working download into a broken one.
+      const measured = await measureImageSize(dataUrl);
+      const expectedHeight = Math.round(node.offsetHeight * PIXEL_RATIO);
+      // Width is checked too: the defect actually reported from the field was
+      // a horizontal crop, which a height-only check could never catch.
+      const expectedWidth = Math.round(node.offsetWidth * PIXEL_RATIO);
+      if (
+        measured !== null &&
+        expectedHeight - measured.height > PNG_SIZE_TOLERANCE
+      ) {
+        setDownloadError(
+          `The PNG came out incomplete — ${measured.height} pixels tall instead of about ${expectedHeight} — so it was not downloaded. The on-screen payslip is unchanged. Try again, or narrow the date range to shorten the payslip.`,
+        );
+        return;
+      }
+      if (
+        measured !== null &&
+        expectedWidth - measured.width > PNG_SIZE_TOLERANCE
+      ) {
+        setDownloadError(
+          `The PNG came out incomplete — ${measured.width} pixels wide instead of about ${expectedWidth}, so part of the payslip was cut off — so it was not downloaded. The on-screen payslip is unchanged. Try again.`,
+        );
+        return;
+      }
+
       const link = document.createElement('a');
       link.download = filename;
       link.href = dataUrl;

@@ -26,6 +26,9 @@ describe('ReportingService', () => {
       tradingDay: {
         findUnique: jest.fn(),
       },
+      stockCount: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       $queryRaw: jest.fn(),
       $transaction: jest.fn(
         async (queries: Promise<unknown>[]) => Promise.all(queries),
@@ -49,7 +52,7 @@ describe('ReportingService', () => {
     orderCount: 3n,
   } as const;
 
-  it('composes the selected day read model and removes Enough restock rows', async () => {
+  it('composes the selected day read model and passes through every restock row', async () => {
     const prisma = createPrisma();
     const day = {
       id: 'day-id',
@@ -104,11 +107,219 @@ describe('ReportingService', () => {
       reconciliation: [{ soldQty: 4, varianceQty: -2 }],
       restock: {
         selectedPhase: 'close',
-        rows: [{ inventoryItemId: 'low', status: 'LOW' }],
+        // ENOUGH rows are NOT dropped here any more. The back office needs the
+        // full stock picture available to its "Show all counted items" toggle,
+        // and a row the server filters out can never be toggled back into view.
+        rows: [
+          { inventoryItemId: 'low', status: 'LOW' },
+          { inventoryItemId: 'enough', status: 'ENOUGH' },
+        ],
       },
     });
     expect(packaging.getForTradingDay).toHaveBeenCalledWith(day);
     expect(restock.getStatusForDay).toHaveBeenCalledWith(day);
+  });
+
+  it('returns every note for the day, oldest first, labelling corrections', async () => {
+    const prisma = createPrisma();
+    const day = {
+      id: 'day-id',
+      locationId: null,
+      businessDate: new Date('2026-08-15T00:00:00.000Z'),
+      dayType: 'NORMAL',
+    };
+    prisma.stockCount.findMany.mockResolvedValue([
+      {
+        id: 'open-count',
+        phase: 'OPEN',
+        notes: 'Chest freezer reading 4C.',
+        submittedByNameSnapshot: 'Alex',
+        recordedAt: new Date('2026-08-15T01:00:00.000Z'),
+        correctsStockCountId: null,
+        lines: [],
+      },
+      {
+        id: 'close-count',
+        phase: 'CLOSE',
+        notes: 'Recount after the delivery.',
+        submittedByNameSnapshot: 'Sam',
+        recordedAt: new Date('2026-08-15T13:00:00.000Z'),
+        correctsStockCountId: 'earlier-close',
+        lines: [],
+      },
+    ]);
+    const tradingDayService = {
+      findByBusinessDate: jest.fn().mockResolvedValue(day),
+    };
+    const packaging = { getForTradingDay: jest.fn().mockResolvedValue([]) };
+    const restock = {
+      getStatusForDay: jest.fn().mockResolvedValue({
+        businessDay: { businessDate: '2026-08-15' },
+        hasCount: true,
+        selectedPhase: 'close',
+        selectedCountId: 'close-count',
+        selectedCountRecordedAt: '2026-08-15T13:00:00.000Z',
+        rows: [],
+      }),
+    };
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+      tradingDayService as never,
+      packaging as never,
+      restock as never,
+    );
+
+    const report = await service.getDailyInventory('2026-08-15');
+
+    expect(report.countNotes).toEqual([
+      {
+        stockCountId: 'open-count',
+        phase: 'open',
+        notes: 'Chest freezer reading 4C.',
+        submittedByNameSnapshot: 'Alex',
+        recordedAt: '2026-08-15T01:00:00.000Z',
+        isCorrection: false,
+        itemNotes: [],
+      },
+      {
+        stockCountId: 'close-count',
+        phase: 'close',
+        notes: 'Recount after the delivery.',
+        submittedByNameSnapshot: 'Sam',
+        recordedAt: '2026-08-15T13:00:00.000Z',
+        isCorrection: true,
+        itemNotes: [],
+      },
+    ]);
+    // Scoped to the day AND the location, and only counts carrying a note of
+    // either kind — session or item.
+    expect(prisma.stockCount.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          businessDate: day.businessDate,
+          locationId: null,
+          OR: [
+            { notes: { not: null } },
+            { lines: { some: { notes: { not: null } } } },
+          ],
+        },
+        orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }],
+      }),
+    );
+  });
+
+  it('surfaces a count that carries only item notes and no session note', async () => {
+    const prisma = createPrisma();
+    const day = {
+      id: 'day-id',
+      locationId: null,
+      businessDate: new Date('2026-08-17T00:00:00.000Z'),
+      dayType: 'NORMAL',
+    };
+    prisma.stockCount.findMany.mockResolvedValue([
+      {
+        id: 'close-count',
+        phase: 'CLOSE',
+        notes: null,
+        submittedByNameSnapshot: 'Sam',
+        recordedAt: new Date('2026-08-17T13:00:00.000Z'),
+        correctsStockCountId: null,
+        lines: [
+          {
+            inventoryItemId: 'lids',
+            notes: '3 lids cracked',
+            inventoryItem: { name: '8 oz lids' },
+          },
+        ],
+      },
+    ]);
+    const tradingDayService = {
+      findByBusinessDate: jest.fn().mockResolvedValue(day),
+    };
+    const packaging = { getForTradingDay: jest.fn().mockResolvedValue([]) };
+    const restock = {
+      getStatusForDay: jest.fn().mockResolvedValue({
+        businessDay: { businessDate: '2026-08-17' },
+        hasCount: true,
+        selectedPhase: 'close',
+        selectedCountId: 'close-count',
+        selectedCountRecordedAt: '2026-08-17T13:00:00.000Z',
+        rows: [],
+      }),
+    };
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+      tradingDayService as never,
+      packaging as never,
+      restock as never,
+    );
+
+    const report = await service.getDailyInventory('2026-08-17');
+
+    // A session note and item notes are independent. Requiring the former
+    // would hide a count whose item notes are the whole point.
+    expect(report.countNotes).toHaveLength(1);
+    expect(report.countNotes[0]!.notes).toBeNull();
+    expect(report.countNotes[0]!.itemNotes).toEqual([
+      { inventoryItemId: 'lids', itemName: '8 oz lids', notes: '3 lids cracked' },
+    ]);
+    expect(report.hasInventoryInformation).toBe(true);
+
+    // The query must match on EITHER kind of note.
+    const where = prisma.stockCount.findMany.mock.calls[0][0].where;
+    expect(where.OR).toEqual([
+      { notes: { not: null } },
+      { lines: { some: { notes: { not: null } } } },
+    ]);
+  });
+
+  it('treats a note as inventory information on an otherwise empty day', async () => {
+    const prisma = createPrisma();
+    const day = {
+      id: 'day-id',
+      locationId: null,
+      businessDate: new Date('2026-08-16T00:00:00.000Z'),
+      dayType: 'NORMAL',
+    };
+    prisma.stockCount.findMany.mockResolvedValue([
+      {
+        id: 'open-count',
+        phase: 'OPEN',
+        notes: 'Opened late, no stock moved yet.',
+        submittedByNameSnapshot: 'Alex',
+        recordedAt: new Date('2026-08-16T01:00:00.000Z'),
+        correctsStockCountId: null,
+        lines: [],
+      },
+    ]);
+    const tradingDayService = {
+      findByBusinessDate: jest.fn().mockResolvedValue(day),
+    };
+    // Nothing else to report: no counts for restock, no packaging movement.
+    const packaging = { getForTradingDay: jest.fn().mockResolvedValue([]) };
+    const restock = {
+      getStatusForDay: jest.fn().mockResolvedValue({
+        businessDay: { businessDate: '2026-08-16' },
+        hasCount: false,
+        selectedPhase: null,
+        selectedCountId: null,
+        selectedCountRecordedAt: null,
+        rows: [],
+      }),
+    };
+    const service = new ReportingService(
+      prisma as unknown as PrismaService,
+      tradingDayService as never,
+      packaging as never,
+      restock as never,
+    );
+
+    const report = await service.getDailyInventory('2026-08-16');
+
+    // Without this the panel would be hidden behind hasInventoryInformation
+    // and the note the barista deliberately left would never be read.
+    expect(report.hasInventoryInformation).toBe(true);
+    expect(report.countNotes).toHaveLength(1);
   });
 
   it('returns a safe empty report when the date has no trading day', async () => {
@@ -136,6 +347,7 @@ describe('ReportingService', () => {
       locationId: null,
       hasInventoryInformation: false,
       reconciliation: [],
+      countNotes: [],
       restock: {
         businessDay: { isOpen: false, businessDate: null },
         hasCount: false,

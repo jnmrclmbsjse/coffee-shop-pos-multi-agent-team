@@ -318,6 +318,9 @@ export interface StockCount {
   submittedByNameSnapshot: string;
   shiftLeadStaffMemberId: string | null;
   shiftLeadNameSnapshot: string | null;
+  // Free-text note added during the session, either phase. Null when none was
+  // given. Immutable once submitted, like the counts it accompanies.
+  notes: string | null;
   recordedAt: string;
   lines: StockCountLine[];
 }
@@ -326,6 +329,9 @@ export interface StockCountLine {
   inventoryItemId: string;
   quantity: number | null;
   level: StockLevel | null;
+  // Note about this item during the count. Null when none was given. Distinct
+  // from StockCount.notes, which is about the session as a whole.
+  notes: string | null;
 }
 
 export interface StockMovement {
@@ -429,12 +435,17 @@ export interface SubmitStockCountLineInput {
   inventoryItemId: string;
   quantity?: number;
   level?: StockLevel;
+  notes?: string | null;
 }
 
 export interface SubmitStockCountInput {
   phase: StockCountPhase;
   submittedByStaffMemberId: string;
   shiftLeadStaffMemberId?: string | null;
+  notes?: string | null;
+  // Set by "Record another count": the count on screen that this one corrects.
+  // Absent for a first count.
+  correctsStockCountId?: string | null;
   lines: SubmitStockCountLineInput[];
 }
 
@@ -473,6 +484,8 @@ export interface RestockStatusRow {
   par: number | null;
   parLevel: StockLevel | null;
   status: RestockStatus;
+  // The counter's note about this item on the count this row came from.
+  notes: string | null;
 }
 
 export interface RestockStatusResult {
@@ -496,12 +509,40 @@ export interface PackagingReconciliationRow {
   varianceQty: number | null;
 }
 
+export interface DailyInventoryItemNote {
+  inventoryItemId: string;
+  itemName: string;
+  notes: string;
+}
+
+// The notes from one submitted count, attributed. A phase can appear more than
+// once: counts are append-only, so a correction is a new row carrying its own
+// notes, and the back office shows the sequence rather than silently
+// preferring one.
+export interface DailyInventoryCountNote {
+  stockCountId: string;
+  phase: StockCountPhase;
+  // The session-level note. Null when the counter only annotated items — such
+  // a count still appears, because its item notes are the point.
+  notes: string | null;
+  // Per-item notes from this count, ordered by item name.
+  itemNotes: DailyInventoryItemNote[];
+  submittedByNameSnapshot: string;
+  recordedAt: string;
+  // True when this count corrects an earlier one, so the reader can tell an
+  // amended note from a first submission.
+  isCorrection: boolean;
+}
+
 export interface DailyInventoryReport {
   businessDate: string;
   locationId: string | null;
   hasInventoryInformation: boolean;
   reconciliation: PackagingReconciliationRow[];
   restock: RestockStatusResult;
+  // Only counts carrying a session note or at least one item note, oldest
+  // first.
+  countNotes: DailyInventoryCountNote[];
 }
 
 export enum OrderStatus {

@@ -164,6 +164,7 @@ describe('RestockService', () => {
       inventoryItemId: id,
       quantity,
       level: null,
+      notes: null,
       inventoryItem: {
         id,
         sku: id,
@@ -204,6 +205,7 @@ describe('RestockService', () => {
       inventoryItemId: id,
       quantity: null,
       level,
+      notes: null,
       inventoryItem: {
         id,
         sku: id,

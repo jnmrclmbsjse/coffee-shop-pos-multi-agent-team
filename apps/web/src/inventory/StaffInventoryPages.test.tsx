@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { SignedInAs } from '../auth/session-test-utils';
@@ -306,11 +306,207 @@ describe('staff inventory screens', () => {
         submittedByNameSnapshot: 'Maya Santos',
         shiftLeadStaffMemberId: null,
         shiftLeadNameSnapshot: null,
+        notes: null,
         recordedAt: '2026-07-30T08:00:00.000Z',
         lines: [],
       }),
     );
     expect(await screen.findByText('Count submitted')).toBeInTheDocument();
+  });
+
+  it('sends the session note with the count and trims it', async () => {
+    installCountFetch(sheet('open'));
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    // Wait for the sheet to load before touching its fields.
+    const submit = await screen.findByRole('button', {
+      name: 'Submit opening count',
+    });
+    await user.type(screen.getByLabelText(/Quantity for Cup/), '4');
+    await user.selectOptions(
+      screen.getByLabelText(/Submitted by/),
+      activeStaff[0]!.id,
+    );
+    await user.type(
+      screen.getByLabelText(/Notes/),
+      '  Chest freezer reading 4C.  ',
+    );
+    await user.click(submit);
+
+    const post = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        new URL(String(url)).pathname === '/inventory/counts' &&
+        init?.method === 'POST',
+    );
+    expect(post).toBeDefined();
+    expect(JSON.parse(String(post![1]!.body))).toMatchObject({
+      notes: 'Chest freezer reading 4C.',
+    });
+  });
+
+  it('sends null rather than an empty string when no note is written', async () => {
+    installCountFetch(sheet('open'));
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    // Wait for the sheet to load before touching its fields.
+    const submit = await screen.findByRole('button', {
+      name: 'Submit opening count',
+    });
+    await user.type(screen.getByLabelText(/Quantity for Cup/), '4');
+    await user.selectOptions(
+      screen.getByLabelText(/Submitted by/),
+      activeStaff[0]!.id,
+    );
+    await user.click(submit);
+
+    const post = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        new URL(String(url)).pathname === '/inventory/counts' &&
+        init?.method === 'POST',
+    );
+    expect(JSON.parse(String(post![1]!.body)).notes).toBeNull();
+    // A first count corrects nothing.
+    expect(JSON.parse(String(post![1]!.body)).correctsStockCountId).toBeNull();
+  });
+
+  it('sends a per-item note on the line it was typed against', async () => {
+    installCountFetch(sheet('open'));
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    const submit = await screen.findByRole('button', {
+      name: 'Submit opening count',
+    });
+    await user.type(screen.getByLabelText(/Quantity for Cup/), '4');
+    await user.selectOptions(
+      screen.getByLabelText(/Submitted by/),
+      activeStaff[0]!.id,
+    );
+    await user.type(screen.getByLabelText(/Note for Cup/), '3 lids cracked');
+    await user.click(submit);
+
+    const post = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        new URL(String(url)).pathname === '/inventory/counts' &&
+        init?.method === 'POST',
+    );
+    const body = JSON.parse(String(post![1]!.body));
+    expect(body.lines).toHaveLength(1);
+    expect(body.lines[0]).toMatchObject({ notes: '3 lids cracked' });
+    // The session note is a separate field and stays empty.
+    expect(body.notes).toBeNull();
+  });
+
+  it('disables an item note until that item is counted', async () => {
+    installCountFetch(sheet('open'));
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    await screen.findByRole('button', { name: 'Submit opening count' });
+    const note = screen.getByLabelText(/Note for Cup/);
+    // An uncounted item produces no line, so a note would have nothing to
+    // attach to. Disabling says that rather than dropping it silently.
+    expect(note).toBeDisabled();
+
+    await user.type(screen.getByLabelText(/Quantity for Cup/), '4');
+    expect(note).toBeEnabled();
+  });
+
+  it('clears an item note when its count is cleared, rather than dropping it silently', async () => {
+    installCountFetch(sheet('open'));
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    await screen.findByRole('button', { name: 'Submit opening count' });
+    const quantity = screen.getByLabelText(/Quantity for Cup/);
+    const note = screen.getByLabelText(/Note for Cup/);
+
+    await user.type(quantity, '4');
+    await user.type(note, '3 lids cracked');
+    expect(note).toHaveValue('3 lids cracked');
+
+    // Uncounting the item leaves no line for the note to travel on. The field
+    // must not keep showing text that the submit would then discard.
+    await user.clear(quantity);
+    expect(note).toBeDisabled();
+    expect(note).toHaveValue('');
+
+    // Counting it again starts from an empty note, not the discarded one.
+    await user.type(quantity, '5');
+    expect(note).toBeEnabled();
+    expect(note).toHaveValue('');
+  });
+
+  it('reads a submitted item note back on the read-only view', async () => {
+    installCountFetch(
+      sheet('open', [quantityItem, levelItem], openDay, {
+        id: 'count-id',
+        locationId: null,
+        businessDate: '2026-07-30',
+        phase: 'open',
+        submittedByStaffMemberId: activeStaff[0]!.id,
+        submittedByNameSnapshot: 'Maya Santos',
+        shiftLeadStaffMemberId: null,
+        shiftLeadNameSnapshot: null,
+        notes: null,
+        recordedAt: '2026-07-30T08:00:00.000Z',
+        lines: [
+          {
+            inventoryItemId: quantityItem.id,
+            itemName: quantityItem.name,
+            quantity: 12,
+            level: null,
+            notes: '3 lids cracked',
+          },
+        ],
+      }),
+    );
+
+    renderPage(<OpeningCountPage />);
+
+    expect(await screen.findByText('Count submitted')).toBeInTheDocument();
+    expect(screen.getByText('3 lids cracked')).toBeInTheDocument();
+    // Immutable once submitted, like the count itself.
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('offers the note on a closing count too, not only opening', async () => {
+    installCountFetch(sheet('close'));
+    renderPage(<ClosingCountPage />);
+
+    // Opening and closing are the same record shape; the field is deliberately
+    // not restricted to one phase.
+    expect(await screen.findByLabelText(/Notes/)).toBeInTheDocument();
+  });
+
+  it('reads a submitted note back without offering to edit it', async () => {
+    installCountFetch(
+      sheet('open', [quantityItem, levelItem], openDay, {
+        id: 'count-id',
+        locationId: null,
+        businessDate: '2026-07-30',
+        phase: 'open',
+        submittedByStaffMemberId: activeStaff[0]!.id,
+        submittedByNameSnapshot: 'Maya Santos',
+        shiftLeadStaffMemberId: null,
+        shiftLeadNameSnapshot: null,
+        notes: 'Chest freezer reading 4C, flagged to maintenance.',
+        recordedAt: '2026-07-30T08:00:00.000Z',
+        lines: [],
+      }),
+    );
+
+    renderPage(<OpeningCountPage />);
+
+    expect(await screen.findByText('Count submitted')).toBeInTheDocument();
+    expect(
+      screen.getByText('Chest freezer reading 4C, flagged to maintenance.'),
+    ).toBeInTheDocument();
+    // Counts are append-only, so the note is immutable once submitted. No
+    // editable control may appear on the read-only view.
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('shows submitted counts read-only with no edit or delete affordance', async () => {
@@ -324,6 +520,7 @@ describe('staff inventory screens', () => {
         submittedByNameSnapshot: 'Maya Santos',
         shiftLeadStaffMemberId: null,
         shiftLeadNameSnapshot: null,
+        notes: null,
         recordedAt: '2026-07-30T08:00:00.000Z',
         lines: [
           {
@@ -331,6 +528,7 @@ describe('staff inventory screens', () => {
             itemName: quantityItem.name,
             quantity: 12,
             level: null,
+            notes: null,
           },
         ],
       }),
@@ -346,6 +544,54 @@ describe('staff inventory screens', () => {
     expect(
       screen.getByRole('button', { name: 'Record another opening count' }),
     ).toBeInTheDocument();
+  });
+
+  it('links a recorded-again count to the count it corrects', async () => {
+    installCountFetch(
+      sheet('open', [quantityItem, levelItem], openDay, {
+        id: 'count-id',
+        locationId: null,
+        businessDate: '2026-07-30',
+        phase: 'open',
+        submittedByStaffMemberId: activeStaff[0]!.id,
+        submittedByNameSnapshot: 'Maya Santos',
+        shiftLeadStaffMemberId: null,
+        shiftLeadNameSnapshot: null,
+        notes: null,
+        recordedAt: '2026-07-30T08:00:00.000Z',
+        lines: [],
+      }),
+    );
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', { name: 'Record another opening count' }),
+    );
+    const submit = await screen.findByRole('button', {
+      name: 'Submit opening count',
+    });
+    await user.type(screen.getByLabelText(/Quantity for Cup/), '4');
+    await user.selectOptions(
+      screen.getByLabelText(/Submitted by/),
+      activeStaff[0]!.id,
+    );
+    await user.click(submit);
+
+    const post = await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        ([url, init]) =>
+          new URL(String(url)).pathname === '/inventory/counts' &&
+          init?.method === 'POST',
+      );
+      expect(call).toBeDefined();
+      return call!;
+    });
+    // Without this link the back office cannot tell a correction from a
+    // second, unrelated count, and never shows the Correction label.
+    expect(JSON.parse(String(post[1]!.body)).correctsStockCountId).toBe(
+      'count-id',
+    );
   });
 
   it('defaults movement type to Delivery, switches to Wastage, and resets after save', async () => {
@@ -451,6 +697,7 @@ describe('staff inventory screens', () => {
           par: null,
           parLevel: null,
           status: 'BELOW_PAR',
+          notes: null,
         },
       ],
     };
@@ -491,6 +738,7 @@ describe('staff inventory screens', () => {
       par: null,
       parLevel,
       status,
+      notes: null,
     };
   }
 
@@ -567,6 +815,7 @@ describe('staff inventory screens', () => {
             par: 10,
             parLevel: null,
             status: 'BELOW_PAR',
+            notes: null,
           },
         ]),
       ),

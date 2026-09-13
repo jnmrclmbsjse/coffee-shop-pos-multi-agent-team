@@ -5,6 +5,7 @@ import {
 import {
   CountMethod,
   StockCountPhase,
+  Prisma,
 } from '@prisma/client';
 import { StockLevel } from '@coffee-shop/shared';
 import type { PrismaService } from '../prisma/prisma.service';
@@ -79,6 +80,7 @@ describe('StockCountsService', () => {
       submittedByNameSnapshot: 'Alex',
       shiftLeadStaffMemberId: null,
       shiftLeadNameSnapshot: null,
+      notes: null,
       correctsStockCountId: null,
       lines: [
         {
@@ -87,6 +89,7 @@ describe('StockCountsService', () => {
           inventoryItemId: 'item-id',
           quantity: 4,
           level: null,
+          notes: null,
           inventoryItem: { name: 'Beans' },
         },
       ],
@@ -290,12 +293,255 @@ describe('StockCountsService', () => {
                 inventoryItemId: 'item-id',
                 quantity: 4,
                 level: null,
+                notes: null,
               },
             ],
           },
         }),
       }),
     );
+  });
+
+  // The barista's note. Opening and closing counts are the SAME record shape
+  // distinguished only by `phase`, so both phases are exercised here — that
+  // equivalence is the reason the field was not restricted to closing.
+  it.each([['open'], ['close']] as const)(
+    'persists the session note on a %s count',
+    async (phase) => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+      prisma.inventoryItem.findMany.mockResolvedValue([
+        {
+          id: 'item-id',
+          active: true,
+          critical: true,
+          countMethod: CountMethod.QUANTITY,
+        },
+      ]);
+
+      await service.submit({
+        ...validInput(),
+        phase,
+        notes: 'Chest freezer reading 4C, flagged to maintenance.',
+      });
+
+      expect(prisma.stockCount.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            notes: 'Chest freezer reading 4C, flagged to maintenance.',
+          }),
+        }),
+      );
+    },
+  );
+
+  it('persists a per-item note on the line it belongs to', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+
+    await service.submit({
+      ...validInput(),
+      lines: [
+        { inventoryItemId: 'item-id', quantity: 4, notes: '3 lids cracked' },
+      ],
+    });
+
+    expect(prisma.stockCount.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lines: {
+            create: [
+              expect.objectContaining({
+                inventoryItemId: 'item-id',
+                quantity: 4,
+                notes: '3 lids cracked',
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it('stores a null item note when the line carries none', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+
+    await service.submit(validInput());
+
+    const data = prisma.stockCount.create.mock.calls[0]![0].data;
+    expect(data.lines.create[0]).toEqual(
+      expect.objectContaining({ notes: null }),
+    );
+  });
+
+  it('returns the item note on the submitted count line', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+    prisma.stockCount.create.mockResolvedValue(
+      countRecord({
+        lines: [
+          {
+            id: 'line-id',
+            stockCountId: 'count-id',
+            inventoryItemId: 'item-id',
+            quantity: 4,
+            level: null,
+            notes: 'Bag split, repacked',
+            inventoryItem: { name: 'Beans' },
+          },
+        ],
+      }),
+    );
+
+    const submitted = await service.submit(validInput());
+
+    expect(submitted.lines[0]).toEqual(
+      expect.objectContaining({
+        itemName: 'Beans',
+        notes: 'Bag split, repacked',
+      }),
+    );
+  });
+
+  it('stores null when no note was given', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+
+    await service.submit(validInput());
+
+    expect(prisma.stockCount.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ notes: null }),
+      }),
+    );
+  });
+
+  it('returns the stored note on the submitted count', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+    prisma.stockCount.create.mockResolvedValue(
+      countRecord({ notes: 'Two crates of beans arrived mid-count.' }),
+    );
+
+    const submitted = await service.submit(validInput());
+
+    expect(submitted.notes).toBe('Two crates of beans arrived mid-count.');
+  });
+
+  it('reports a null note rather than omitting the field', async () => {
+    const { prisma, service } = createService();
+    prepareSubmit(prisma);
+
+    const submitted = await service.submit(validInput());
+
+    // `notes` is `string | null` in the shared contract, so an absent note
+    // must read back as an explicit null — `undefined` would serialise the key
+    // away and make the web client's `!== null` check silently wrong.
+    expect(submitted.notes).toBeNull();
+    expect('notes' in submitted).toBe(true);
+  });
+
+  describe('correcting a count', () => {
+    const priorId = '2c7c0a6e-2f7c-4d6a-9a53-0d2a2d8f1c11';
+
+    function priorCount(overrides: Record<string, unknown> = {}) {
+      return {
+        id: priorId,
+        businessDate,
+        locationId: null,
+        phase: StockCountPhase.OPEN,
+        ...overrides,
+      };
+    }
+
+    it('links the new count to the count it corrects', async () => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+      prisma.stockCount.findFirst
+        .mockResolvedValueOnce(priorCount())
+        .mockResolvedValueOnce(null);
+
+      await service.submit({ ...validInput(), correctsStockCountId: priorId });
+
+      expect(prisma.stockCount.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ correctsStockCountId: priorId }),
+        }),
+      );
+    });
+
+    it('stores no link for a first count', async () => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+
+      await service.submit(validInput());
+
+      expect(prisma.stockCount.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ correctsStockCountId: null }),
+        }),
+      );
+    });
+
+    it('turns a concurrent duplicate correction into the same 400, not a 500', async () => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+      prisma.stockCount.findFirst
+        .mockResolvedValueOnce(priorCount())
+        .mockResolvedValueOnce(null);
+      // The pre-check passed, but another correction won the race: the
+      // database unique index refuses this insert.
+      prisma.stockCount.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { target: ['corrects_stock_count_id'] },
+        }),
+      );
+
+      await expect(
+        service.submit({ ...validInput(), correctsStockCountId: priorId }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('does not disguise an unrelated unique violation as a correction conflict', async () => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+      const lineConflict = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { target: ['stock_count_id', 'inventory_item_id'] },
+        },
+      );
+      prisma.stockCount.create.mockRejectedValue(lineConflict);
+
+      await expect(service.submit(validInput())).rejects.toBe(lineConflict);
+    });
+
+    it.each([
+      ['an unknown count', null, null],
+      ['a count from the other phase', priorCount({ phase: StockCountPhase.CLOSE }), null],
+      [
+        'a count from another day',
+        priorCount({ businessDate: new Date('2026-07-22T00:00:00.000Z') }),
+        null,
+      ],
+      ['a count that was already corrected', priorCount(), { id: 'later-id' }],
+    ])('refuses to correct %s and records nothing', async (_label, target, existing) => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+      prisma.stockCount.findFirst
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce(existing);
+
+      await expect(
+        service.submit({ ...validInput(), correctsStockCountId: priorId }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.stockCount.create).not.toHaveBeenCalled();
+    });
   });
 
   it('snapshots submitter and shift-lead names in one transaction', async () => {

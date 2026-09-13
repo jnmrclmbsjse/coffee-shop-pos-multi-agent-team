@@ -316,7 +316,12 @@ model StockCount {
   submittedByNameSnapshot  String           @map("submitted_by_name_snapshot")
   shiftLeadStaffMemberId   String?          @map("shift_lead_staff_member_id") @db.Uuid
   shiftLeadNameSnapshot    String?          @map("shift_lead_name_snapshot")
-  correctsStockCountId     String?          @map("corrects_stock_count_id") @db.Uuid
+  // Free-text note the counter may add during the session, on either phase.
+  // Immutable like the count itself: a correction is a new StockCount row, so
+  // an amended note arrives as the correction's own note.
+  notes                    String?          @db.Text
+  // @unique: a count is corrected at most once, so corrections form a chain.
+  correctsStockCountId     String?          @unique @map("corrects_stock_count_id") @db.Uuid
   location                 Location?        @relation(fields: [locationId], references: [id], onDelete: Restrict)
   submittedByStaffMember   StaffMember      @relation("StockCountSubmittedBy", fields: [submittedByStaffMemberId], references: [id], onDelete: Restrict)
   shiftLeadStaffMember     StaffMember?     @relation("StockCountShiftLead", fields: [shiftLeadStaffMemberId], references: [id], onDelete: Restrict)
@@ -334,6 +339,10 @@ model StockCountLine {
   inventoryItemId String        @map("inventory_item_id") @db.Uuid
   quantity        Int?
   level           StockLevel?
+  // Note about THIS item during the count — "lid cracked, 3 unusable". Distinct
+  // from StockCount.notes, which is about the session as a whole. Immutable for
+  // the same reason: a correction is a new count, carrying its own notes.
+  notes           String?       @db.Text
   stockCount      StockCount    @relation(fields: [stockCountId], references: [id], onDelete: Restrict)
   inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
 

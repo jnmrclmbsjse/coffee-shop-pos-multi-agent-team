@@ -3,6 +3,7 @@ import type { DailyInventoryReport } from '@coffee-shop/shared';
 import { Link } from 'react-router-dom';
 import { getDailyInventoryReport } from './api';
 import {
+  CountNotesPanel,
   PackagingReconciliationTable,
   ReportingLoading,
   ReportingNotice,
@@ -141,6 +142,12 @@ export function DailyInventoryReportPage() {
               />
               <RestockNeedsPanel
                 restock={report.restock}
+                businessDate={report.businessDate}
+                location={location}
+              />
+              <CountNotesPanel
+                countNotes={report.countNotes}
+                tableCountId={report.restock.selectedCountId}
                 businessDate={report.businessDate}
                 location={location}
               />

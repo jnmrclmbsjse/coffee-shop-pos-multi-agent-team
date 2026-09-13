@@ -43,6 +43,24 @@ function reconciliationRow(
   };
 }
 
+function restockRow(
+  overrides: Partial<DailyInventoryReport['restock']['rows'][number]> = {},
+): DailyInventoryReport['restock']['rows'][number] {
+  return {
+    inventoryItemId: 'item',
+    itemName: 'Item',
+    critical: false,
+    countMethod: CountMethod.QUANTITY,
+    quantity: 2,
+    level: null,
+    par: 10,
+    parLevel: null,
+    status: 'LOW',
+    notes: null,
+    ...overrides,
+  };
+}
+
 function dailyReport(
   overrides: Partial<DailyInventoryReport> = {},
 ): DailyInventoryReport {
@@ -51,6 +69,7 @@ function dailyReport(
     locationId: null,
     hasInventoryInformation: true,
     reconciliation: [reconciliationRow()],
+    countNotes: [],
     restock: {
       businessDay: {
         isOpen: false,
@@ -84,6 +103,162 @@ describe('daily inventory report page', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it('shows both phases of session notes, attributed, marking corrections', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({
+          countNotes: [
+            {
+              stockCountId: 'open-count',
+              phase: 'open',
+              notes: 'Chest freezer reading 4C.',
+              submittedByNameSnapshot: 'Maya Santos',
+              recordedAt: '2026-07-26T01:00:00.000Z',
+              isCorrection: false,
+              itemNotes: [],
+            },
+            {
+              stockCountId: 'close-count',
+              phase: 'close',
+              notes: 'Recount after the late delivery.',
+              submittedByNameSnapshot: 'Ana Cruz',
+              recordedAt: '2026-07-26T13:00:00.000Z',
+              isCorrection: true,
+              itemNotes: [],
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Inventory session notes' }),
+    ).toBeInTheDocument();
+
+    // Scoped to the panel: the report renders staff names elsewhere too (the
+    // business day's openedByDisplayName), so a page-wide text query would
+    // match the wrong node and pass for the wrong reason.
+    const panel = within(
+      screen.getByRole('region', { name: 'Inventory session notes' }),
+    );
+    expect(panel.getByText('Chest freezer reading 4C.')).toBeInTheDocument();
+    expect(
+      panel.getByText('Recount after the late delivery.'),
+    ).toBeInTheDocument();
+    expect(panel.getByText('Opening')).toBeInTheDocument();
+    expect(panel.getByText('Closing')).toBeInTheDocument();
+    expect(panel.getByText(/Maya Santos/)).toBeInTheDocument();
+    expect(panel.getByText(/Ana Cruz/)).toBeInTheDocument();
+    // Append-only counts mean a day can carry an original and a correction.
+    // Without the label the two notes read as a contradiction.
+    expect(panel.getByText('Correction')).toBeInTheDocument();
+  });
+
+  it('shows item notes in the restock table, not repeated in the notes panel', async () => {
+    const base = dailyReport();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({
+          restock: {
+            ...base.restock,
+            rows: [
+              restockRow({
+                inventoryItemId: 'lids',
+                itemName: '8 oz lids',
+                status: 'LOW',
+                notes: '3 cracked, set aside',
+              }),
+            ],
+          },
+          countNotes: [
+            {
+              // The same count the table is built from.
+              stockCountId: 'closing-count',
+              phase: 'close',
+              notes: null,
+              itemNotes: [
+                {
+                  inventoryItemId: 'lids',
+                  itemName: '8 oz lids',
+                  notes: '3 cracked, set aside',
+                },
+              ],
+              submittedByNameSnapshot: 'Ana Cruz',
+              recordedAt: '2026-07-26T13:42:00.000Z',
+              isCorrection: false,
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderPage();
+
+    const table = await screen.findByRole('table', {
+      name: /Items below their restock threshold/,
+    });
+    expect(
+      within(table).getByRole('columnheader', { name: 'Notes' }),
+    ).toBeInTheDocument();
+    expect(within(table).getByText('3 cracked, set aside')).toBeInTheDocument();
+
+    // A count whose only notes are shown in the table leaves no entry behind.
+    const panel = within(
+      screen.getByRole('region', { name: 'Inventory session notes' }),
+    );
+    expect(panel.queryByText('3 cracked, set aside')).not.toBeInTheDocument();
+    expect(panel.getByText('No session notes for this day')).toBeInTheDocument();
+  });
+
+  it("keeps a different count's item notes in the panel so they are not lost", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({
+          countNotes: [
+            {
+              // The table uses the closing count; this is the opening one.
+              stockCountId: 'opening-count',
+              phase: 'open',
+              notes: null,
+              itemNotes: [
+                {
+                  inventoryItemId: 'beans',
+                  itemName: 'House blend beans',
+                  notes: 'Bag split in transit',
+                },
+              ],
+              submittedByNameSnapshot: 'Maya Santos',
+              recordedAt: '2026-07-26T01:00:00.000Z',
+              isCorrection: false,
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderPage();
+
+    const panel = within(
+      await screen.findByRole('region', { name: 'Inventory session notes' }),
+    );
+    expect(panel.getByText('House blend beans')).toBeInTheDocument();
+    expect(panel.getByText('Bag split in transit')).toBeInTheDocument();
+  });
+
+  it('states plainly when no note was recorded', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(dailyReport({ countNotes: [] })),
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByText('No session notes for this day'),
+    ).toBeInTheDocument();
   });
 
   it('renders recorded zeroes separately from every unavailable count combination', async () => {
@@ -161,6 +336,7 @@ describe('daily inventory report page', () => {
                 par: null,
                 parLevel: null,
                 status: 'URGENT',
+                notes: null,
               },
               {
                 inventoryItemId: 'chocolate',
@@ -172,6 +348,7 @@ describe('daily inventory report page', () => {
                 par: null,
                 parLevel: null,
                 status: 'BELOW_PAR',
+                notes: null,
               },
             ],
           },
@@ -209,6 +386,7 @@ describe('daily inventory report page', () => {
                 par: null,
                 parLevel: StockLevel.FULL,
                 status: 'LOW',
+                notes: null,
               },
             ],
           },
@@ -223,6 +401,97 @@ describe('daily inventory report page', () => {
     const row = within(table).getByRole('row', { name: /Ceremonial matcha/ });
     expect(row).toHaveTextContent('Ceremonial matchaCriticalQuarterFullLow');
     expect(within(table).queryByText('Unavailable')).not.toBeInTheDocument();
+  });
+
+  it('hides Enough items by default and reveals them with the toggle', async () => {
+    const rows = [
+      {
+        inventoryItemId: 'beans',
+        itemName: 'House blend beans',
+        critical: true,
+        countMethod: CountMethod.QUANTITY,
+        quantity: 2,
+        level: null,
+        par: 10,
+        parLevel: null,
+        status: 'LOW' as const,
+        notes: null,
+      },
+      {
+        inventoryItemId: 'cups',
+        itemName: 'Plenty of cups',
+        critical: false,
+        countMethod: CountMethod.QUANTITY,
+        quantity: 90,
+        level: null,
+        par: 20,
+        parLevel: null,
+        status: 'ENOUGH' as const,
+        notes: null,
+      },
+    ];
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({ restock: { ...dailyReport().restock, rows } }),
+      ),
+    );
+    renderPage();
+
+    // Default: restock needs only, exactly as before the toggle existed.
+    const table = await screen.findByRole('table', {
+      name: /Items below their restock threshold/,
+    });
+    expect(within(table).getByRole('row', { name: /House blend beans/ })).toBeInTheDocument();
+    expect(within(table).queryByRole('row', { name: /Plenty of cups/ })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/1 item with Enough stock is hidden/),
+    ).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText('Show all counted items'));
+
+    const allTable = await screen.findByRole('table', {
+      name: /All counted items/,
+    });
+    expect(within(allTable).getByRole('row', { name: /House blend beans/ })).toBeInTheDocument();
+    expect(within(allTable).getByRole('row', { name: /Plenty of cups/ })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Showing all 2 counted items/),
+    ).toBeInTheDocument();
+  });
+
+  it('shows every item when the toggle is on even if nothing needs restocking', async () => {
+    const rows = [
+      {
+        inventoryItemId: 'cups',
+        itemName: 'Plenty of cups',
+        critical: false,
+        countMethod: CountMethod.QUANTITY,
+        quantity: 90,
+        level: null,
+        par: 20,
+        parLevel: null,
+        status: 'ENOUGH' as const,
+        notes: null,
+      },
+    ];
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        dailyReport({ restock: { ...dailyReport().restock, rows } }),
+      ),
+    );
+    renderPage();
+
+    // This is the case the old server-side filter made impossible to reach:
+    // every row was ENOUGH, so the page received none and could only ever say
+    // "nothing needs restocking".
+    expect(await screen.findByText('Nothing needs restocking')).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText('Show all counted items'));
+
+    const allTable = await screen.findByRole('table', { name: /All counted items/ });
+    expect(within(allTable).getByRole('row', { name: /Plenty of cups/ })).toBeInTheDocument();
   });
 
   it('shows a positive empty state when a submitted count needs no restocking', async () => {

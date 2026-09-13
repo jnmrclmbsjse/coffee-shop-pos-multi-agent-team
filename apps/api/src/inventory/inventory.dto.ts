@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
   ValidateNested,
   IsIn,
@@ -221,6 +222,14 @@ export class SubmitStockCountLineDto
   @IsOptional()
   @IsEnum(StockLevel)
   level?: StockLevel;
+
+  // Same trim-to-null and cap as the session note, so a whitespace-only item
+  // note is stored as absent rather than as a blank note.
+  @IsOptional()
+  @Transform(optionalTrimmedString)
+  @IsString()
+  @MaxLength(500, { message: 'item notes must not exceed 500 characters' })
+  notes?: string | null;
 }
 
 export class SubmitStockCountDto implements SubmitStockCountInput {
@@ -233,6 +242,19 @@ export class SubmitStockCountDto implements SubmitStockCountInput {
   @IsOptional()
   @IsUUID()
   shiftLeadStaffMemberId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  correctsStockCountId?: string | null;
+
+  // Trimmed to null first, so a whitespace-only note is stored as absent rather
+  // than as a blank note. Applies to both phases — opening and closing counts
+  // are the same record shape, distinguished only by `phase`.
+  @IsOptional()
+  @Transform(optionalTrimmedString)
+  @IsString()
+  @MaxLength(500, { message: 'notes must not exceed 500 characters' })
+  notes?: string | null;
 
   @IsArray()
   @ArrayMinSize(1, { message: 'at least one count line is required' })

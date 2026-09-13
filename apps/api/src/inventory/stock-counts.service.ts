@@ -134,6 +134,45 @@ export class StockCountsService {
         }
       }
 
+      // "Record another count" names the count it corrects. Corrections are new
+      // records, never edits (ADR 0001). The link must stay inside the current
+      // day, location, and phase, and only the latest count in a chain may be
+      // corrected: correcting an older one would fork the chain.
+      let correctsStockCountId: string | null = null;
+      if (input.correctsStockCountId) {
+        const [target, existingCorrection] = await Promise.all([
+          transaction.stockCount.findFirst({
+            where: { id: input.correctsStockCountId },
+            select: {
+              id: true,
+              businessDate: true,
+              locationId: true,
+              phase: true,
+            },
+          }),
+          transaction.stockCount.findFirst({
+            where: { correctsStockCountId: input.correctsStockCountId },
+            select: { id: true },
+          }),
+        ]);
+        if (
+          target === null ||
+          target.businessDate.getTime() !== openDay.businessDate.getTime() ||
+          target.locationId !== openDay.locationId ||
+          target.phase !== this.toPrismaPhase(input.phase)
+        ) {
+          throw new BadRequestException(
+            `correctsStockCountId must reference a ${input.phase} count for the current business day`,
+          );
+        }
+        if (existingCorrection !== null) {
+          throw new BadRequestException(
+            'That count has already been corrected. Correct the latest count instead.',
+          );
+        }
+        correctsStockCountId = target.id;
+      }
+
       const count = await transaction.stockCount.create({
         data: {
           locationId: openDay.locationId,
@@ -143,11 +182,14 @@ export class StockCountsService {
           submittedByNameSnapshot: submitter.displayName,
           shiftLeadStaffMemberId: shiftLead?.id ?? null,
           shiftLeadNameSnapshot: shiftLead?.displayName ?? null,
+          notes: input.notes ?? null,
+          correctsStockCountId,
           lines: {
             create: input.lines.map((line) => ({
               inventoryItemId: line.inventoryItemId,
               quantity: line.quantity ?? null,
               level: line.level ?? null,
+              notes: line.notes ?? null,
             })),
           },
         },
@@ -155,7 +197,7 @@ export class StockCountsService {
       });
 
       return this.toSubmittedCount(count);
-    });
+    }).catch((error: unknown) => this.rethrowCorrectionConflict(error));
   }
 
   private async sheet(phase: 'open' | 'close'): Promise<CountSheet> {
@@ -295,6 +337,27 @@ export class StockCountsService {
     };
   }
 
+  // The unique index on corrects_stock_count_id is the real guarantee that a
+  // count is corrected at most once. The pre-check inside submit only gives the
+  // common case a clear message; a concurrent correction that slips past it is
+  // refused by the database and lands here, getting the same 400 rather than a
+  // 500. Any other unique violation is not a correction conflict and is left
+  // untouched.
+  private rethrowCorrectionConflict(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      /corrects_stock_count_id|correctsStockCountId/.test(
+        String(error.meta?.target ?? ''),
+      )
+    ) {
+      throw new BadRequestException(
+        'That count has already been corrected. Correct the latest count instead.',
+      );
+    }
+    throw error;
+  }
+
   private toSubmittedCount(
     count: SubmittedStockCountRecord,
   ): SubmittedStockCount {
@@ -308,12 +371,14 @@ export class StockCountsService {
       submittedByNameSnapshot: count.submittedByNameSnapshot,
       shiftLeadStaffMemberId: count.shiftLeadStaffMemberId,
       shiftLeadNameSnapshot: count.shiftLeadNameSnapshot,
+      notes: count.notes,
       recordedAt: count.recordedAt.toISOString(),
       lines: count.lines.map((line) => ({
         inventoryItemId: line.inventoryItemId,
         itemName: line.inventoryItem.name,
         quantity: line.quantity,
         level: line.level as SharedStockLevel | null,
+        notes: line.notes,
       })),
     };
   }
