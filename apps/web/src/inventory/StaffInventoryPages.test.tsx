@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { SignedInAs } from '../auth/session-test-utils';
@@ -367,6 +367,8 @@ describe('staff inventory screens', () => {
         init?.method === 'POST',
     );
     expect(JSON.parse(String(post![1]!.body)).notes).toBeNull();
+    // A first count corrects nothing.
+    expect(JSON.parse(String(post![1]!.body)).correctsStockCountId).toBeNull();
   });
 
   it('sends a per-item note on the line it was typed against', async () => {
@@ -517,6 +519,54 @@ describe('staff inventory screens', () => {
     expect(
       screen.getByRole('button', { name: 'Record another opening count' }),
     ).toBeInTheDocument();
+  });
+
+  it('links a recorded-again count to the count it corrects', async () => {
+    installCountFetch(
+      sheet('open', [quantityItem, levelItem], openDay, {
+        id: 'count-id',
+        locationId: null,
+        businessDate: '2026-07-30',
+        phase: 'open',
+        submittedByStaffMemberId: activeStaff[0]!.id,
+        submittedByNameSnapshot: 'Maya Santos',
+        shiftLeadStaffMemberId: null,
+        shiftLeadNameSnapshot: null,
+        notes: null,
+        recordedAt: '2026-07-30T08:00:00.000Z',
+        lines: [],
+      }),
+    );
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', { name: 'Record another opening count' }),
+    );
+    const submit = await screen.findByRole('button', {
+      name: 'Submit opening count',
+    });
+    await user.type(screen.getByLabelText(/Quantity for Cup/), '4');
+    await user.selectOptions(
+      screen.getByLabelText(/Submitted by/),
+      activeStaff[0]!.id,
+    );
+    await user.click(submit);
+
+    const post = await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        ([url, init]) =>
+          new URL(String(url)).pathname === '/inventory/counts' &&
+          init?.method === 'POST',
+      );
+      expect(call).toBeDefined();
+      return call!;
+    });
+    // Without this link the back office cannot tell a correction from a
+    // second, unrelated count, and never shows the Correction label.
+    expect(JSON.parse(String(post[1]!.body)).correctsStockCountId).toBe(
+      'count-id',
+    );
   });
 
   it('defaults movement type to Delivery, switches to Wastage, and resets after save', async () => {

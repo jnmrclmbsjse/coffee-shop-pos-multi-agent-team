@@ -443,6 +443,9 @@ export interface SubmitStockCountInput {
   submittedByStaffMemberId: string;
   shiftLeadStaffMemberId?: string | null;
   notes?: string | null;
+  // Set by "Record another count": the count on screen that this one corrects.
+  // Absent for a first count.
+  correctsStockCountId?: string | null;
   lines: SubmitStockCountLineInput[];
 }
 

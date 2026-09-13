@@ -134,6 +134,45 @@ export class StockCountsService {
         }
       }
 
+      // "Record another count" names the count it corrects. Corrections are new
+      // records, never edits (ADR 0001). The link must stay inside the current
+      // day, location, and phase, and only the latest count in a chain may be
+      // corrected: correcting an older one would fork the chain.
+      let correctsStockCountId: string | null = null;
+      if (input.correctsStockCountId) {
+        const [target, existingCorrection] = await Promise.all([
+          transaction.stockCount.findFirst({
+            where: { id: input.correctsStockCountId },
+            select: {
+              id: true,
+              businessDate: true,
+              locationId: true,
+              phase: true,
+            },
+          }),
+          transaction.stockCount.findFirst({
+            where: { correctsStockCountId: input.correctsStockCountId },
+            select: { id: true },
+          }),
+        ]);
+        if (
+          target === null ||
+          target.businessDate.getTime() !== openDay.businessDate.getTime() ||
+          target.locationId !== openDay.locationId ||
+          target.phase !== this.toPrismaPhase(input.phase)
+        ) {
+          throw new BadRequestException(
+            `correctsStockCountId must reference a ${input.phase} count for the current business day`,
+          );
+        }
+        if (existingCorrection !== null) {
+          throw new BadRequestException(
+            'That count has already been corrected. Correct the latest count instead.',
+          );
+        }
+        correctsStockCountId = target.id;
+      }
+
       const count = await transaction.stockCount.create({
         data: {
           locationId: openDay.locationId,
@@ -144,6 +183,7 @@ export class StockCountsService {
           shiftLeadStaffMemberId: shiftLead?.id ?? null,
           shiftLeadNameSnapshot: shiftLead?.displayName ?? null,
           notes: input.notes ?? null,
+          correctsStockCountId,
           lines: {
             create: input.lines.map((line) => ({
               inventoryItemId: line.inventoryItemId,

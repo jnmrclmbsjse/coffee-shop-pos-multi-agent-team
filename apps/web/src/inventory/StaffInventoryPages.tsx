@@ -460,6 +460,11 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
         submittedByStaffMemberId: submittedBy,
         shiftLeadStaffMemberId: shiftLead || null,
         notes: notes.trim() || null,
+        // "Record another count" corrects the count that was on screen, so the
+        // back office can label it a correction rather than a second count.
+        correctsStockCountId: recordingAnother
+          ? (sheet.submittedCount?.id ?? null)
+          : null,
         lines,
       });
       setSheet({ ...sheet, submittedCount: submitted });

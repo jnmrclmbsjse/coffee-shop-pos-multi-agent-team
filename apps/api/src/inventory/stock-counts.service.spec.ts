@@ -441,6 +441,71 @@ describe('StockCountsService', () => {
     expect('notes' in submitted).toBe(true);
   });
 
+  describe('correcting a count', () => {
+    const priorId = '2c7c0a6e-2f7c-4d6a-9a53-0d2a2d8f1c11';
+
+    function priorCount(overrides: Record<string, unknown> = {}) {
+      return {
+        id: priorId,
+        businessDate,
+        locationId: null,
+        phase: StockCountPhase.OPEN,
+        ...overrides,
+      };
+    }
+
+    it('links the new count to the count it corrects', async () => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+      prisma.stockCount.findFirst
+        .mockResolvedValueOnce(priorCount())
+        .mockResolvedValueOnce(null);
+
+      await service.submit({ ...validInput(), correctsStockCountId: priorId });
+
+      expect(prisma.stockCount.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ correctsStockCountId: priorId }),
+        }),
+      );
+    });
+
+    it('stores no link for a first count', async () => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+
+      await service.submit(validInput());
+
+      expect(prisma.stockCount.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ correctsStockCountId: null }),
+        }),
+      );
+    });
+
+    it.each([
+      ['an unknown count', null, null],
+      ['a count from the other phase', priorCount({ phase: StockCountPhase.CLOSE }), null],
+      [
+        'a count from another day',
+        priorCount({ businessDate: new Date('2026-07-22T00:00:00.000Z') }),
+        null,
+      ],
+      ['a count that was already corrected', priorCount(), { id: 'later-id' }],
+    ])('refuses to correct %s and records nothing', async (_label, target, existing) => {
+      const { prisma, service } = createService();
+      prepareSubmit(prisma);
+      prisma.stockCount.findFirst
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce(existing);
+
+      await expect(
+        service.submit({ ...validInput(), correctsStockCountId: priorId }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.stockCount.create).not.toHaveBeenCalled();
+    });
+  });
+
   it('snapshots submitter and shift-lead names in one transaction', async () => {
     const { prisma, service } = createService();
     prisma.staffMember.findFirst

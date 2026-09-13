@@ -243,6 +243,10 @@ export class SubmitStockCountDto implements SubmitStockCountInput {
   @IsUUID()
   shiftLeadStaffMemberId?: string | null;
 
+  @IsOptional()
+  @IsUUID()
+  correctsStockCountId?: string | null;
+
   // Trimmed to null first, so a whitespace-only note is stored as absent rather
   // than as a blank note. Applies to both phases — opening and closing counts
   // are the same record shape, distinguished only by `phase`.
