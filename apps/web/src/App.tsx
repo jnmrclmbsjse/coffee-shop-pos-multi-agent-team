@@ -69,7 +69,7 @@ const ADMIN_NAV_GROUPS = [
       { to: '/inventory', label: 'Inventory', icon: 'clipboard' as const },
       { to: '/staff', label: 'Staff', icon: 'users' as const },
       { to: '/reports', label: 'Reports', icon: 'document' as const },
-      { to: '/compensation', label: 'Compensation', icon: 'document' as const },
+      { to: '/compensation', label: 'Compensation', icon: 'wallet' as const },
       { to: '/order-history', label: 'Order History', icon: 'receipt' as const },
     ],
   },

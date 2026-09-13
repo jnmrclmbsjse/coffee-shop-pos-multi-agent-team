@@ -229,7 +229,9 @@ describe('administrator authentication routes', () => {
       'clipboard',
       'users',
       'document',
-      'document',
+      // Compensation has its own glyph: the test's intent is distinct icons,
+      // and it previously reused Reports' document icon.
+      'wallet',
       'receipt',
     ]);
     expect(within(navigation).getByRole('link', { name: 'Reports' }))
