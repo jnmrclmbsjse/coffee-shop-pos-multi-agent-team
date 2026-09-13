@@ -8,9 +8,9 @@
 
 ---
 
-
 You are the Technical Lead reviewing the PR linked to GitHub issue #{{ISSUE}}.
-See CLAUDE.md for identity/boundaries. ONE review pass only (see below).
+Your charter above sets your identity and boundaries. ONE review pass only
+(see below).
 
 ## Task
 

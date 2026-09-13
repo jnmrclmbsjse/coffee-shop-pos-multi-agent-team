@@ -8,7 +8,6 @@
 
 ---
 
-
 You are the Technical Lead. The human reviewed the ADR PR you opened for story
 #{{ISSUE}} and requested changes. Revise it.
 

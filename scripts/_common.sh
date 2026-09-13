@@ -101,9 +101,9 @@ select_agent() {
 # AGENT prompt (`gh pr merge --auto --squash`). Because `master` requires 0
 # approving reviews, `--auto` had nothing outstanding to wait for beyond CI, so
 # every design PR in the history merged with zero reviews — the agent armed the
-# merge on its own work and walked away. Arming it HERE instead means the agent
-# holds no merge path at all, and a PR that is red or conflicting is left for a
-# human rather than sitting armed to fire whenever it eventually goes green.
+# merge on its own work and walked away. Merging from the wrapper instead means
+# the agent holds no merge path at all, and a PR that is red or conflicting is
+# left for a human rather than sitting armed to fire whenever it goes green.
 #
 # This is a CI GATE, NOT A CONTENT REVIEW. It does not read the diff. It only
 # refuses to merge something that is failing, unsettled, conflicting, or
@@ -152,9 +152,18 @@ auto_merge_story_pr() {
 
   # `gh pr checks` exits non-zero while anything is pending or failing, so the
   # `|| true` is load-bearing under `set -e`: we want to INSPECT the buckets,
-  # not die on them.
+  # not die on them. That also means the exit code cannot tell "red CI" from
+  # "gh itself failed", so the gate FAILS CLOSED on stdout alone: empty output,
+  # invalid JSON, an empty list, or any non-pass bucket all refuse the merge.
   checks="$(gh pr checks "$pr" --json bucket 2>/dev/null || true)"
-  if [[ -n "$checks" ]] && ! python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if d and all(c['bucket']=='pass' for c in d) else 1)" <<<"$checks"; then
+  if [[ -z "$checks" ]] || ! python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    ok = isinstance(d, list) and len(d) > 0 and all(isinstance(c, dict) and c.get('bucket') == 'pass' for c in d)
+except Exception:
+    ok = False
+sys.exit(0 if ok else 1)" <<<"$checks" 2>/dev/null; then
     echo "auto-merge: #${pr} has non-passing or unsettled checks — leaving it for a human." >&2
     return 0
   fi

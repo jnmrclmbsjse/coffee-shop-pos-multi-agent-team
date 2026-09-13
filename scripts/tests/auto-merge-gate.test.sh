@@ -37,6 +37,12 @@ case "$1 $2" in
       esac; done
       exit 0 ;;
   "pr checks")
+      # $GH_CHECKS_MODE simulates gh itself misbehaving, independent of the
+      # JSON default below: empty = no output + exit 1, garbage = non-JSON.
+      case "${GH_CHECKS_MODE:-}" in
+        empty)   exit 1 ;;
+        garbage) printf 'HTTP 502: Bad Gateway <html>'; exit 1 ;;
+      esac
       # Build the default OUTSIDE a ${...:-} default: bash ends the expansion at
       # the first '}', so an inline JSON default emits mangled JSON.
       _dflt='[{"bucket":"pass"}]'
@@ -103,7 +109,21 @@ auto_merge_story_pr uiux 50 2>/dev/null
 [[ -z "$(merged_prs)" ]] && ok "conflicting PR refused" || bad "merged a conflicting PR"
 unset GH_MERGEABLE
 
-echo "9. the clean case DOES merge"
+echo "9. gh pr checks prints nothing and exits 1 → refused (fail closed)"
+run_case; export GH_OPEN_PRS="11" GH_BODY_11="for #50" GH_FILES_11="docs/design/a.html"
+export GH_CHECKS_MODE="empty"
+auto_merge_story_pr uiux 50 2>/dev/null
+[[ -z "$(merged_prs)" ]] && ok "empty checks output refused" || bad "merged with no checks output"
+unset GH_CHECKS_MODE
+
+echo "10. gh pr checks prints non-JSON garbage → refused (fail closed)"
+run_case; export GH_OPEN_PRS="12" GH_BODY_12="for #50" GH_FILES_12="docs/design/a.html"
+export GH_CHECKS_MODE="garbage"
+auto_merge_story_pr uiux 50 2>/dev/null
+[[ -z "$(merged_prs)" ]] && ok "unparseable checks output refused" || bad "merged on garbage checks output"
+unset GH_CHECKS_MODE
+
+echo "11. the clean case DOES merge"
 run_case; export GH_OPEN_PRS="10" GH_BODY_10="design for #50" GH_FILES_10="docs/design/mockups/issue-50/index.html"
 auto_merge_story_pr uiux 50 2>/dev/null
 [[ "$(merged_prs)" == "10" ]] && ok "green, in-scope, unambiguous PR merged" || bad "clean case did not merge (got '$(merged_prs)')"

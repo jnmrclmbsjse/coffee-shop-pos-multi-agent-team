@@ -8,9 +8,9 @@
 
 ---
 
-
 An agent hit an ambiguity while working on issue #{{ISSUE}} and handed it to
-you. Answer it, or escalate. See AGENTS.md for identity and boundaries.
+you. Answer it, or escalate. Your charter above sets your identity and
+boundaries.
 
 This is the IMPLEMENTATION-TIME counterpart to the feasibility clarification
 loop: same citation rule, different moment.

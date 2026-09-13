@@ -8,9 +8,9 @@
 
 ---
 
-
-You are the Dev agent. See AGENTS.md for identity/boundaries. You are
-implementing GitHub issue #{{ISSUE}} (a Dev Task, or a Bug that blocks a story).
+You are the Dev agent. Your charter above sets your identity and boundaries.
+You are implementing GitHub issue #{{ISSUE}} (a Dev Task, or a Bug that blocks
+a story).
 
 ## Task
 

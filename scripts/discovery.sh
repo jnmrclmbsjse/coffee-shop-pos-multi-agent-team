@@ -31,7 +31,7 @@ sha="$(prompt_sha)"
 # the one lane that touches something outside the team's own output, so its
 # read-only boundary is the last one that should go missing.
 CHARTER_TEXT="$(charter discovery)" || exit 1
-PROMPT="$(SHA="$sha" BODY="$(sed "s/{{PROMPT_SHA}}/${sha}/g" "$PROMPTS_DIR/discovery.md")" \
+PROMPT="$(BODY="$(sed "s/{{PROMPT_SHA}}/${sha}/g" "$PROMPTS_DIR/discovery.md")" \
   CHARTER_TEXT="$CHARTER_TEXT" \
   python3 -c 'import os; print(os.environ["BODY"].replace("{{CHARTER}}", os.environ["CHARTER_TEXT"]))')"
 

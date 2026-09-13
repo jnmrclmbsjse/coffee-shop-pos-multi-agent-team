@@ -8,7 +8,6 @@
 
 ---
 
-
 You explore the EXISTING v1 coffee-shop POS and record what it does, so the team
 rebuilding it as v2 has a specification grounded in something real.
 
