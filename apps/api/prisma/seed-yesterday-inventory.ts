@@ -7,8 +7,13 @@
  * Not part of the app seed. Run it deliberately:
  *   cd apps/api && npx ts-node prisma/seed-yesterday-inventory.ts
  *
- * At most one trading day may be OPEN at a time (a partial unique index
- * enforces it), so this CLOSES whatever day is currently open first.
+ * It never moves a trading day's lifecycle backward or closes one behind the
+ * app's back. Nothing re-opens a closed day (ADR 0006, ADR 0004 §4), and a day
+ * closed here would have no DayClosing or CashCount behind it. So the seed
+ * ABORTS, changing nothing, when:
+ *   - another trading day is already OPEN (close it in the app: POS → Close Day);
+ *   - yesterday's trading day already exists and is CLOSED.
+ * If yesterday's day exists and is still OPEN, it is reused as is.
  */
 import { PrismaClient, StockCountPhase, TradingDayStatus, MovementType } from '@prisma/client';
 
@@ -38,39 +43,43 @@ async function main() {
     take: 6,
     select: { id: true, name: true, unit: true },
   });
-  if (items.length === 0) throw new Error('No active critical quantity items found.');
+  // Two are needed: one for the delivery and one for the wastage movement.
+  if (items.length < 2) {
+    throw new Error(
+      `Need at least 2 active critical quantity-counted items; found ${items.length}.`,
+    );
+  }
 
   await prisma.$transaction(async (tx) => {
-    // One OPEN day at a time. Close any other open day before opening ours.
-    const open = await tx.tradingDay.findMany({
-      where: { status: TradingDayStatus.OPEN },
-      select: { id: true, businessDate: true },
+    // One OPEN day at a time, and only the app may close one. Refuse rather
+    // than close someone else's open day without its closing records.
+    const otherOpen = await tx.tradingDay.findFirst({
+      where: { status: TradingDayStatus.OPEN, NOT: { businessDate } },
+      select: { businessDate: true },
     });
-    for (const day of open) {
-      if (day.businessDate.getTime() === businessDate.getTime()) continue;
-      await tx.tradingDay.update({
-        where: { id: day.id },
-        data: {
-          status: TradingDayStatus.CLOSED,
-          closedAt: new Date(),
-          closedByStaffMemberId: staff.id,
-        },
-      });
-      console.log(`closed previously-open day ${day.businessDate.toISOString().slice(0, 10)}`);
+    if (otherOpen) {
+      throw new Error(
+        `Trading day ${otherOpen.businessDate.toISOString().slice(0, 10)} is still OPEN. ` +
+          'Close it in the app (POS → Close Day), then run this seed again. Nothing was changed.',
+      );
     }
 
     const existing = await tx.tradingDay.findFirst({
       where: { businessDate, locationId: null },
-      select: { id: true },
+      select: { id: true, status: true },
     });
+    // Nothing re-opens a closed day. A closed row may already carry DayClosing
+    // and CashCount records; flipping it back to OPEN would contradict them.
+    if (existing && existing.status === TradingDayStatus.CLOSED) {
+      throw new Error(
+        `Trading day ${dateLabel} already exists and is CLOSED. Nothing re-opens a closed day, ` +
+          'so this seed will not touch it. Use a disposable database for this fixture. Nothing was changed.',
+      );
+    }
 
     const openedAt = new Date(`${dateLabel}T06:30:00.000Z`);
     const dayId = existing
-      ? (await tx.tradingDay.update({
-          where: { id: existing.id },
-          data: { status: TradingDayStatus.OPEN, closedAt: null, closedByStaffMemberId: null },
-          select: { id: true },
-        })).id
+      ? existing.id
       : (await tx.tradingDay.create({
           data: {
             businessDate,
