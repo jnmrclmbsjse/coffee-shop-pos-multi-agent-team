@@ -132,11 +132,6 @@ export function openBusinessDay(
 }
 
 /**
- * Create the stock category, inventory items (with NORMAL-day par levels) and
- * staff members the suite needs. Keys are stable so the spec can name what each
- * row is for.
- */
-/**
  * Deactivate the inventory items that earlier runs of this suite seeded.
  *
  * Every run creates a fresh tagged set and nothing removed the old ones, so the
@@ -161,6 +156,11 @@ export function deactivateStaleInventoryItems(tag: string): number {
   return Number(output);
 }
 
+/**
+ * Create the stock category, inventory items (with NORMAL-day par levels) and
+ * staff members the suite needs. Keys are stable so the spec can name what each
+ * row is for.
+ */
 export function seedInventoryItems(
   tag: string,
   specs: Record<string, SeedItemSpec>,

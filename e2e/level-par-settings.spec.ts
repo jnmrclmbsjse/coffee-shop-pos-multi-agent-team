@@ -668,10 +668,10 @@ test.describe('invalid level par settings (#286)', () => {
 });
 
 // ===========================================================================
-// Restock status is not affected — the guard this story is most exposed to
+// Restock status follows the saved level target for the day type (#338)
 // ===========================================================================
 
-test.describe('Restock status is unchanged by saved level targets (#286 / #108)', () => {
+test.describe('Restock status follows the saved level target for the day type (#286 / #338)', () => {
   let staff: Record<string, SeededStaff>;
 
   test.beforeAll(() => {
@@ -693,12 +693,13 @@ test.describe('Restock status is unchanged by saved level targets (#286 / #108)'
   });
 
   /**
-   * A level-counted item counted at One-third maps to `Low` under #108's fixed
-   * table, whatever its saved level targets are. The two targets used here
-   * bracket the counted level from both sides — `Full` for Normal (a leak would
-   * push the row *below* par) and `Empty` (a leak would push it to `Enough`) —
-   * so a Restock implementation that started reading them could not land on
-   * `Low` by luck in both halves of the test.
+   * Restock reads a level-counted item's saved level target for the open day's
+   * type: Par shows that target, and the row's status is judged against it. The
+   * item is counted at One-third, and the two Normal-day targets used here
+   * bracket that count from both sides — `Full` (above the count, so `Low`) and
+   * `Empty` (below it, so `Enough`) — so a Restock implementation that ignored
+   * the saved target, or read the wrong one, could not land on the expected
+   * status by luck in both halves of the test.
    */
   test('a level item shows its saved Normal-day target as Par, and restock status follows that target (#338)', async ({
     page,

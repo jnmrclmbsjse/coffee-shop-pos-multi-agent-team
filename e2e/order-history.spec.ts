@@ -502,11 +502,11 @@ function searchField(page: Page): Locator {
 }
 
 /**
- * Type a search and wait until the page's URL carries it.
+ * Type a search, then wait for the list request that carries it (see
+ * `whenListReloads`) and for the page's URL to carry it too.
  *
- * Changing another control in the same instant used to race the search away
- * (a page bug, fixed separately in the web app). Waiting here keeps this spec
- * about what the list shows rather than about input timing.
+ * Waiting here keeps this spec about what the list shows rather than about
+ * input timing.
  */
 async function applySearch(page: Page, value: string): Promise<void> {
   // The API receives the search trimmed, and no parameter at all when empty.
@@ -531,9 +531,8 @@ function sortHeader(page: Page, label: string): Locator {
 
 /**
  * Wait until one query parameter in the page URL reads as expected (null means
- * absent). Order History applies every control by rewriting the URL; waiting for
- * it before the next change keeps back-to-back changes from racing each other
- * (a page bug, fixed separately in the web app).
+ * absent). Order History applies every control by rewriting the URL, so this
+ * confirms a change was applied before the spec asserts on the list.
  */
 async function expectQueryParam(
   page: Page,
@@ -551,6 +550,9 @@ async function expectQueryParam(
  * the stale query and drops the first. The page only requests the list after
  * it has re-rendered, so the request carrying the new value proves the change
  * took. `requested` is the parameter as the API receives it (null = absent).
+ *
+ * That dropped-change race is a page bug, fixed separately in the web app by
+ * PR #397; this wait keeps the spec independent of it.
  */
 async function whenListReloads(
   page: Page,

@@ -479,7 +479,7 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
     expect(rows[2]![12]).toBe('₱0.00');
 
     // Tips move expected cash but never gross sales; a cash expense reduces
-    // expected cash, and is now shown in its own column (index 8).
+    // expected cash and is shown in its own column (index 8).
     // DAY_OPEN: float 1500 + cash 450 + tips 30 − expense 25 = 1955.
     expect(openRow[8]).toBe('₱25.00');
     expect(rows[0]![8]).toBe('₱50.00');
@@ -603,7 +603,7 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
     ]);
 
     // The CSV carries exactly the on-screen reconciliation columns, including
-    // cash expenses (index 8), which the page now shows as well.
+    // cash expenses (index 8), which the page shows as well.
     expect(lines[1]!.split(',')[8]).toBe('50.00');
     await expect(page.getByRole('table', { name: 'Daily reconciliation' })).toContainText(
       'Cash expenses',
