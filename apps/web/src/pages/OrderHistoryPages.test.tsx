@@ -1,11 +1,11 @@
 import {
+  act,
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
   within,
-  fireEvent,
-  act,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -221,9 +221,9 @@ describe('Order History pages', () => {
     });
 
     // Two changes in one batch: the second handler runs before the page
-    // re-renders with the first. A fast hand, a barcode
-    // wedge or an automated test can all do this. Building the next query from
-    // the render-time URL would drop the search here and list every order.
+    // re-renders with the first. A fast hand, a barcode wedge or an automated
+    // test can all do this. Building the next query from the render-time URL
+    // would drop the search here and list every order.
     const customer = screen.getByLabelText('Customer');
     const rowsPerPage = screen.getByLabelText('Rows per page');
     act(() => {
