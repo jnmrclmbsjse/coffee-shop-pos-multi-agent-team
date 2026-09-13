@@ -20,7 +20,8 @@ export function Icon({
     | 'receipt'
     | 'search'
     | 'trash'
-    | 'users';
+    | 'users'
+    | 'wallet';
   className?: string;
 }) {
   const paths: Record<typeof name, ReactNode> = {
@@ -102,6 +103,13 @@ export function Icon({
       <>
         <circle cx="9" cy="8" r="3.2" />
         <path d="M3 20a6 6 0 0 1 12 0M16.5 5.5a3 3 0 0 1 0 5.6M18 20a6.6 6.6 0 0 0-2-4.4" />
+      </>
+    ),
+    wallet: (
+      <>
+        <path d="M17 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v1" />
+        <path d="M3 6a2 2 0 0 0 2 2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+        <path d="M16.5 14.5h.01" />
       </>
     ),
   };
