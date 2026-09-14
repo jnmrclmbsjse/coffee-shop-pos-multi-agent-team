@@ -119,10 +119,10 @@ export function ExpensesReportPage() {
 
           {report.items.length === 0 ? (
             <section className="report-panel" aria-labelledby="expenses-empty-title">
-              <h2 id="expenses-empty-title">No expenses in this range</h2>
-              <p className="report-empty">
-                Choose another range to review recorded expenses.
-              </p>
+              <div className="report-empty">
+                <h2 id="expenses-empty-title">No expenses in this range</h2>
+                <span>Choose another range to review recorded expenses.</span>
+              </div>
             </section>
           ) : (
             <>
