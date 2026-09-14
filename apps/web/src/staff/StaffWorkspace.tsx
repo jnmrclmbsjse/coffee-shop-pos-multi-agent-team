@@ -65,7 +65,7 @@ const STAFF_DESTINATIONS: readonly StaffDestination[] = [
     requiresOpenDay: true,
     separatorAfter: true,
   },
-  { label: 'Close Day', to: '/pos/close', requiresOpenDay: true },
+  { label: 'Close Day', to: '/pos/close', requiresOpenDay: false },
 ] as const;
 
 function formatBusinessDate(value: string): string {

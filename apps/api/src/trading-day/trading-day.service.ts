@@ -19,6 +19,7 @@ import type {
   CashReconciliation,
   CurrentOpenBusinessDay,
   DayClosing as DayClosingResponse,
+  LatestDayClosing,
   TradingDayClosingSummary,
 } from '@coffee-shop/shared';
 import {
@@ -73,6 +74,13 @@ const dayClosingInclude = {
   },
 } satisfies Prisma.DayClosingInclude;
 
+const latestDayClosingInclude = {
+  ...dayClosingInclude,
+  tradingDay: {
+    select: { businessDate: true },
+  },
+} satisfies Prisma.DayClosingInclude;
+
 type DayClosingRecord = Prisma.DayClosingGetPayload<{
   include: typeof dayClosingInclude;
 }>;
@@ -115,6 +123,29 @@ export class TradingDayService {
 
   async getCurrentOpenDay(): Promise<CurrentOpenBusinessDay> {
     return this.toResponse(await this.findCurrentOpenDay());
+  }
+
+  async getLatestClosing(): Promise<LatestDayClosing> {
+    const closing = await this.prisma.dayClosing.findFirst({
+      where: {
+        tradingDay: { status: TradingDayStatus.CLOSED },
+      },
+      orderBy: [
+        { tradingDay: { businessDate: 'desc' } },
+        { closedAt: 'desc' },
+      ],
+      include: latestDayClosingInclude,
+    });
+
+    return {
+      closing:
+        closing === null
+          ? null
+          : {
+              ...this.toDayClosing(closing),
+              businessDate: this.toDateOnly(closing.tradingDay.businessDate),
+            },
+    };
   }
 
   async listBusinessDays(): Promise<BusinessDayList> {

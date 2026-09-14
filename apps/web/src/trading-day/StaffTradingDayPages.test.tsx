@@ -11,6 +11,7 @@ import {
   cents,
   DayType,
   type CurrentOpenBusinessDay,
+  type DayClosing,
   type TradingDayClosingSummary,
 } from '@coffee-shop/shared';
 import { SignedInAs } from '../auth/session-test-utils';
@@ -66,6 +67,44 @@ function closingSummary(
     expectedCashCents: cents(63100),
     packaging: [],
     hasClosingStockCount: true,
+    ...overrides,
+  };
+}
+
+function latestClosing(
+  overrides: Partial<DayClosing & { businessDate: string }> = {},
+): DayClosing & { businessDate: string } {
+  return {
+    id: 'closing-id',
+    tradingDayId: 'day-id',
+    cashCountId: 'cash-count-id',
+    businessDate: '2026-07-30',
+    openingFloatCents: cents(50_000),
+    cashSalesCents: cents(12_500),
+    onlineSalesCents: cents(8_000),
+    cashTipsCents: cents(500),
+    cashInCents: cents(1_000),
+    cashOutCents: cents(200),
+    cashExpensesCents: cents(300),
+    outstandingChangeCents: cents(100),
+    expectedCashCents: cents(63_600),
+    actualCashCents: cents(63_100),
+    varianceCents: cents(-500),
+    varianceReason: 'Till was short',
+    closedByStaffMemberId: activeStaff[0]!.id,
+    closedByNameSnapshot: activeStaff[0]!.displayName,
+    closedAt: '2026-07-30T13:00:00.000Z',
+    lines: [
+      {
+        id: 'line-id',
+        dayClosingId: 'closing-id',
+        inventoryItemId: 'cup-id',
+        itemNameSnapshot: '16 oz Cup',
+        expectedQty: 12,
+        actualQty: 11,
+        varianceQty: -1,
+      },
+    ],
     ...overrides,
   };
 }
@@ -594,13 +633,20 @@ describe('staff business-day pages', () => {
   });
 
   it('explains that there is no day to close and offers no submission', async () => {
-    fetchMock.mockResolvedValueOnce(
-      response(200, {
-        ...closingSummary(),
-        isOpen: false,
-        businessDate: null,
-      }),
-    );
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, {
+          ...closingSummary(),
+          isOpen: false,
+          businessDate: null,
+        });
+      }
+      if (path === '/trading-day/latest-closing') {
+        return response(200, { closing: null });
+      }
+      return response(500);
+    });
 
     renderClosePage();
 
@@ -611,5 +657,135 @@ describe('staff business-day pages', () => {
       screen.queryByRole('button', { name: 'Close day' }),
     ).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Actual cash counted *')).not.toBeInTheDocument();
+  });
+
+  it('shows the latest stored closing and packaging when no day is open', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, {
+          ...closingSummary(),
+          isOpen: false,
+          businessDate: null,
+        });
+      }
+      if (path === '/trading-day/latest-closing') {
+        return response(200, { closing: latestClosing() });
+      }
+      return response(500);
+    });
+
+    renderClosePage();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Last closed day' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Thursday, Jul 30, 2026')).toBeInTheDocument();
+    expect(screen.getByText('Maya Santos')).toBeInTheDocument();
+    expect(screen.getByText('Actual cash counted')).toBeInTheDocument();
+    expect(screen.getByText('₱631.00')).toBeInTheDocument();
+    expect(screen.getByText('▾ Short ₱5.00')).toBeInTheDocument();
+    expect(screen.getByText('Till was short')).toBeInTheDocument();
+    for (const label of [
+      'Opening float',
+      'Cash sales',
+      'Online sales (excluded)',
+      'Cash tips',
+      'Cash in',
+      'Cash out',
+      'Expenses (cash)',
+      'Change owed (still in drawer)',
+      'Expected cash',
+    ]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByRole('rowheader', { name: '16 oz Cup' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Close day' })).not.toBeInTheDocument();
+  });
+
+  it('labels missing packaging actuals as no closing count when none was recorded', async () => {
+    const closing = latestClosing({
+      lines: latestClosing().lines.map((line) => ({
+        ...line,
+        actualQty: null,
+        varianceQty: null,
+      })),
+    });
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, {
+          ...closingSummary(),
+          isOpen: false,
+          businessDate: null,
+        });
+      }
+      if (path === '/trading-day/latest-closing') {
+        return response(200, { closing });
+      }
+      return response(500);
+    });
+
+    renderClosePage();
+
+    const row = await screen.findByRole('row', { name: /16 oz Cup/ });
+    expect(within(row).getByText('— no closing count')).toBeInTheDocument();
+    expect(within(row).queryByText('— not in count')).not.toBeInTheDocument();
+  });
+
+  it('shows the confirmation and stored panel immediately after close', async () => {
+    const closing = latestClosing();
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, closingSummary());
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      if (path === '/trading-day/close' && init?.method === 'POST') {
+        return response(201, closing);
+      }
+      if (path === '/trading-day/latest-closing') {
+        return response(200, { closing });
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderClosePage(activeStaff[0]!.id);
+    await user.type(await screen.findByLabelText('Actual cash counted *'), '631.00');
+    await user.click(screen.getByRole('button', { name: 'Close day' }));
+
+    expect(await screen.findByText('Business day closed.')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Last closed day' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the close confirmation visible when loading the stored closing fails', async () => {
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, closingSummary());
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      if (path === '/trading-day/close' && init?.method === 'POST') {
+        return response(201, latestClosing());
+      }
+      if (path === '/trading-day/latest-closing') return response(500);
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderClosePage(activeStaff[0]!.id);
+    await user.type(await screen.findByLabelText('Actual cash counted *'), '631.00');
+    await user.click(screen.getByRole('button', { name: 'Close day' }));
+
+    expect(await screen.findByText('Business day closed.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'The last closed day could not be loaded. Try again.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
 });
