@@ -99,8 +99,12 @@ describe('ExpensesReportPage', () => {
     );
     renderPage();
 
+    const heading = await screen.findByRole('heading', {
+      name: 'No expenses in this range',
+    });
+    expect(heading.parentElement).toHaveClass('report-empty');
     expect(
-      await screen.findByRole('heading', { name: 'No expenses in this range' }),
+      screen.getByText('Choose another range to review recorded expenses.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.queryByText('₱0.00')).not.toBeInTheDocument();
