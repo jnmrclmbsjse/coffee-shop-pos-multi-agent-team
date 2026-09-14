@@ -35,6 +35,7 @@ describe('ReportingController', () => {
         'dashboard',
         'dailyInventory',
         'report',
+        'expenses',
         'reportCsv',
         'orderHistory',
         'orderHistoryDetail',
@@ -51,10 +52,12 @@ describe('ReportingController', () => {
     );
   });
 
-  it('returns access denied when a staff user directly requests daily inventory', () => {
+  it.each(['dailyInventory', 'expenses'] as const)(
+    'returns access denied when a staff user directly requests %s',
+    (handler) => {
     const guard = new RolesGuard(new Reflector());
     const context = {
-      getHandler: () => ReportingController.prototype.dailyInventory,
+      getHandler: () => ReportingController.prototype[handler],
       getClass: () => ReportingController,
       switchToHttp: () => ({
         getRequest: () => ({
@@ -68,7 +71,8 @@ describe('ReportingController', () => {
     } as unknown as ExecutionContext;
 
     expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
-  });
+    },
+  );
 });
 
 describe('StaffOrderLedgerController', () => {

@@ -10,6 +10,7 @@ import {
 import { Role } from '@coffee-shop/shared';
 import type {
   DailyInventoryReport,
+  ExpenseReport,
   ReportingDashboard,
   OrderHistoryDetail,
   OrderHistoryList,
@@ -49,6 +50,13 @@ export class ReportingController {
     @Query() query: ReportingRangeQueryDto,
   ): Promise<SalesRangeReport> {
     return this.reportingService.getReport(query.from, query.to);
+  }
+
+  @Get('expenses')
+  expenses(
+    @Query() query: ReportingRangeQueryDto,
+  ): Promise<ExpenseReport> {
+    return this.reportingService.getExpenseReport(query.from, query.to);
   }
 
   @Get('report.csv')

@@ -15,6 +15,9 @@ import type {
   DailyInventoryItemNote,
   DailyInventoryReport,
   DailyReconciliation,
+  ExpenseCategoryTotal,
+  ExpenseReport,
+  ExpenseReportItem,
   MoneyCents,
   OrderHistoryDetail,
   OrderHistoryLine,
@@ -70,6 +73,18 @@ interface ProductAggregateRow {
 interface SummaryDayRow {
   id: string;
   businessDate: Date;
+}
+
+interface ExpenseReportRow {
+  id: string;
+  businessDate: Date;
+  dayStatus: TradingDayStatus;
+  recordedAt: Date;
+  category: string | null;
+  description: string;
+  amountCents: number;
+  recordedByName: string | null;
+  amended: boolean;
 }
 
 interface DailyReadModel extends DailyReconciliation {
@@ -337,6 +352,68 @@ export class ReportingService {
         varianceCents: day.varianceCents,
       })),
       topProducts,
+    };
+  }
+
+  async getExpenseReport(from: string, to: string): Promise<ExpenseReport> {
+    assertValidRange(from, to);
+    const rows = await this.prisma.$queryRaw<ExpenseReportRow[]>(Prisma.sql`
+      SELECT
+        movement.id,
+        day.business_date AS "businessDate",
+        day.status AS "dayStatus",
+        movement.recorded_at AS "recordedAt",
+        NULLIF(BTRIM(movement.category), '') AS category,
+        movement.description,
+        movement.amount_cents AS "amountCents",
+        movement.recorded_by_name_snapshot AS "recordedByName",
+        movement.amends_cash_movement_id IS NOT NULL AS amended
+      FROM cash_movements AS movement
+      INNER JOIN trading_days AS day ON day.id = movement.trading_day_id
+      WHERE day.business_date BETWEEN ${from}::date AND ${to}::date
+        AND movement.kind = 'EXPENSE'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM cash_movements AS amendment
+          WHERE amendment.amends_cash_movement_id = movement.id
+        )
+      ORDER BY day.business_date DESC, movement.recorded_at DESC, movement.id ASC
+    `);
+
+    const items: ExpenseReportItem[] = rows.map((row) => ({
+      id: row.id,
+      businessDate: toIsoDate(row.businessDate),
+      dayStatus: row.dayStatus === TradingDayStatus.OPEN ? 'open' : 'closed',
+      recordedAt: row.recordedAt.toISOString(),
+      category: row.category,
+      description: row.description,
+      amountCents: cents(row.amountCents),
+      recordedByName: row.recordedByName,
+      amended: row.amended,
+    }));
+    const categories = new Map<string | null, ExpenseCategoryTotal>();
+    for (const item of items) {
+      const current = categories.get(item.category);
+      categories.set(item.category, {
+        category: item.category,
+        entryCount: (current?.entryCount ?? 0) + 1,
+        totalCents: addMoney(current?.totalCents ?? cents(0), item.amountCents),
+      });
+    }
+    const byCategory = [...categories.values()].sort(
+      (left, right) =>
+        right.totalCents - left.totalCents ||
+        (left.category ?? 'Uncategorized').localeCompare(
+          right.category ?? 'Uncategorized',
+        ),
+    );
+
+    return {
+      from,
+      to,
+      totalCents: addMoney(...items.map((item) => item.amountCents)),
+      byCategory,
+      items,
     };
   }
 

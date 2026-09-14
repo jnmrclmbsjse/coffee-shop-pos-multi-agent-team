@@ -804,6 +804,32 @@ export interface SalesRangeReport {
   topProducts: ProductSales[];
 }
 
+export interface ExpenseReportItem {
+  id: string;
+  businessDate: string;
+  dayStatus: 'open' | 'closed';
+  recordedAt: string;
+  category: string | null;
+  description: string;
+  amountCents: MoneyCents;
+  recordedByName: string | null;
+  amended: boolean;
+}
+
+export interface ExpenseCategoryTotal {
+  category: string | null;
+  entryCount: number;
+  totalCents: MoneyCents;
+}
+
+export interface ExpenseReport {
+  from: string;
+  to: string;
+  totalCents: MoneyCents;
+  byCategory: ExpenseCategoryTotal[];
+  items: ExpenseReportItem[];
+}
+
 export interface DashboardSalesTrend {
   date: string;
   cashSalesCents: MoneyCents;
