@@ -7,6 +7,7 @@ import type {
   CurrentOpenBusinessDay,
   DayClosing,
   InventoryStaffOption,
+  LatestDayClosing,
   OpenBusinessDayInput,
   TradingDayClosingSummary,
 } from '@coffee-shop/shared';
@@ -68,6 +69,10 @@ export function getCurrentBusinessDay(): Promise<CurrentOpenBusinessDay> {
 
 export function getClosingSummary(): Promise<TradingDayClosingSummary> {
   return request('/trading-day/current/closing-summary');
+}
+
+export function getLatestClosing(): Promise<LatestDayClosing> {
+  return request('/trading-day/latest-closing');
 }
 
 export function getCurrentCashMovements(): Promise<CashMovementList> {

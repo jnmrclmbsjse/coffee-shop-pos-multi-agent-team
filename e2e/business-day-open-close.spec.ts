@@ -1046,8 +1046,34 @@ test('records the closing result, including a discrepancy reason, and cannot be 
   await expect(page.locator('.staff-close-success')).toHaveText(
     'Business day closed.',
   );
-  await expect(page.getByText('No business day is open to close.')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Last closed day' }),
+  ).toBeVisible();
+  await expect(summaryValue(page, 'Business date')).toHaveText(
+    businessDateLabel(date),
+  );
+  await expect(summaryValue(page, 'Closed by')).toHaveText(
+    staff.bruno.displayName,
+  );
+  await expect(summaryValue(page, 'Actual cash counted')).toHaveText(
+    money(counted),
+  );
+  await expect(summaryValue(page, 'Discrepancy')).toHaveText(money(overBy));
+  await expect(summaryValue(page, 'Discrepancy reason')).toHaveText(reason);
+  await expect(packagingRow(page, items.cup.name)).toBeVisible();
   await expect(closeDayButton(page)).toHaveCount(0);
+
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Last closed day' }),
+  ).toBeVisible();
+  await expect(summaryValue(page, 'Business date')).toHaveText(
+    businessDateLabel(date),
+  );
+  await expect(summaryValue(page, 'Actual cash counted')).toHaveText(
+    money(counted),
+  );
+  await expect(packagingRow(page, items.cup.name)).toBeVisible();
 
   // The recorded closing result carries every figure the criteria enumerate,
   // including the packaging snapshot.

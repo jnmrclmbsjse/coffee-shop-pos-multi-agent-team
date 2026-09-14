@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import {
   cents,
   DayType,
+  type DayClosing,
   type CurrentOpenBusinessDay,
   type InventoryStaffOption,
   type MoneyCents,
@@ -28,6 +29,7 @@ import {
   closeBusinessDay,
   getClosingSummary,
   getCurrentBusinessDay,
+  getLatestClosing,
   listActiveTradingDayStaff,
   openBusinessDay,
 } from './api';
@@ -546,21 +548,26 @@ function quantityText(value: number): string {
   }).format(value);
 }
 
-function packagingExpected(row: PackagingReconciliationRow): string {
+type PackagingFigure = Pick<
+  PackagingReconciliationRow,
+  'inventoryItemId' | 'itemName' | 'expectedQty' | 'actualQty' | 'varianceQty'
+>;
+
+function packagingExpected(row: PackagingFigure): string {
   return row.expectedQty === null
     ? '— no opening count'
     : quantityText(row.expectedQty);
 }
 
 function packagingActual(
-  row: PackagingReconciliationRow,
+  row: PackagingFigure,
   hasClosingCount: boolean,
 ): string {
   if (row.actualQty !== null) return quantityText(row.actualQty);
   return hasClosingCount ? '— not in count' : '— no closing count';
 }
 
-function packagingVariance(row: PackagingReconciliationRow): string {
+function packagingVariance(row: PackagingFigure): string {
   if (row.varianceQty === null) {
     if (row.expectedQty === null && row.actualQty === null) {
       return '— needs both counts';
@@ -584,7 +591,26 @@ function moneyTerm(
   return `${sign}${formatMoney(value)}`;
 }
 
-function CashSummary({ summary }: { summary: TradingDayClosingSummary }) {
+type CashSummaryValues = Pick<
+  TradingDayClosingSummary,
+  | 'openingFloatCents'
+  | 'cashSalesCents'
+  | 'onlineSalesCents'
+  | 'cashTipsCents'
+  | 'cashInCents'
+  | 'cashOutCents'
+  | 'cashExpensesCents'
+  | 'outstandingChangeCents'
+  | 'expectedCashCents'
+>;
+
+function CashSummary({
+  summary,
+  openingLabel = 'Cash float',
+}: {
+  summary: CashSummaryValues;
+  openingLabel?: string;
+}) {
   const rows: Array<{
     label: string;
     value: MoneyCents | null;
@@ -592,7 +618,7 @@ function CashSummary({ summary }: { summary: TradingDayClosingSummary }) {
     note?: string;
     className?: string;
   }> = [
-    { label: 'Cash float', value: summary.openingFloatCents },
+    { label: openingLabel, value: summary.openingFloatCents },
     { label: 'Cash sales', value: summary.cashSalesCents },
     {
       label: 'Online sales (excluded)',
@@ -642,14 +668,20 @@ function CashSummary({ summary }: { summary: TradingDayClosingSummary }) {
   );
 }
 
-function PackagingSummary({ summary }: { summary: TradingDayClosingSummary }) {
+function PackagingSummary({
+  rows,
+  hasClosingStockCount,
+}: {
+  rows: PackagingFigure[];
+  hasClosingStockCount: boolean;
+}) {
   return (
     <section className="staff-close-section" aria-labelledby="packaging-title">
       <div className="staff-section-heading">
         <h2 id="packaging-title">Cup / lid balance</h2>
         <p>Unknown counts are labelled separately from recorded zeroes.</p>
       </div>
-      {summary.packaging.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="staff-packaging-empty">
           No cup or lid items are marked for reconciliation.
         </div>
@@ -669,14 +701,14 @@ function PackagingSummary({ summary }: { summary: TradingDayClosingSummary }) {
                 </tr>
               </thead>
               <tbody>
-                {summary.packaging.map((row) => (
+                {rows.map((row) => (
                   <tr key={row.inventoryItemId}>
                     <th scope="row">{row.itemName}</th>
                     <td className={row.expectedQty === null ? 'unknown' : 'staff-number-cell'}>
                       {packagingExpected(row)}
                     </td>
                     <td className={row.actualQty === null ? 'unknown' : 'staff-number-cell'}>
-                      {packagingActual(row, summary.hasClosingStockCount)}
+                      {packagingActual(row, hasClosingStockCount)}
                     </td>
                     <td
                       className={
@@ -701,6 +733,72 @@ function PackagingSummary({ summary }: { summary: TradingDayClosingSummary }) {
           </p>
         </>
       )}
+    </section>
+  );
+}
+
+function closedTimestamp(value: string): string {
+  return new Intl.DateTimeFormat('en-PH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Manila',
+  }).format(new Date(value));
+}
+
+function LatestClosingPanel({
+  closing,
+}: {
+  closing: DayClosing & { businessDate: string };
+}) {
+  const packaging = closing.lines.map((line) => ({
+    inventoryItemId: line.inventoryItemId,
+    itemName: line.itemNameSnapshot,
+    expectedQty: line.expectedQty,
+    actualQty: line.actualQty,
+    varianceQty: line.varianceQty,
+  }));
+
+  return (
+    <section className="staff-inventory-panel" aria-labelledby="last-closing-title">
+      <div className="staff-section-heading">
+        <h2 id="last-closing-title">Last closed day</h2>
+        <p>This is the stored closing record and cannot be changed.</p>
+      </div>
+      <dl className="staff-day-summary-list">
+        <div>
+          <dt>Business date</dt>
+          <dd>{fullBusinessDate(closing.businessDate)}</dd>
+        </div>
+        <div>
+          <dt>Closed by</dt>
+          <dd>{closing.closedByNameSnapshot}</dd>
+        </div>
+        <div>
+          <dt>Closed at</dt>
+          <dd>{closedTimestamp(closing.closedAt)}</dd>
+        </div>
+      </dl>
+      <div className="staff-close-layout">
+        <PackagingSummary
+          rows={packaging}
+          hasClosingStockCount
+        />
+        <CashSummary summary={closing} openingLabel="Opening float" />
+      </div>
+      <dl className="staff-day-summary-list">
+        <div>
+          <dt>Actual cash counted</dt>
+          <dd>{formatMoney(closing.actualCashCents)}</dd>
+        </div>
+        <div>
+          <dt>Discrepancy</dt>
+          <dd>{formatMoney(closing.varianceCents)}</dd>
+        </div>
+        <div>
+          <dt>Discrepancy reason</dt>
+          <dd>{closing.varianceReason ?? '—'}</dd>
+        </div>
+      </dl>
     </section>
   );
 }
@@ -732,6 +830,12 @@ export function CloseBusinessDayPage() {
   const [formMessages, setFormMessages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [didClose, setDidClose] = useState(false);
+  const [latestClosing, setLatestClosing] = useState<
+    (DayClosing & { businessDate: string }) | null
+  >(null);
+  const [latestLoading, setLatestLoading] = useState(false);
+  const [latestMessages, setLatestMessages] = useState<string[]>([]);
+  const [latestVersion, setLatestVersion] = useState(0);
   const clientGeneratedId = useRef<string | null>(null);
   const signedInStaffMemberId = useSignedInStaffMemberId();
 
@@ -781,6 +885,33 @@ export function CloseBusinessDayPage() {
       cancelled = true;
     };
   }, [loadVersion, signedInStaffMemberId]);
+
+  useEffect(() => {
+    if (summary === null || summary.isOpen) return;
+    let cancelled = false;
+    setLatestLoading(true);
+    setLatestMessages([]);
+    void getLatestClosing()
+      .then((result) => {
+        if (!cancelled) setLatestClosing(result.closing);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLatestMessages(
+            apiMessages(
+              error,
+              'The last closed day could not be loaded. Try again.',
+            ),
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLatestLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [latestVersion, summary]);
 
   function resetAttemptId() {
     clientGeneratedId.current = null;
@@ -850,10 +981,25 @@ export function CloseBusinessDayPage() {
           onRetry={() => setLoadVersion((version) => version + 1)}
         />
       ) : !summary?.isOpen ? (
-        <div className="staff-inventory-blocking" role="status">
-          {didClose && <strong className="staff-close-success">Business day closed.</strong>}
-          <p>No business day is open to close.</p>
-        </div>
+        <>
+          {didClose && (
+            <strong className="staff-close-success">Business day closed.</strong>
+          )}
+          {latestLoading ? (
+            <LoadingState label="Loading the last closed day…" />
+          ) : latestMessages.length > 0 ? (
+            <LoadError
+              messages={latestMessages}
+              onRetry={() => setLatestVersion((version) => version + 1)}
+            />
+          ) : latestClosing ? (
+            <LatestClosingPanel closing={latestClosing} />
+          ) : (
+            <div className="staff-inventory-blocking" role="status">
+              <p>No business day is open to close.</p>
+            </div>
+          )}
+        </>
       ) : (
         <>
           {!summary.hasClosingStockCount && (
@@ -867,7 +1013,10 @@ export function CloseBusinessDayPage() {
           )}
 
           <div className="staff-close-layout">
-            <PackagingSummary summary={summary} />
+            <PackagingSummary
+              rows={summary.packaging}
+              hasClosingStockCount={summary.hasClosingStockCount}
+            />
             <CashSummary summary={summary} />
           </div>
 

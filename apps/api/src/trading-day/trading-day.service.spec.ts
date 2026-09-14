@@ -98,6 +98,9 @@ describe('TradingDayService', () => {
       closedByStaffMemberId: closer.id,
       closedByNameSnapshot: closer.displayName,
       closedAt: new Date('2026-07-23T13:00:00.000Z'),
+      tradingDay: {
+        businessDate: day.businessDate,
+      },
       lines: [
         {
           id: '70000000-0000-4000-8000-000000000001',
@@ -143,6 +146,7 @@ describe('TradingDayService', () => {
         create: jest.fn(),
       },
       dayClosing: {
+        findFirst: jest.fn(),
         findUnique: jest.fn(),
         create: jest.fn(),
       },
@@ -187,6 +191,76 @@ describe('TradingDayService', () => {
       { kind: CashMovementKind.EXPENSE, amountCents: 300 },
     ]);
   }
+
+  it('returns the latest closed-day snapshot with its business date and lines', async () => {
+    const { prisma, service } = createHarness();
+    const latest = closingRecord({
+      actualCashCents: 61_500,
+      varianceCents: 400,
+      varianceReason: 'Counted twice',
+      tradingDay: {
+        businessDate: new Date('2026-07-31T00:00:00.000Z'),
+      },
+    });
+    prisma.dayClosing.findFirst.mockResolvedValue(latest);
+
+    await expect(service.getLatestClosing()).resolves.toEqual({
+      closing: expect.objectContaining({
+        id: latest.id,
+        businessDate: '2026-07-31',
+        actualCashCents: 61_500,
+        varianceCents: 400,
+        varianceReason: 'Counted twice',
+        lines: [
+          expect.objectContaining({
+            itemNameSnapshot: '12 oz cup',
+            expectedQty: 18,
+            actualQty: 17,
+            varianceQty: -1,
+          }),
+        ],
+      }),
+    });
+    expect(prisma.dayClosing.findFirst).toHaveBeenCalledWith({
+      where: {
+        tradingDay: { status: TradingDayStatus.CLOSED },
+      },
+      orderBy: [
+        { tradingDay: { businessDate: 'desc' } },
+        { closedAt: 'desc' },
+      ],
+      include: expect.objectContaining({
+        tradingDay: { select: { businessDate: true } },
+      }),
+    });
+  });
+
+  it('returns null when no business day has ever been closed', async () => {
+    const { prisma, service } = createHarness();
+    prisma.dayClosing.findFirst.mockResolvedValue(null);
+
+    await expect(service.getLatestClosing()).resolves.toEqual({ closing: null });
+  });
+
+  it('reads cash figures from the closing snapshot without consulting later counts', async () => {
+    const { prisma, service } = createHarness();
+    prisma.dayClosing.findFirst.mockResolvedValue(
+      closingRecord({
+        actualCashCents: 62_000,
+        varianceCents: 900,
+      }),
+    );
+    prisma.cashCount.create.mockResolvedValue({
+      id: 'later-count',
+      countedCents: 70_000,
+    });
+
+    const result = await service.getLatestClosing();
+
+    expect(result.closing?.actualCashCents).toBe(62_000);
+    expect(result.closing?.varianceCents).toBe(900);
+    expect(prisma.cashCount.create).not.toHaveBeenCalled();
+  });
 
   function arrangeSuccessfulClose(
     harness: ReturnType<typeof createHarness>,

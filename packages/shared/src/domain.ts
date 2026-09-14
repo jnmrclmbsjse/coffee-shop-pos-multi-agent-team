@@ -759,6 +759,10 @@ export interface DayClosingLine {
   varianceQty: number | null;
 }
 
+export interface LatestDayClosing {
+  closing: (DayClosing & { businessDate: string }) | null;
+}
+
 export interface SalePayment {
   id: string;
   saleId: string;

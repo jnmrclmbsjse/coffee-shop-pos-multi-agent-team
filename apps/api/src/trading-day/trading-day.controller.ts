@@ -14,6 +14,7 @@ import type {
   CashMovementList,
   CurrentOpenBusinessDay,
   DayClosing,
+  LatestDayClosing,
   TradingDayClosingSummary,
 } from '@coffee-shop/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -46,6 +47,11 @@ export class TradingDayController {
   @Get('current/closing-summary')
   closingSummary(): Promise<TradingDayClosingSummary> {
     return this.tradingDayService.getClosingSummary();
+  }
+
+  @Get('latest-closing')
+  latestClosing(): Promise<LatestDayClosing> {
+    return this.tradingDayService.getLatestClosing();
   }
 
   @Get('current/cash-movements')
