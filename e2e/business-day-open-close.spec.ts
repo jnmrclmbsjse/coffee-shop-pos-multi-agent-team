@@ -1058,7 +1058,9 @@ test('records the closing result, including a discrepancy reason, and cannot be 
   await expect(summaryValue(page, 'Actual cash counted')).toHaveText(
     money(counted),
   );
-  await expect(summaryValue(page, 'Discrepancy')).toHaveText(money(overBy));
+  await expect(summaryValue(page, 'Discrepancy')).toHaveText(
+    `▴ Over ${money(overBy)}`,
+  );
   await expect(summaryValue(page, 'Discrepancy reason')).toHaveText(reason);
   await expect(packagingRow(page, items.cup.name)).toBeVisible();
   await expect(closeDayButton(page)).toHaveCount(0);

@@ -684,7 +684,7 @@ describe('staff business-day pages', () => {
     expect(screen.getByText('Maya Santos')).toBeInTheDocument();
     expect(screen.getByText('Actual cash counted')).toBeInTheDocument();
     expect(screen.getByText('₱631.00')).toBeInTheDocument();
-    expect(screen.getByText('₱-5.00')).toBeInTheDocument();
+    expect(screen.getByText('▾ Short ₱5.00')).toBeInTheDocument();
     expect(screen.getByText('Till was short')).toBeInTheDocument();
     for (const label of [
       'Opening float',
@@ -701,6 +701,36 @@ describe('staff business-day pages', () => {
     }
     expect(screen.getByRole('rowheader', { name: '16 oz Cup' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close day' })).not.toBeInTheDocument();
+  });
+
+  it('labels missing packaging actuals as no closing count when none was recorded', async () => {
+    const closing = latestClosing({
+      lines: latestClosing().lines.map((line) => ({
+        ...line,
+        actualQty: null,
+        varianceQty: null,
+      })),
+    });
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, {
+          ...closingSummary(),
+          isOpen: false,
+          businessDate: null,
+        });
+      }
+      if (path === '/trading-day/latest-closing') {
+        return response(200, { closing });
+      }
+      return response(500);
+    });
+
+    renderClosePage();
+
+    const row = await screen.findByRole('row', { name: /16 oz Cup/ });
+    expect(within(row).getByText('— no closing count')).toBeInTheDocument();
+    expect(within(row).queryByText('— not in count')).not.toBeInTheDocument();
   });
 
   it('shows the confirmation and stored panel immediately after close', async () => {
@@ -753,7 +783,7 @@ describe('staff business-day pages', () => {
     expect(await screen.findByText('Business day closed.')).toBeInTheDocument();
     expect(
       await screen.findByText(
-        'The business day request could not be completed. Try again.',
+        'The last closed day could not be loaded. Try again.',
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();

@@ -143,6 +143,8 @@ describe('TradingDayService', () => {
         create: jest.fn(),
       },
       cashCount: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
         create: jest.fn(),
       },
       dayClosing: {
@@ -250,16 +252,15 @@ describe('TradingDayService', () => {
         varianceCents: 900,
       }),
     );
-    prisma.cashCount.create.mockResolvedValue({
-      id: 'later-count',
-      countedCents: 70_000,
-    });
+    prisma.cashCount.findFirst.mockResolvedValue({ countedCents: 70_000 });
+    prisma.cashCount.findMany.mockResolvedValue([{ countedCents: 70_000 }]);
 
     const result = await service.getLatestClosing();
 
     expect(result.closing?.actualCashCents).toBe(62_000);
     expect(result.closing?.varianceCents).toBe(900);
-    expect(prisma.cashCount.create).not.toHaveBeenCalled();
+    expect(prisma.cashCount.findFirst).not.toHaveBeenCalled();
+    expect(prisma.cashCount.findMany).not.toHaveBeenCalled();
   });
 
   function arrangeSuccessfulClose(

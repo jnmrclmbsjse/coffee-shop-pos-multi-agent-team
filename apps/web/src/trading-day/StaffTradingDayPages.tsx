@@ -757,6 +757,9 @@ function LatestClosingPanel({
     actualQty: line.actualQty,
     varianceQty: line.varianceQty,
   }));
+  const hasClosingStockCount = closing.lines.some(
+    (line) => line.actualQty !== null,
+  );
 
   return (
     <section className="staff-inventory-panel" aria-labelledby="last-closing-title">
@@ -781,7 +784,7 @@ function LatestClosingPanel({
       <div className="staff-close-layout">
         <PackagingSummary
           rows={packaging}
-          hasClosingStockCount
+          hasClosingStockCount={hasClosingStockCount}
         />
         <CashSummary summary={closing} openingLabel="Opening float" />
       </div>
@@ -792,7 +795,11 @@ function LatestClosingPanel({
         </div>
         <div>
           <dt>Discrepancy</dt>
-          <dd>{formatMoney(closing.varianceCents)}</dd>
+          <dd>
+            <strong className={discrepancyClass(closing.varianceCents)}>
+              {discrepancyText(closing.varianceCents, '')}
+            </strong>
+          </dd>
         </div>
         <div>
           <dt>Discrepancy reason</dt>
@@ -813,6 +820,13 @@ function discrepancyText(value: MoneyCents | null, input: string): string {
   return value < 0
     ? `▾ Short ${formatMoney(cents(Math.abs(value)))}`
     : `▴ Over ${formatMoney(value)}`;
+}
+
+function discrepancyClass(value: MoneyCents | null): string {
+  if (value === null) return 'pending';
+  if (value < 0) return 'short';
+  if (value > 0) return 'over';
+  return 'balanced';
 }
 
 export function CloseBusinessDayPage() {
@@ -895,14 +909,11 @@ export function CloseBusinessDayPage() {
       .then((result) => {
         if (!cancelled) setLatestClosing(result.closing);
       })
-      .catch((error: unknown) => {
+      .catch(() => {
         if (!cancelled) {
-          setLatestMessages(
-            apiMessages(
-              error,
-              'The last closed day could not be loaded. Try again.',
-            ),
-          );
+          setLatestMessages([
+            'The last closed day could not be loaded. Try again.',
+          ]);
         }
       })
       .finally(() => {
@@ -1065,15 +1076,7 @@ export function CloseBusinessDayPage() {
               <div className="staff-discrepancy" aria-live="polite">
                 <span>Discrepancy</span>
                 <strong
-                  className={
-                    discrepancyCents === null
-                      ? 'pending'
-                      : discrepancyCents < 0
-                        ? 'short'
-                        : discrepancyCents > 0
-                          ? 'over'
-                          : 'balanced'
-                  }
+                  className={discrepancyClass(discrepancyCents)}
                 >
                   {discrepancyText(discrepancyCents, actualCash)}
                 </strong>

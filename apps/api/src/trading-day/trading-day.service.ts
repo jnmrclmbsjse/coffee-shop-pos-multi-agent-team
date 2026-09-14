@@ -69,11 +69,15 @@ const openTradingDaySelect = {
 } satisfies Prisma.TradingDaySelect;
 
 const dayClosingInclude = {
-  tradingDay: {
-    select: { businessDate: true },
-  },
   lines: {
     orderBy: [{ itemNameSnapshot: 'asc' }, { inventoryItemId: 'asc' }],
+  },
+} satisfies Prisma.DayClosingInclude;
+
+const latestDayClosingInclude = {
+  ...dayClosingInclude,
+  tradingDay: {
+    select: { businessDate: true },
   },
 } satisfies Prisma.DayClosingInclude;
 
@@ -130,7 +134,7 @@ export class TradingDayService {
         { tradingDay: { businessDate: 'desc' } },
         { closedAt: 'desc' },
       ],
-      include: dayClosingInclude,
+      include: latestDayClosingInclude,
     });
 
     return {
