@@ -123,18 +123,23 @@ export function seedStaffOrderLedgerFixture(
       customerName: 'Senior Online Guest',
       cashier: attributedCashier,
       onlineCents: 24_000,
-      discountCents: 3_000,
+      discountCents: 3_600,
       lines: [
         line(latte, {
           quantity: 2,
           unitPriceCents: 12_000,
-          discountKind: 'PWD',
-          preferences: ['LESS_ICE', 'SWEETER'],
-          preferenceNote: 'Extra hot',
+          discountKind: 'SENIOR',
           discountCents: 3_000,
           lineTotalCents: 21_000,
         }),
-        line(pastry, { unitPriceCents: 3_000 }),
+        line(pastry, {
+          unitPriceCents: 3_600,
+          discountKind: 'PWD',
+          preferences: ['LESS_ICE', 'SWEETER'],
+          preferenceNote: 'Extra hot',
+          discountCents: 600,
+          lineTotalCents: 3_000,
+        }),
       ],
     },
     {

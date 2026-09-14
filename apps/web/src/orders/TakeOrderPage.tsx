@@ -44,7 +44,7 @@ import {
   CompletedOrderDialog,
   VoidOrderDialog,
 } from './OrderSettlementDialogs';
-import { formatLinePreferences } from '../reporting/orderHistoryFormat';
+import { linePreferenceLabel } from '../reporting/orderHistoryFormat';
 
 type EditorKind = 'preferences' | 'discount' | 'upsize';
 type SettlementDialog = 'charge' | 'completed' | 'void' | null;
@@ -183,7 +183,7 @@ function LineEditor({
                         checked={preferences.includes(preference)}
                         onChange={() => togglePreference(preference)}
                       />
-                      <span>{formatLinePreferences([preference], null)}</span>
+                      <span>{linePreferenceLabel(preference)}</span>
                     </label>
                   ))}
                 </div>
@@ -851,7 +851,7 @@ export function TakeOrderPage() {
                   <div className="current-order-line-details">
                     {line.preferences.map((preference) => (
                       <span key={preference}>
-                        {formatLinePreferences([preference], null)}
+                        {linePreferenceLabel(preference)}
                       </span>
                     ))}
                     {line.freeUpsizeCount > 0 && (

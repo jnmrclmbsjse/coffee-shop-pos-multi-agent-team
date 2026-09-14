@@ -1,6 +1,5 @@
 import {
   LinePreference,
-  type LinePreference as LinePreferenceValue,
   type OrderHistoryListQuery,
   type OrderHistoryPaymentMethod,
   type OrderHistoryStatus,
@@ -16,13 +15,17 @@ const PREFERENCE_LABELS: Record<LinePreference, string> = {
 
 const PREFERENCE_ORDER = Object.values(LinePreference);
 
+export function linePreferenceLabel(preference: LinePreference): string {
+  return PREFERENCE_LABELS[preference];
+}
+
 export function formatLinePreferences(
-  preferences: LinePreferenceValue[],
+  preferences: LinePreference[],
   note: string | null,
 ): string | null {
   const labels = PREFERENCE_ORDER
     .filter((preference) => preferences.includes(preference))
-    .map((preference) => PREFERENCE_LABELS[preference]);
+    .map(linePreferenceLabel);
   if (note) labels.push(note);
   return labels.length > 0 ? labels.join(', ') : null;
 }

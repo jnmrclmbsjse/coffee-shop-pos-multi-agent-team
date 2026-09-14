@@ -1421,9 +1421,9 @@ test.describe('Order detail (story #93)', () => {
   }) => {
     await openDetail(page, ids.senior);
 
-    // Each line shows product, size, preferences, quantity, discount and line total. No
-    // acceptance criterion fixes the order of the lines, so compare them as a
-    // set (the API orders them by line id, which is a UUID).
+    // Each line shows product, size, preferences, quantity, discount and line
+    // total. No acceptance criterion fixes the order of the lines, so compare
+    // them as a set (the API orders them by line id, which is a UUID).
     const lines = await itemRows(page);
     expect([...lines].sort((a, b) => a[1]!.localeCompare(b[1]!))).toEqual([
       [
