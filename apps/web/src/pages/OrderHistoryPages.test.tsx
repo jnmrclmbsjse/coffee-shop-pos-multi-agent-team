@@ -12,6 +12,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   LineDiscountKind,
+  LinePreference,
   ServiceType,
   cents,
   type OrderHistoryDetail,
@@ -37,6 +38,7 @@ const orderList = {
       businessDay: '2026-07-28',
       dayOrderNumber: 3,
       customerName: null,
+      serviceType: ServiceType.TAKE_OUT,
       status: 'Completed',
       paymentMethod: 'Split',
       totalCents: 24000,
@@ -50,6 +52,7 @@ const orderList = {
       businessDay: '2026-07-28',
       dayOrderNumber: 2,
       customerName: 'Miguel Santos',
+      serviceType: ServiceType.DINE_IN,
       status: 'Parked',
       paymentMethod: null,
       totalCents: 18000,
@@ -63,6 +66,7 @@ const orderList = {
       businessDay: '2026-07-27',
       dayOrderNumber: 1,
       customerName: 'Lea Mendoza',
+      serviceType: ServiceType.TAKE_OUT,
       status: 'Void',
       paymentMethod: 'Cash',
       totalCents: 25000,
@@ -92,7 +96,9 @@ const splitDetail: OrderHistoryDetail = {
       productName: 'Café Latte',
       size: 'Large',
       quantity: 2,
-      discountKind: LineDiscountKind.SENIOR,
+      preferences: [],
+      preferenceNote: null,
+      discountKind: LineDiscountKind.PWD,
       discountCents: cents(6000),
       lineTotalCents: cents(24000),
     },
@@ -155,6 +161,8 @@ describe('Order History pages', () => {
       name: 'Read-only order history across business days',
     });
     expect(within(table).getByText('Walk-in')).toBeInTheDocument();
+    expect(within(table).getAllByText('Take-out')).toHaveLength(2);
+    expect(within(table).getByText('Dine-in')).toBeInTheDocument();
     expect(within(table).getByText('Split (Cash + Online)')).toBeInTheDocument();
     expect(within(table).getByText('Outstanding')).toBeInTheDocument();
     expect(within(table).getByText('Settled')).toBeInTheDocument();
@@ -262,7 +270,7 @@ describe('Order History pages', () => {
     expect(screen.getByLabelText('Status')).toHaveValue('Void');
   });
 
-  it('opens a read-only split and Senior detail while retaining list URL state', async () => {
+  it('opens a read-only split and PWD detail with empty preferences while retaining list URL state', async () => {
     const detailFetch = renderDetail(
       splitDetail,
       `/order-history/${completedId}?status=Completed&page=2`,
@@ -274,7 +282,11 @@ describe('Order History pages', () => {
     expect(screen.getByText('Walk-in')).toBeInTheDocument();
     expect(screen.getByText('Dine-in')).toBeInTheDocument();
     expect(screen.getByText('Split (Cash + Online)')).toBeInTheDocument();
-    expect(screen.getByText('Senior')).toBeInTheDocument();
+    expect(screen.getByText('PWD')).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Preferences' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '—' })).toBeInTheDocument();
     expect(screen.getByText('Included in Total discount')).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -292,6 +304,27 @@ describe('Order History pages', () => {
       `http://localhost:3000/reporting/order-history/${completedId}`,
       expect.objectContaining({ credentials: 'include' }),
     );
+  });
+
+  it('shows preferences in canonical order followed by the note', async () => {
+    renderDetail({
+      ...splitDetail,
+      lines: [
+        {
+          ...splitDetail.lines[0]!,
+          preferences: [
+            LinePreference.LESS_ICE,
+            LinePreference.SWEETER,
+            LinePreference.STRONGER,
+          ],
+          preferenceNote: 'Extra hot',
+        },
+      ],
+    });
+
+    expect(
+      await screen.findByText('Sweeter, Stronger, Less ice, Extra hot'),
+    ).toBeInTheDocument();
   });
 
   it('shows parked values and a void completion as unavailable', async () => {

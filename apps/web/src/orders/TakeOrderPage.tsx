@@ -44,6 +44,7 @@ import {
   CompletedOrderDialog,
   VoidOrderDialog,
 } from './OrderSettlementDialogs';
+import { linePreferenceLabel } from '../reporting/orderHistoryFormat';
 
 type EditorKind = 'preferences' | 'discount' | 'upsize';
 type SettlementDialog = 'charge' | 'completed' | 'void' | null;
@@ -52,13 +53,6 @@ interface EditorState {
   kind: EditorKind;
   lineId: string;
 }
-
-const PREFERENCE_LABELS: Record<LinePreference, string> = {
-  [LinePreference.SWEETER]: 'Sweeter',
-  [LinePreference.STRONGER]: 'Stronger',
-  [LinePreference.LESS_SWEET]: 'Less sweet',
-  [LinePreference.LESS_ICE]: 'Less ice',
-};
 
 const DISCOUNT_LABELS: Record<LineDiscountKind, string> = {
   [LineDiscountKind.NONE]: 'None',
@@ -189,7 +183,7 @@ function LineEditor({
                         checked={preferences.includes(preference)}
                         onChange={() => togglePreference(preference)}
                       />
-                      <span>{PREFERENCE_LABELS[preference]}</span>
+                      <span>{linePreferenceLabel(preference)}</span>
                     </label>
                   ))}
                 </div>
@@ -856,7 +850,9 @@ export function TakeOrderPage() {
                   </div>
                   <div className="current-order-line-details">
                     {line.preferences.map((preference) => (
-                      <span key={preference}>{PREFERENCE_LABELS[preference]}</span>
+                      <span key={preference}>
+                        {linePreferenceLabel(preference)}
+                      </span>
                     ))}
                     {line.freeUpsizeCount > 0 && (
                       <span className="is-promotion">

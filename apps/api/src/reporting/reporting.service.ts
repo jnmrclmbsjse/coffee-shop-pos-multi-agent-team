@@ -8,6 +8,7 @@ import {
   calculateCashReconciliation,
   cents,
   LineDiscountKind as SharedLineDiscountKind,
+  LinePreference as SharedLinePreference,
   ServiceType as SharedServiceType,
 } from '@coffee-shop/shared';
 import type {
@@ -15,6 +16,7 @@ import type {
   DailyInventoryItemNote,
   DailyInventoryReport,
   DailyReconciliation,
+  LinePreference,
   MoneyCents,
   OrderHistoryDetail,
   OrderHistoryLine,
@@ -119,7 +121,9 @@ interface DatabaseOrderHistoryLine {
   productName: string;
   size: string;
   quantity: number;
-  discountKind: 'NONE' | 'SENIOR';
+  discountKind: 'NONE' | 'PWD' | 'SENIOR';
+  preferences: LinePreference[];
+  preferenceNote: string | null;
   discountCents: number;
   lineTotalCents: number;
 }
@@ -789,6 +793,8 @@ function orderHistoryExpandedColumns(): Prisma.Sql {
             'productName', line.product_name_snapshot,
             'size', line.variant_name_snapshot,
             'quantity', line.quantity,
+            'preferences', line.preferences,
+            'preferenceNote', line.preference_note,
             'discountKind', line.discount_kind,
             'discountCents', line.discount_cents,
             'lineTotalCents', line.line_total_cents
@@ -931,6 +937,7 @@ function toOrderHistoryListItem(
     businessDay: toIsoDate(row.businessDay),
     dayOrderNumber: row.dayOrderNumber,
     customerName: row.customerName,
+    serviceType: SharedServiceType[row.serviceType],
     status,
     paymentMethod: deriveOrderHistoryPaymentMethod(
       row.hasCash,
@@ -1012,6 +1019,7 @@ function toStaffOrderLedgerOrder(
     clientGeneratedId: row.clientGeneratedId,
     dayOrderNumber: row.dayOrderNumber,
     customerName: row.customerName,
+    serviceType: SharedServiceType[row.serviceType],
     cashierName: row.cashierNameSnapshot,
     status,
     paymentMethod: deriveOrderHistoryPaymentMethod(
@@ -1051,6 +1059,8 @@ function parseOrderHistoryLines(value: unknown): OrderHistoryLine[] {
       productName: item.productName,
       size: item.size,
       quantity: item.quantity,
+      preferences: item.preferences,
+      preferenceNote: item.preferenceNote,
       discountKind: SharedLineDiscountKind[item.discountKind],
       discountCents: cents(item.discountCents),
       lineTotalCents: cents(item.lineTotalCents),
@@ -1069,7 +1079,18 @@ function isDatabaseOrderHistoryLine(
     typeof line.size === 'string' &&
     Number.isSafeInteger(line.quantity) &&
     (line.discountKind === 'NONE' ||
+      line.discountKind === 'PWD' ||
       line.discountKind === 'SENIOR') &&
+    Array.isArray(line.preferences) &&
+    line.preferences.every(
+      (preference) =>
+        typeof preference === 'string' &&
+        Object.values(SharedLinePreference).includes(
+          preference as SharedLinePreference,
+        ),
+    ) &&
+    (typeof line.preferenceNote === 'string' ||
+      line.preferenceNote === null) &&
     Number.isSafeInteger(line.discountCents) &&
     Number.isSafeInteger(line.lineTotalCents)
   );

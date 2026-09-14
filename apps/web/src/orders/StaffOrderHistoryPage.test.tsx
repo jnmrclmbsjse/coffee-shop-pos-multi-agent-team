@@ -4,6 +4,8 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   LineDiscountKind,
+  LinePreference,
+  ServiceType,
   TradingDayStatus,
   cents,
   type BusinessDayList,
@@ -35,6 +37,7 @@ function order(
   return {
     clientGeneratedId: `${input.id}-client`,
     customerName: 'Test Customer',
+    serviceType: ServiceType.TAKE_OUT,
     cashierName: 'Mika Reyes',
     paymentMethod: 'Cash',
     completedAt: '2026-07-31T12:00:00.000Z',
@@ -45,6 +48,8 @@ function order(
         productName: 'Spanish Latte',
         size: 'Large',
         quantity: 1,
+        preferences: [],
+        preferenceNote: null,
         discountKind: LineDiscountKind.NONE,
         discountCents: cents(0),
         lineTotalCents: cents(15_000),
@@ -260,7 +265,9 @@ describe('staff order history page', () => {
             productName: 'Cappuccino',
             size: 'Regular',
             quantity: 2,
-            discountKind: LineDiscountKind.SENIOR,
+            preferences: [LinePreference.SWEETER, LinePreference.LESS_ICE],
+            preferenceNote: 'Extra hot',
+            discountKind: LineDiscountKind.PWD,
             discountCents: cents(3_000),
             lineTotalCents: cents(21_000),
           },
@@ -310,7 +317,9 @@ describe('staff order history page', () => {
     expect(discountCard).toHaveTextContent('2×');
     expect(discountCard).toHaveTextContent('Cappuccino');
     expect(discountCard).toHaveTextContent('Regular');
-    expect(discountCard).toHaveTextContent('Senior discount');
+    expect(discountCard).toHaveTextContent('PWD discount');
+    expect(discountCard).toHaveTextContent('Sweeter, Less ice, Extra hot');
+    expect(discountCard).toHaveTextContent('Take-out');
   });
 
   it('shows independently nullable cash settlement facts without recomputing them', async () => {

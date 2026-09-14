@@ -853,6 +853,7 @@ export interface OrderHistoryListItem {
   businessDay: string;
   dayOrderNumber: number;
   customerName: string | null;
+  serviceType: ServiceType;
   status: OrderHistoryStatus;
   paymentMethod: OrderHistoryPaymentMethod | null;
   totalCents: MoneyCents;
@@ -875,6 +876,8 @@ export interface OrderHistoryLine {
   productName: string;
   size: string;
   quantity: number;
+  preferences: LinePreference[];
+  preferenceNote: string | null;
   discountKind: LineDiscountKind;
   discountCents: MoneyCents;
   lineTotalCents: MoneyCents;
@@ -913,6 +916,7 @@ export interface StaffOrderLedgerOrder {
   clientGeneratedId: string;
   dayOrderNumber: number;
   customerName: string | null;
+  serviceType: ServiceType;
   cashierName: string | null;
   status: OrderHistoryStatus;
   paymentMethod: OrderHistoryPaymentMethod | null;
