@@ -42,9 +42,11 @@ function line(
   input: {
     quantity?: number;
     unitPriceCents: number;
-    discountKind?: 'NONE' | 'SENIOR';
+    discountKind?: 'NONE' | 'PWD' | 'SENIOR';
     discountCents?: number;
     lineTotalCents?: number;
+    preferences?: Array<'SWEETER' | 'STRONGER' | 'LESS_SWEET' | 'LESS_ICE'>;
+    preferenceNote?: string | null;
   },
 ) {
   const quantity = input.quantity ?? 1;
@@ -55,6 +57,8 @@ function line(
     unitPriceCents: input.unitPriceCents,
     lineGrossCents: gross,
     discountKind: input.discountKind,
+    preferences: input.preferences,
+    preferenceNote: input.preferenceNote,
     discountCents: input.discountCents,
     lineTotalCents: input.lineTotalCents ?? gross,
   };
@@ -124,7 +128,9 @@ export function seedStaffOrderLedgerFixture(
         line(latte, {
           quantity: 2,
           unitPriceCents: 12_000,
-          discountKind: 'SENIOR',
+          discountKind: 'PWD',
+          preferences: ['LESS_ICE', 'SWEETER'],
+          preferenceNote: 'Extra hot',
           discountCents: 3_000,
           lineTotalCents: 21_000,
         }),

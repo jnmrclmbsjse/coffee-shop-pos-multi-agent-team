@@ -217,7 +217,9 @@ export interface SeedLine {
   quantity: number;
   unitPriceCents: number;
   lineGrossCents?: number;
-  discountKind?: 'NONE' | 'SENIOR';
+  discountKind?: 'NONE' | 'PWD' | 'SENIOR';
+  preferences?: Array<'SWEETER' | 'STRONGER' | 'LESS_SWEET' | 'LESS_ICE'>;
+  preferenceNote?: string | null;
   discountCents?: number;
   lineTotalCents: number;
 }
@@ -372,6 +374,8 @@ export function seedTradingDay(
               unitPriceCents: line.unitPriceCents,
               lineGrossCents: line.lineGrossCents ?? line.lineTotalCents,
               discountKind: line.discountKind ?? 'NONE',
+              preferences: line.preferences ?? [],
+              preferenceNote: line.preferenceNote ?? null,
               discountCents: line.discountCents ?? 0,
               // Required with no default since story #197's order-capture
               // schema. These fixtures predate the free-upsize promotion, so

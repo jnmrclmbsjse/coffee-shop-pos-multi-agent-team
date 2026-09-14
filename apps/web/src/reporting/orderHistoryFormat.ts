@@ -1,9 +1,31 @@
-import type {
-  OrderHistoryListQuery,
-  OrderHistoryPaymentMethod,
-  OrderHistoryStatus,
-  ServiceType,
+import {
+  LinePreference,
+  type LinePreference as LinePreferenceValue,
+  type OrderHistoryListQuery,
+  type OrderHistoryPaymentMethod,
+  type OrderHistoryStatus,
+  type ServiceType,
 } from '@coffee-shop/shared';
+
+const PREFERENCE_LABELS: Record<LinePreference, string> = {
+  [LinePreference.SWEETER]: 'Sweeter',
+  [LinePreference.STRONGER]: 'Stronger',
+  [LinePreference.LESS_SWEET]: 'Less sweet',
+  [LinePreference.LESS_ICE]: 'Less ice',
+};
+
+const PREFERENCE_ORDER = Object.values(LinePreference);
+
+export function formatLinePreferences(
+  preferences: LinePreferenceValue[],
+  note: string | null,
+): string | null {
+  const labels = PREFERENCE_ORDER
+    .filter((preference) => preferences.includes(preference))
+    .map((preference) => PREFERENCE_LABELS[preference]);
+  if (note) labels.push(note);
+  return labels.length > 0 ? labels.join(', ') : null;
+}
 
 const STATUSES: OrderHistoryStatus[] = ['Parked', 'Completed', 'Void'];
 const PAYMENT_METHODS: OrderHistoryPaymentMethod[] = [

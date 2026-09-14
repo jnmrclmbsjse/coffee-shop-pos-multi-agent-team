@@ -269,7 +269,9 @@ test.describe('staff order history ledger (story #142, QA #148)', () => {
       await expect(discounted).toContainText('Small');
       await expect(discounted).toContainText(fixture.productNames.pastry);
       await expect(discounted).toContainText('Regular');
-      await expect(discounted).toContainText(/Senior(?: discount)?/i);
+      await expect(discounted).toContainText(/PWD(?: discount)?/i);
+      await expect(discounted).toContainText('Take-out');
+      await expect(discounted).toContainText('Sweeter, Less ice, Extra hot');
 
       const voided = orderCard(page, 6, 'Open Voided Guest');
       await expect(voided).toContainText('Void');
