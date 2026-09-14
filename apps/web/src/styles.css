@@ -3602,8 +3602,13 @@ button {
   text-align: center;
 }
 
+.report-empty h2,
 .report-empty strong {
   color: var(--fg);
+}
+
+.report-empty h2 {
+  margin-bottom: 0;
 }
 
 .report-empty-positive {
