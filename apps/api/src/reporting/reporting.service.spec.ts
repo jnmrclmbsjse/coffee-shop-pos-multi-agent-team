@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { cents } from '@coffee-shop/shared';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, TradingDayStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
   assertValidRange,
@@ -591,6 +591,121 @@ describe('ReportingService', () => {
       'Date,Status,Cash sales,Online sales,Gross,Tips,Cash in,Cash out,Cash expenses,Outstanding change,Expected cash,Actual cash,Variance\r\n' +
         '2026-07-20,open,0.00,0.01,-0.50,1.05,-0.25,2.50,100.00,0.75,-89.44,,\r\n',
     );
+  });
+});
+
+describe('expense report read model', () => {
+  it('maps effective expenses, groups trimmed categories, and sorts totals', async () => {
+    const prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([
+        {
+          id: 'amendment',
+          businessDate: new Date('2026-08-02T00:00:00.000Z'),
+          dayStatus: TradingDayStatus.OPEN,
+          recordedAt: new Date('2026-08-02T09:30:00.000Z'),
+          category: 'Supplies',
+          description: 'Corrected paper cups',
+          amountCents: 12_500,
+          recordedByName: 'Mika Reyes',
+          amended: true,
+        },
+        {
+          id: 'uncategorized',
+          businessDate: new Date('2026-08-01T00:00:00.000Z'),
+          dayStatus: TradingDayStatus.CLOSED,
+          recordedAt: new Date('2026-08-01T10:00:00.000Z'),
+          category: null,
+          description: 'Courier fee',
+          amountCents: 3_000,
+          recordedByName: null,
+          amended: false,
+        },
+        {
+          id: 'supplies-second',
+          businessDate: new Date('2026-08-01T00:00:00.000Z'),
+          dayStatus: TradingDayStatus.CLOSED,
+          recordedAt: new Date('2026-08-01T08:00:00.000Z'),
+          category: 'Supplies',
+          description: 'Napkins',
+          amountCents: 2_500,
+          recordedByName: 'Mika Reyes',
+          amended: false,
+        },
+      ]),
+    };
+    const service = createReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.getExpenseReport('2026-08-01', '2026-08-02'),
+    ).resolves.toEqual({
+      from: '2026-08-01',
+      to: '2026-08-02',
+      totalCents: 18_000,
+      byCategory: [
+        { category: 'Supplies', entryCount: 2, totalCents: 15_000 },
+        { category: null, entryCount: 1, totalCents: 3_000 },
+      ],
+      items: [
+        expect.objectContaining({
+          id: 'amendment',
+          businessDate: '2026-08-02',
+          dayStatus: 'open',
+          amountCents: 12_500,
+          amended: true,
+        }),
+        expect.objectContaining({
+          id: 'uncategorized',
+          businessDate: '2026-08-01',
+          dayStatus: 'closed',
+          category: null,
+        }),
+        expect.objectContaining({ id: 'supplies-second' }),
+      ],
+    });
+
+    const query = prisma.$queryRaw.mock.calls[0]![0] as {
+      strings: readonly string[];
+      values: readonly unknown[];
+    };
+    const sql = query.strings.join('?');
+    expect(sql).toContain('day.business_date BETWEEN ?::date AND ?::date');
+    expect(query.values).toEqual(['2026-08-01', '2026-08-02']);
+    expect(sql).toContain("movement.kind = 'EXPENSE'");
+    expect(sql).toContain(
+      'WHERE amendment.amends_cash_movement_id = movement.id',
+    );
+    expect(sql).toContain("NULLIF(BTRIM(movement.category), '')");
+  });
+
+  it('returns a zero total with no category rows when there are no expenses', async () => {
+    const prisma = { $queryRaw: jest.fn().mockResolvedValue([]) };
+    const service = createReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.getExpenseReport('2026-08-01', '2026-08-01'),
+    ).resolves.toEqual({
+      from: '2026-08-01',
+      to: '2026-08-01',
+      totalCents: 0,
+      byCategory: [],
+      items: [],
+    });
+  });
+
+  it('validates the inclusive range before querying', async () => {
+    const prisma = { $queryRaw: jest.fn() };
+    const service = createReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.getExpenseReport('2026-08-02', '2026-08-01'),
+    ).rejects.toThrow('from must be on or before to');
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 });
 

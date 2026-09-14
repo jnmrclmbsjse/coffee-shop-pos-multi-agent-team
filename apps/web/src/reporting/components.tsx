@@ -25,6 +25,7 @@ export function ReportTypeNavigation() {
   return (
     <nav className="page-context-switch" aria-label="Report type">
       <NavLink end to="/reports">Sales</NavLink>
+      <NavLink to="/reports/expenses">Expenses</NavLink>
       <NavLink to="/reports/daily-inventory">Daily inventory</NavLink>
     </nav>
   );

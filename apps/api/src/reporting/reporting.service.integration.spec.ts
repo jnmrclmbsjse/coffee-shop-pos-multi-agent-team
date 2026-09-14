@@ -196,6 +196,32 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
       },
     ]);
   });
+
+  it('uses the same effective expense total as daily reconciliation', async () => {
+    const [expenseReport, salesReport] = await Promise.all([
+      service.getExpenseReport('2026-07-22', '2026-07-22'),
+      service.getReport('2026-07-22', '2026-07-22'),
+    ]);
+
+    expect(expenseReport.items).toEqual([
+      expect.objectContaining({
+        id: movementIds[4],
+        category: null,
+        description: 'Correct supplies',
+        amountCents: 500,
+        amended: true,
+      }),
+    ]);
+    expect(expenseReport.byCategory).toEqual([
+      { category: null, entryCount: 1, totalCents: 500 },
+    ]);
+    expect(expenseReport.totalCents).toBe(
+      salesReport.dailyReconciliation.reduce(
+        (total, day) => total + day.cashExpensesCents,
+        0,
+      ),
+    );
+  });
 });
 
 describeWithDatabase('Cash amendment totals across close and reporting paths', () => {

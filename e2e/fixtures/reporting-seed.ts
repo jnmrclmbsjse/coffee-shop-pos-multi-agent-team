@@ -419,3 +419,174 @@ export function seedTradingDay(
 
   return { id, saleIds: sales.map((sale) => sale.id) };
 }
+
+export interface ExpenseReportFixture {
+  from: string;
+  to: string;
+  locationId: string;
+  staffMemberId: string;
+  tradingDayIds: string[];
+  movementIds: string[];
+  expectedTotalCents: number;
+}
+
+export function seedExpenseReportFixture(runTag: string): ExpenseReportFixture {
+  const locationId = randomUUID();
+  const staffMemberId = randomUUID();
+  const firstDayId = randomUUID();
+  const secondDayId = randomUUID();
+  const movementIds = Array.from({ length: 6 }, () => randomUUID());
+  const from = '2099-12-30';
+  const to = '2099-12-31';
+  const payload = {
+    runTag,
+    locationId,
+    staffMemberId,
+    firstDayId,
+    secondDayId,
+    movementIds,
+    from,
+    to,
+  };
+
+  runPrisma(`
+    const fixture = ${JSON.stringify(payload)};
+    await prisma.$transaction(async (tx) => {
+      await tx.location.create({
+        data: { id: fixture.locationId, name: 'Expense report ' + fixture.runTag },
+      });
+      await tx.staffMember.create({
+        data: {
+          id: fixture.staffMemberId,
+          locationId: fixture.locationId,
+          displayName: 'Expense Reporter ' + fixture.runTag,
+        },
+      });
+      const firstDate = new Date(fixture.from + 'T00:00:00.000Z');
+      const secondDate = new Date(fixture.to + 'T00:00:00.000Z');
+      await tx.tradingDay.createMany({
+        data: [
+          {
+            id: fixture.firstDayId,
+            locationId: fixture.locationId,
+            businessDate: firstDate,
+            status: 'CLOSED',
+            openedAt: new Date(firstDate.getTime() + 3600000),
+            closedAt: new Date(firstDate.getTime() + 12 * 3600000),
+            openingFloatCents: 0,
+            openedByStaffMemberId: fixture.staffMemberId,
+            closedByStaffMemberId: fixture.staffMemberId,
+          },
+          {
+            id: fixture.secondDayId,
+            locationId: fixture.locationId,
+            businessDate: secondDate,
+            status: 'CLOSED',
+            openedAt: new Date(secondDate.getTime() + 3600000),
+            closedAt: new Date(secondDate.getTime() + 12 * 3600000),
+            openingFloatCents: 0,
+            openedByStaffMemberId: fixture.staffMemberId,
+            closedByStaffMemberId: fixture.staffMemberId,
+          },
+        ],
+      });
+      const name = 'Expense Reporter ' + fixture.runTag;
+      await tx.cashMovement.create({
+        data: {
+          id: fixture.movementIds[0], tradingDayId: fixture.firstDayId,
+          kind: 'EXPENSE', amountCents: 5000, description: 'Original cup cost',
+          category: 'Supplies', recordedByStaffMemberId: fixture.staffMemberId,
+          recordedByNameSnapshot: name,
+          recordedAt: new Date(firstDate.getTime() + 5 * 3600000),
+        },
+      });
+      await tx.cashMovement.create({
+        data: {
+          id: fixture.movementIds[1], tradingDayId: fixture.firstDayId,
+          amendsCashMovementId: fixture.movementIds[0], kind: 'EXPENSE',
+          amountCents: 8000, description: 'Corrected cup cost', category: 'Supplies',
+          recordedByStaffMemberId: fixture.staffMemberId,
+          recordedByNameSnapshot: name,
+          recordedAt: new Date(firstDate.getTime() + 6 * 3600000),
+        },
+      });
+      await tx.cashMovement.create({
+        data: {
+          id: fixture.movementIds[2], tradingDayId: fixture.firstDayId,
+          kind: 'EXPENSE', amountCents: 2000, description: 'Courier fee',
+          category: null, recordedByStaffMemberId: fixture.staffMemberId,
+          recordedByNameSnapshot: name,
+          recordedAt: new Date(firstDate.getTime() + 7 * 3600000),
+        },
+      });
+      await tx.cashMovement.create({
+        data: {
+          id: fixture.movementIds[3], tradingDayId: fixture.secondDayId,
+          kind: 'EXPENSE', amountCents: 3000, description: 'Water delivery',
+          category: 'Utilities', recordedByStaffMemberId: fixture.staffMemberId,
+          recordedByNameSnapshot: name,
+          recordedAt: new Date(secondDate.getTime() + 4 * 3600000),
+        },
+      });
+      await tx.cashMovement.create({
+        data: {
+          id: fixture.movementIds[4], tradingDayId: fixture.secondDayId,
+          kind: 'EXPENSE', amountCents: 4000, description: 'Wrongly filed payout',
+          category: 'Other', recordedByStaffMemberId: fixture.staffMemberId,
+          recordedByNameSnapshot: name,
+          recordedAt: new Date(secondDate.getTime() + 5 * 3600000),
+        },
+      });
+      await tx.cashMovement.create({
+        data: {
+          id: fixture.movementIds[5], tradingDayId: fixture.secondDayId,
+          amendsCashMovementId: fixture.movementIds[4], kind: 'CASH_OUT',
+          amountCents: 4500, description: 'Corrected payout kind',
+          recordedByStaffMemberId: fixture.staffMemberId,
+          recordedByNameSnapshot: name,
+          recordedAt: new Date(secondDate.getTime() + 6 * 3600000),
+        },
+      });
+    });
+  `);
+
+  return {
+    from,
+    to,
+    locationId,
+    staffMemberId,
+    tradingDayIds: [firstDayId, secondDayId],
+    movementIds,
+    expectedTotalCents: 13_000,
+  };
+}
+
+export function cleanupExpenseReportFixture(
+  fixture: ExpenseReportFixture | undefined,
+): void {
+  if (!fixture) return;
+
+  runPrisma(`
+    const fixture = ${JSON.stringify(fixture)};
+    await prisma.$transaction(async (tx) => {
+      await tx.cashMovement.deleteMany({
+        where: {
+          id: { in: fixture.movementIds },
+          amendsCashMovementId: { not: null },
+        },
+      });
+      await tx.cashMovement.deleteMany({
+        where: { id: { in: fixture.movementIds } },
+      });
+      await tx.tradingDay.deleteMany({
+        where: { id: { in: fixture.tradingDayIds } },
+      });
+      await tx.staffMember.deleteMany({
+        where: { id: fixture.staffMemberId },
+      });
+      await tx.location.deleteMany({
+        where: { id: fixture.locationId },
+      });
+    });
+  `);
+}
