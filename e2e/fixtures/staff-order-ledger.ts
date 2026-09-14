@@ -42,9 +42,11 @@ function line(
   input: {
     quantity?: number;
     unitPriceCents: number;
-    discountKind?: 'NONE' | 'SENIOR';
+    discountKind?: 'NONE' | 'PWD' | 'SENIOR';
     discountCents?: number;
     lineTotalCents?: number;
+    preferences?: Array<'SWEETER' | 'STRONGER' | 'LESS_SWEET' | 'LESS_ICE'>;
+    preferenceNote?: string | null;
   },
 ) {
   const quantity = input.quantity ?? 1;
@@ -55,6 +57,8 @@ function line(
     unitPriceCents: input.unitPriceCents,
     lineGrossCents: gross,
     discountKind: input.discountKind,
+    preferences: input.preferences,
+    preferenceNote: input.preferenceNote,
     discountCents: input.discountCents,
     lineTotalCents: input.lineTotalCents ?? gross,
   };
@@ -119,7 +123,7 @@ export function seedStaffOrderLedgerFixture(
       customerName: 'Senior Online Guest',
       cashier: attributedCashier,
       onlineCents: 24_000,
-      discountCents: 3_000,
+      discountCents: 3_600,
       lines: [
         line(latte, {
           quantity: 2,
@@ -128,7 +132,14 @@ export function seedStaffOrderLedgerFixture(
           discountCents: 3_000,
           lineTotalCents: 21_000,
         }),
-        line(pastry, { unitPriceCents: 3_000 }),
+        line(pastry, {
+          unitPriceCents: 3_600,
+          discountKind: 'PWD',
+          preferences: ['LESS_ICE', 'SWEETER'],
+          preferenceNote: 'Extra hot',
+          discountCents: 600,
+          lineTotalCents: 3_000,
+        }),
       ],
     },
     {

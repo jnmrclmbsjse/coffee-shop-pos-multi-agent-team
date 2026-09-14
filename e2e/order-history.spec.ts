@@ -76,7 +76,9 @@ let staffMemberId: string;
 interface LineSeed {
   unitPriceCents: number;
   quantity?: number;
-  discountKind?: 'NONE' | 'SENIOR';
+  discountKind?: 'NONE' | 'PWD' | 'SENIOR';
+  preferences?: Array<'SWEETER' | 'STRONGER' | 'LESS_SWEET' | 'LESS_ICE'>;
+  preferenceNote?: string | null;
   productName?: string;
   size?: string;
 }
@@ -144,7 +146,7 @@ function buildDay(
         const quantity = line.quantity ?? 1;
         const lineGrossCents = line.unitPriceCents * quantity;
         const discountCents =
-          line.discountKind === 'SENIOR'
+          line.discountKind === 'SENIOR' || line.discountKind === 'PWD'
             ? seniorDiscountCents(lineGrossCents)
             : 0;
         return {
@@ -154,6 +156,8 @@ function buildDay(
           unitPriceCents: line.unitPriceCents,
           lineGrossCents,
           discountKind: line.discountKind ?? ('NONE' as const),
+          preferences: line.preferences ?? [],
+          preferenceNote: line.preferenceNote ?? null,
           discountCents,
           lineTotalCents: lineGrossCents - discountCents,
           productNameSnapshot: line.productName ?? variant.productName,
@@ -358,7 +362,13 @@ function dayB(): TradingDayFixture {
       onlineCents: 12_196,
       completedAt: atHour(DAY_B, 7),
       lines: [
-        { unitPriceCents: 4_497, discountKind: 'SENIOR', size: 'Small' },
+        {
+          unitPriceCents: 4_497,
+          discountKind: 'PWD',
+          preferences: ['LESS_ICE', 'SWEETER'],
+          preferenceNote: 'Extra hot',
+          size: 'Small',
+        },
         { unitPriceCents: 4_498, discountKind: 'SENIOR', size: 'Large' },
         { unitPriceCents: 5_000, size: 'Regular' },
       ],
@@ -738,6 +748,7 @@ test.describe('Order History list (story #93)', () => {
         'Business day',
         'Order no.',
         'Customer',
+        'Service',
         'Status',
         'Payment method',
         'Order total',
@@ -751,15 +762,16 @@ test.describe('Order History list (story #93)', () => {
 
     const walkIn = orderRow(page, DAY_A, 1);
     await expect(walkIn.locator('td').nth(2)).toHaveText('Walk-in');
-    await expect(walkIn.locator('td').nth(3)).toHaveText('Completed');
-    await expect(walkIn.locator('td').nth(4)).toHaveText('Cash');
-    await expect(walkIn.locator('td').nth(5)).toHaveText('₱200.00');
-    await expect(walkIn.locator('td').nth(6)).toHaveText('₱0.00');
+    await expect(walkIn.locator('td').nth(3)).toHaveText('Take-out');
+    await expect(walkIn.locator('td').nth(4)).toHaveText('Completed');
+    await expect(walkIn.locator('td').nth(5)).toHaveText('Cash');
+    await expect(walkIn.locator('td').nth(6)).toHaveText('₱200.00');
+    await expect(walkIn.locator('td').nth(7)).toHaveText('₱0.00');
     // Change owed is the WITHHELD amount, never `received − total`. ₱300.00 was
     // taken against a ₱200.00 order and nothing was withheld.
-    await expect(walkIn.locator('td').nth(7)).toHaveText('₱0.00');
-    await expect(walkIn.locator('td').nth(7)).not.toHaveText('₱100.00');
-    await expect(walkIn.locator('td').nth(8)).not.toHaveText('—');
+    await expect(walkIn.locator('td').nth(8)).toHaveText('₱0.00');
+    await expect(walkIn.locator('td').nth(8)).not.toHaveText('₱100.00');
+    await expect(walkIn.locator('td').nth(9)).not.toHaveText('—');
 
     // "Walk-in" is a rendering of NULL, never a stored value (ADR 0005 §6).
     expect(
@@ -778,21 +790,22 @@ test.describe('Order History list (story #93)', () => {
     await setPageSize(page, 50);
     await expectCount(page, TOTAL_ORDERS);
 
-    await expect(orderRow(page, DAY_A, 2).locator('td').nth(3)).toHaveText('Completed');
-    await expect(orderRow(page, DAY_A, 3).locator('td').nth(3)).toHaveText('Parked');
+    await expect(orderRow(page, DAY_A, 2).locator('td').nth(4)).toHaveText('Completed');
+    await expect(orderRow(page, DAY_A, 3).locator('td').nth(4)).toHaveText('Parked');
     // Void is derived from the existence of a correcting Sale (ADR 0005 §2),
     // not from a status column — the stored status of this row is COMPLETED.
-    await expect(orderRow(page, DAY_A, 4).locator('td').nth(3)).toHaveText('Void');
+    await expect(orderRow(page, DAY_A, 4).locator('td').nth(4)).toHaveText('Void');
 
     const voided = orderRow(page, DAY_A, 4).locator('td');
-    await expect(voided.nth(4)).toHaveText('Cash');
-    await expect(voided.nth(5)).toHaveText('₱250.00');
-    await expect(voided.nth(6)).toHaveText('₱5.00');
+    await expect(voided.nth(3)).toHaveText('Take-out');
+    await expect(voided.nth(5)).toHaveText('Cash');
+    await expect(voided.nth(6)).toHaveText('₱250.00');
+    await expect(voided.nth(7)).toHaveText('₱5.00');
     // Not the correcting record's negatives.
-    await expect(voided.nth(5)).not.toHaveText('₱-250.00');
-    await expect(voided.nth(6)).not.toHaveText('₱-5.00');
+    await expect(voided.nth(6)).not.toHaveText('₱-250.00');
+    await expect(voided.nth(7)).not.toHaveText('₱-5.00');
     // A void shows no completed timestamp even though the original has one.
-    await expect(voided.nth(8)).toHaveText('—');
+    await expect(voided.nth(9)).toHaveText('—');
   });
 
   test('AC: payment method renders Cash / Online / "Split (Cash + Online)", and a parked order renders "—"', async ({
@@ -801,21 +814,21 @@ test.describe('Order History list (story #93)', () => {
     await setPageSize(page, 50);
     await expectCount(page, TOTAL_ORDERS);
 
-    await expect(orderRow(page, DAY_A, 1).locator('td').nth(4)).toHaveText('Cash');
-    await expect(orderRow(page, DAY_A, 2).locator('td').nth(4)).toHaveText('Online');
-    await expect(orderRow(page, DAY_B, 4).locator('td').nth(4)).toHaveText(
+    await expect(orderRow(page, DAY_A, 1).locator('td').nth(5)).toHaveText('Cash');
+    await expect(orderRow(page, DAY_A, 2).locator('td').nth(5)).toHaveText('Online');
+    await expect(orderRow(page, DAY_B, 4).locator('td').nth(5)).toHaveText(
       'Split (Cash + Online)',
     );
 
     // A parked order has no payment rows, so method, completed time, tip and
     // change owed are all genuinely absent — "—", never ₱0.00 and never "Cash".
     const parked = orderRow(page, DAY_A, 3).locator('td');
-    await expect(parked.nth(4)).toHaveText('—');
-    await expect(parked.nth(6)).toHaveText('—');
+    await expect(parked.nth(5)).toHaveText('—');
     await expect(parked.nth(7)).toHaveText('—');
     await expect(parked.nth(8)).toHaveText('—');
+    await expect(parked.nth(9)).toHaveText('—');
     // Its actual order total stays visible.
-    await expect(parked.nth(5)).toHaveText('₱120.00');
+    await expect(parked.nth(6)).toHaveText('₱120.00');
   });
 
   test('AC: order numbers restart at 1 per business day, are shared across statuses, and are never renumbered', async ({
@@ -846,7 +859,7 @@ test.describe('Order History list (story #93)', () => {
     const dayARows = (await tableRows(page)).filter(
       (row) => row[0] === shortDate(DAY_A),
     );
-    expect(dayARows.map((row) => [row[1], row[3]])).toEqual([
+    expect(dayARows.map((row) => [row[1], row[4]])).toEqual([
       ['1', 'Completed'],
       ['2', 'Completed'],
       ['3', 'Parked'],
@@ -920,10 +933,10 @@ test.describe('Order History list (story #93)', () => {
     ]);
 
     // Same ₱50.00 amount, two different states.
-    await expect(orderRow(page, DAY_B, 1).locator('td').nth(7)).toHaveText(
+    await expect(orderRow(page, DAY_B, 1).locator('td').nth(8)).toHaveText(
       '₱50.00Outstanding',
     );
-    await expect(orderRow(page, DAY_B, 2).locator('td').nth(7)).toHaveText(
+    await expect(orderRow(page, DAY_B, 2).locator('td').nth(8)).toHaveText(
       '₱50.00Settled',
     );
   });
@@ -937,13 +950,13 @@ test.describe('Order History list (story #93)', () => {
     // Completed two days AFTER its trading day (v1 Jul 17 → Jul 21) …
     const late = orderRow(page, DAY_B, 6).locator('td');
     await expect(late.nth(0)).toHaveText(shortDate(DAY_B));
-    await expect(late.nth(8)).toContainText(manilaDate(atHour(DAY_B, 48 + 3)));
+    await expect(late.nth(9)).toContainText(manilaDate(atHour(DAY_B, 48 + 3)));
     expect(manilaDate(atHour(DAY_B, 48 + 3))).not.toBe(shortDate(DAY_B));
 
     // … and one completed the day BEFORE it (v1 Jul 20 → Jul 19).
     const early = orderRow(page, DAY_B, 7).locator('td');
     await expect(early.nth(0)).toHaveText(shortDate(DAY_B));
-    await expect(early.nth(8)).toContainText(manilaDate(atHour(DAY_B, -21)));
+    await expect(early.nth(9)).toContainText(manilaDate(atHour(DAY_B, -21)));
     expect(manilaDate(atHour(DAY_B, -21))).not.toBe(shortDate(DAY_B));
   });
 
@@ -954,7 +967,7 @@ test.describe('Order History list (story #93)', () => {
     // must not reject or "fix" historical data (ADR 0005 §5).
     await setPageSize(page, 50);
     await expectCount(page, TOTAL_ORDERS);
-    await expect(orderRow(page, DAY_B, 3).locator('td').nth(5)).toHaveText('₱100.00');
+    await expect(orderRow(page, DAY_B, 3).locator('td').nth(6)).toHaveText('₱100.00');
     await expect(page.locator('.reporting-notice')).toHaveCount(0);
 
     await orderRow(page, DAY_B, 3).locator('a.order-number-link').click();
@@ -1164,7 +1177,7 @@ test.describe('Order History filtering, search, sorting and paging (story #93)',
       key(DAY_A, 4), // Void
     ]);
     expect(
-      (await tableRows(page)).map((row) => row[3]),
+      (await tableRows(page)).map((row) => row[4]),
     ).toEqual(['Parked', 'Completed', 'Completed', 'Completed', 'Completed', 'Void']);
 
     // Descending reverses the status groups; inside a group the tie-break is
@@ -1179,7 +1192,7 @@ test.describe('Order History filtering, search, sorting and paging (story #93)',
       key(DAY_A, 3),
     ]);
     expect(
-      (await tableRows(page)).map((row) => row[3]),
+      (await tableRows(page)).map((row) => row[4]),
     ).toEqual(['Void', 'Completed', 'Completed', 'Completed', 'Completed', 'Parked']);
   });
 
@@ -1205,7 +1218,7 @@ test.describe('Order History filtering, search, sorting and paging (story #93)',
       key(DAY_B, 7), // ₱350.00
     ];
     await expectRows(page, ascending);
-    const totals = (await tableRows(page)).map((row) => toCents(row[5]!));
+    const totals = (await tableRows(page)).map((row) => toCents(row[6]!));
     expect(totals).toEqual([...totals].sort((a, b) => a - b));
 
     await sortHeader(page, 'Order total').click();
@@ -1403,29 +1416,31 @@ test.describe('Order detail (story #93)', () => {
     expect(cash + online).not.toBe(total + tip);
   });
 
-  test('AC: Senior is 20% off the line, labelled per line, and summed into the order discount', async ({
+  test('AC: PWD and Senior are labelled per line, with preferences and discounts preserved', async ({
     page,
   }) => {
     await openDetail(page, ids.senior);
 
-    // Each line shows product, size, quantity, discount and line total. No
-    // acceptance criterion fixes the order of the lines, so compare them as a
-    // set (the API orders them by line id, which is a UUID).
+    // Each line shows product, size, preferences, quantity, discount and line
+    // total. No acceptance criterion fixes the order of the lines, so compare
+    // them as a set (the API orders them by line id, which is a UUID).
     const lines = await itemRows(page);
     expect([...lines].sort((a, b) => a[1]!.localeCompare(b[1]!))).toEqual([
       [
         variant.productName,
         'Large',
+        '—',
         '1',
         'SeniorIncluded in Total discount',
         '₱35.98',
       ],
-      [variant.productName, 'Regular', '1', 'None', '₱50.00'],
+      [variant.productName, 'Regular', '—', '1', 'None', '₱50.00'],
       [
         variant.productName,
         'Small',
+        'Sweeter, Less ice, Extra hot',
         '1',
-        'SeniorIncluded in Total discount',
+        'PWDIncluded in Total discount',
         '₱35.98',
       ],
     ]);
@@ -1447,7 +1462,7 @@ test.describe('Order detail (story #93)', () => {
     expect(total).toBe(subtotal - discount);
 
     // The displayed line totals sum exactly to the total — no residual cent.
-    const lineTotals = lines.map((row) => toCents(row[4]!));
+    const lineTotals = lines.map((row) => toCents(row[5]!));
     expect(lineTotals.reduce((sum, value) => sum + value, 0)).toBe(total);
   });
 
@@ -1513,7 +1528,7 @@ test.describe('Order detail (story #93)', () => {
 
     // Its items and totals ARE populated.
     expect(await itemRows(page)).toEqual([
-      [variant.productName, variant.variantName, '1', 'None', '₱120.00'],
+      [variant.productName, variant.variantName, '—', '1', 'None', '₱120.00'],
     ]);
     await expect(paymentValue(page, 'Subtotal')).toHaveText('₱120.00');
     await expect(paymentValue(page, 'Total')).toHaveText('₱120.00');
@@ -1553,7 +1568,7 @@ test.describe('Order detail (story #93)', () => {
     await expect(paymentValue(page, 'Tip')).toHaveText('₱5.00');
     await expect(paymentValue(page, 'Completed')).toHaveText('—');
     expect(await itemRows(page)).toEqual([
-      [variant.productName, variant.variantName, '1', 'None', '₱250.00'],
+      [variant.productName, variant.variantName, '—', '1', 'None', '₱250.00'],
     ]);
 
     // A non-void order carries no void-reason block at all.

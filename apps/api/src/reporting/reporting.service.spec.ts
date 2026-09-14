@@ -787,6 +787,7 @@ describe('order history read model', () => {
           businessDay: '2026-07-20',
           dayOrderNumber: 4,
           customerName: null,
+          serviceType: 'DINE_IN',
           status: 'Completed',
           paymentMethod: 'Split',
           totalCents: 20_000,
@@ -877,7 +878,9 @@ describe('order history read model', () => {
             productName: 'Fixture Latte',
             size: 'Regular',
             quantity: 2,
-            discountKind: 'SENIOR',
+            preferences: ['SWEETER', 'LESS_ICE'],
+            preferenceNote: 'Extra hot',
+            discountKind: 'PWD',
             discountCents: 5_000,
             lineTotalCents: 20_000,
           },
@@ -910,7 +913,9 @@ describe('order history read model', () => {
         productName: 'Fixture Latte',
         size: 'Regular',
         quantity: 2,
-        discountKind: 'SENIOR',
+        preferences: ['SWEETER', 'LESS_ICE'],
+        preferenceNote: 'Extra hot',
+        discountKind: 'PWD',
         discountCents: 5_000,
         lineTotalCents: 20_000,
       },
@@ -922,6 +927,7 @@ describe('order history read model', () => {
     prisma.$queryRaw.mockResolvedValueOnce([
       {
         ...baseOrder,
+        serviceType: 'TAKE_OUT',
         hasCorrection: true,
         voidReason: 'Duplicate order',
         lines: [],
@@ -936,6 +942,7 @@ describe('order history read model', () => {
     ).resolves.toEqual(
       expect.objectContaining({
         status: 'Void',
+        serviceType: 'TAKE_OUT',
         completedAt: '2026-07-20T06:00:00.000Z',
         voidReason: 'Duplicate order',
       }),
@@ -958,6 +965,8 @@ describe('order history read model', () => {
             productName: 'Fixture Latte',
             size: 'Regular',
             quantity: 2,
+            preferences: ['STRONGER'],
+            preferenceNote: null,
             discountKind: 'SENIOR',
             discountCents: 5_000,
             lineTotalCents: 20_000,
@@ -979,6 +988,7 @@ describe('order history read model', () => {
           clientGeneratedId: baseOrder.clientGeneratedId,
           dayOrderNumber: 4,
           customerName: null,
+          serviceType: 'DINE_IN',
           cashierName: null,
           status: 'Completed',
           paymentMethod: 'Split',
@@ -990,6 +1000,8 @@ describe('order history read model', () => {
               productName: 'Fixture Latte',
               size: 'Regular',
               quantity: 2,
+              preferences: ['STRONGER'],
+              preferenceNote: null,
               discountKind: 'SENIOR',
               discountCents: 5_000,
               lineTotalCents: 20_000,
@@ -1013,6 +1025,35 @@ describe('order history read model', () => {
     expect(sql).toContain('sale.trading_day_id = ?::uuid');
     expect(sql).toContain(
       'ORDER BY history.day_order_number DESC, history.id ASC',
+    );
+  });
+
+  it('rejects an unknown stored line preference', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw.mockResolvedValueOnce([
+      {
+        ...baseOrder,
+        lines: [
+          {
+            id: 'fdf3f40f-56e3-4b76-a70f-34670507a1f5',
+            productName: 'Fixture Latte',
+            size: 'Regular',
+            quantity: 1,
+            preferences: ['EXTRA_FOAM'],
+            preferenceNote: null,
+            discountKind: 'NONE',
+            discountCents: 0,
+            lineTotalCents: 10_000,
+          },
+        ],
+      },
+    ]);
+    const service = createReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(service.getOrderHistoryDetail(baseOrder.id)).rejects.toThrow(
+      'Order history line has an invalid shape',
     );
   });
 

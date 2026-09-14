@@ -23,6 +23,7 @@ import { ReportingLoading, ReportingNotice } from '../reporting/components';
 import {
   DEFAULT_ORDER_HISTORY_QUERY,
   formatOrderHistoryPaymentMethod,
+  formatServiceType,
   formatTimestamp,
   parseOrderHistoryQuery,
 } from '../reporting/orderHistoryFormat';
@@ -381,6 +382,7 @@ export function OrderHistoryPage() {
                         onSort={sortBy}
                       />
                       <th scope="col">Customer</th>
+                      <th scope="col">Service</th>
                       <SortHeader
                         label="Status"
                         sort="status"
@@ -438,6 +440,7 @@ export function OrderHistoryPage() {
                           <td className="order-customer">
                             {order.customerName ?? 'Walk-in'}
                           </td>
+                          <td>{formatServiceType(order.serviceType)}</td>
                           <td><StatusBadge status={order.status} /></td>
                           <td>
                             <TableCellUnavailable>

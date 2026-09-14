@@ -53,7 +53,9 @@ export interface TradingDayFixture {
       quantity: number;
       unitPriceCents: number;
       lineGrossCents: number;
-      discountKind: 'NONE' | 'SENIOR';
+      discountKind: 'NONE' | 'PWD' | 'SENIOR';
+      preferences: Array<'SWEETER' | 'STRONGER' | 'LESS_SWEET' | 'LESS_ICE'>;
+      preferenceNote: string | null;
       discountCents: number;
       lineTotalCents: number;
       productNameSnapshot: string;
@@ -161,6 +163,8 @@ export function seedTradingDayFixture(fixture: TradingDayFixture): void {
                   unitPriceCents: line.unitPriceCents,
                   lineGrossCents: line.lineGrossCents,
                   discountKind: line.discountKind,
+                  preferences: line.preferences,
+                  preferenceNote: line.preferenceNote,
                   discountCents: line.discountCents,
                   // Required with no default since story #197's order-capture
                   // schema; these fixtures predate the free-upsize promotion.

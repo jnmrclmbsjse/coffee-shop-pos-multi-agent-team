@@ -12,6 +12,7 @@ import {
 import { ReportingLoading, ReportingNotice } from '../reporting/components';
 import { MoneyValue } from '../reporting/MoneyValue';
 import {
+  formatLinePreferences,
   formatOrderHistoryPaymentMethod,
   formatServiceType,
   formatTimestamp,
@@ -41,7 +42,9 @@ function DetailValue({
 }
 
 function discountLabel(kind: LineDiscountKind): string {
-  return kind === 'SENIOR' ? 'Senior' : 'None';
+  if (kind === 'SENIOR') return 'Senior';
+  if (kind === 'PWD') return 'PWD';
+  return 'None';
 }
 
 export function OrderHistoryDetailPage() {
@@ -132,6 +135,7 @@ export function OrderHistoryDetailPage() {
                     <tr>
                       <th scope="col">Product</th>
                       <th scope="col">Size</th>
+                      <th scope="col">Preferences</th>
                       <th scope="col" className="num">Quantity</th>
                       <th scope="col">Discount</th>
                       <th scope="col" className="num">Line total</th>
@@ -140,7 +144,7 @@ export function OrderHistoryDetailPage() {
                   <tbody>
                     {order.lines.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="order-items-empty">
+                        <td colSpan={6} className="order-items-empty">
                           No order items
                         </td>
                       </tr>
@@ -149,10 +153,16 @@ export function OrderHistoryDetailPage() {
                         <tr key={line.id}>
                           <td className="order-customer">{line.productName}</td>
                           <td>{line.size}</td>
+                          <td>
+                            {formatLinePreferences(
+                              line.preferences,
+                              line.preferenceNote,
+                            ) ?? '—'}
+                          </td>
                           <td className="num">{line.quantity}</td>
                           <td>
                             {discountLabel(line.discountKind)}
-                            {line.discountKind === 'SENIOR' && (
+                            {line.discountKind !== 'NONE' && (
                               <small className="order-line-note">
                                 Included in Total discount
                               </small>

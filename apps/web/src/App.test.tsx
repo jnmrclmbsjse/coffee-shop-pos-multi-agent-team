@@ -467,6 +467,10 @@ describe('staff authentication routes', () => {
       'href',
       '/pos/orders',
     );
+    expect(screen.getByRole('link', { name: 'Close Day' })).toHaveAttribute(
+      'href',
+      '/pos/close',
+    );
     expect(screen.getByRole('link', { name: 'Cash & Expenses' })).toHaveAttribute(
       'href',
       '/pos/cash',

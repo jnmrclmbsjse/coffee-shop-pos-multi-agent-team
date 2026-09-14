@@ -16,7 +16,9 @@ import {
   type StaffOrderLedgerQuery,
 } from '@coffee-shop/shared';
 import {
+  formatLinePreferences,
   formatOrderHistoryPaymentMethod,
+  formatServiceType,
   formatTimestamp,
 } from '../reporting/orderHistoryFormat';
 import { formatBusinessDate, formatMoney } from '../reporting/format';
@@ -83,7 +85,20 @@ function completionLabel(value: string | null): string {
 }
 
 function discountLabel(kind: LineDiscountKind): string {
-  return kind === LineDiscountKind.SENIOR ? 'Senior discount' : '';
+  if (kind === LineDiscountKind.SENIOR) return 'Senior discount';
+  if (kind === LineDiscountKind.PWD) return 'PWD discount';
+  return '';
+}
+
+function LinePreferences({
+  preferences,
+  note,
+}: {
+  preferences: StaffOrderLedgerOrder['lines'][number]['preferences'];
+  note: string | null;
+}) {
+  const label = formatLinePreferences(preferences, note);
+  return label ? <small>{label}</small> : null;
 }
 
 function StaffPaymentFact({
@@ -219,6 +234,10 @@ export function StaffOrderCard({
             </span>
           </div>
           <dl className="staff-order-meta">
+            <div>
+              <dt>Service</dt>
+              <dd>{formatServiceType(order.serviceType)}</dd>
+            </div>
             {showsCompletionFacts && (
               <div>
                 <dt>Payment</dt>
@@ -261,6 +280,10 @@ export function StaffOrderCard({
                 {line.discountKind !== LineDiscountKind.NONE && (
                   <small>{discountLabel(line.discountKind)}</small>
                 )}
+                <LinePreferences
+                  preferences={line.preferences}
+                  note={line.preferenceNote}
+                />
               </span>
               <span className="staff-order-size">{line.size}</span>
             </li>
