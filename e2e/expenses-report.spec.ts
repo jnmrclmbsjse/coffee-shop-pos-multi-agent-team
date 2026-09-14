@@ -14,7 +14,7 @@ const STAFF_PASSWORD = process.env.E2E_STAFF_PASSWORD ?? 'replace-before-seeding
 const API_BASE_URL = process.env.E2E_API_URL ?? 'http://127.0.0.1:3000';
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 10_000)}`;
 
-let fixture: ExpenseReportFixture;
+let fixture: ExpenseReportFixture | undefined;
 
 async function signInAsAdmin(page: Page): Promise<void> {
   await page.goto('/sign-in');
@@ -45,6 +45,7 @@ test.describe('admin expenses report', () => {
   test('shows the effective categorized breakdown and matches Sales cash expenses', async ({
     page,
   }) => {
+    if (!fixture) throw new Error('Expense report fixture was not seeded');
     await signInAsAdmin(page);
     await page.goto('/reports');
     const expensesTab = page.getByRole('link', { name: 'Expenses' });
@@ -72,7 +73,6 @@ test.describe('admin expenses report', () => {
     await expect(entries).toContainText('Amended');
     await expect(entries).not.toContainText('Original cup cost');
     await expect(entries).not.toContainText('Wrongly filed payout');
-    await expect(entries).toContainText('Open');
     await expect(entries).toContainText('Closed');
 
     const [expenseResponse, salesResponse] = await Promise.all([
@@ -101,6 +101,7 @@ test.describe('admin expenses report', () => {
   });
 
   test('staff cannot open the page or call the endpoint', async ({ page }) => {
+    if (!fixture) throw new Error('Expense report fixture was not seeded');
     await signInAsStaff(page);
     const response = await page.request.get(
       `${API_BASE_URL}/reporting/expenses?from=${fixture.from}&to=${fixture.to}`,

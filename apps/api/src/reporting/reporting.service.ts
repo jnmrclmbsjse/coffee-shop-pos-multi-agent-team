@@ -384,7 +384,7 @@ export class ReportingService {
       id: row.id,
       businessDate: toIsoDate(row.businessDate),
       dayStatus: row.dayStatus === TradingDayStatus.OPEN ? 'open' : 'closed',
-      recordedAt: row.recordedAt.toISOString(),
+      recordedAt: toIsoTimestamp(row.recordedAt),
       category: row.category,
       description: row.description,
       amountCents: cents(row.amountCents),
@@ -1220,6 +1220,8 @@ function toIsoDate(value: Date): string {
   return value.toISOString().slice(0, ISO_DATE_LENGTH);
 }
 
+function toIsoTimestamp(value: Date): string;
+function toIsoTimestamp(value: Date | null): string | null;
 function toIsoTimestamp(value: Date | null): string | null {
   return value?.toISOString() ?? null;
 }
