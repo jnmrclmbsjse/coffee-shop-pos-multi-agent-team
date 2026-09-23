@@ -90,7 +90,7 @@ if this ever needed to scale.
 | Edge / TLS | CloudFront default `*.cloudfront.net` + AWS WAF | ~$5–10/mo for WAF; no vanity URL yet. |
 | IaC | Pulumi (TypeScript) | Less industry-ubiquitous than Terraform, but same language as the rest of the repo — least context-switch for this team. |
 | Deploy trigger | Agent triggers GitHub Actions (OIDC) | One pipeline to build up front; gains reproducibility, audit trail, no long-lived AWS keys anywhere. |
-| Domain | None yet | Revisit for ~$12/yr when a vanity URL matters; would also unlock Cloudflare's free WAF/DDoS tier as an alternative edge. |
+| Domain | `ucm.junmar.dev` (`customDomain` in `infra/Pulumi.prod.yaml`) | ACM cert in `us-east-1`, attached as a CloudFront alias; DNS is hosted outside AWS, so records are added by hand. Replaced the expired `app.knostra.fun` — to change it again, follow the two-phase cutover documented on `attachCustomDomain` in `infra/config.ts`. |
 
 **Cost estimate:** EC2 t4g.small ~$12/mo (or t4g.micro on free tier, RAM-tight)
 + EBS ~$2 + WAF ~$6 + CloudFront/S3/SSM pennies ≈ **$15–25/mo** (~$8–12/mo on
