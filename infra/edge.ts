@@ -1,5 +1,5 @@
 import * as aws from "@pulumi/aws";
-import { customDomain, wafRateLimitPerFiveMin } from "./config";
+import { attachCustomDomain, customDomain, wafRateLimitPerFiveMin } from "./config";
 import { originDomainName } from "./compute";
 import { infraRolePolicy } from "./oidc";
 
@@ -42,14 +42,18 @@ export const certificateValidationRecordType =
 export const certificateValidationRecordValue =
   certificateValidationOption.apply(({ resourceRecordValue }) => resourceRecordValue);
 
-export const appCertificateValidation = new aws.acm.CertificateValidation(
-  "app-certificate-validation",
-  {
-    certificateArn: appCertificate.arn,
-    validationRecordFqdns: [certificateValidationRecordName],
-  },
-  { provider: usEast1 },
-);
+// Only created once the custom domain is being attached — see
+// attachCustomDomain in config.ts for the two-phase cutover.
+const appCertificateValidation = attachCustomDomain
+  ? new aws.acm.CertificateValidation(
+      "app-certificate-validation",
+      {
+        certificateArn: appCertificate.arn,
+        validationRecordFqdns: [certificateValidationRecordName],
+      },
+      { provider: usEast1 },
+    )
+  : undefined;
 
 export const webAcl = new aws.wafv2.WebAcl(
   "cloudfront-waf",
@@ -120,7 +124,7 @@ const originId = "coffee-shop-pos-origin";
 
 export const distribution = new aws.cloudfront.Distribution("app-distribution", {
   enabled: true,
-  aliases: [customDomain],
+  aliases: appCertificateValidation ? [customDomain] : [],
   webAclId: webAcl.arn,
   defaultRootObject: "index.html",
   origins: [
@@ -160,11 +164,13 @@ export const distribution = new aws.cloudfront.Distribution("app-distribution", 
     },
   ],
   restrictions: { geoRestriction: { restrictionType: "none" } },
-  viewerCertificate: {
-    acmCertificateArn: appCertificateValidation.certificateArn,
-    sslSupportMethod: "sni-only",
-    minimumProtocolVersion: "TLSv1.2_2021",
-  },
+  viewerCertificate: appCertificateValidation
+    ? {
+        acmCertificateArn: appCertificateValidation.certificateArn,
+        sslSupportMethod: "sni-only",
+        minimumProtocolVersion: "TLSv1.2_2021",
+      }
+    : { cloudfrontDefaultCertificate: true },
   tags: { Project: "coffee-shop-pos" },
 });
 
