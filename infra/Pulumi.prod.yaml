@@ -13,5 +13,3 @@ config:
   coffee-shop-pos:amiId: ami-08a1c724df9764ad0
   coffee-shop-pos:wafRateLimit: "1000"
   coffee-shop-pos:customDomain: ucm.junmarjose.dev
-  # Phase 1 of the domain cutover (see attachCustomDomain in config.ts).
-  coffee-shop-pos:attachCustomDomain: "false"
