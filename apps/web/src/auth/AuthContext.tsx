@@ -34,6 +34,7 @@ interface AuthContextValue {
 export const AuthContext = createContext<AuthContextValue | null>(null);
 const LOGOUT_CHANNEL = 'ucm.auth.logout.v1';
 const LOGOUT_STORAGE_KEY = 'ucm.auth.logout-event.v1';
+const INITIAL_SESSION_RETRY_MS = 2_000;
 
 function signInPathFor(user: AuthenticatedUser | null): string {
   return user?.role === Role.STAFF ? '/staff/sign-in' : '/sign-in';
@@ -79,7 +80,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const revalidatedUser = userRef.current;
-    const sessionUser = await readSession();
+    let sessionUser: AuthenticatedUser | null;
+    try {
+      sessionUser = await readSession();
+    } catch {
+      // A transient network/server failure is not evidence that the session
+      // ended. Protected requests and a later revalidation remain authoritative.
+      return;
+    }
     if (
       statusRef.current !== 'authenticated' ||
       userRef.current !== revalidatedUser
@@ -111,25 +119,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let retryTimer: number | null = null;
 
-    void readSession().then((sessionUser) => {
-      if (!active) {
-        return;
+    const checkInitialSession = async (): Promise<void> => {
+      try {
+        const sessionUser = await readSession();
+        if (!active) {
+          return;
+        }
+        if (sessionUser) {
+          setAuthenticated(sessionUser);
+        } else {
+          userRef.current = null;
+          statusRef.current = 'signedOut';
+          setUser(null);
+          setStatus('signedOut');
+          setNotice(null);
+          setSignedOutPath(null);
+        }
+      } catch {
+        // Keep protected content gated while the initial session check is
+        // unavailable. A failure must not be reinterpreted as a signed-out
+        // response; retry so startup recovers when the API becomes available.
+        if (active) {
+          retryTimer = window.setTimeout(() => {
+            void checkInitialSession();
+          }, INITIAL_SESSION_RETRY_MS);
+        }
       }
-      if (sessionUser) {
-        setAuthenticated(sessionUser);
-      } else {
-        userRef.current = null;
-        statusRef.current = 'signedOut';
-        setUser(null);
-        setStatus('signedOut');
-        setNotice(null);
-        setSignedOutPath(null);
-      }
-    });
+    };
+
+    void checkInitialSession();
 
     return () => {
       active = false;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
     };
   }, [setAuthenticated]);
 

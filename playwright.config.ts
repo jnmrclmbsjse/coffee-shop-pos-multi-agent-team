@@ -1,31 +1,6 @@
-import { defineConfig, devices } from '@playwright/test';
-
-export default defineConfig({
-  testDir: './e2e',
-  fullyParallel: true,
-  forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? 'github' : 'html',
-  use: {
-    baseURL: 'http://127.0.0.1:5173',
-    trace: 'on-first-retry',
-  },
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
-  webServer: [
-    {
-      command: 'pnpm --filter @coffee-shop/api dev',
-      url: 'http://127.0.0.1:3000/health',
-      reuseExistingServer: !process.env.CI,
-    },
-    {
-      command: 'pnpm --filter @coffee-shop/web dev --host 127.0.0.1',
-      url: 'http://127.0.0.1:5173',
-      reuseExistingServer: !process.env.CI,
-    },
-  ],
-});
+// Keep the repository-root Playwright entry point for `pnpm e2e`, while making
+// the QA-owned configuration under e2e/ the single source of truth. In
+// particular, that config uses one worker because the specs share and reset a
+// persistent database, and it keeps the web/API host names aligned so the
+// SameSite session cookie is sent consistently.
+export { default } from './e2e/playwright.config';
