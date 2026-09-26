@@ -22,13 +22,18 @@ export class CashierSelectionService {
       where: { deviceId },
       select: {
         staffMember: {
-          select: { id: true, displayName: true },
+          select: { id: true, displayName: true, isActive: true },
         },
       },
-      orderBy: { selectedAt: 'desc' },
+      orderBy: [{ selectedAt: 'desc' }, { id: 'desc' }],
     });
 
-    return latest?.staffMember ?? null;
+    if (!latest?.staffMember?.isActive) return null;
+
+    return {
+      id: latest.staffMember.id,
+      displayName: latest.staffMember.displayName,
+    };
   }
 
   async appendSelection(input: AppendCashierSelectionInput): Promise<void> {

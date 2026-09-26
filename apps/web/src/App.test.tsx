@@ -59,6 +59,7 @@ describe('administrator authentication routes', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -721,6 +722,7 @@ describe('session logout', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -955,6 +957,49 @@ describe('session logout', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Your session ended. Sign in to continue.',
     );
+  });
+
+  it('keeps an authenticated session when background revalidation is unavailable', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(200, { user: adminUser }))
+      .mockResolvedValueOnce(response(503));
+
+    renderAt('/admin-placeholder');
+
+    const workspace = await screen.findByRole('heading', {
+      name: 'Administrator workspace',
+    });
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(workspace).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Sign in' })).not.toBeInTheDocument();
+  });
+
+  it('recovers when the initial session check is temporarily unavailable', async () => {
+    vi.useFakeTimers();
+    fetchMock
+      .mockResolvedValueOnce(response(503))
+      .mockResolvedValueOnce(response(200, { user: adminUser }));
+
+    renderAt('/admin-placeholder');
+
+    expect(
+      screen.getByText('Checking administrator access…'),
+    ).toBeInTheDocument();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Administrator workspace',
+      }),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 

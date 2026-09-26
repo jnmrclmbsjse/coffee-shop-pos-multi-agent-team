@@ -81,7 +81,12 @@ export class AuthService {
       passwordMatches = false;
     }
 
-    if (!user || !passwordMatches || user.role !== Role.ADMIN) {
+    if (
+      !user ||
+      !passwordMatches ||
+      user.role !== Role.ADMIN ||
+      !user.isActive
+    ) {
       throw new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE);
     }
 
@@ -108,13 +113,13 @@ export class AuthService {
     deviceId: string,
   ): Promise<LoginResult<StaffLoginResponse>> {
     const user = await this.usersService.findByUsername(username);
-    const passwordHash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
-    const passwordMatches = await this.verify(passwordHash, password);
     const throttleKey = user
       ? this.throttle.keyForUser(deviceId, user.id)
       : this.throttle.keyForUnknown(deviceId, 'password', username);
 
     this.throwIfThrottled(throttleKey);
+    const passwordHash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
+    const passwordMatches = await this.verify(passwordHash, password);
 
     if (
       !user ||
@@ -140,13 +145,13 @@ export class AuthService {
     const user = UUID_PATTERN.test(staffId)
       ? await this.usersService.findById(staffId)
       : null;
-    const pinHash = user?.pinHash ?? DUMMY_PIN_HASH;
-    const pinMatches = await this.verify(pinHash, pin);
     const throttleKey = user
       ? this.throttle.keyForUser(deviceId, user.id)
       : this.throttle.keyForUnknown(deviceId, 'pin', staffId);
 
     this.throwIfThrottled(throttleKey);
+    const pinHash = user?.pinHash ?? DUMMY_PIN_HASH;
+    const pinMatches = await this.verify(pinHash, pin);
 
     if (
       !user ||
@@ -175,13 +180,13 @@ export class AuthService {
       ? await this.usersService.findByStaffMemberId(staffMemberId)
       : null;
     const suppliedPin = typeof pin === 'string' ? pin : '';
-    const pinHash = user?.pinHash ?? DUMMY_PIN_HASH;
-    const pinMatches = await this.verify(pinHash, suppliedPin);
     const throttleKey = user
       ? this.throttle.keyForUser(deviceId, user.id)
       : this.throttle.keyForUnknown(deviceId, 'pin', staffMemberId);
 
     this.throwIfThrottled(throttleKey);
+    const pinHash = user?.pinHash ?? DUMMY_PIN_HASH;
+    const pinMatches = await this.verify(pinHash, suppliedPin);
 
     if (
       !user ||

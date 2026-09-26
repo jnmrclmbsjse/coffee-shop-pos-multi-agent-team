@@ -69,8 +69,11 @@ export async function readSession(): Promise<AuthenticatedUser | null> {
   try {
     const response = await request<LoginResponse>('/auth/session');
     return response.user;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof AuthenticationError && error.status === 401) {
+      return null;
+    }
+    throw error;
   }
 }
 

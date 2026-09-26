@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 interface AttemptBucket {
   failures: number;
   blockedUntil: number | null;
+  expiresAt: number;
 }
 
 function positiveInteger(
@@ -29,6 +30,7 @@ export class AuthAttemptThrottleService {
   private readonly buckets = new Map<string, AttemptBucket>();
   private readonly maxFailures: number;
   private readonly cooldownMs: number;
+  private readonly maxBuckets: number;
 
   constructor(config: ConfigService) {
     this.maxFailures = positiveInteger(
@@ -38,6 +40,11 @@ export class AuthAttemptThrottleService {
     );
     this.cooldownMs =
       positiveInteger(config, 'AUTH_THROTTLE_COOLDOWN_SECONDS', 30) * 1000;
+    this.maxBuckets = positiveInteger(
+      config,
+      'AUTH_THROTTLE_MAX_BUCKETS',
+      10_000,
+    );
   }
 
   keyForUser(deviceId: string, userId: string): string {
@@ -53,6 +60,7 @@ export class AuthAttemptThrottleService {
   }
 
   retryAfterSeconds(key: string): number | null {
+    this.evictExpiredBuckets();
     const bucket = this.buckets.get(key);
     if (!bucket?.blockedUntil) {
       return null;
@@ -60,7 +68,6 @@ export class AuthAttemptThrottleService {
 
     const remainingMs = bucket.blockedUntil - Date.now();
     if (remainingMs <= 0) {
-      this.buckets.delete(key);
       return null;
     }
 
@@ -75,15 +82,37 @@ export class AuthAttemptThrottleService {
     const bucket = this.buckets.get(key) ?? {
       failures: 0,
       blockedUntil: null,
+      expiresAt: Date.now() + this.cooldownMs,
     };
     bucket.failures += 1;
+    bucket.expiresAt = Date.now() + this.cooldownMs;
     if (bucket.failures >= this.maxFailures) {
       bucket.blockedUntil = Date.now() + this.cooldownMs;
+    }
+    if (!this.buckets.has(key)) {
+      this.makeRoomForBucket();
     }
     this.buckets.set(key, bucket);
   }
 
   reset(key: string): void {
     this.buckets.delete(key);
+  }
+
+  private evictExpiredBuckets(): void {
+    const now = Date.now();
+    for (const [key, bucket] of this.buckets) {
+      if (bucket.expiresAt <= now) {
+        this.buckets.delete(key);
+      }
+    }
+  }
+
+  private makeRoomForBucket(): void {
+    while (this.buckets.size >= this.maxBuckets) {
+      const oldestKey = this.buckets.keys().next().value as string | undefined;
+      if (oldestKey === undefined) return;
+      this.buckets.delete(oldestKey);
+    }
   }
 }

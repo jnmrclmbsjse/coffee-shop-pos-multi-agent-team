@@ -79,15 +79,18 @@ const NOTES_MAX_LENGTH = 500;
 
 function formatBusinessDate(value: string | null): string {
   if (!value) return '';
+  const [year, month, day] = value.split('-').map(Number);
   return new Intl.DateTimeFormat('en-PH', {
     dateStyle: 'medium',
-  }).format(new Date(`${value}T00:00:00`));
+    timeZone: 'Asia/Manila',
+  }).format(new Date(Date.UTC(year!, month! - 1, day)));
 }
 
 function formatRecordedAt(value: string): string {
   return new Intl.DateTimeFormat('en-PH', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: 'Asia/Manila',
   }).format(new Date(value));
 }
 

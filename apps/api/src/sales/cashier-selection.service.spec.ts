@@ -28,7 +28,11 @@ describe('CashierSelectionService', () => {
   it('reads the latest selection and resolves its roster identity', async () => {
     const { prisma, service } = createService();
     prisma.cashierSelection.findFirst.mockResolvedValue({
-      staffMember: { id: staffMemberId, displayName: 'Alex Rivera' },
+      staffMember: {
+        id: staffMemberId,
+        displayName: 'Alex Rivera',
+        isActive: true,
+      },
     });
 
     await expect(service.activeCashier(deviceId)).resolves.toEqual({
@@ -38,9 +42,11 @@ describe('CashierSelectionService', () => {
     expect(prisma.cashierSelection.findFirst).toHaveBeenCalledWith({
       where: { deviceId },
       select: {
-        staffMember: { select: { id: true, displayName: true } },
+        staffMember: {
+          select: { id: true, displayName: true, isActive: true },
+        },
       },
-      orderBy: { selectedAt: 'desc' },
+      orderBy: [{ selectedAt: 'desc' }, { id: 'desc' }],
     });
   });
 
@@ -50,6 +56,19 @@ describe('CashierSelectionService', () => {
   ])('returns null when %s', async (_case, latest) => {
     const { prisma, service } = createService();
     prisma.cashierSelection.findFirst.mockResolvedValue(latest);
+
+    await expect(service.activeCashier(deviceId)).resolves.toBeNull();
+  });
+
+  it('does not attribute new orders to a deactivated selected cashier', async () => {
+    const { prisma, service } = createService();
+    prisma.cashierSelection.findFirst.mockResolvedValue({
+      staffMember: {
+        id: staffMemberId,
+        displayName: 'Alex Rivera',
+        isActive: false,
+      },
+    });
 
     await expect(service.activeCashier(deviceId)).resolves.toBeNull();
   });
