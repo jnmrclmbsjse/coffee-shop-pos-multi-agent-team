@@ -1,5 +1,6 @@
 import {
   CompensationAdjustmentKind,
+  type PayslipAdjustmentGroup,
   type PayslipSummary,
   type StaffMember,
 } from '@coffee-shop/shared';
@@ -89,6 +90,39 @@ function generatedTimestamp(value: string): string {
   return `Generated ${formatSubmissionTime(value)}`;
 }
 
+function adjustmentGroupDates(
+  group: PayslipAdjustmentGroup,
+  crossesCalendarYear: boolean,
+): string {
+  const style = group.itemCount === 1 || crossesCalendarYear ? 'long' : 'short';
+  return group.effectiveDates
+    .map((effectiveDate) => formatBusinessDate(effectiveDate, style))
+    .join(', ');
+}
+
+function earningsGroupMetadata(
+  group: PayslipAdjustmentGroup,
+  crossesCalendarYear: boolean,
+): string {
+  const kind = group.kind === CompensationAdjustmentKind.ALLOWANCE
+    ? 'Allowance'
+    : 'Bonus';
+  const dates = adjustmentGroupDates(group, crossesCalendarYear);
+  return group.itemCount === 1
+    ? `${kind}, ${dates}`
+    : `${kind} · ${group.itemCount} items · ${dates}`;
+}
+
+function advanceGroupMetadata(
+  group: PayslipAdjustmentGroup,
+  crossesCalendarYear: boolean,
+): string {
+  const dates = adjustmentGroupDates(group, crossesCalendarYear);
+  return group.itemCount === 1
+    ? dates
+    : `${group.itemCount} items · ${dates}`;
+}
+
 export function PayslipView({
   staff,
   staffMemberIdsWithEntries,
@@ -123,11 +157,14 @@ export function PayslipView({
   const hasPayslip = Boolean(
     summary && (summary.entries.length > 0 || summary.adjustments.length > 0),
   );
-  const earningsAdjustments = summary?.adjustments.filter(
-    (adjustment) => adjustment.kind !== CompensationAdjustmentKind.ADVANCE,
+  const crossesCalendarYear = Boolean(
+    summary && summary.from.slice(0, 4) !== summary.to.slice(0, 4),
+  );
+  const earningsAdjustmentGroups = summary?.adjustmentGroups.filter(
+    (group) => group.kind !== CompensationAdjustmentKind.ADVANCE,
   ) ?? [];
-  const advances = summary?.adjustments.filter(
-    (adjustment) => adjustment.kind === CompensationAdjustmentKind.ADVANCE,
+  const advanceGroups = summary?.adjustmentGroups.filter(
+    (group) => group.kind === CompensationAdjustmentKind.ADVANCE,
   ) ?? [];
 
   useEffect(() => {
@@ -490,18 +527,15 @@ export function PayslipView({
                         <td>{formatMoney(summary.commissionTotalCents)}</td>
                       </tr>
                     )}
-                    {earningsAdjustments.map((adjustment) => (
-                      <tr key={adjustment.id}>
+                    {earningsAdjustmentGroups.map((group) => (
+                      <tr key={group.adjustmentIds[0]}>
                         <td>
-                          {adjustment.description}
+                          {group.description}
                           <span>
-                            {adjustment.kind === CompensationAdjustmentKind.ALLOWANCE
-                              ? 'Allowance'
-                              : 'Bonus'}
-                            , {formatBusinessDate(adjustment.effectiveDate)}
+                            {earningsGroupMetadata(group, crossesCalendarYear)}
                           </span>
                         </td>
-                        <td>{formatMoney(adjustment.amountCents)}</td>
+                        <td>{formatMoney(group.totalCents)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -522,7 +556,7 @@ export function PayslipView({
               <p className="payslip-zone-label" id="payslip-deductions-title">
                 Deductions
               </p>
-              {advances.length === 0 ? (
+              {advanceGroups.length === 0 ? (
                 <p className="payslip-zone-note">No salary advances in this range.</p>
               ) : (
                 <table className="payslip-artifact-table payslip-advance-table">
@@ -534,10 +568,15 @@ export function PayslipView({
                     </tr>
                   </thead>
                   <tbody>
-                    {advances.map((advance) => (
-                      <tr key={advance.id}>
-                        <td>{advance.description}<span>{formatBusinessDate(advance.effectiveDate)}</span></td>
-                        <td>−{formatMoney(advance.amountCents)}</td>
+                    {advanceGroups.map((group) => (
+                      <tr key={group.adjustmentIds[0]}>
+                        <td>
+                          {group.description}
+                          <span>
+                            {advanceGroupMetadata(group, crossesCalendarYear)}
+                          </span>
+                        </td>
+                        <td>−{formatMoney(group.totalCents)}</td>
                       </tr>
                     ))}
                   </tbody>
