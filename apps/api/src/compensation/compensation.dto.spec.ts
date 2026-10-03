@@ -7,6 +7,7 @@ import {
   CompensationEntryListQueryDto,
   CreateCompensationAdjustmentDto,
   CreateCompensationEntryDto,
+  DailyGrossSalesQueryDto,
   PayslipQueryDto,
   UpdateCompensationAdjustmentDto,
   UpdateCompensationEntryDto,
@@ -89,6 +90,59 @@ describe('Compensation DTOs', () => {
     await expect(
       transformCreate({ ...validCreate, dailyTotalCents: 1 }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('accepts a valid load allowance on create', async () => {
+    await expect(
+      transformCreate({
+        ...validCreate,
+        loadAllowance: { amountCents: 1 },
+      }),
+    ).resolves.toMatchObject({ loadAllowance: { amountCents: 1 } });
+  });
+
+  it.each([undefined, 0, -1, 1.5, '100'])(
+    'rejects invalid load allowance amount %j',
+    async (amountCents) => {
+      await expect(
+        transformCreate({
+          ...validCreate,
+          loadAllowance: { amountCents },
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    },
+  );
+
+  it('rejects load allowance on update', async () => {
+    await expect(
+      pipe.transform(
+        {
+          salaryCents: 100,
+          commissionCents: 50,
+          loadAllowance: { amountCents: 25 },
+        },
+        { type: 'body', metatype: UpdateCompensationEntryDto },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('accepts valid and future daily-gross dates but rejects malformed dates', async () => {
+    await expect(
+      validate(
+        plainToInstance(DailyGrossSalesQueryDto, {
+          workDate: '2099-12-31',
+        }),
+      ),
+    ).resolves.toEqual([]);
+    await expect(
+      validate(
+        plainToInstance(DailyGrossSalesQueryDto, {
+          workDate: '2026-02-30',
+        }),
+      ),
+    ).resolves.toEqual([
+      expect.objectContaining({ property: 'workDate' }),
+    ]);
   });
 
   it('requires both update amounts and exposes no key fields', async () => {

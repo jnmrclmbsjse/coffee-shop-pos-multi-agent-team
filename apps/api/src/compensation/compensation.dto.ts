@@ -8,7 +8,7 @@ import type {
   UpdateStaffCompensationEntryInput,
 } from '@coffee-shop/shared';
 import { CompensationAdjustmentKind } from '@coffee-shop/shared';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDateString,
   IsDefined,
@@ -16,18 +16,46 @@ import {
   IsInt,
   IsNotEmpty,
   IsOptional,
+  IsObject,
   IsString,
   IsUUID,
   Matches,
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DATABASE_INTEGER = 2_147_483_647;
 const trimString = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
+
+export class DailyGrossSalesQueryDto {
+  @IsNotEmpty({ message: 'workDate is required' })
+  @Matches(ISO_DATE_PATTERN, {
+    message: 'workDate must be a date in YYYY-MM-DD format',
+  })
+  @IsDateString(
+    { strict: true },
+    { message: 'workDate must be a valid date' },
+  )
+  workDate!: string;
+}
+
+class LoadAllowanceDto {
+  @IsDefined({ message: 'loadAllowance.amountCents is required' })
+  @IsInt({
+    message: 'loadAllowance.amountCents must be an integer number of cents',
+  })
+  @Min(1, { message: 'loadAllowance.amountCents must be at least 1' })
+  @Max(MAX_DATABASE_INTEGER, {
+    message: `loadAllowance.amountCents must not exceed ${MAX_DATABASE_INTEGER}`,
+  })
+  amountCents!: NonNullable<
+    CreateStaffCompensationEntryInput['loadAllowance']
+  >['amountCents'];
+}
 
 export class PayslipQueryDto implements PayslipQuery {
   @IsNotEmpty({ message: 'staffMemberId is required' })
@@ -105,6 +133,12 @@ export class CreateCompensationEntryDto
     message: `commissionCents must not exceed ${MAX_DATABASE_INTEGER}`,
   })
   commissionCents!: CreateStaffCompensationEntryInput['commissionCents'];
+
+  @IsOptional()
+  @IsObject({ message: 'loadAllowance must be an object' })
+  @ValidateNested()
+  @Type(() => LoadAllowanceDto)
+  loadAllowance?: LoadAllowanceDto;
 }
 
 export class UpdateCompensationEntryDto

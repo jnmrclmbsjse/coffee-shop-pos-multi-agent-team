@@ -26,7 +26,7 @@ describeWithDatabase('CompensationService against Postgres', () => {
       datasources: { db: { url: testDatabaseUrl } },
     });
     await prisma.$connect();
-    service = new CompensationService(prisma);
+    service = new CompensationService(prisma, undefined as never);
 
     await prisma.location.create({
       data: { id: locationId, name: `Compensation test ${locationId}` },
@@ -165,6 +165,43 @@ describeWithDatabase('CompensationService against Postgres', () => {
         where: { id: created.id },
       }),
     ).resolves.toBeNull();
+  });
+
+  it('creates a load allowance atomically and leaves no orphan on duplicate refusal', async () => {
+    const workDate = '2026-08-18';
+    await service.create(
+      {
+        staffMemberId,
+        workDate,
+        salaryCents: 12_000,
+        commissionCents: 500,
+        loadAllowance: { amountCents: 250 },
+      } as never,
+      adminUserId,
+    );
+
+    await expect(
+      service.create(
+        {
+          staffMemberId,
+          workDate,
+          salaryCents: 99_999,
+          commissionCents: 99_999,
+          loadAllowance: { amountCents: 999 },
+        } as never,
+        adminUserId,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      prisma.staffCompensationAdjustment.findMany({
+        where: {
+          staffMemberId,
+          effectiveDate: new Date('2026-08-18T00:00:00.000Z'),
+          description: 'Load allowance',
+        },
+      }),
+    ).resolves.toHaveLength(1);
   });
 
   it('computes a fresh payslip for only the requested staff and inclusive date range', async () => {

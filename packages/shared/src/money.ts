@@ -3,6 +3,9 @@ import type { LineDiscountKind } from './domain.js';
 /** Integer minor units (cents). Monetary values must never use floating point. */
 export type MoneyCents = number & { readonly __brand: 'MoneyCents' };
 
+export const COMMISSION_GROSS_BAND_CENTS = cents(100_000);
+export const COMMISSION_PER_BAND_CENTS = cents(5_000);
+
 export interface TenderAmount {
   method: 'CASH' | 'ONLINE';
   amountCents: MoneyCents;
@@ -58,6 +61,18 @@ export function multiplyMoney(value: MoneyCents, quantity: number): MoneyCents {
   }
 
   return cents(value * quantity);
+}
+
+/** Suggest ₱50 for each complete ₱1,000 of gross sales. */
+export function suggestCommissionCents(
+  grossSalesCents: MoneyCents,
+): MoneyCents {
+  if (grossSalesCents <= 0) return cents(0);
+
+  return multiplyMoney(
+    COMMISSION_PER_BAND_CENTS,
+    Math.floor(grossSalesCents / COMMISSION_GROSS_BAND_CENTS),
+  );
 }
 
 /**

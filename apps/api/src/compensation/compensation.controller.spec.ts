@@ -23,6 +23,7 @@ describe('CompensationController', () => {
 
   it.each([
     'payslip',
+    'dailyGross',
     'list',
     'create',
     'update',
@@ -66,6 +67,24 @@ describe('CompensationController', () => {
 
     await expect(controller.payslip(query)).resolves.toEqual({ entries: [] });
     expect(service.getPayslip).toHaveBeenCalledWith(query);
+  });
+
+  it('delegates the daily gross query by work date', async () => {
+    const result = {
+      workDate: '2026-08-15',
+      hasBusinessDay: false,
+      grossSalesCents: 0,
+      suggestedCommissionCents: 0,
+    };
+    const service = {
+      getDailyGrossSuggestion: jest.fn().mockResolvedValue(result),
+    };
+    const controller = new CompensationController(service as never);
+
+    await expect(
+      controller.dailyGross({ workDate: '2026-08-15' }),
+    ).resolves.toEqual(result);
+    expect(service.getDailyGrossSuggestion).toHaveBeenCalledWith('2026-08-15');
   });
 
   it('attributes creates and updates to the authenticated administrator', async () => {

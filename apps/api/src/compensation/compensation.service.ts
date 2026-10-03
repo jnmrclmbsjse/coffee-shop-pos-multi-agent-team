@@ -6,8 +6,11 @@ import {
 } from '@nestjs/common';
 import {
   addMoney,
+  ALLOWANCE_DESCRIPTION_PRESETS,
   cents,
   CompensationAdjustmentKind,
+  suggestCommissionCents,
+  type DailyGrossSalesSuggestion,
   type PayslipAdjustmentGroup,
   type StaffCompensationAdjustment,
   type PayslipSummary,
@@ -15,6 +18,7 @@ import {
 } from '@coffee-shop/shared';
 import { Prisma, type StaffMember } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReportingService } from '../reporting/reporting.service';
 import type {
   CompensationEntryListQueryDto,
   CompensationAdjustmentListQueryDto,
@@ -47,7 +51,24 @@ type CompensationAdjustmentRecord =
 
 @Injectable()
 export class CompensationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportingService: ReportingService,
+  ) {}
+
+  async getDailyGrossSuggestion(
+    workDate: string,
+  ): Promise<DailyGrossSalesSuggestion> {
+    const dailyGross = await this.reportingService.getDailyGrossSales(workDate);
+
+    return {
+      workDate,
+      ...dailyGross,
+      suggestedCommissionCents: suggestCommissionCents(
+        dailyGross.grossSalesCents,
+      ),
+    };
+  }
 
   async getPayslip(query: PayslipQueryDto): Promise<PayslipSummary> {
     if (query.to < query.from) {
@@ -191,17 +212,36 @@ export class CompensationService {
     const staffMember = await this.requireStaffMember(input.staffMemberId);
 
     try {
-      const record = await this.prisma.staffCompensationEntry.create({
-        data: {
-          staffMemberId: input.staffMemberId,
-          workDate: this.toDate(input.workDate),
-          salaryCents: input.salaryCents,
-          commissionCents: input.commissionCents,
-          locationId: staffMember.locationId,
-          createdByUserId: userId,
-          updatedByUserId: userId,
-        },
-        include: compensationEntryInclude,
+      const record = await this.prisma.$transaction(async (transaction) => {
+        const entry = await transaction.staffCompensationEntry.create({
+          data: {
+            staffMemberId: input.staffMemberId,
+            workDate: this.toDate(input.workDate),
+            salaryCents: input.salaryCents,
+            commissionCents: input.commissionCents,
+            locationId: staffMember.locationId,
+            createdByUserId: userId,
+            updatedByUserId: userId,
+          },
+          include: compensationEntryInclude,
+        });
+
+        if (input.loadAllowance) {
+          await transaction.staffCompensationAdjustment.create({
+            data: {
+              staffMemberId: input.staffMemberId,
+              kind: CompensationAdjustmentKind.ALLOWANCE,
+              effectiveDate: this.toDate(input.workDate),
+              amountCents: input.loadAllowance.amountCents,
+              description: ALLOWANCE_DESCRIPTION_PRESETS[0],
+              locationId: staffMember.locationId,
+              createdByUserId: userId,
+              updatedByUserId: userId,
+            },
+          });
+        }
+
+        return entry;
       });
 
       return this.toEntry(record);

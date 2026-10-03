@@ -153,6 +153,7 @@ export class UsersService {
       id: string;
       displayName: string;
       isActive: boolean;
+      baseSalaryCents: number | null;
       locationId: string | null;
       createdAt: Date;
       updatedAt: Date;
@@ -167,6 +168,7 @@ export class UsersService {
           id: true,
           displayName: true,
           isActive: true,
+          baseSalaryCents: true,
           locationId: true,
           createdAt: true,
           updatedAt: true,
@@ -198,6 +200,7 @@ export class UsersService {
           id: staffMember.id,
           displayName: staffMember.displayName,
           isActive: staffMember.isActive,
+          baseSalaryCents: staffMember.baseSalaryCents,
           locationId: staffMember.locationId,
           createdAt: staffMember.createdAt,
           updatedAt: staffMember.updatedAt,
