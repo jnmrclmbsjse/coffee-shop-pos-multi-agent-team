@@ -133,6 +133,7 @@ const payslip: PayslipSummary = {
     },
   ],
   adjustments: [],
+  adjustmentGroups: [],
   salaryTotalCents: cents(501),
   commissionTotalCents: cents(602),
   grandTotalCents: cents(9_999),

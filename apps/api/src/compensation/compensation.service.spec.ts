@@ -196,6 +196,7 @@ describe('CompensationService', () => {
         }),
       ],
       adjustments: [],
+      adjustmentGroups: [],
       salaryTotalCents: 18_000,
       commissionTotalCents: 750,
       grandTotalCents: 18_750,
@@ -282,6 +283,32 @@ describe('CompensationService', () => {
         description: 'Salary advance',
       }),
     ]);
+    expect(result.adjustmentGroups).toEqual([
+      {
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        description: 'Transportation allowance',
+        totalCents: 1_000,
+        effectiveDates: ['2026-08-01'],
+        itemCount: 1,
+        adjustmentIds: ['65ee78ef-7936-4c12-9d95-1d522ee981f7'],
+      },
+      {
+        kind: CompensationAdjustmentKind.BONUS,
+        description: 'Performance bonus',
+        totalCents: 2_000,
+        effectiveDates: ['2026-08-15'],
+        itemCount: 1,
+        adjustmentIds: ['cc71c6c7-b1b7-4bdf-a813-a959703d939f'],
+      },
+      {
+        kind: CompensationAdjustmentKind.ADVANCE,
+        description: 'Salary advance',
+        totalCents: 14_000,
+        effectiveDates: ['2026-08-15'],
+        itemCount: 1,
+        adjustmentIds: ['bd6039f8-ee6f-4371-816e-e3aef0480572'],
+      },
+    ]);
     expect(result).toMatchObject({
       salaryTotalCents: 10_000,
       commissionTotalCents: 500,
@@ -291,6 +318,144 @@ describe('CompensationService', () => {
       advanceTotalCents: 14_000,
       earningsTotalCents: 13_500,
       netPayableCents: -500,
+    });
+  });
+
+  it('groups adjustments by kind and case-folded trimmed description in query order', async () => {
+    const loadAllowanceIds = [
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222',
+      '33333333-3333-4333-8333-333333333333',
+    ] as const;
+    const adjustments = [
+      {
+        ...adjustmentRecord,
+        id: loadAllowanceIds[0],
+        effectiveDate: new Date('2026-08-01T00:00:00.000Z'),
+        amountCents: 100,
+        description: 'Load allowance',
+      },
+      {
+        ...adjustmentRecord,
+        id: '44444444-4444-4444-8444-444444444444',
+        kind: 'BONUS' as const,
+        effectiveDate: new Date('2026-08-01T00:00:00.000Z'),
+        amountCents: 700,
+        description: 'load allowance',
+      },
+      {
+        ...adjustmentRecord,
+        id: '55555555-5555-4555-8555-555555555555',
+        effectiveDate: new Date('2026-08-01T00:00:00.000Z'),
+        amountCents: 50,
+        description: 'Load  allowance',
+      },
+      {
+        ...adjustmentRecord,
+        id: loadAllowanceIds[1],
+        effectiveDate: new Date('2026-08-02T00:00:00.000Z'),
+        amountCents: 200,
+        description: 'load allowance ',
+      },
+      {
+        ...adjustmentRecord,
+        id: loadAllowanceIds[2],
+        effectiveDate: new Date('2026-08-02T00:00:00.000Z'),
+        amountCents: 300,
+        description: 'LOAD ALLOWANCE',
+      },
+      {
+        ...adjustmentRecord,
+        id: '66666666-6666-4666-8666-666666666666',
+        kind: 'ADVANCE' as const,
+        effectiveDate: new Date('2026-08-03T00:00:00.000Z'),
+        amountCents: 400,
+        description: 'Load allowance',
+      },
+      {
+        ...adjustmentRecord,
+        id: '77777777-7777-4777-8777-777777777777',
+        kind: 'BONUS' as const,
+        effectiveDate: new Date('2026-08-04T00:00:00.000Z'),
+        amountCents: 500,
+        description: 'Spot bonus',
+      },
+    ];
+    const { service } = setup({
+      findManyResult: [
+        { ...record, salaryCents: 10_000, commissionCents: 500 },
+      ],
+      adjustmentFindManyResult: adjustments,
+    });
+
+    const result = await service.getPayslip({
+      staffMemberId,
+      from: '2026-08-01',
+      to: '2026-08-15',
+    });
+
+    expect(result.adjustmentGroups).toEqual([
+      {
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        description: 'Load allowance',
+        totalCents: 600,
+        effectiveDates: ['2026-08-01', '2026-08-02', '2026-08-02'],
+        itemCount: 3,
+        adjustmentIds: loadAllowanceIds,
+      },
+      {
+        kind: CompensationAdjustmentKind.BONUS,
+        description: 'load allowance',
+        totalCents: 700,
+        effectiveDates: ['2026-08-01'],
+        itemCount: 1,
+        adjustmentIds: ['44444444-4444-4444-8444-444444444444'],
+      },
+      {
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        description: 'Load  allowance',
+        totalCents: 50,
+        effectiveDates: ['2026-08-01'],
+        itemCount: 1,
+        adjustmentIds: ['55555555-5555-4555-8555-555555555555'],
+      },
+      {
+        kind: CompensationAdjustmentKind.ADVANCE,
+        description: 'Load allowance',
+        totalCents: 400,
+        effectiveDates: ['2026-08-03'],
+        itemCount: 1,
+        adjustmentIds: ['66666666-6666-4666-8666-666666666666'],
+      },
+      {
+        kind: CompensationAdjustmentKind.BONUS,
+        description: 'Spot bonus',
+        totalCents: 500,
+        effectiveDates: ['2026-08-04'],
+        itemCount: 1,
+        adjustmentIds: ['77777777-7777-4777-8777-777777777777'],
+      },
+    ]);
+    for (const group of result.adjustmentGroups) {
+      expect(group.itemCount).toBe(group.effectiveDates.length);
+      expect(group.itemCount).toBe(group.adjustmentIds.length);
+    }
+    const groupedTotalFor = (kind: CompensationAdjustmentKind) =>
+      result.adjustmentGroups
+        .filter((group) => group.kind === kind)
+        .reduce((total, group) => total + group.totalCents, 0);
+    expect(groupedTotalFor(CompensationAdjustmentKind.ALLOWANCE)).toBe(
+      result.allowanceTotalCents,
+    );
+    expect(groupedTotalFor(CompensationAdjustmentKind.BONUS)).toBe(
+      result.bonusTotalCents,
+    );
+    expect(groupedTotalFor(CompensationAdjustmentKind.ADVANCE)).toBe(
+      result.advanceTotalCents,
+    );
+    expect(result).toMatchObject({
+      earningsTotalCents: 12_350,
+      netPayableCents: 11_950,
     });
   });
 
@@ -324,6 +489,7 @@ describe('CompensationService', () => {
       to: '2026-07-31',
       entries: [],
       adjustments: [],
+      adjustmentGroups: [],
       salaryTotalCents: 0,
       commissionTotalCents: 0,
       grandTotalCents: 0,

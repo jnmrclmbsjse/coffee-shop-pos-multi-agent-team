@@ -239,6 +239,7 @@ describeWithDatabase('CompensationService against Postgres', () => {
         }),
       ],
       adjustments: [],
+      adjustmentGroups: [],
       salaryTotalCents: 22_000,
       commissionTotalCents: 400,
       grandTotalCents: 22_400,
@@ -449,6 +450,148 @@ describeWithDatabase('CompensationService against Postgres', () => {
     expect(afterDelete.adjustments.map((item) => item.id)).not.toContain(
       added.id,
     );
+  });
+
+  it('groups persisted adjustments without changing payslip totals', async () => {
+    const loadAllowanceIds: string[] = [];
+    for (const input of [
+      {
+        effectiveDate: '2027-01-01',
+        amountCents: 100,
+        description: 'Load allowance',
+      },
+      {
+        effectiveDate: '2027-01-02',
+        amountCents: 200,
+        description: 'load allowance ',
+      },
+      {
+        effectiveDate: '2027-01-02',
+        amountCents: 300,
+        description: 'LOAD ALLOWANCE',
+      },
+    ]) {
+      const created = await service.createAdjustment(
+        {
+          staffMemberId,
+          kind: CompensationAdjustmentKind.ALLOWANCE,
+          ...input,
+        } as never,
+        adminUserId,
+      );
+      loadAllowanceIds.push(created.id);
+    }
+
+    const bonusWithSameDescription = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.BONUS,
+        effectiveDate: '2027-01-01',
+        amountCents: 700,
+        description: 'load allowance',
+      } as never,
+      adminUserId,
+    );
+    const internalWhitespaceSingleton = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        effectiveDate: '2027-01-01',
+        amountCents: 50,
+        description: 'Load  allowance',
+      } as never,
+      adminUserId,
+    );
+    const advanceWithSameDescription = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.ADVANCE,
+        effectiveDate: '2027-01-03',
+        amountCents: 400,
+        description: 'Load allowance',
+      } as never,
+      adminUserId,
+    );
+    const singletonBonus = await service.createAdjustment(
+      {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.BONUS,
+        effectiveDate: '2027-01-04',
+        amountCents: 500,
+        description: 'Spot bonus',
+      } as never,
+      adminUserId,
+    );
+
+    const result = await service.getPayslip({
+      staffMemberId,
+      from: '2027-01-01',
+      to: '2027-01-04',
+    });
+
+    expect(result.adjustmentGroups).toEqual([
+      {
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        description: 'Load allowance',
+        totalCents: 600,
+        effectiveDates: ['2027-01-01', '2027-01-02', '2027-01-02'],
+        itemCount: 3,
+        adjustmentIds: loadAllowanceIds,
+      },
+      {
+        kind: CompensationAdjustmentKind.BONUS,
+        description: 'load allowance',
+        totalCents: 700,
+        effectiveDates: ['2027-01-01'],
+        itemCount: 1,
+        adjustmentIds: [bonusWithSameDescription.id],
+      },
+      {
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        description: 'Load  allowance',
+        totalCents: 50,
+        effectiveDates: ['2027-01-01'],
+        itemCount: 1,
+        adjustmentIds: [internalWhitespaceSingleton.id],
+      },
+      {
+        kind: CompensationAdjustmentKind.ADVANCE,
+        description: 'Load allowance',
+        totalCents: 400,
+        effectiveDates: ['2027-01-03'],
+        itemCount: 1,
+        adjustmentIds: [advanceWithSameDescription.id],
+      },
+      {
+        kind: CompensationAdjustmentKind.BONUS,
+        description: 'Spot bonus',
+        totalCents: 500,
+        effectiveDates: ['2027-01-04'],
+        itemCount: 1,
+        adjustmentIds: [singletonBonus.id],
+      },
+    ]);
+    expect(result.adjustments).toHaveLength(7);
+    expect(result).toMatchObject({
+      allowanceTotalCents: 650,
+      bonusTotalCents: 1_200,
+      advanceTotalCents: 400,
+      earningsTotalCents: 1_850,
+      netPayableCents: 1_450,
+    });
+    const groupTotals = Object.fromEntries(
+      Object.values(CompensationAdjustmentKind).map((kind) => [
+        kind,
+        result.adjustmentGroups
+          .filter((group) => group.kind === kind)
+          .reduce((total, group) => total + group.totalCents, 0),
+      ]),
+    );
+    expect(groupTotals).toEqual({
+      ALLOWANCE: result.allowanceTotalCents,
+      BONUS: result.bonusTotalCents,
+      ADVANCE: result.advanceTotalCents,
+    });
   });
 
   it('persists adjustment CRUD for all kinds, preserves duplicates and descriptions, and filters inclusively', async () => {
