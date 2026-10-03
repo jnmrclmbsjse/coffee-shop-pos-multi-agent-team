@@ -9,7 +9,11 @@ import {
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CompensationPage, currencyToCents } from './CompensationPage';
+import {
+  CompensationPage,
+  compensationDefaultRange,
+  currencyToCents,
+} from './CompensationPage';
 import { payslipFilename } from './PayslipView';
 import { CompensationApiError } from './api';
 
@@ -195,6 +199,17 @@ describe('payslipFilename', () => {
   });
 });
 
+describe('compensationDefaultRange', () => {
+  it.each([
+    ['2026-10-03T04:00:00.000Z', { from: '2026-10-01', to: '2026-10-15' }],
+    ['2026-10-20T04:00:00.000Z', { from: '2026-10-16', to: '2026-10-31' }],
+    ['2027-02-20T04:00:00.000Z', { from: '2027-02-16', to: '2027-02-28' }],
+    ['2028-02-20T04:00:00.000Z', { from: '2028-02-16', to: '2028-02-29' }],
+  ])('uses the cutoff containing the shop date for %s', (now, expected) => {
+    expect(compensationDefaultRange(new Date(now))).toEqual(expected);
+  });
+});
+
 describe('CompensationPage', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -207,6 +222,103 @@ describe('CompensationPage', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it('opens daily records, adjustments, and payslips on the current cutoff', async () => {
+    renderPage();
+    expect(screen.getByLabelText('From')).toHaveValue('2026-08-01');
+    expect(screen.getByLabelText('To')).toHaveValue('2026-08-15');
+    expect(screen.getByText('Aug 1 – 15, 2026')).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Adjustments' }));
+    expect(screen.getByLabelText('From')).toHaveValue('2026-08-01');
+    expect(screen.getByLabelText('To')).toHaveValue('2026-08-15');
+    expect(screen.getByText('Aug 1 – 15, 2026')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    expect(screen.getByLabelText('Start date')).toHaveValue('2026-08-01');
+    expect(screen.getByLabelText('End date')).toHaveValue('2026-08-15');
+    expect(screen.getByText('Aug 1 – 15, 2026')).toBeInTheDocument();
+  });
+
+  it('steps both directions in daily records without changing the staff filter', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByRole('option', { name: 'Mara Santos' });
+    await user.selectOptions(screen.getByLabelText('Staff member'), 'staff-1');
+
+    await user.click(screen.getByRole('button', { name: 'Next cutoff' }));
+    expect(screen.getByLabelText('From')).toHaveValue('2026-08-16');
+    expect(screen.getByLabelText('To')).toHaveValue('2026-08-31');
+    expect(screen.getByLabelText('Staff member')).toHaveValue('staff-1');
+
+    await user.click(screen.getByRole('button', { name: 'Previous cutoff' }));
+    expect(screen.getByLabelText('From')).toHaveValue('2026-08-01');
+    expect(screen.getByLabelText('To')).toHaveValue('2026-08-15');
+    expect(screen.getByLabelText('Staff member')).toHaveValue('staff-1');
+  });
+
+  it('steps from a custom or cleared range without preventing manual entry', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    const from = screen.getByLabelText('From');
+    const to = screen.getByLabelText('To');
+
+    await user.clear(from);
+    await user.type(from, '2026-08-12');
+    await user.clear(to);
+    await user.type(to, '2026-09-03');
+    expect(screen.getByText('Custom range: Aug 12, 2026 – Sep 3, 2026')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next cutoff' }));
+    expect(from).toHaveValue('2026-08-16');
+    expect(to).toHaveValue('2026-08-31');
+
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(from).toHaveValue('');
+    expect(to).toHaveValue('');
+    expect(screen.getByText('No range selected')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Previous cutoff' }));
+    expect(from).toHaveValue('2026-07-16');
+    expect(to).toHaveValue('2026-07-31');
+  });
+
+  it('steps both directions in adjustments without changing the staff filter', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Adjustments' }));
+    await user.selectOptions(screen.getByLabelText('Staff member'), 'staff-1');
+
+    await user.click(screen.getByRole('button', { name: 'Previous cutoff' }));
+    expect(screen.getByLabelText('From')).toHaveValue('2026-07-16');
+    expect(screen.getByLabelText('To')).toHaveValue('2026-07-31');
+    expect(screen.getByLabelText('Staff member')).toHaveValue('staff-1');
+
+    await user.click(screen.getByRole('button', { name: 'Next cutoff' }));
+    expect(screen.getByLabelText('From')).toHaveValue('2026-08-01');
+    expect(screen.getByLabelText('To')).toHaveValue('2026-08-15');
+    expect(screen.getByLabelText('Staff member')).toHaveValue('staff-1');
+  });
+
+  it('steps both directions in payslips without changing staff or generating', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() => expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'));
+
+    await user.click(screen.getByRole('button', { name: 'Next cutoff' }));
+    expect(screen.getByLabelText('Start date')).toHaveValue('2026-08-16');
+    expect(screen.getByLabelText('End date')).toHaveValue('2026-08-31');
+    expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1');
+    expect(api.payslip).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Previous cutoff' }));
+    expect(screen.getByLabelText('Start date')).toHaveValue('2026-08-01');
+    expect(screen.getByLabelText('End date')).toHaveValue('2026-08-15');
+    expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1');
+    expect(api.payslip).not.toHaveBeenCalled();
   });
 
   it('renders the staff member, date, salary, commission, and derived total', async () => {
@@ -582,7 +694,7 @@ describe('CompensationPage', () => {
     // Unmeasurable is not the same as broken. Withholding the file here would
     // turn a working download into a failure.
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1), { timeout: 4000 });
-    expect(await screen.findByRole('status')).toHaveTextContent('Downloaded:');
+    expect(await screen.findByText(/^Downloaded:/)).toBeInTheDocument();
   });
 
   it('refuses to download a PNG that came out too narrow, and says so', async () => {
@@ -673,7 +785,7 @@ describe('CompensationPage', () => {
     const link = click.mock.contexts[0] as HTMLAnchorElement;
     expect(link.download).toBe('payslip-mara-santos-2026-08-01-2026-08-31.png');
     expect(link.href).toBe('data:image/png;base64,payslip');
-    expect(await screen.findByRole('status')).toHaveTextContent('Downloaded: payslip-mara-santos-2026-08-01-2026-08-31.png');
+    expect(await screen.findByText('Downloaded: payslip-mara-santos-2026-08-01-2026-08-31.png')).toBeInTheDocument();
   });
 
   it('surfaces rasterization failure and offers a retry without removing the payslip', async () => {

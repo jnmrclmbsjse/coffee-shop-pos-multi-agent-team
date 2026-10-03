@@ -2760,7 +2760,7 @@ button {
 
 .compensation-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(150px, 0.55fr)) auto;
+  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(150px, 0.55fr)) minmax(220px, auto) auto;
   align-items: end;
   gap: var(--space-3);
   padding: var(--space-4);
@@ -2791,6 +2791,94 @@ button {
 .compensation-filters select:focus-visible {
   border-color: var(--focus);
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--focus) 22%, transparent);
+}
+
+.cutoff-field {
+  min-width: 0;
+}
+
+.cutoff-field-caption {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cutoff-stepper {
+  min-height: var(--touch-min);
+  display: grid;
+  grid-template-columns: var(--touch-min) minmax(0, 1fr) var(--touch-min);
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.cutoff-stepper button {
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 0;
+  border: 0;
+  color: var(--fg);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.cutoff-stepper button:first-child {
+  border-right: 1px solid var(--border);
+}
+
+.cutoff-stepper button:last-child {
+  border-left: 1px solid var(--border);
+}
+
+.cutoff-stepper button:hover {
+  color: var(--focus);
+  background: var(--surface-subtle);
+}
+
+.cutoff-stepper button:active {
+  color: var(--surface);
+  background: var(--accent-pressed);
+}
+
+.cutoff-stepper button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.cutoff-readout {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.payslip-filter .cutoff-field-caption {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.payslip-filter .cutoff-stepper,
+.payslip-filter .cutoff-stepper button {
+  min-height: var(--field-h);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cutoff-stepper button {
+    transition: background-color 160ms ease-out, color 160ms ease-out;
+  }
 }
 
 .compensation-table {
@@ -3081,6 +3169,16 @@ button {
   margin: 0;
   overflow-wrap: anywhere;
   font-weight: 650;
+}
+
+@media (max-width: 1100px) {
+  .compensation-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compensation-filters > label:first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 760px) {
@@ -4083,7 +4181,7 @@ button {
 }
 
 .payslip-filter form {
-  grid-template-columns: minmax(200px, 1.25fr) repeat(2, minmax(150px, 1fr)) auto;
+  grid-template-columns: minmax(200px, 1.25fr) repeat(2, minmax(150px, 1fr)) minmax(220px, auto) auto;
 }
 
 .payslip-filter select {
@@ -4423,9 +4521,21 @@ button {
   .payslip-filter form {
     grid-template-columns: repeat(2, minmax(150px, 1fr));
   }
+
+  .payslip-filter form > label:first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 760px) {
+  .payslip-filter form {
+    grid-template-columns: 1fr;
+  }
+
+  .payslip-filter form > label:first-child {
+    grid-column: auto;
+  }
+
   .payslip-stage {
     padding: var(--space-3);
   }

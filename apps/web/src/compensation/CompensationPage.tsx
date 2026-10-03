@@ -22,6 +22,8 @@ import {
   updateCompensationEntry,
 } from './api';
 import { AdjustmentsView } from './AdjustmentsView';
+import { CutoffStepper } from './CutoffStepper';
+import { cutoffContaining } from './domain';
 import { PayslipView } from './PayslipView';
 import { amountForInput, currencyToCents } from './money';
 
@@ -47,11 +49,7 @@ const EMPTY_DRAFT: EntryDraft = {
 };
 
 export function compensationDefaultRange(now = new Date()): { from: string; to: string } {
-  const today = shopDate(now);
-  const [year, month] = today.split('-').map(Number);
-  const finalDay = new Date(Date.UTC(year!, month!, 0)).getUTCDate();
-  const prefix = `${year}-${String(month).padStart(2, '0')}`;
-  return { from: `${prefix}-01`, to: `${prefix}-${finalDay}` };
+  return cutoffContaining(shopDate(now));
 }
 
 function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
@@ -338,6 +336,7 @@ export function CompensationPage() {
           <label><span>Staff member</span><select value={staffMemberId} onChange={(event) => setStaffMemberId(event.target.value)}><option value="">All staff</option>{staff.map((member) => <option value={member.id} key={member.id}>{member.displayName}{member.isActive ? '' : ' (inactive)'}</option>)}</select></label>
           <label><span>From</span><input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
           <label><span>To</span><input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label>
+          <CutoffStepper range={{ from, to }} onChange={(range) => { setFrom(range.from); setTo(range.to); }} />
           <button className="inventory-clear-filters" type="button" onClick={clearFilters}>Clear filters</button>
         </form>
         <p className="results-meta">{loading ? 'Loading compensation records…' : `Showing ${entries.length} ${entries.length === 1 ? 'record' : 'records'}`}</p>
