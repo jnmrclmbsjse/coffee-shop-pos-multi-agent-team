@@ -147,6 +147,44 @@ const payslip: PayslipSummary = {
 const adjustedPayslip: PayslipSummary = {
   ...payslip,
   adjustments: [adjustment, bonus, advance],
+  adjustmentGroups: [
+    {
+      kind: CompensationAdjustmentKind.ALLOWANCE,
+      description: 'Transportation Allowance',
+      totalCents: cents(45_000),
+      effectiveDates: ['2026-08-14', '2026-08-14', '2026-08-18'],
+      itemCount: 3,
+      adjustmentIds: [
+        'adjustment-allowance-1',
+        'adjustment-allowance-2',
+        'adjustment-allowance-3',
+      ],
+    },
+    {
+      kind: CompensationAdjustmentKind.BONUS,
+      description: 'Transportation Allowance',
+      totalCents: cents(1_000),
+      effectiveDates: ['2026-08-19'],
+      itemCount: 1,
+      adjustmentIds: ['adjustment-bonus-transportation'],
+    },
+    {
+      kind: CompensationAdjustmentKind.BONUS,
+      description: 'Launch weekend bonus',
+      totalCents: cents(1_000),
+      effectiveDates: ['2026-08-20'],
+      itemCount: 1,
+      adjustmentIds: ['adjustment-bonus-launch'],
+    },
+    {
+      kind: CompensationAdjustmentKind.ADVANCE,
+      description: 'Emergency cash advance',
+      totalCents: cents(20_000),
+      effectiveDates: ['2026-08-22', '2026-08-22'],
+      itemCount: 2,
+      adjustmentIds: ['adjustment-advance-1', 'adjustment-advance-2'],
+    },
+  ],
   salaryTotalCents: cents(500),
   commissionTotalCents: cents(600),
   grandTotalCents: cents(1_100),
@@ -452,7 +490,7 @@ describe('CompensationPage', () => {
     expect(screen.queryByText('₱1,650.00')).not.toBeInTheDocument();
   });
 
-  it('itemizes earnings and advances and renders every server total verbatim', async () => {
+  it('renders server-grouped earnings and advances with every server total unchanged', async () => {
     api.payslip.mockResolvedValue(adjustedPayslip);
     renderPage();
     const user = userEvent.setup();
@@ -464,9 +502,33 @@ describe('CompensationPage', () => {
 
     const artifact = await screen.findByRole('article', { name: 'Mara Santos' });
     expect(within(artifact).getByText('Inclusive range: August 1, 2026 to August 31, 2026')).toBeInTheDocument();
-    expect(within(artifact).getByText('Transportation allowance')).toBeInTheDocument();
+    expect(within(artifact).getAllByText('Transportation Allowance')).toHaveLength(2);
+    expect(within(artifact).getByText(
+      'Allowance · 3 items · Aug 14, Aug 14, Aug 18',
+    )).toBeInTheDocument();
+    expect(within(artifact).getByText(
+      'Bonus, August 19, 2026',
+    )).toBeInTheDocument();
     expect(within(artifact).getByText('Launch weekend bonus')).toBeInTheDocument();
+    expect(within(artifact).getByText(
+      'Bonus, August 20, 2026',
+    )).toBeInTheDocument();
     expect(within(artifact).getByText('Emergency cash advance')).toBeInTheDocument();
+    expect(within(artifact).getByText(
+      '2 items · Aug 22, Aug 22',
+    )).toBeInTheDocument();
+
+    const earningsTable = within(artifact).getByRole('table', {
+      name: 'Payslip earnings',
+    });
+    expect(within(earningsTable).getAllByRole('row')).toHaveLength(6);
+    const advanceTable = within(artifact).getByRole('table', {
+      name: 'Salary advances',
+    });
+    expect(within(advanceTable).getAllByRole('row')).toHaveLength(2);
+    expect(advanceTable).toHaveTextContent(
+      'Emergency cash advance2 items · Aug 22, Aug 22−₱200.00',
+    );
 
     const earnings = within(artifact).getByLabelText('Earnings totals');
     expect(earnings).toHaveTextContent('Salary total₱5.00');
@@ -478,6 +540,35 @@ describe('CompensationPage', () => {
     expect(within(artifact).getByText('₱-76.55')).toBeInTheDocument();
     expect(within(artifact).getByText(/Advances in this range exceed earnings/)).toBeInTheDocument();
     expect(within(artifact).getByText(/^Generated .*2026/)).toBeInTheDocument();
+  });
+
+  it('keeps years visible for grouped dates when the range crosses a calendar year', async () => {
+    api.payslip.mockResolvedValue({
+      ...adjustedPayslip,
+      from: '2026-12-28',
+      to: '2027-01-03',
+      adjustmentGroups: [
+        {
+          kind: CompensationAdjustmentKind.ALLOWANCE,
+          description: 'Load allowance',
+          totalCents: cents(400),
+          effectiveDates: ['2026-12-28', '2027-01-03'],
+          itemCount: 2,
+          adjustmentIds: ['adjustment-year-end-1', 'adjustment-year-end-2'],
+        },
+      ],
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'),
+    );
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+
+    expect(await screen.findByText(
+      'Allowance · 2 items · December 28, 2026, January 3, 2027',
+    )).toBeInTheDocument();
   });
 
   it('itemizes every daily salary and commission entry with its server total', async () => {
@@ -743,7 +834,10 @@ describe('CompensationPage', () => {
     expect(capturedNode).toHaveTextContent('Daily salary and commission');
     expect(capturedNode).toHaveTextContent('August 14, 2026');
     expect(capturedNode).toHaveTextContent('₱9.99');
-    expect(capturedNode).toHaveTextContent('Transportation allowance');
+    expect(capturedNode).toHaveTextContent('Transportation Allowance');
+    expect(capturedNode).toHaveTextContent(
+      'Allowance · 3 items · Aug 14, Aug 14, Aug 18',
+    );
     expect(capturedNode).toHaveTextContent('Launch weekend bonus');
     expect(capturedNode).toHaveTextContent('Emergency cash advance');
     expect(capturedNode).toHaveTextContent('Net payable');

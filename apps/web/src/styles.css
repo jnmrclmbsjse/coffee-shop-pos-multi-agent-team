@@ -4457,6 +4457,10 @@ button {
   text-align: right;
 }
 
+.payslip-artifact-table td:first-child {
+  padding-right: var(--space-4);
+}
+
 .payslip-artifact-table td:last-child,
 .payslip-category-totals dd,
 .payslip-net-value {
