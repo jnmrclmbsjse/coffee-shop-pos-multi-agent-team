@@ -4172,6 +4172,7 @@ button {
 /* Payslip */
 
 .payslip-view {
+  container-type: inline-size;
   display: grid;
   gap: var(--space-6);
 }
@@ -4181,7 +4182,33 @@ button {
 }
 
 .payslip-filter form {
+  align-items: start;
   grid-template-columns: minmax(200px, 1.25fr) repeat(2, minmax(150px, 1fr)) minmax(220px, auto) auto;
+}
+
+.payslip-filter .report-button {
+  margin-top: 23px;
+}
+
+/*
+ * The admin sidebar makes the page content narrower than the viewport. Reflow
+ * from the payslip area's actual width so the fifth filter control cannot push
+ * the submit button outside the card at desktop window sizes.
+ */
+@container (max-width: 85rem) {
+  .payslip-filter {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container (max-width: 60rem) {
+  .payslip-filter form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .payslip-filter form > label:first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 .payslip-filter select {
@@ -4534,6 +4561,10 @@ button {
 
   .payslip-filter form > label:first-child {
     grid-column: auto;
+  }
+
+  .payslip-filter .report-button {
+    margin-top: 0;
   }
 
   .payslip-stage {
