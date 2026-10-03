@@ -379,12 +379,24 @@ async function adminPage(browser: Browser, baseURL: string | undefined) {
   return { context, page };
 }
 
-/** Close the current open day through the real closing screen. */
+/**
+ * Close the current open day through the real closing screen.
+ *
+ * Since story #410 a day with any discrepancy — including the uncounted
+ * reconciled cup/lid items these scenarios never count — puts a confirmation
+ * dialog between Close day and the close. It is asserted rather than
+ * conditionally skipped, so a gate that quietly stopped gating still fails
+ * here; the dialog's own behaviour is covered by
+ * `close-day-discrepancy-confirmation.spec.ts`.
+ */
 async function closeDayThroughUi(page: Page, actualCash: string): Promise<void> {
   await gotoScreen(page, '/pos/close');
   await page.locator('#actualCash').fill(actualCash);
   await page.locator('#closedBy').selectOption({ label: staff.bruno.displayName });
   await page.getByRole('button', { name: 'Close day' }).click();
+  const confirmation = page.getByRole('dialog');
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button', { name: 'Close day anyway' }).click();
   await expect(page.locator('.staff-close-success')).toBeVisible();
 }
 
