@@ -6032,6 +6032,81 @@ button {
   opacity: 0.72;
 }
 
+.close-confirm-dialog {
+  width: min(100%, 520px);
+  max-height: calc(100svh - var(--space-8));
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--space-4);
+}
+
+.close-confirm-dialog > p,
+.close-confirm-dialog .logout-dialog-actions {
+  margin-top: 0;
+}
+
+.close-confirm-list {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.close-confirm-list > li {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+}
+
+.close-confirm-list > li + li {
+  border-top: 1px solid var(--border);
+}
+
+.close-confirm-entry-name {
+  margin: 0;
+  font-weight: 750;
+}
+
+.close-confirm-entry-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  margin: 0;
+}
+
+.close-confirm-entry-figures > div {
+  display: grid;
+  gap: 2px;
+}
+
+.close-confirm-entry-figures dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.close-confirm-entry-figures dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.close-confirm-list .unknown {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.close-confirm-list .variance-short,
+.close-confirm-list .variance-over,
+.close-confirm-list .over,
+.close-confirm-list .short {
+  color: var(--warn-ink);
+  font-weight: 800;
+}
+
 .staff-workspace-brand {
   min-width: 0;
   display: flex;
