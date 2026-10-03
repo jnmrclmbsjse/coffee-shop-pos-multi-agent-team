@@ -102,6 +102,28 @@ function sheet(
   };
 }
 
+function withLastClosing(
+  nextSheet: CountSheet,
+  lines: NonNullable<CountSheet['lastClosingCount']>['lines'],
+): CountSheet {
+  return {
+    ...nextSheet,
+    lastClosingCount: {
+      id: 'closing-count-id',
+      locationId: null,
+      businessDate: '2026-07-29',
+      phase: 'close',
+      submittedByStaffMemberId: activeStaff[0]!.id,
+      submittedByNameSnapshot: 'Maya Santos',
+      shiftLeadStaffMemberId: null,
+      shiftLeadNameSnapshot: null,
+      notes: null,
+      recordedAt: '2026-07-29T17:00:00.000Z',
+      lines,
+    },
+  };
+}
+
 function installCountFetch(nextSheet: CountSheet) {
   vi.mocked(fetch).mockImplementation(async (url) => {
     const path = new URL(String(url)).pathname;
@@ -256,6 +278,249 @@ describe('staff inventory screens', () => {
     const quantity = screen.getByLabelText(/Quantity for Cup/);
     fireEvent.change(quantity, { target: { value: '-4' } });
     expect(quantity).toHaveValue(0);
+  });
+
+  it('fills empty quantity and level fields from the last closing count', async () => {
+    installCountFetch(
+      withLastClosing(sheet('open'), [
+        {
+          inventoryItemId: quantityItem.id,
+          itemName: quantityItem.name,
+          quantity: 0,
+          level: null,
+          notes: null,
+        },
+        {
+          inventoryItemId: levelItem.id,
+          itemName: levelItem.name,
+          quantity: null,
+          level: StockLevel.EMPTY,
+          notes: null,
+        },
+      ]),
+    );
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    expect(
+      await screen.findByText('Fill from the last closing count'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Closing count for Jul 29, 2026, submitted by Maya Santos.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Fills only untouched empty fields. Values you entered are kept.',
+      ),
+    ).toBeInTheDocument();
+    const fillStatus = screen.getByRole('status');
+    expect(fillStatus).toBeEmptyDOMElement();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Fill all from last closing count' }),
+    );
+
+    const quantity = screen.getByLabelText(/Quantity for Cup/);
+    const level = screen.getByRole('radio', { name: 'Empty' });
+    expect(quantity).toHaveValue(0);
+    expect(level).toBeChecked();
+    expect(screen.getByLabelText(/Note for Cup/)).toBeEnabled();
+    expect(screen.getByText('Filled 2 items from the closing count of Jul 29, 2026.'))
+      .toBeInTheDocument();
+    expect(screen.getAllByText('From last closing')).toHaveLength(2);
+    expect(quantity).toHaveAttribute(
+      'aria-describedby',
+      `open-${quantityItem.id}-filled`,
+    );
+    expect(level.closest('fieldset')).toHaveAttribute(
+      'aria-describedby',
+      `open-${levelItem.id}-filled`,
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Full' }));
+    expect(screen.getAllByText('From last closing')).toHaveLength(1);
+    expect(quantity).toHaveAttribute(
+      'aria-describedby',
+      `open-${quantityItem.id}-filled`,
+    );
+    expect(level.closest('fieldset')).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('keeps entered values and omits fill actions for items with no source', async () => {
+    installCountFetch(
+      withLastClosing(sheet('open'), [
+        {
+          inventoryItemId: quantityItem.id,
+          itemName: quantityItem.name,
+          quantity: 12,
+          level: null,
+          notes: null,
+        },
+      ]),
+    );
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    const quantity = await screen.findByLabelText(/Quantity for Cup/);
+    await user.type(quantity, '0');
+    await user.click(
+      screen.getByRole('button', { name: 'Fill all from last closing count' }),
+    );
+
+    expect(quantity).toHaveValue(0);
+    expect(screen.getByRole('radio', { name: 'Empty' })).not.toBeChecked();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Fill Coffee beans from last closing count',
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('No empty fields to fill.')).toBeInTheDocument();
+  });
+
+  it('fills one item and never refills it after the staff member clears it', async () => {
+    installCountFetch(
+      withLastClosing(sheet('open'), [
+        {
+          inventoryItemId: quantityItem.id,
+          itemName: quantityItem.name,
+          quantity: 12,
+          level: null,
+          notes: null,
+        },
+        {
+          inventoryItemId: levelItem.id,
+          itemName: levelItem.name,
+          quantity: null,
+          level: StockLevel.HALF,
+          notes: null,
+        },
+      ]),
+    );
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    const quantity = await screen.findByLabelText(/Quantity for Cup/);
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Fill Cup from last closing count',
+      }),
+    );
+
+    expect(quantity).toHaveValue(12);
+    expect(screen.getByRole('radio', { name: 'Half' })).not.toBeChecked();
+    expect(screen.getByText('From last closing')).toBeInTheDocument();
+    expect(
+      screen.getByText('Filled Cup from the closing count of Jul 29, 2026.'),
+    ).toBeInTheDocument();
+
+    await user.clear(quantity);
+    expect(quantity).toHaveValue(null);
+    expect(screen.queryByText('From last closing')).not.toBeInTheDocument();
+    expect(quantity).not.toHaveAttribute('aria-describedby');
+
+    await user.click(
+      screen.getByRole('button', { name: 'Fill all from last closing count' }),
+    );
+    expect(quantity).toHaveValue(null);
+    expect(screen.getByRole('radio', { name: 'Half' })).toBeChecked();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Fill Cup from last closing count',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('explains when no previous closing count is available', async () => {
+    installCountFetch(sheet('open'));
+    renderPage(<OpeningCountPage />);
+
+    expect(
+      await screen.findByText(
+        'No previous closing count. There is nothing to fill from yet, so enter this opening count by hand.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /last closing count/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('submits filled values with the same payload as typed values', async () => {
+    const nextSheet = withLastClosing(sheet('open'), [
+      {
+        inventoryItemId: quantityItem.id,
+        itemName: quantityItem.name,
+        quantity: 0,
+        level: null,
+        notes: null,
+      },
+      {
+        inventoryItemId: levelItem.id,
+        itemName: levelItem.name,
+        quantity: null,
+        level: StockLevel.EMPTY,
+        notes: null,
+      },
+    ]);
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      if (path === '/inventory/counts/opening-sheet') {
+        return response(200, nextSheet);
+      }
+      if (path === '/inventory/counts' && init?.method === 'POST') {
+        return response(201, {
+          ...nextSheet.lastClosingCount,
+          id: 'opening-count-id',
+          businessDate: openDay.businessDate,
+          phase: 'open',
+        });
+      }
+      return response(500);
+    });
+    renderPage(<OpeningCountPage />);
+
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Fill all from last closing count',
+      }),
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Submitted by/),
+      activeStaff[0]!.id,
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Submit opening count' }),
+    );
+
+    const post = await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        ([url, init]) =>
+          new URL(String(url)).pathname === '/inventory/counts' &&
+          init?.method === 'POST',
+      );
+      expect(call).toBeDefined();
+      return call!;
+    });
+    expect(JSON.parse(String(post[1]!.body))).toEqual({
+      phase: 'open',
+      submittedByStaffMemberId: activeStaff[0]!.id,
+      shiftLeadStaffMemberId: null,
+      notes: null,
+      correctsStockCountId: null,
+      lines: [
+        {
+          inventoryItemId: quantityItem.id,
+          quantity: 0,
+          notes: null,
+        },
+        {
+          inventoryItemId: levelItem.id,
+          level: StockLevel.EMPTY,
+          notes: null,
+        },
+      ],
+    });
   });
 
   it('keeps count submission disabled without a submitter and while in flight', async () => {
@@ -554,19 +819,30 @@ describe('staff inventory screens', () => {
 
   it('links a recorded-again count to the count it corrects', async () => {
     installCountFetch(
-      sheet('open', [quantityItem, levelItem], openDay, {
-        id: 'count-id',
-        locationId: null,
-        businessDate: '2026-07-30',
-        phase: 'open',
-        submittedByStaffMemberId: activeStaff[0]!.id,
-        submittedByNameSnapshot: 'Maya Santos',
-        shiftLeadStaffMemberId: null,
-        shiftLeadNameSnapshot: null,
-        notes: null,
-        recordedAt: '2026-07-30T08:00:00.000Z',
-        lines: [],
-      }),
+      withLastClosing(
+        sheet('open', [quantityItem, levelItem], openDay, {
+          id: 'count-id',
+          locationId: null,
+          businessDate: '2026-07-30',
+          phase: 'open',
+          submittedByStaffMemberId: activeStaff[0]!.id,
+          submittedByNameSnapshot: 'Maya Santos',
+          shiftLeadStaffMemberId: null,
+          shiftLeadNameSnapshot: null,
+          notes: null,
+          recordedAt: '2026-07-30T08:00:00.000Z',
+          lines: [],
+        }),
+        [
+          {
+            inventoryItemId: quantityItem.id,
+            itemName: quantityItem.name,
+            quantity: 4,
+            level: null,
+            notes: null,
+          },
+        ],
+      ),
     );
     renderPage(<OpeningCountPage />);
 
@@ -577,7 +853,17 @@ describe('staff inventory screens', () => {
     const submit = await screen.findByRole('button', {
       name: 'Submit opening count',
     });
-    await user.type(screen.getByLabelText(/Quantity for Cup/), '4');
+    expect(
+      screen.getByText(
+        'This replaces the opening count you already submitted. Filling still uses the last closing count, not that opening count.',
+      ),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Fill Cup from last closing count',
+      }),
+    );
+    expect(screen.getByLabelText(/Quantity for Cup/)).toHaveValue(4);
     await user.selectOptions(
       screen.getByLabelText(/Submitted by/),
       activeStaff[0]!.id,

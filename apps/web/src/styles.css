@@ -6910,6 +6910,33 @@ button {
   border: 0;
 }
 
+.staff-count-control {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.staff-count-fill-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.staff-fill-indicator {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: var(--surface-subtle);
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
 .staff-quantity-input {
   font-size: 20px;
   font-weight: 700;
@@ -6983,7 +7010,8 @@ button {
   font-weight: 550;
 }
 
-.staff-submitted-banner {
+.staff-submitted-banner,
+.staff-fill-source-banner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -6996,14 +7024,46 @@ button {
   background: color-mix(in oklch, var(--accent) 7%, var(--surface));
 }
 
-.staff-submitted-banner strong {
+.staff-submitted-banner strong,
+.staff-fill-source-banner strong {
   display: block;
   font-size: 15px;
 }
 
-.staff-submitted-banner span {
+.staff-submitted-banner span,
+.staff-fill-source-banner span {
   color: var(--ink-soft);
   font-size: 13px;
+}
+
+.staff-fill-source {
+  margin-bottom: var(--space-4);
+}
+
+.staff-fill-source-banner {
+  margin-bottom: 0;
+}
+
+.staff-fill-source-copy span {
+  display: block;
+}
+
+.staff-fill-source-copy span + span {
+  margin-top: var(--space-1);
+}
+
+.staff-fill-rule {
+  font-weight: 700;
+}
+
+.staff-fill-status {
+  margin: 0;
+}
+
+.staff-fill-no-source {
+  margin: 0 0 var(--space-4);
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .staff-inventory-actions {
@@ -7061,6 +7121,12 @@ button {
 
 .staff-inventory-button.secondary:hover:not(:disabled) {
   background: var(--surface-subtle);
+}
+
+.staff-count-fill {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  font-size: 13px;
 }
 
 .staff-inventory-button:disabled {
@@ -9810,7 +9876,8 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .staff-submitted-banner {
+  .staff-submitted-banner,
+  .staff-fill-source-banner {
     align-items: flex-start;
   }
 
@@ -9835,6 +9902,10 @@ button {
   .staff-inventory-button,
   .staff-inventory-actions .staff-inventory-button {
     width: 100%;
+  }
+
+  .staff-count-fill {
+    width: auto;
   }
 }
 

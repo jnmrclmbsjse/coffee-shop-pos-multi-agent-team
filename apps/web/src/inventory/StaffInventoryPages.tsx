@@ -64,6 +64,13 @@ const MOVEMENT_OPTIONS: ReadonlyArray<readonly [MovementType, string]> = [
 ];
 
 type CountDraft = Record<string, string>;
+type FillState = Record<string, 'filled' | 'touched'>;
+
+interface CountDraftState {
+  values: CountDraft;
+  fillState: FillState;
+  fillStatus: string;
+}
 
 interface CountFieldErrors {
   submittedBy?: string;
@@ -365,7 +372,12 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
   const [submittedBy, setSubmittedBy] = useState('');
   const [shiftLead, setShiftLead] = useState('');
   const [notes, setNotes] = useState('');
-  const [values, setValues] = useState<CountDraft>({});
+  const [countDraft, setCountDraft] = useState<CountDraftState>({
+    values: {},
+    fillState: {},
+    fillStatus: '',
+  });
+  const { values, fillState, fillStatus } = countDraft;
   // Per-item notes, keyed by inventory item id — the same shape as `values`,
   // so one item's note travels with its count.
   const [itemNotes, setItemNotes] = useState<CountDraft>({});
@@ -413,13 +425,96 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
     () => (sheet ? toCountGroups(sheet.items) : []),
     [sheet],
   );
+  const lastClosingCount = phase === 'open' ? sheet?.lastClosingCount : null;
+  const closingSourceValues = useMemo(() => {
+    const sources: CountDraft = {};
+    if (!sheet || !lastClosingCount) return sources;
+
+    const closingLines = new Map(
+      lastClosingCount.lines.map((line) => [line.inventoryItemId, line]),
+    );
+    for (const item of sheet.items) {
+      const line = closingLines.get(item.id);
+      if (!line) continue;
+      if (
+        item.countMethod === CountMethod.QUANTITY &&
+        line.quantity !== null
+      ) {
+        sources[item.id] = String(line.quantity);
+      } else if (
+        item.countMethod === CountMethod.LEVEL &&
+        line.level !== null
+      ) {
+        sources[item.id] = line.level;
+      }
+    }
+    return sources;
+  }, [lastClosingCount, sheet]);
   const canSubmit = Boolean(submittedBy) && lines.length > 0 && !isSubmitting;
+
+  function isFillable(itemId: string, draft = countDraft): boolean {
+    const value = draft.values[itemId];
+    return (
+      closingSourceValues[itemId] !== undefined &&
+      (value === undefined || value === '') &&
+      draft.fillState[itemId] !== 'touched'
+    );
+  }
+
+  function fillAllFromLastClosing() {
+    if (!lastClosingCount) return;
+    setCountDraft((current) => {
+      const nextValues = { ...current.values };
+      const nextFillState = { ...current.fillState };
+      let filledCount = 0;
+
+      for (const item of sheet?.items ?? []) {
+        if (!isFillable(item.id, current)) continue;
+        nextValues[item.id] = closingSourceValues[item.id]!;
+        nextFillState[item.id] = 'filled';
+        filledCount += 1;
+      }
+
+      const sourceDate = formatBusinessDate(lastClosingCount.businessDate);
+      return {
+        values: nextValues,
+        fillState: nextFillState,
+        fillStatus:
+          filledCount === 0
+            ? 'No empty fields to fill.'
+            : `Filled ${filledCount} ${filledCount === 1 ? 'item' : 'items'} from the closing count of ${sourceDate}.`,
+      };
+    });
+  }
+
+  function fillItemFromLastClosing(item: CountSheetItem) {
+    if (!lastClosingCount) return;
+    setCountDraft((current) => {
+      if (!isFillable(item.id, current)) return current;
+      return {
+        values: {
+          ...current.values,
+          [item.id]: closingSourceValues[item.id]!,
+        },
+        fillState: { ...current.fillState, [item.id]: 'filled' },
+        fillStatus: `Filled ${item.name} from the closing count of ${formatBusinessDate(lastClosingCount.businessDate)}.`,
+      };
+    });
+  }
+
+  function changeCountValue(itemId: string, value: string) {
+    setCountDraft((current) => ({
+      ...current,
+      values: { ...current.values, [itemId]: value },
+      fillState: { ...current.fillState, [itemId]: 'touched' },
+    }));
+  }
 
   function resetDraft() {
     setSubmittedBy(defaultStaffSelection(staff, signedInStaffMemberId));
     setShiftLead('');
     setNotes('');
-    setValues({});
+    setCountDraft({ values: {}, fillState: {}, fillStatus: '' });
     setItemNotes({});
     setFieldErrors({});
   }
@@ -542,6 +637,53 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
             noValidate
             onSubmit={handleSubmit}
           >
+            {phase === 'open' &&
+              (lastClosingCount ? (
+                <div className="staff-fill-source">
+                  <div className="staff-fill-source-banner">
+                    <div className="staff-fill-source-copy">
+                      <strong>Fill from the last closing count</strong>
+                      <span>
+                        Closing count for{' '}
+                        {formatBusinessDate(lastClosingCount.businessDate)}, submitted
+                        by {lastClosingCount.submittedByNameSnapshot}.
+                      </span>
+                      {recordingAnother && (
+                        <span>
+                          This replaces the opening count you already submitted.
+                          Filling still uses the last closing count, not that opening
+                          count.
+                        </span>
+                      )}
+                      <span className="staff-fill-rule">
+                        Fills only untouched empty fields. Values you entered are kept.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="staff-inventory-button secondary"
+                      disabled={isSubmitting}
+                      onClick={fillAllFromLastClosing}
+                    >
+                      Fill all from last closing count
+                    </button>
+                  </div>
+                  <p
+                    className={`staff-fill-status${
+                      fillStatus ? ' staff-inventory-message success' : ''
+                    }`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {fillStatus}
+                  </p>
+                </div>
+              ) : (
+                <p className="staff-inventory-message staff-fill-no-source">
+                  No previous closing count. There is nothing to fill from yet, so
+                  enter this opening count by hand.
+                </p>
+              ))}
             <div className="staff-count-selectors">
               <Field
                 label="Submitted by"
@@ -622,86 +764,114 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
                     {group.categoryName}
                   </h3>
                   <div className="staff-count-list">
-                    {group.items.map((item) => (
+                    {group.items.map((item) => {
+                      const filled = fillState[item.id] === 'filled';
+                      const fillable = isFillable(item.id);
+                      const indicatorId = `${phase}-${item.id}-filled`;
+                      return (
                 <div className="staff-count-row" key={item.id}>
                   <CountItemIdentity item={item} />
-                  {item.countMethod === CountMethod.QUANTITY ? (
-                    <Field
-                      label={`Quantity for ${item.name}`}
-                      htmlFor={`${phase}-${item.id}`}
-                    >
-                      <input
-                        className="staff-quantity-input"
-                        id={`${phase}-${item.id}`}
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        step="1"
-                        value={values[item.id] ?? ''}
-                        disabled={isSubmitting}
-                        onChange={(event) => {
-                          const next =
-                            Number(event.target.value) < 0
-                              ? '0'
-                              : event.target.value;
-                          setValues((current) => ({
-                            ...current,
-                            [item.id]: next,
-                          }));
-                          // Clearing the count clears its note too. Otherwise
-                          // the note field disables while still showing text
-                          // that the submit would silently drop, because an
-                          // uncounted item produces no line to carry it.
-                          if (next === '') {
-                            setItemNotes((current) => {
-                              if (!(item.id in current)) return current;
-                              const rest = { ...current };
-                              delete rest[item.id];
-                              return rest;
-                            });
-                          }
-                          setFieldErrors((current) => ({
-                            ...current,
-                            lines: undefined,
-                          }));
-                        }}
-                      />
-                    </Field>
-                  ) : (
-                    <fieldset className="staff-level-fieldset">
-                      <legend className="sr-only">
-                        Level for {item.name}
-                      </legend>
-                      <div className="staff-level-options">
-                        {LEVEL_OPTIONS.map(([level, label]) => {
-                          const id = `${phase}-${item.id}-${level}`;
-                          return (
-                            <div className="staff-radio-option" key={level}>
-                              <input
-                                id={id}
-                                type="radio"
-                                name={`${phase}-${item.id}`}
-                                value={level}
-                                checked={values[item.id] === level}
-                                disabled={isSubmitting}
-                                onChange={() => {
-                                  setValues((current) => ({
-                                    ...current,
-                                    [item.id]: level,
-                                  }));
-                                  setFieldErrors((current) => ({
-                                    ...current,
-                                    lines: undefined,
-                                  }));
-                                }}
-                              />
-                              <label htmlFor={id}>{label}</label>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </fieldset>
-                  )}
+                  <div className="staff-count-control">
+                    {item.countMethod === CountMethod.QUANTITY ? (
+                      <Field
+                        label={`Quantity for ${item.name}`}
+                        htmlFor={`${phase}-${item.id}`}
+                      >
+                        <input
+                          className="staff-quantity-input"
+                          id={`${phase}-${item.id}`}
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          value={values[item.id] ?? ''}
+                          disabled={isSubmitting}
+                          aria-describedby={filled ? indicatorId : undefined}
+                          onChange={(event) => {
+                            const next =
+                              Number(event.target.value) < 0
+                                ? '0'
+                                : event.target.value;
+                            changeCountValue(item.id, next);
+                            // Clearing the count clears its note too. Otherwise
+                            // the note field disables while still showing text
+                            // that the submit would silently drop, because an
+                            // uncounted item produces no line to carry it.
+                            if (next === '') {
+                              setItemNotes((current) => {
+                                if (!(item.id in current)) return current;
+                                const rest = { ...current };
+                                delete rest[item.id];
+                                return rest;
+                              });
+                            }
+                            setFieldErrors((current) => ({
+                              ...current,
+                              lines: undefined,
+                            }));
+                          }}
+                        />
+                      </Field>
+                    ) : (
+                      <fieldset
+                        className="staff-level-fieldset"
+                        aria-describedby={filled ? indicatorId : undefined}
+                      >
+                        <legend className="sr-only">
+                          Level for {item.name}
+                        </legend>
+                        <div className="staff-level-options">
+                          {LEVEL_OPTIONS.map(([level, label]) => {
+                            const id = `${phase}-${item.id}-${level}`;
+                            return (
+                              <div className="staff-radio-option" key={level}>
+                                <input
+                                  id={id}
+                                  type="radio"
+                                  name={`${phase}-${item.id}`}
+                                  value={level}
+                                  checked={values[item.id] === level}
+                                  disabled={isSubmitting}
+                                  onChange={() => {
+                                    changeCountValue(item.id, level);
+                                    setFieldErrors((current) => ({
+                                      ...current,
+                                      lines: undefined,
+                                    }));
+                                  }}
+                                />
+                                <label htmlFor={id}>{label}</label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </fieldset>
+                    )}
+                    {(filled || fillable) && (
+                      <p className="staff-count-fill-row">
+                        {filled && (
+                          <span className="staff-fill-indicator" id={indicatorId}>
+                            From last closing
+                            <span className="sr-only">
+                              {' '}— from the closing count of{' '}
+                              {formatBusinessDate(lastClosingCount!.businessDate)}
+                            </span>
+                          </span>
+                        )}
+                        {fillable && (
+                          <button
+                            type="button"
+                            className="staff-inventory-button secondary staff-count-fill"
+                            aria-label={`Fill ${item.name} from last closing count`}
+                            disabled={isSubmitting}
+                            onClick={() => fillItemFromLastClosing(item)}
+                          >
+                            Fill from last closing
+                          </button>
+                        )}
+                      </p>
+                    )}
+                  </div>
                   <Field
                     label={`Note for ${item.name}`}
                     htmlFor={`${phase}-${item.id}-note`}
@@ -735,7 +905,8 @@ export function CountSheetPage({ phase }: { phase: StockCountPhase }) {
                     />
                   </Field>
                 </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </section>
               ))}
