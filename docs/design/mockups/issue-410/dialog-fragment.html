@@ -1,0 +1,249 @@
+<!doctype html>
+<!--
+  Layout fragment for the discrepancy confirmation dialog (story #410).
+  Reference only — DESIGN.md is the deliverable.
+
+  Everything below either reuses a shipped class from apps/web/src/styles.css
+  or lives in the two new blocks DESIGN.md proposes (.close-confirm-dialog,
+  .close-confirm-list). No literal colour, radius, spacing or size value is
+  introduced: every declaration names a token. Open this file with
+  apps/web/src/styles.css linked and it renders in the shipped design system.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>#410 — discrepancy confirmation dialog</title>
+    <link rel="stylesheet" href="../../../../apps/web/src/styles.css" />
+    <style>
+      /* ---- Proposed delta 1: modifier on the shipped .logout-dialog ---- */
+      .close-confirm-dialog {
+        width: min(100%, 520px);
+        max-height: calc(100svh - var(--space-8));
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: var(--space-4);
+      }
+
+      /* .logout-dialog sets these on its own children; the grid owns spacing. */
+      .close-confirm-dialog > p {
+        margin-top: 0;
+      }
+
+      .close-confirm-dialog .logout-dialog-actions {
+        margin-top: 0;
+      }
+
+      /* ---- Proposed delta 2: the entry list ---- */
+      .close-confirm-list {
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        list-style: none;
+      }
+
+      .close-confirm-list > li {
+        display: grid;
+        gap: var(--space-1);
+        padding: var(--space-3) 0;
+      }
+
+      .close-confirm-list > li + li {
+        border-top: 1px solid var(--border);
+      }
+
+      .close-confirm-entry-name {
+        margin: 0;
+        font-weight: 750;
+      }
+
+      .close-confirm-entry-figures {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-1) var(--space-5);
+        margin: 0;
+      }
+
+      .close-confirm-entry-figures > div {
+        display: grid;
+        gap: 2px;
+      }
+
+      .close-confirm-entry-figures dt {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .close-confirm-entry-figures dd {
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+
+      /* Scoped figure classes — see Finding 1 in DESIGN.md. These restate the
+         .staff-packaging-table declarations; inheriting the globals would
+         render --focus / --danger instead of --warn-ink. */
+      .close-confirm-list .unknown {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .close-confirm-list .variance-short,
+      .close-confirm-list .variance-over,
+      .close-confirm-list .over,
+      .close-confirm-list .short {
+        color: var(--warn-ink);
+        font-weight: 800;
+      }
+
+      /* Demo page only — not part of the spec. */
+      body {
+        padding: var(--space-6);
+        background: var(--bg);
+      }
+
+      .fragment-note {
+        max-width: 70ch;
+        margin: 0 auto var(--space-6);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .logout-dialog-backdrop {
+        position: static;
+        padding: var(--space-6) 0;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="fragment-note">
+      Layout reference for story #410. Two states shown: a many-entry dialog on
+      a day with no closing count, and the single-entry case.
+    </p>
+
+    <!-- Many entries: cash short, one real variance, two unknown. -->
+    <div class="logout-dialog-backdrop">
+      <div
+        class="logout-dialog close-confirm-dialog"
+        role="dialog"
+        tabindex="-1"
+        aria-modal="true"
+        aria-labelledby="close-confirm-title"
+        aria-describedby="close-confirm-description"
+      >
+        <h2 id="close-confirm-title">Close the day with these discrepancies?</h2>
+        <p id="close-confirm-description">
+          These discrepancies will be recorded with the close and visible to
+          administrators in the daily reconciliation and cup / lid reports.
+        </p>
+
+        <ul class="close-confirm-list">
+          <li>
+            <p class="close-confirm-entry-name">Cash in drawer</p>
+            <dl class="close-confirm-entry-figures">
+              <div>
+                <dt>Balance</dt>
+                <dd class="short">&#9662; Short &#8369;145.50</dd>
+              </div>
+            </dl>
+          </li>
+          <li>
+            <p class="close-confirm-entry-name">12oz hot cup</p>
+            <dl class="close-confirm-entry-figures">
+              <div><dt>Expected</dt><dd>480</dd></div>
+              <div><dt>Actual</dt><dd>455</dd></div>
+              <div>
+                <dt>Balance</dt>
+                <dd class="variance-short">&#9662; Short 25</dd>
+              </div>
+            </dl>
+          </li>
+          <li>
+            <p class="close-confirm-entry-name">12oz hot lid</p>
+            <dl class="close-confirm-entry-figures">
+              <div><dt>Expected</dt><dd>512</dd></div>
+              <div><dt>Actual</dt><dd class="unknown">&#8212; no closing count</dd></div>
+              <div>
+                <dt>Balance</dt>
+                <dd class="unknown">&#8212; needs closing count</dd>
+              </div>
+            </dl>
+          </li>
+          <li>
+            <p class="close-confirm-entry-name">16oz cold cup</p>
+            <dl class="close-confirm-entry-figures">
+              <div><dt>Expected</dt><dd class="unknown">&#8212; no opening count</dd></div>
+              <div><dt>Actual</dt><dd class="unknown">&#8212; no closing count</dd></div>
+              <div>
+                <dt>Balance</dt>
+                <dd class="unknown">&#8212; needs both counts</dd>
+              </div>
+            </dl>
+          </li>
+          <li>
+            <p class="close-confirm-entry-name">16oz cold lid</p>
+            <dl class="close-confirm-entry-figures">
+              <div><dt>Expected</dt><dd>300</dd></div>
+              <div><dt>Actual</dt><dd>318</dd></div>
+              <div>
+                <dt>Balance</dt>
+                <dd class="variance-over">&#9656; Over 18</dd>
+              </div>
+            </dl>
+          </li>
+        </ul>
+
+        <div class="logout-dialog-actions">
+          <button type="button">Go back</button>
+          <button class="is-primary" type="button">Close day anyway</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- One entry: the panel shrinks to content, no special layout. -->
+    <div class="logout-dialog-backdrop">
+      <div
+        class="logout-dialog close-confirm-dialog"
+        role="dialog"
+        tabindex="-1"
+        aria-modal="true"
+        aria-labelledby="close-confirm-title-single"
+        aria-describedby="close-confirm-description-single"
+      >
+        <h2 id="close-confirm-title-single">
+          Close the day with these discrepancies?
+        </h2>
+        <p id="close-confirm-description-single">
+          These discrepancies will be recorded with the close and visible to
+          administrators in the daily reconciliation and cup / lid reports.
+        </p>
+
+        <ul class="close-confirm-list">
+          <li>
+            <p class="close-confirm-entry-name">Cash in drawer</p>
+            <dl class="close-confirm-entry-figures">
+              <div>
+                <dt>Balance</dt>
+                <dd class="over">&#9656; Over &#8369;20.00</dd>
+              </div>
+            </dl>
+          </li>
+        </ul>
+
+        <div class="logout-dialog-actions">
+          <button type="button">Go back</button>
+          <button class="is-primary" type="button" disabled aria-busy="true">
+            <span class="button-loading">
+              <span class="spinner" aria-hidden="true"></span>
+              Closing day&#8230;
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
