@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   ensureStaffMemberId,
@@ -5,6 +6,7 @@ import {
   longDate,
   resetTradingDays,
   seedReportingCatalog,
+  seedSameNameReportingProducts,
   seedTradingDay,
   shopToday,
   shortDate,
@@ -34,6 +36,8 @@ test.describe.configure({ mode: 'serial' });
 
 const ADMIN_USERNAME = process.env.E2E_ADMIN_USERNAME ?? 'admin';
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'replace-before-seeding';
+const STAFF_USERNAME = process.env.E2E_STAFF_USERNAME ?? 'staff';
+const STAFF_PASSWORD = process.env.E2E_STAFF_PASSWORD ?? 'replace-before-seeding';
 
 const TODAY = shopToday();
 /** The inclusive 14-date window the Dashboard and the initial report use. */
@@ -300,6 +304,12 @@ function dateField(page: Page, label: 'From' | 'To'): Locator {
   return page.locator('.report-filter label', { hasText: label }).locator('input');
 }
 
+function productSalesPanel(page: Page): Locator {
+  return page.locator('.report-panel', {
+    has: page.getByRole('heading', { name: 'Product sales' }),
+  });
+}
+
 async function applyRange(page: Page, from: string, to: string): Promise<void> {
   await dateField(page, 'From').fill(from);
   await dateField(page, 'To').fill(to);
@@ -444,17 +454,15 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
 
     const rows = await tableRows(page.getByRole('table', { name: 'Daily reconciliation' }));
 
-    // One row per TRADING DAY (not per calendar date), oldest to newest, with
-    // date, status, cash, online, gross, tips, cash in, cash out, cash expenses,
-    // outstanding change, expected, actual and variance. The four drawer
-    // columns were added with cash movements (#154) and change settlement.
+    // One row per TRADING DAY (not per calendar date), newest to oldest, with
+    // the opening cash float exposed separately from the derived drawer values.
     expect(rows).toEqual([
-      [DAY_BOUNDARY, 'Closed', '₱500.00', '₱300.00', '₱800.00', '₱20.00', '₱0.00', '₱0.00', '₱50.00', '₱0.00', '₱1,470.00', '₱1,470.00', '₱0.00'],
-      [DAY_FLOAT_ONLY, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱2,000.00', '₱1,950.00', 'Short₱-50.00'],
-      [DAY_ZERO_COUNT, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00'],
-      [DAY_TWO_COUNTS, 'Closed', '₱200.00', '₱100.00', '₱300.00', '₱10.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱1,210.00', '₱1,240.00', 'Over₱30.00'],
-      [DAY_NO_COUNT, 'Closed', '₱130.00', '₱0.00', '₱130.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱630.00', '—', '—'],
-      [DAY_OPEN, 'Open', '₱450.00', '₱400.00', '₱850.00', '₱30.00', '₱0.00', '₱0.00', '₱25.00', '₱0.00', '₱1,955.00', '—', '—'],
+      [DAY_OPEN, 'Open', '₱450.00', '₱400.00', '₱850.00', '₱30.00', '₱1,500.00', '₱0.00', '₱0.00', '₱25.00', '₱0.00', '₱1,955.00', '—', '—'],
+      [DAY_NO_COUNT, 'Closed', '₱130.00', '₱0.00', '₱130.00', '₱0.00', '₱500.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱630.00', '—', '—'],
+      [DAY_TWO_COUNTS, 'Closed', '₱200.00', '₱100.00', '₱300.00', '₱10.00', '₱1,000.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱1,210.00', '₱1,240.00', 'Over₱30.00'],
+      [DAY_ZERO_COUNT, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00'],
+      [DAY_FLOAT_ONLY, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱2,000.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱2,000.00', '₱1,950.00', 'Short₱-50.00'],
+      [DAY_BOUNDARY, 'Closed', '₱500.00', '₱300.00', '₱800.00', '₱20.00', '₱1,000.00', '₱0.00', '₱0.00', '₱50.00', '₱0.00', '₱1,470.00', '₱1,470.00', '₱0.00'],
     ]);
 
     // Calendar dates without a trading day produce no row.
@@ -463,26 +471,26 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
 
     // crit 8 — the open day has an expected figure but a genuinely absent
     // actual and variance. "—", never ₱0.00.
-    // Columns: 10 expected, 11 actual, 12 variance.
-    const openRow = rows[5]!;
-    expect(openRow[10]).toBe('₱1,955.00');
-    expect(openRow[11]).toBe('—');
+    // Columns: 11 expected, 12 actual, 13 variance.
+    const openRow = rows[0]!;
+    expect(openRow[11]).toBe('₱1,955.00');
     expect(openRow[12]).toBe('—');
-    expect(openRow[11]).not.toBe('₱0.00');
+    expect(openRow[13]).toBe('—');
     expect(openRow[12]).not.toBe('₱0.00');
+    expect(openRow[13]).not.toBe('₱0.00');
 
     // A closed day that was never counted renders the same way …
-    expect(rows[4]![11]).toBe('—');
-    expect(rows[4]![12]).toBe('—');
+    expect(rows[1]![12]).toBe('—');
+    expect(rows[1]![13]).toBe('—');
     // … while a RECORDED zero count is ₱0.00 and is not treated as missing.
-    expect(rows[2]![11]).toBe('₱0.00');
-    expect(rows[2]![12]).toBe('₱0.00');
+    expect(rows[3]![12]).toBe('₱0.00');
+    expect(rows[3]![13]).toBe('₱0.00');
 
     // Tips move expected cash but never gross sales; a cash expense reduces
-    // expected cash and is shown in its own column (index 8).
+    // expected cash and is shown in its own column (index 9).
     // DAY_OPEN: float 1500 + cash 450 + tips 30 − expense 25 = 1955.
-    expect(openRow[8]).toBe('₱25.00');
-    expect(rows[0]![8]).toBe('₱50.00');
+    expect(openRow[9]).toBe('₱25.00');
+    expect(rows[5]![9]).toBe('₱50.00');
   });
 
   test('crit 9: product sales for the range show signed quantity and revenue per base product', async ({
@@ -512,9 +520,9 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
     const rows = await tableRows(page.getByRole('table', { name: 'Daily reconciliation' }));
     // Range boundaries are inclusive on both ends.
     expect(rows.map((row) => row[0])).toEqual([
-      DAY_FLOAT_ONLY,
-      DAY_ZERO_COUNT,
       DAY_TWO_COUNTS,
+      DAY_ZERO_COUNT,
+      DAY_FLOAT_ONLY,
     ]);
 
     const totals = page.locator('.report-totals');
@@ -602,8 +610,10 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
       `${DAY_OPEN},open,450.00,400.00,850.00,30.00,0.00,0.00,25.00,0.00,1955.00,,`,
     ]);
 
-    // The CSV carries exactly the on-screen reconciliation columns, including
-    // cash expenses (index 8), which the page shows as well.
+    // Cash float is deliberately display-only: the legacy 13-column header and
+    // oldest-to-newest row order remain byte-for-byte compatible.
+    expect(lines[0]!.split(',')).toHaveLength(13);
+    expect(lines[0]).not.toContain('Cash float');
     expect(lines[1]!.split(',')[8]).toBe('50.00');
     await expect(page.getByRole('table', { name: 'Daily reconciliation' })).toContainText(
       'Cash expenses',
@@ -660,9 +670,9 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
     // The last valid results stay on screen, and nothing was fetched.
     const rows = await tableRows(page.getByRole('table', { name: 'Daily reconciliation' }));
     expect(rows.map((row) => row[0])).toEqual([
-      DAY_FLOAT_ONLY,
-      DAY_ZERO_COUNT,
       DAY_TWO_COUNTS,
+      DAY_ZERO_COUNT,
+      DAY_FLOAT_ONLY,
     ]);
     expect(reportRequests).toEqual([]);
 
@@ -673,7 +683,7 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
       `from=not-a-date&to=${TODAY}`,
     ]) {
       const response = await page.request.get(
-        `${process.env.E2E_API_URL ?? 'http://127.0.0.1:3000'}/reporting/report?${query}`,
+        `${process.env.E2E_API_URL ?? 'http://localhost:3000'}/reporting/report?${query}`,
       );
       expect(response.status()).toBe(400);
       const body = await response.text();
@@ -699,6 +709,8 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
     await expect(page.locator('.reporting-page').getByRole('button')).toHaveText([
       'Apply range',
       'Export CSV',
+      'Qty sold',
+      'Revenue↓',
     ]);
     await expect(page.locator('.reporting-page')).toContainText('Read-only');
 
@@ -715,6 +727,312 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
     await expect(page.locator('.applied-range')).toBeVisible();
     const rows = await tableRows(page.getByRole('table', { name: 'Daily reconciliation' }));
     expect(rows).toHaveLength(6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #411 — newest-first reconciliation, paging and deterministic ties.
+// ---------------------------------------------------------------------------
+
+test.describe('owner reporting — story #411 reconciliation paging', () => {
+  const from16 = isoShift(TODAY, -20);
+  const from15 = isoShift(TODAY, -19);
+  const duplicateDate = isoShift(TODAY, -7);
+
+  test.beforeAll(() => {
+    resetTradingDays();
+
+    // Three rows share a business date. The later opened-at group comes first;
+    // inside that group, the higher UUID comes first. Distinct floats make the
+    // otherwise-identical visible rows observable without exposing an id.
+    for (const day of [
+      {
+        id: '00000000-0000-4000-8000-000000000001',
+        openedAt: `${duplicateDate}T01:00:00.000Z`,
+        openingFloatCents: 10_000,
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000002',
+        openedAt: `${duplicateDate}T02:00:00.000Z`,
+        openingFloatCents: 20_000,
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000003',
+        openedAt: `${duplicateDate}T02:00:00.000Z`,
+        openingFloatCents: 30_000,
+      },
+    ]) {
+      seedTradingDay(
+        {
+          ...day,
+          businessDate: duplicateDate,
+          status: 'CLOSED',
+          sales:
+            day.id.endsWith('3')
+              ? [{
+                  cashCents: 7_700,
+                  lines: [{
+                    variant: variants.alphaLarge!,
+                    quantity: 1,
+                    unitPriceCents: 7_700,
+                    lineTotalCents: 7_700,
+                  }],
+                }]
+              : [],
+        },
+        staffMemberId,
+      );
+    }
+
+    // Thirteen more dates make 16 trading-day rows across a 14-date range.
+    for (let offset = -8; offset >= -20; offset -= 1) {
+      const oldest = offset === -20;
+      seedTradingDay(
+        {
+          businessDate: isoShift(TODAY, offset),
+          status: 'CLOSED',
+          openingFloatCents: Math.abs(offset) * 100,
+          sales: oldest
+            ? [{
+                cashCents: 12_300,
+                lines: [{
+                  variant: variants.beta!,
+                  quantity: 1,
+                  unitPriceCents: 12_300,
+                  lineTotalCents: 12_300,
+                }],
+              }]
+            : [],
+        },
+        staffMemberId,
+      );
+    }
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await signInAsAdmin(page);
+    await gotoReports(page);
+  });
+
+  test('exactly 15 days has no controls; 16 pages newest-first with stable duplicate-date order', async ({
+    page,
+  }) => {
+    await applyRange(page, from15, duplicateDate);
+    const reconciliation = page.getByRole('table', { name: 'Daily reconciliation' });
+    await expect(reconciliation.locator('tbody tr')).toHaveCount(15);
+    await expect(page.getByRole('navigation', { name: 'Daily reconciliation pages' })).toHaveCount(0);
+
+    await applyRange(page, from16, duplicateDate);
+    await expect(page.getByRole('navigation', { name: 'Daily reconciliation pages' })).toBeVisible();
+    await expect(page.locator('.report-pagination-status')).toHaveText(
+      'Page 1 of 2 · Trading days 1–15 of 16',
+    );
+    const firstPage = await tableRows(reconciliation);
+    expect(firstPage).toHaveLength(15);
+    expect(firstPage.slice(0, 3).map((row) => [row[0], row[6]])).toEqual([
+      [duplicateDate, '₱300.00'],
+      [duplicateDate, '₱200.00'],
+      [duplicateDate, '₱100.00'],
+    ]);
+
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.locator('.report-pagination-status')).toHaveText(
+      'Page 2 of 2 · Trading days 16–16 of 16',
+    );
+    await expect(page.getByRole('button', { name: 'Previous' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
+    expect(await tableRows(reconciliation)).toEqual([
+      expect.arrayContaining([from16, '₱123.00']),
+    ]);
+
+    // Page 2 only carries ₱123, but totals still include the page-1 ₱77 sale.
+    await expect(
+      page.locator('.report-totals .report-metric', { hasText: 'Gross sales' }),
+    ).toContainText('₱200.00');
+
+    // Applying a smaller range from page 2 returns to the first page and does
+    // not strand the table at a now-nonexistent page number.
+    await applyRange(page, isoShift(TODAY, -12), duplicateDate);
+    await expect(page.getByRole('navigation', { name: 'Daily reconciliation pages' })).toHaveCount(0);
+    const resetRows = await tableRows(reconciliation);
+    expect(resetRows[0]![0]).toBe(duplicateDate);
+    expect(resetRows).toHaveLength(8);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #411 — all-time product scope, sorting and authorization.
+// ---------------------------------------------------------------------------
+
+test.describe('owner reporting — story #411 product sales scope', () => {
+  const selectedDate = isoShift(TODAY, -2);
+  const outsideDate = isoShift(TODAY, -40);
+  const emptyDate = isoShift(TODAY, -5);
+  let sameName: SeededVariant[];
+
+  test.beforeAll(() => {
+    sameName = seedSameNameReportingProducts(
+      `${RUN}-ties`,
+      `QA Same Name ${RUN}`,
+      4,
+    );
+    resetTradingDays();
+    seedTradingDay(
+      {
+        businessDate: selectedDate,
+        status: 'CLOSED',
+        openingFloatCents: 50_000,
+        sales: [{
+          cashCents: 20_000,
+          lines: [{
+            variant: variants.alphaLarge!,
+            quantity: 2,
+            unitPriceCents: 10_000,
+            lineTotalCents: 20_000,
+          }],
+        }],
+      },
+      staffMemberId,
+    );
+    seedTradingDay(
+      {
+        businessDate: outsideDate,
+        status: 'CLOSED',
+        openingFloatCents: 0,
+        sales: [{
+          cashCents: 260_000,
+          lines: [
+            { variant: variants.beta!, quantity: 5, unitPriceCents: 10_000, lineTotalCents: 50_000 },
+            { variant: sameName[0]!, quantity: 1, unitPriceCents: 40_000, lineTotalCents: 40_000 },
+            { variant: sameName[1]!, quantity: 2, unitPriceCents: 20_000, lineTotalCents: 40_000 },
+            { variant: sameName[2]!, quantity: 3, unitPriceCents: 10_000, lineTotalCents: 30_000 },
+            { variant: sameName[3]!, quantity: 3, unitPriceCents: 20_000, lineTotalCents: 60_000 },
+          ],
+        }],
+      },
+      staffMemberId,
+    );
+  });
+
+  test('all time is independent of the range, preserves quantity sort, and switches back', async ({
+    page,
+  }) => {
+    await signInAsAdmin(page);
+    await gotoReports(page);
+    await applyRange(page, selectedDate, selectedDate);
+
+    const panel = productSalesPanel(page);
+    const products = page.getByRole('table', { name: 'Product sales' });
+    expect(await tableRows(products)).toEqual([
+      [product('alphaLarge'), '2', '₱200.00'],
+    ]);
+    await panel.getByRole('button', { name: /Qty sold/ }).click();
+    await expect(panel.getByRole('columnheader', { name: /Qty sold/ })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    );
+
+    await panel.getByRole('checkbox', { name: 'Show all time' }).check();
+    await expect(panel.getByText('Loading all-time product sales…')).toHaveCount(0);
+    await expect(panel.locator('.product-sales-scope')).toContainText(
+      'Showing all time — every recorded business day.',
+    );
+    await expect(panel.locator('.state-badge')).toHaveText(/All time/);
+
+    const allTimeRows = await tableRows(products);
+    expect(allTimeRows).toEqual([
+      [product('beta'), '5', '₱500.00'],
+      [sameName[2]!.productName, '3', '₱300.00'],
+      [sameName[3]!.productName, '3', '₱600.00'],
+      [product('alphaLarge'), '2', '₱200.00'],
+      [sameName[1]!.productName, '2', '₱400.00'],
+      [sameName[0]!.productName, '1', '₱400.00'],
+    ]);
+    await expect(panel.locator('.report-pagination')).toHaveCount(0);
+
+    // Range-bound panels stay selectedDate-only while Product sales is global.
+    await expect(
+      page.locator('.report-totals .report-metric', { hasText: 'Gross sales' }),
+    ).toContainText('₱200.00');
+    expect((await tableRows(page.getByRole('table', { name: 'Daily reconciliation' })))[0]![0])
+      .toBe(selectedDate);
+
+    // Changing to an empty range does not refetch or replace the all-time list.
+    await applyRange(page, emptyDate, emptyDate);
+    await expect(page.getByText('No days in this range.')).toBeVisible();
+    await expect(page.locator('.report-totals dd')).toHaveText([
+      '₱0.00',
+      '₱0.00',
+      '₱0.00',
+      '₱0.00',
+    ]);
+    expect(await tableRows(products)).toEqual(allTimeRows);
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Export CSV' }).click(),
+    ]);
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    expect(Buffer.concat(chunks).toString('utf8').trim().split(/\r?\n/)).toHaveLength(1);
+
+    await panel.getByRole('checkbox', { name: 'Show all time' }).uncheck();
+    await expect(panel.locator('.product-sales-scope')).toHaveText(
+      'Showing the selected report range.',
+    );
+    await expect(panel.getByText('No sales in this range.')).toBeVisible();
+    await applyRange(page, selectedDate, selectedDate);
+    expect(await tableRows(products)).toEqual([
+      [product('alphaLarge'), '2', '₱200.00'],
+    ]);
+    await expect(panel.getByRole('columnheader', { name: /Qty sold/ })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    );
+  });
+
+  test('revenue sorting uses name then product id, and does not reorder reconciliation', async ({
+    page,
+  }) => {
+    await signInAsAdmin(page);
+    await gotoReports(page);
+    await applyRange(page, outsideDate, selectedDate);
+    const panel = productSalesPanel(page);
+    await panel.getByRole('checkbox', { name: 'Show all time' }).check();
+    await expect(panel.getByText('Loading all-time product sales…')).toHaveCount(0);
+
+    const reconciliationBefore = await tableRows(
+      page.getByRole('table', { name: 'Daily reconciliation' }),
+    );
+    await panel.getByRole('button', { name: /Revenue/ }).click();
+    const rows = await tableRows(page.getByRole('table', { name: 'Product sales' }));
+    expect(rows.slice(0, 5)).toEqual([
+      [sameName[3]!.productName, '3', '₱600.00'],
+      [product('beta'), '5', '₱500.00'],
+      [sameName[0]!.productName, '1', '₱400.00'],
+      [sameName[1]!.productName, '2', '₱400.00'],
+      [sameName[2]!.productName, '3', '₱300.00'],
+    ]);
+    expect(await tableRows(page.getByRole('table', { name: 'Daily reconciliation' })))
+      .toEqual(reconciliationBefore);
+  });
+
+  test('GET /reporting/product-sales/all-time is forbidden to STAFF', async ({ page }) => {
+    const origin = process.env.E2E_API_URL ?? 'http://localhost:3000';
+    const login = await page.request.post(`${origin}/auth/staff/login`, {
+      data: {
+        username: STAFF_USERNAME,
+        password: STAFF_PASSWORD,
+        deviceId: randomUUID(),
+      },
+    });
+    expect(login.ok(), await login.text()).toBeTruthy();
+    const response = await page.request.get(
+      `${origin}/reporting/product-sales/all-time`,
+      { failOnStatusCode: false },
+    );
+    expect(response.status()).toBe(403);
   });
 });
 
@@ -810,5 +1128,12 @@ test.describe('owner reporting — no trading days at all', () => {
       '₱0.00',
       '₱0.00',
     ]);
+
+    const panel = productSalesPanel(page);
+    await panel.getByRole('checkbox', { name: 'Show all time' }).check();
+    await expect(panel.getByText('Loading all-time product sales…')).toHaveCount(0);
+    await expect(panel.getByText('No product sales have been recorded yet.')).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Product sales' })).toHaveCount(0);
+    await expect(panel.locator('.report-pagination')).toHaveCount(0);
   });
 });
