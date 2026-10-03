@@ -19,6 +19,7 @@ import {
   rangeError,
 } from '../reporting/format';
 import { CompensationApiError, getPayslip } from './api';
+import { CutoffStepper } from './CutoffStepper';
 
 interface PayslipViewProps {
   staff: StaffMember[];
@@ -336,6 +337,10 @@ export function PayslipView({
               onChange={(event) => changeRange('to', event.target.value)}
             />
           </label>
+          <CutoffStepper
+            range={{ from, to }}
+            onChange={(range) => { setFrom(range.from); setTo(range.to); }}
+          />
           <button
             className="report-button report-button-primary"
             type="submit"

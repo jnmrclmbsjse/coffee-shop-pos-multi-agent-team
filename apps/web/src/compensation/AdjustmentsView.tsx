@@ -20,6 +20,7 @@ import {
   listCompensationAdjustments,
   updateCompensationAdjustment,
 } from './api';
+import { CutoffStepper } from './CutoffStepper';
 import {
   adjustmentDescriptionPresets,
   adjustmentKindLabel,
@@ -367,6 +368,7 @@ export function AdjustmentsView({ staff, initialRange }: AdjustmentsViewProps) {
           <label><span>Staff member</span><select value={staffMemberId} onChange={(event) => setStaffMemberId(event.target.value)}><option value="">All staff</option>{staff.map((member) => <option value={member.id} key={member.id}>{member.displayName}{member.isActive ? '' : ' (inactive)'}</option>)}</select></label>
           <label><span>From</span><input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
           <label><span>To</span><input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label>
+          <CutoffStepper range={{ from, to }} onChange={(range) => { setFrom(range.from); setTo(range.to); }} />
           <button className="inventory-clear-filters" type="button" onClick={clearFilters}>Clear filters</button>
         </form>
         <p className="results-meta">
