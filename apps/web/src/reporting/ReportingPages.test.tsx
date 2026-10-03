@@ -1,4 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
+import { cents, type SalesRangeReport } from '@coffee-shop/shared';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -45,49 +46,71 @@ const dashboard = {
   ],
 };
 
-const report = {
+const report: SalesRangeReport = {
   from: '2026-07-13',
   to: '2026-07-26',
   totals: {
-    grossSalesCents: 3024000,
-    cashSalesCents: 1856000,
-    onlineSalesCents: 1168000,
-    tipsCents: 142000,
+    grossSalesCents: cents(3024000),
+    cashSalesCents: cents(1856000),
+    onlineSalesCents: cents(1168000),
+    tipsCents: cents(142000),
   },
   dailyReconciliation: [
     {
-      date: '2026-07-24',
-      status: 'closed',
-      cashSalesCents: 1975000,
-      onlineSalesCents: 1342000,
-      grossSalesCents: 3317000,
-      tipsCents: 134000,
-      cashInCents: 25000,
-      cashOutCents: 15000,
-      cashExpensesCents: 82000,
-      outstandingChangeCents: 10000,
-      expectedCashCents: 2047000,
-      actualCashCents: 0,
-      varianceCents: -2047000,
-    },
-    {
+      tradingDayId: 'day-2026-07-25',
       date: '2026-07-25',
       status: 'open',
-      cashSalesCents: 1856000,
-      onlineSalesCents: 1168000,
-      grossSalesCents: 3024000,
-      tipsCents: 142000,
-      cashInCents: 0,
-      cashOutCents: 0,
-      cashExpensesCents: 60000,
-      outstandingChangeCents: 0,
-      expectedCashCents: 1938000,
+      openingFloatCents: cents(50000),
+      cashSalesCents: cents(1856000),
+      onlineSalesCents: cents(1168000),
+      grossSalesCents: cents(3024000),
+      tipsCents: cents(142000),
+      cashInCents: cents(0),
+      cashOutCents: cents(0),
+      cashExpensesCents: cents(60000),
+      outstandingChangeCents: cents(0),
+      expectedCashCents: cents(1938000),
       actualCashCents: null,
       varianceCents: null,
     },
+    {
+      tradingDayId: 'day-2026-07-24',
+      date: '2026-07-24',
+      status: 'closed',
+      openingFloatCents: cents(75000),
+      cashSalesCents: cents(1975000),
+      onlineSalesCents: cents(1342000),
+      grossSalesCents: cents(3317000),
+      tipsCents: cents(134000),
+      cashInCents: cents(25000),
+      cashOutCents: cents(15000),
+      cashExpensesCents: cents(82000),
+      outstandingChangeCents: cents(10000),
+      expectedCashCents: cents(2047000),
+      actualCashCents: cents(0),
+      varianceCents: cents(-2047000),
+    },
   ],
-  topProducts: dashboard.topProducts,
+  topProducts: [
+    {
+      productId: 'latte',
+      productName: 'Latte',
+      quantitySold: 143,
+      revenueCents: cents(5982000),
+    },
+  ],
 };
+
+function reportWithDayCount(count: number): SalesRangeReport {
+  return {
+    ...report,
+    dailyReconciliation: Array.from({ length: count }, (_, index) => ({
+      ...report.dailyReconciliation[0]!,
+      tradingDayId: `trading-day-${index + 1}`,
+      date: `2026-07-${String(25 - index).padStart(2, '0')}`,
+    })),
+  };
+}
 
 function renderReportsPage() {
   return render(
@@ -152,18 +175,154 @@ describe('reporting pages', () => {
       name: /Daily reconciliation/,
     });
     const rows = within(table).getAllByRole('row');
-    expect(within(rows[1]!).getByText('₱0.00')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('₱500.00')).toBeInTheDocument();
     expect(
-      within(rows[2]!).getByLabelText('Actual cash not recorded'),
+      within(rows[1]!).getByLabelText('Actual cash not recorded'),
     ).toHaveTextContent('—');
     expect(
-      within(rows[2]!).getByLabelText('Variance not available'),
+      within(rows[1]!).getByLabelText('Variance not available'),
     ).toHaveTextContent('—');
-    expect(within(rows[1]!).getByText('Short')).toBeInTheDocument();
-    expect(within(rows[1]!).getByText('₱250.00')).toBeInTheDocument();
-    expect(within(rows[1]!).getByText('₱150.00')).toBeInTheDocument();
-    expect(within(rows[1]!).getByText('₱100.00')).toBeInTheDocument();
-    expect(within(rows[1]!).getByText('₱-20,470.00')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('₱0.00')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('₱750.00')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('Short')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('₱250.00')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('₱150.00')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('₱100.00')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('₱-20,470.00')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Trading days are ordered from newest to oldest/),
+    ).toBeInTheDocument();
+  });
+
+  it('pages reconciliation rows by 15 and resets on a same-range reload', async () => {
+    const pagedReport = reportWithDayCount(16);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(pagedReport))
+      .mockResolvedValueOnce(jsonResponse(pagedReport));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderReportsPage();
+
+    const pagination = await screen.findByRole('navigation', {
+      name: 'Daily reconciliation pages',
+    });
+    expect(within(pagination).getByText(/Page 1 of 2/)).toHaveTextContent(
+      'Trading days 1–15 of 16',
+    );
+    expect(screen.getByText('2026-07-25')).toBeInTheDocument();
+    expect(screen.queryByText('2026-07-10')).not.toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText('Report totals')).getByText('₱30,240.00'),
+    ).toBeInTheDocument();
+
+    await user.click(within(pagination).getByRole('button', { name: 'Next' }));
+    expect(within(pagination).getByText(/Page 2 of 2/)).toHaveTextContent(
+      'Trading days 16–16 of 16',
+    );
+    expect(screen.getByText('2026-07-10')).toBeInTheDocument();
+    expect(screen.queryByText('2026-07-25')).not.toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText('Report totals')).getByText('₱30,240.00'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Apply range' }));
+    expect(await within(pagination).findByText(/Page 1 of 2/)).toHaveTextContent(
+      'Trading days 1–15 of 16',
+    );
+  });
+
+  it('sorts product sales descending and caches the all-time result', async () => {
+    const rangeReport: SalesRangeReport = {
+      ...report,
+      topProducts: [
+        {
+          productId: 'mocha',
+          productName: 'Mocha',
+          quantitySold: 2,
+          revenueCents: cents(60000),
+        },
+        {
+          productId: 'americano',
+          productName: 'Americano',
+          quantitySold: 4,
+          revenueCents: cents(60000),
+        },
+      ],
+    };
+    const allTimeProducts = [
+      {
+        productId: 'latte',
+        productName: 'Latte',
+        quantitySold: 20,
+        revenueCents: 200000,
+      },
+      {
+        productId: 'americano',
+        productName: 'Americano',
+        quantitySold: 30,
+        revenueCents: 150000,
+      },
+    ];
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(rangeReport))
+      .mockResolvedValueOnce(jsonResponse(allTimeProducts));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderReportsPage();
+
+    const table = await screen.findByRole('table', { name: 'Product sales' });
+    let rows = within(table).getAllByRole('row');
+    expect(within(rows[1]!).getByText('Americano')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('Mocha')).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: /Revenue/ }),
+    ).toHaveAttribute('aria-sort', 'descending');
+
+    await user.click(screen.getByRole('button', { name: 'Qty sold, not sorted' }));
+    rows = within(table).getAllByRole('row');
+    expect(within(rows[1]!).getByText('Americano')).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: /Qty sold/ }),
+    ).toHaveAttribute('aria-sort', 'descending');
+
+    const allTimeToggle = screen.getByRole('checkbox', { name: 'Show all time' });
+    await user.click(allTimeToggle);
+    expect(await screen.findByText('All time')).toBeInTheDocument();
+    expect(
+      screen.getByText(/The totals, Daily reconciliation and the CSV export/),
+    ).toBeInTheDocument();
+    rows = within(screen.getByRole('table', { name: 'Product sales' })).getAllByRole(
+      'row',
+    );
+    expect(within(rows[1]!).getByText('Americano')).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('Latte')).toBeInTheDocument();
+
+    await user.click(allTimeToggle);
+    await user.click(allTimeToggle);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://localhost:3000/reporting/product-sales/all-time',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+  });
+
+  it('keeps an all-time load failure inside the product-sales panel', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(report))
+      .mockResolvedValueOnce(new Response(null, { status: 500 }));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderReportsPage();
+    await screen.findByRole('table', { name: 'Product sales' });
+
+    await user.click(screen.getByRole('checkbox', { name: 'Show all time' }));
+
+    const productPanel = screen
+      .getByRole('heading', { name: 'Product sales' })
+      .closest('section')!;
+    expect(
+      await within(productPanel).findByRole('alert'),
+    ).toHaveTextContent('All-time product sales could not be loaded.');
+    expect(
+      within(screen.getByLabelText('Report totals')).getByText('₱30,240.00'),
+    ).toBeInTheDocument();
   });
 
   it('keeps the last valid results and makes no request for an invalid range', async () => {
@@ -214,6 +373,9 @@ describe('reporting pages', () => {
 
     expect(await screen.findByText('No days in this range.')).toBeInTheDocument();
     expect(screen.getByText('No sales in this range.')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Daily reconciliation pages' }),
+    ).not.toBeInTheDocument();
     await waitFor(() =>
       expect(fetchMock).toHaveBeenLastCalledWith(
         'http://localhost:3000/reporting/report?from=2026-06-01&to=2026-06-02',
