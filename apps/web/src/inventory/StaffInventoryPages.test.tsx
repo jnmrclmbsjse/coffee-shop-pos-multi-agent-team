@@ -93,7 +93,13 @@ function sheet(
   businessDay: CurrentOpenBusinessDay = openDay,
   submittedCount: CountSheet['submittedCount'] = null,
 ): CountSheet {
-  return { phase, businessDay, items, submittedCount };
+  return {
+    phase,
+    businessDay,
+    items,
+    submittedCount,
+    lastClosingCount: null,
+  };
 }
 
 function installCountFetch(nextSheet: CountSheet) {

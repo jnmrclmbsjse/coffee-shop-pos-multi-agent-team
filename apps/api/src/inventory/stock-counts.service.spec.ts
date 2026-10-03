@@ -234,6 +234,165 @@ describe('StockCountsService', () => {
     );
   });
 
+  it('returns null when there is no prior closing count', async () => {
+    const { prisma, service } = createService();
+    prisma.inventoryItem.findMany.mockResolvedValue([]);
+    prisma.stockCount.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+
+    await expect(service.openingSheet()).resolves.toMatchObject({
+      lastClosingCount: null,
+    });
+    expect(prisma.stockCount.findFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: {
+          locationId: null,
+          phase: StockCountPhase.CLOSE,
+        },
+        orderBy: [
+          { businessDate: 'desc' },
+          { recordedAt: 'desc' },
+          { id: 'desc' },
+        ],
+      }),
+    );
+  });
+
+  it('returns the last closing date and submitter on the opening sheet', async () => {
+    const { prisma, service } = createService();
+    prisma.inventoryItem.findMany.mockResolvedValue([]);
+    prisma.stockCount.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        countRecord({
+          id: 'closing-count',
+          businessDate: new Date('2026-07-22T00:00:00.000Z'),
+          phase: StockCountPhase.CLOSE,
+          submittedByNameSnapshot: 'Morgan',
+        }),
+      );
+
+    await expect(service.openingSheet()).resolves.toMatchObject({
+      lastClosingCount: {
+        id: 'closing-count',
+        businessDate: '2026-07-22',
+        phase: 'close',
+        submittedByNameSnapshot: 'Morgan',
+      },
+    });
+  });
+
+  it('returns the latest correction in a closing-count chain', async () => {
+    const { prisma, service } = createService();
+    prisma.inventoryItem.findMany.mockResolvedValue([]);
+    prisma.stockCount.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        countRecord({
+          id: 'corrected-closing-count',
+          phase: StockCountPhase.CLOSE,
+          recordedAt: new Date('2026-07-22T19:30:00.000Z'),
+          correctsStockCountId: 'superseded-closing-count',
+        }),
+      );
+
+    const result = await service.openingSheet();
+
+    expect(result.lastClosingCount?.id).toBe('corrected-closing-count');
+    expect(prisma.stockCount.findFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        orderBy: [
+          { businessDate: 'desc' },
+          { recordedAt: 'desc' },
+          { id: 'desc' },
+        ],
+      }),
+    );
+  });
+
+  it('returns a closing count from several business days earlier', async () => {
+    const { prisma, service } = createService();
+    prisma.inventoryItem.findMany.mockResolvedValue([]);
+    prisma.stockCount.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        countRecord({
+          businessDate: new Date('2026-07-18T00:00:00.000Z'),
+          phase: StockCountPhase.CLOSE,
+        }),
+      );
+
+    const result = await service.openingSheet();
+
+    expect(result.lastClosingCount?.businessDate).toBe('2026-07-18');
+    expect(prisma.stockCount.findFirst.mock.calls[1]![0].where).not.toHaveProperty(
+      'businessDate',
+    );
+  });
+
+  it('does not look up or return a prior close for the closing sheet', async () => {
+    const { prisma, service } = createService();
+    prisma.inventoryItem.findMany.mockResolvedValue([]);
+    prisma.stockCount.findFirst.mockResolvedValue(null);
+
+    await expect(service.closingSheet()).resolves.toMatchObject({
+      lastClosingCount: null,
+    });
+    expect(prisma.stockCount.findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns both quantity and level lines from the last closing count', async () => {
+    const { prisma, service } = createService();
+    prisma.inventoryItem.findMany.mockResolvedValue([]);
+    prisma.stockCount.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        countRecord({
+          phase: StockCountPhase.CLOSE,
+          lines: [
+            {
+              id: 'quantity-line',
+              stockCountId: 'count-id',
+              inventoryItemId: 'quantity-item',
+              quantity: 4,
+              level: null,
+              notes: null,
+              inventoryItem: { name: 'Beans' },
+            },
+            {
+              id: 'level-line',
+              stockCountId: 'count-id',
+              inventoryItemId: 'level-item',
+              quantity: null,
+              level: StockLevel.EMPTY,
+              notes: null,
+              inventoryItem: { name: 'Milk' },
+            },
+          ],
+        }),
+      );
+
+    await expect(service.openingSheet()).resolves.toMatchObject({
+      lastClosingCount: {
+        lines: [
+          {
+            inventoryItemId: 'quantity-item',
+            quantity: 4,
+            level: null,
+          },
+          {
+            inventoryItemId: 'level-item',
+            quantity: null,
+            level: StockLevel.EMPTY,
+          },
+        ],
+      },
+    });
+  });
+
   it('rejects a level for a quantity-counted item', async () => {
     const { prisma, service } = createService();
     prepareSubmit(prisma);
@@ -601,6 +760,7 @@ describe('StockCountsService', () => {
       phase: 'open',
       items: [],
       submittedCount: null,
+      lastClosingCount: null,
     });
   });
 
