@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UCM Coffee Studio POS - Compensation cutoff review</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="review-fixture" data-od-id="review-fixture" aria-label="Review fixture, not production UI">
+      <div class="review-fixture-heading">
+        <strong>Review fixture, not production UI</strong>
+        <span id="math-status">Checking cutoff arithmetic...</span>
+      </div>
+      <div class="fixture-groups">
+        <fieldset>
+          <legend>View</legend>
+          <button type="button" data-fixture-view="daily" aria-pressed="true">Daily records</button>
+          <button type="button" data-fixture-view="adjustments" aria-pressed="false">Adjustments</button>
+          <button type="button" data-fixture-view="payslip" aria-pressed="false">Payslip</button>
+        </fieldset>
+        <fieldset>
+          <legend>Range example</legend>
+          <button type="button" data-fixture-range="cutoff" aria-pressed="true">Current cutoff</button>
+          <button type="button" data-fixture-range="custom" aria-pressed="false">Hand-typed custom</button>
+          <button type="button" data-fixture-range="blank" aria-pressed="false">Cleared dates</button>
+        </fieldset>
+      </div>
+    </div>
+
+    <main class="app-shell" data-od-id="compensation-page">
+      <header class="page-header" data-od-id="page-header">
+        <div>
+          <p class="app-context">UCM Coffee Studio POS</p>
+          <h1 data-od-id="page-heading">Compensation</h1>
+        </div>
+        <span class="shop-date">Shop date: Oct 3, 2026</span>
+      </header>
+
+      <nav class="compensation-sections" data-od-id="compensation-sections" aria-label="Compensation sections">
+        <button type="button" data-view="daily" aria-selected="true" role="tab">Daily records</button>
+        <button type="button" data-view="adjustments" aria-selected="false" role="tab">Adjustments</button>
+        <button type="button" data-view="payslip" aria-selected="false" role="tab">Payslips</button>
+      </nav>
+
+      <section class="content-panel" data-view-panel="daily" aria-labelledby="daily-title">
+        <h2 class="visually-hidden" id="daily-title">Daily records</h2>
+        <form class="compensation-filters" data-filter-form="daily" aria-label="Filter compensation records">
+          <label>
+            <span>Staff member</span>
+            <select name="staff">
+              <option>All staff</option>
+              <option>Ana Villanueva</option>
+              <option>Carlo Reyes</option>
+              <option>Mika Santos</option>
+            </select>
+          </label>
+          <label>
+            <span>From</span>
+            <input name="start" type="date" value="2026-10-01" />
+          </label>
+          <label>
+            <span>To</span>
+            <input name="end" type="date" value="2026-10-15" />
+          </label>
+          <div class="cutoff-field">
+            <span class="field-caption">Pay cutoff</span>
+            <div class="cutoff-stepper" role="group" aria-label="Pay cutoff navigation">
+              <button type="button" data-step="previous" aria-label="Previous cutoff" title="Previous cutoff"><span aria-hidden="true">‹</span></button>
+              <output class="cutoff-readout" data-cutoff-readout aria-live="polite">Oct 1 – 15, 2026</output>
+              <button type="button" data-step="next" aria-label="Next cutoff" title="Next cutoff"><span aria-hidden="true">›</span></button>
+            </div>
+          </div>
+          <button class="inventory-clear-filters" type="button" data-clear>Clear filters</button>
+        </form>
+        <p class="results-meta" data-results-meta>Showing 4 records</p>
+        <div class="table-scroll" data-od-id="daily-records-table">
+          <table>
+            <thead><tr><th>Date</th><th>Staff member</th><th>Shift</th><th>Gross pay</th></tr></thead>
+            <tbody>
+              <tr><td>Oct 1, 2026</td><td>Ana Villanueva</td><td>Opening</td><td>₱920.00</td></tr>
+              <tr><td>Oct 2, 2026</td><td>Carlo Reyes</td><td>Mid</td><td>₱880.00</td></tr>
+              <tr><td>Oct 2, 2026</td><td>Mika Santos</td><td>Closing</td><td>₱960.00</td></tr>
+              <tr><td>Oct 3, 2026</td><td>Ana Villanueva</td><td>Opening</td><td>₱920.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="content-panel" data-view-panel="adjustments" aria-labelledby="adjustments-title" hidden>
+        <h2 class="visually-hidden" id="adjustments-title">Adjustments</h2>
+        <form class="compensation-filters" data-filter-form="adjustments" aria-label="Filter compensation records">
+          <label>
+            <span>Staff member</span>
+            <select name="staff">
+              <option>All staff</option>
+              <option>Ana Villanueva</option>
+              <option>Carlo Reyes</option>
+              <option>Mika Santos</option>
+            </select>
+          </label>
+          <label>
+            <span>From</span>
+            <input name="start" type="date" value="2026-10-01" />
+          </label>
+          <label>
+            <span>To</span>
+            <input name="end" type="date" value="2026-10-15" />
+          </label>
+          <div class="cutoff-field">
+            <span class="field-caption">Pay cutoff</span>
+            <div class="cutoff-stepper" role="group" aria-label="Pay cutoff navigation">
+              <button type="button" data-step="previous" aria-label="Previous cutoff" title="Previous cutoff"><span aria-hidden="true">‹</span></button>
+              <output class="cutoff-readout" data-cutoff-readout aria-live="polite">Oct 1 – 15, 2026</output>
+              <button type="button" data-step="next" aria-label="Next cutoff" title="Next cutoff"><span aria-hidden="true">›</span></button>
+            </div>
+          </div>
+          <button class="inventory-clear-filters" type="button" data-clear>Clear filters</button>
+        </form>
+        <p class="results-meta" data-results-meta>Showing 3 adjustments from Oct 1, 2026 to Oct 15, 2026</p>
+        <div class="table-scroll" data-od-id="adjustments-table">
+          <table>
+            <thead><tr><th>Date</th><th>Staff member</th><th>Reason</th><th>Amount</th></tr></thead>
+            <tbody>
+              <tr><td>Oct 2, 2026</td><td>Ana Villanueva</td><td>Meal allowance</td><td>₱120.00</td></tr>
+              <tr><td>Oct 4, 2026</td><td>Carlo Reyes</td><td>Late correction</td><td>-₱55.00</td></tr>
+              <tr><td>Oct 8, 2026</td><td>Mika Santos</td><td>Holiday premium</td><td>₱240.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="content-panel payslip-panel" data-view-panel="payslip" aria-labelledby="payslip-title" hidden>
+        <section class="report-filter payslip-filter" data-od-id="payslip-filter">
+          <div class="report-filter-copy">
+            <h2 id="payslip-title">Generate payslip</h2>
+            <p>Calculate a payslip for one staff member over an inclusive date range.</p>
+          </div>
+          <form data-filter-form="payslip">
+            <label>
+              <span>Staff member</span>
+              <select name="staff" required>
+                <option value="">Select staff member</option>
+                <option>Ana Villanueva</option>
+                <option>Carlo Reyes</option>
+                <option>Mika Santos</option>
+              </select>
+              <small class="report-field-help">Required to generate a payslip.</small>
+            </label>
+            <label>
+              <span>Start date</span>
+              <input name="start" type="date" value="2026-10-01" required />
+            </label>
+            <label>
+              <span>End date</span>
+              <input name="end" type="date" value="2026-10-15" required />
+            </label>
+            <div class="cutoff-field">
+              <span class="field-caption">Pay cutoff</span>
+              <div class="cutoff-stepper" role="group" aria-label="Pay cutoff navigation">
+                <button type="button" data-step="previous" aria-label="Previous cutoff" title="Previous cutoff"><span aria-hidden="true">‹</span></button>
+                <output class="cutoff-readout" data-cutoff-readout aria-live="polite">Oct 1 – 15, 2026</output>
+                <button type="button" data-step="next" aria-label="Next cutoff" title="Next cutoff"><span aria-hidden="true">›</span></button>
+              </div>
+            </div>
+            <button class="report-button report-button-primary" type="submit">Generate payslip</button>
+          </form>
+        </section>
+        <section class="payslip-preview" data-od-id="payslip-preview" aria-live="polite">
+          <h3>Payslip preview</h3>
+          <p data-payslip-message>Select a staff member, then generate the payslip. Changing the cutoff does not run the calculation.</p>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
