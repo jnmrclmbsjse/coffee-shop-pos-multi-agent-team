@@ -16,6 +16,7 @@ import {
   StateBadge,
   Switch,
 } from '../catalog/components';
+import { amountForInput, currencyToCents } from '../compensation/money';
 import {
   createStaffMember,
   listStaffMembers,
@@ -30,11 +31,13 @@ type ActiveFilter = 'all' | 'true' | 'false';
 interface StaffDraft {
   id?: string;
   displayName: string;
+  baseSalary: string;
   isActive: boolean;
 }
 
 const EMPTY_DRAFT: StaffDraft = {
   displayName: '',
+  baseSalary: '',
   isActive: true,
 };
 
@@ -67,11 +70,13 @@ export function StaffPage() {
   const [credentialMember, setCredentialMember] =
     useState<StaffMember | null>(null);
   const [nameError, setNameError] = useState('');
+  const [baseSalaryError, setBaseSalaryError] = useState('');
   const [modalError, setModalError] = useState('');
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const baseSalaryInputRef = useRef<HTMLInputElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
@@ -137,12 +142,17 @@ export function StaffPage() {
         ? document.activeElement
         : addButtonRef.current;
     setNameError('');
+    setBaseSalaryError('');
     setModalError('');
     setDraft(
       member
         ? {
             id: member.id,
             displayName: member.displayName,
+            baseSalary:
+              member.baseSalaryCents === null
+                ? ''
+                : amountForInput(member.baseSalaryCents),
             isActive: member.isActive,
           }
         : { ...EMPTY_DRAFT },
@@ -153,6 +163,7 @@ export function StaffPage() {
     if (saving) return;
     setDraft(null);
     setNameError('');
+    setBaseSalaryError('');
     setModalError('');
     requestAnimationFrame(() => previousFocusRef.current?.focus());
   }
@@ -211,18 +222,31 @@ export function StaffPage() {
       return;
     }
 
+    const baseSalaryResult = draft.baseSalary.trim()
+      ? currencyToCents(draft.baseSalary, 'Base salary')
+      : { cents: undefined };
+    if (baseSalaryResult.error) {
+      setBaseSalaryError(baseSalaryResult.error);
+      requestAnimationFrame(() => baseSalaryInputRef.current?.focus());
+      return;
+    }
+    const baseSalaryCents = baseSalaryResult.cents ?? null;
+
     setSaving(true);
     setNameError('');
+    setBaseSalaryError('');
     setModalError('');
     setPageError('');
     try {
       const saved = draft.id
         ? await updateStaffMember(draft.id, {
             displayName,
+            baseSalaryCents,
             isActive: draft.isActive,
           })
         : await createStaffMember({
             displayName,
+            baseSalaryCents,
             isActive: draft.isActive,
           });
       setDraft(null);
@@ -237,6 +261,13 @@ export function StaffPage() {
         'The staff member could not be saved. Try again.',
       );
       if (
+        error instanceof StaffApiError &&
+        (error.field === 'baseSalaryCents' ||
+          message.toLocaleLowerCase('en-US').includes('basesalarycents'))
+      ) {
+        setBaseSalaryError(message);
+        requestAnimationFrame(() => baseSalaryInputRef.current?.focus());
+      } else if (
         message.toLocaleLowerCase('en-US').includes('displayname') ||
         message.toLocaleLowerCase('en-US').includes('blank')
       ) {
@@ -591,6 +622,49 @@ export function StaffPage() {
                 {nameError && (
                   <p className="catalog-field-error" id="staff-name-error">
                     {nameError}
+                  </p>
+                )}
+              </div>
+              <div className="catalog-field">
+                <label htmlFor="staff-base-salary">Base salary</label>
+                <span className="adjustment-amount-input">
+                  <span aria-hidden="true">₱</span>
+                  <input
+                    ref={baseSalaryInputRef}
+                    id="staff-base-salary"
+                    type="text"
+                    inputMode="decimal"
+                    value={draft.baseSalary}
+                    aria-invalid={Boolean(baseSalaryError)}
+                    aria-describedby={
+                      baseSalaryError
+                        ? 'staff-base-salary-hint staff-base-salary-error'
+                        : 'staff-base-salary-hint'
+                    }
+                    disabled={saving}
+                    onChange={(event) => {
+                      setDraft({
+                        ...draft,
+                        baseSalary: event.target.value,
+                      });
+                      setBaseSalaryError('');
+                      setModalError('');
+                    }}
+                  />
+                </span>
+                <p
+                  className="catalog-field-help"
+                  id="staff-base-salary-hint"
+                >
+                  Daily rate in PHP, up to 2 decimal places. Leave blank for no
+                  base salary; ₱0.00 is a rate of zero.
+                </p>
+                {baseSalaryError && (
+                  <p
+                    className="catalog-field-error"
+                    id="staff-base-salary-error"
+                  >
+                    {baseSalaryError}
                   </p>
                 )}
               </div>
