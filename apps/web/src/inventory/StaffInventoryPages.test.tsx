@@ -313,6 +313,8 @@ describe('staff inventory screens', () => {
         'Fills only untouched empty fields. Values you entered are kept.',
       ),
     ).toBeInTheDocument();
+    const fillStatus = screen.getByRole('status');
+    expect(fillStatus).toBeEmptyDOMElement();
 
     await user.click(
       screen.getByRole('button', { name: 'Fill all from last closing count' }),
@@ -334,6 +336,14 @@ describe('staff inventory screens', () => {
       'aria-describedby',
       `open-${levelItem.id}-filled`,
     );
+
+    await user.click(screen.getByRole('radio', { name: 'Full' }));
+    expect(screen.getAllByText('From last closing')).toHaveLength(1);
+    expect(quantity).toHaveAttribute(
+      'aria-describedby',
+      `open-${quantityItem.id}-filled`,
+    );
+    expect(level.closest('fieldset')).not.toHaveAttribute('aria-describedby');
   });
 
   it('keeps entered values and omits fill actions for items with no source', async () => {

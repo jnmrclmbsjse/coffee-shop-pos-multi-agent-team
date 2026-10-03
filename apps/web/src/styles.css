@@ -6981,8 +6981,8 @@ button {
   font-weight: 700;
 }
 
-.staff-fill-status:empty {
-  display: none;
+.staff-fill-status {
+  margin: 0;
 }
 
 .staff-fill-no-source {
