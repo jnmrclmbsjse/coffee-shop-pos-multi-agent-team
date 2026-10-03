@@ -2947,6 +2947,42 @@ button {
   white-space: nowrap;
 }
 
+.compensation-gross > strong {
+  margin: 0;
+  font-size: 15px;
+}
+
+.compensation-gross > .compensation-gross-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.compensation-gross p.compensation-gross-note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.compensation-load-allowance {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.compensation-duplicate-warning {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-sm);
+  color: var(--warn-ink);
+  background: var(--warn-surface);
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .compensation-conflict:focus {
   outline: 3px solid var(--danger);
   outline-offset: 2px;
@@ -6984,7 +7020,8 @@ button {
   gap: var(--space-2);
 }
 
-.staff-count-fill-row {
+.staff-count-fill-row,
+.compensation-field-annotation {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -6992,7 +7029,8 @@ button {
   margin: 0;
 }
 
-.staff-fill-indicator {
+.staff-fill-indicator,
+.compensation-suggested {
   min-height: 28px;
   display: inline-flex;
   align-items: center;
@@ -7278,7 +7316,8 @@ button {
   }
 }
 
-.staff-permanence-warning {
+.staff-permanence-warning,
+.compensation-gross-note {
   margin: 0 0 var(--space-5);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-strong);
@@ -9015,7 +9054,8 @@ button {
   background: var(--warn-surface);
 }
 
-.change-owed-choice {
+.change-owed-choice,
+.compensation-load-allowance-choice {
   position: relative;
   min-height: var(--field-h);
   display: flex;
@@ -9024,7 +9064,8 @@ button {
   cursor: pointer;
 }
 
-.change-owed-choice input {
+.change-owed-choice input,
+.compensation-load-allowance-choice input {
   position: absolute;
   top: 50%;
   left: 0;
@@ -9036,18 +9077,22 @@ button {
 }
 
 .change-owed-choice span,
-.change-owed-choice small {
+.change-owed-choice small,
+.compensation-load-allowance-choice span,
+.compensation-load-allowance-choice small {
   display: block;
 }
 
 .change-owed-choice small,
+.compensation-load-allowance-choice small,
 .change-owed-control .order-field small {
   margin-top: 2px;
   color: var(--warn-ink);
   font-size: 11px;
 }
 
-.change-owed-choice > span::before {
+.change-owed-choice > span::before,
+.compensation-load-allowance-choice > span::before {
   position: absolute;
   top: 50%;
   left: 12px;
@@ -9060,13 +9105,15 @@ button {
   transform: translateY(-50%);
 }
 
-.change-owed-choice input:checked + span::before {
+.change-owed-choice input:checked + span::before,
+.compensation-load-allowance-choice input:checked + span::before {
   border-color: var(--accent);
   background: var(--accent);
   box-shadow: inset 0 0 0 4px var(--surface);
 }
 
-.change-owed-choice input:focus-visible + span::before {
+.change-owed-choice input:focus-visible + span::before,
+.compensation-load-allowance-choice input:focus-visible + span::before {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }

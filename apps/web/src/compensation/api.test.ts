@@ -6,6 +6,7 @@ import {
   createCompensationEntry,
   deleteCompensationAdjustment,
   deleteCompensationEntry,
+  getDailyGrossSuggestion,
   getPayslip,
   listCompensationAdjustments,
   listCompensationEntries,
@@ -63,6 +64,49 @@ describe('compensation API client', () => {
           workDate: '2026-08-15',
           salaryCents: 7,
           commissionCents: 100,
+        }),
+      }),
+    );
+  });
+
+  it('encodes the daily gross date and optional load allowance payload', async () => {
+    const gross = {
+      workDate: '2026-08-15',
+      hasBusinessDay: true,
+      grossSalesCents: cents(275_000),
+      suggestedCommissionCents: cents(10_000),
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(response(200, gross))
+      .mockResolvedValueOnce(response(201, { id: 'entry-1' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getDailyGrossSuggestion('2026-08-15')).resolves.toEqual(gross);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3000/compensation/daily-gross?workDate=2026-08-15',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+
+    await createCompensationEntry({
+      staffMemberId: 'staff-1',
+      workDate: '2026-08-15',
+      salaryCents: cents(50_000),
+      commissionCents: cents(10_000),
+      loadAllowance: { amountCents: cents(250) },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3000/compensation/entries',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          staffMemberId: 'staff-1',
+          workDate: '2026-08-15',
+          salaryCents: 50_000,
+          commissionCents: 10_000,
+          loadAllowance: { amountCents: 250 },
         }),
       }),
     );

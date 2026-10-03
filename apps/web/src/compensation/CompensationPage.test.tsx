@@ -23,6 +23,7 @@ const api = vi.hoisted(() => ({
   adjustRemove: vi.fn(),
   adjustUpdate: vi.fn(),
   create: vi.fn(),
+  gross: vi.fn(),
   remove: vi.fn(),
   list: vi.fn(),
   payslip: vi.fn(),
@@ -45,6 +46,7 @@ vi.mock('./api', async (importOriginal) => {
     listCompensationAdjustments: api.adjustList,
     listCompensationEntries: api.list,
     getPayslip: api.payslip,
+    getDailyGrossSuggestion: api.gross,
     updateCompensationEntry: api.update,
     updateCompensationAdjustment: api.adjustUpdate,
   };
@@ -200,10 +202,18 @@ const adjustedPayslip: PayslipSummary = {
 function renderPage(
   records: StaffCompensationEntry[] = [entry],
   adjustmentRecords: StaffCompensationAdjustment[] | null = [],
+  staffRecords: StaffMember[] = staff,
+  grossSuggestion = {
+    workDate: '2026-08-15',
+    hasBusinessDay: true,
+    grossSalesCents: cents(0),
+    suggestedCommissionCents: cents(0),
+  },
 ) {
   api.list.mockResolvedValue(records);
   if (adjustmentRecords !== null) api.adjustList.mockResolvedValue(adjustmentRecords);
-  api.listStaff.mockResolvedValue(staff);
+  api.listStaff.mockResolvedValue(staffRecords);
+  api.gross.mockResolvedValue(grossSuggestion);
   return render(<CompensationPage />);
 }
 
@@ -384,18 +394,327 @@ describe('CompensationPage', () => {
     await waitFor(() => expect(within(editDialog).getByLabelText(/Salary amount/)).toHaveFocus());
   });
 
+  it('loads gross immediately and distinguishes no business day from a zero-sales day', async () => {
+    renderPage([entry], [], staff, {
+      workDate: '2026-08-15',
+      hasBusinessDay: false,
+      grossSalesCents: cents(0),
+      suggestedCommissionCents: cents(0),
+    });
+    await screen.findByRole('button', { name: /Edit Mara Santos/ });
+
+    const { dialog } = await openAddForm();
+
+    await waitFor(() => {
+      expect(api.gross).toHaveBeenCalledWith('2026-08-15');
+      expect(within(dialog).getByText('₱0.00')).toBeInTheDocument();
+    });
+    expect(
+      within(dialog).getByText('No business day on this date'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Commission amount/)).toHaveValue(
+      '0.00',
+    );
+    expect(
+      within(dialog).getByText('Suggested from gross sales'),
+    ).toBeInTheDocument();
+
+    api.gross.mockResolvedValue({
+      workDate: '2026-08-14',
+      hasBusinessDay: true,
+      grossSalesCents: cents(0),
+      suggestedCommissionCents: cents(0),
+    });
+    fireEvent.change(within(dialog).getByLabelText(/Work date/), {
+      target: { value: '2026-08-14' },
+    });
+    await waitFor(() => {
+      expect(api.gross).toHaveBeenLastCalledWith('2026-08-14');
+      expect(
+        within(dialog).queryByText('No business day on this date'),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('preserves null and zero base salaries as distinct add-form suggestions', async () => {
+    const zeroSalary: StaffMember = {
+      ...staff[0]!,
+      id: 'staff-zero',
+      displayName: 'Zero Rate',
+      baseSalaryCents: cents(0),
+    };
+    const noSalary: StaffMember = {
+      ...staff[0]!,
+      id: 'staff-null',
+      displayName: 'No Rate',
+      baseSalaryCents: null,
+    };
+    renderPage([entry], [], [zeroSalary, noSalary]);
+    const { user, dialog } = await openAddForm();
+
+    await user.selectOptions(
+      within(dialog).getByLabelText(/Staff member/),
+      zeroSalary.id,
+    );
+    expect(within(dialog).getByLabelText(/Salary amount/)).toHaveValue('0.00');
+    expect(within(dialog).getByText('From base salary')).toBeInTheDocument();
+
+    await user.selectOptions(
+      within(dialog).getByLabelText(/Staff member/),
+      noSalary.id,
+    );
+    expect(within(dialog).getByLabelText(/Salary amount/)).toHaveValue('');
+    expect(within(dialog).queryByText('From base salary')).not.toBeInTheDocument();
+  });
+
+  it('reapplies salary and commission suggestions when staff changes', async () => {
+    const first: StaffMember = {
+      ...staff[0]!,
+      id: 'staff-first',
+      displayName: 'First Rate',
+      baseSalaryCents: cents(50_000),
+    };
+    const second: StaffMember = {
+      ...staff[0]!,
+      id: 'staff-second',
+      displayName: 'Second Rate',
+      baseSalaryCents: cents(60_000),
+    };
+    renderPage([entry], [], [first, second], {
+      workDate: '2026-08-15',
+      hasBusinessDay: true,
+      grossSalesCents: cents(275_000),
+      suggestedCommissionCents: cents(10_000),
+    });
+    const { user, dialog } = await openAddForm();
+    await waitFor(() =>
+      expect(within(dialog).getByLabelText(/Commission amount/)).toHaveValue(
+        '100.00',
+      ),
+    );
+    await user.selectOptions(
+      within(dialog).getByLabelText(/Staff member/),
+      first.id,
+    );
+    const salary = within(dialog).getByLabelText(/Salary amount/);
+    const commission = within(dialog).getByLabelText(/Commission amount/);
+    await user.clear(salary);
+    await user.type(salary, '777.00');
+    await user.clear(commission);
+    await user.type(commission, '88.00');
+
+    await user.selectOptions(
+      within(dialog).getByLabelText(/Staff member/),
+      second.id,
+    );
+    expect(salary).toHaveValue('600.00');
+    expect(commission).toHaveValue('100.00');
+    expect(within(dialog).getByText('From base salary')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Suggested from gross sales'),
+    ).toBeInTheDocument();
+  });
+
+  it('does not overwrite a typed commission when an in-flight suggestion arrives', async () => {
+    let resolveGross: ((value: {
+      workDate: string;
+      hasBusinessDay: boolean;
+      grossSalesCents: ReturnType<typeof cents>;
+      suggestedCommissionCents: ReturnType<typeof cents>;
+    }) => void) | undefined;
+    renderPage();
+    api.gross.mockReset();
+    api.gross.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveGross = resolve;
+        }),
+    );
+    const { user, dialog } = await openAddForm();
+    const commission = within(dialog).getByLabelText(/Commission amount/);
+    await user.type(commission, '75.00');
+
+    resolveGross?.({
+      workDate: '2026-08-15',
+      hasBusinessDay: true,
+      grossSalesCents: cents(275_000),
+      suggestedCommissionCents: cents(10_000),
+    });
+
+    await waitFor(() => expect(commission).toHaveValue('75.00'));
+    expect(
+      within(dialog).queryByText('Suggested from gross sales'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('ignores a stale gross response after the work date changes', async () => {
+    let resolveFirst: ((value: {
+      workDate: string;
+      hasBusinessDay: boolean;
+      grossSalesCents: ReturnType<typeof cents>;
+      suggestedCommissionCents: ReturnType<typeof cents>;
+    }) => void) | undefined;
+    let resolveSecond: typeof resolveFirst;
+    renderPage();
+    api.gross.mockReset();
+    api.gross
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve;
+          }),
+      );
+    const { user, dialog } = await openAddForm();
+    await user.type(
+      within(dialog).getByLabelText(/Commission amount/),
+      '88.00',
+    );
+    fireEvent.change(within(dialog).getByLabelText(/Work date/), {
+      target: { value: '2026-08-14' },
+    });
+    resolveSecond?.({
+      workDate: '2026-08-14',
+      hasBusinessDay: true,
+      grossSalesCents: cents(300_000),
+      suggestedCommissionCents: cents(15_000),
+    });
+    await waitFor(() =>
+      expect(within(dialog).getByLabelText(/Commission amount/)).toHaveValue(
+        '150.00',
+      ),
+    );
+
+    resolveFirst?.({
+      workDate: '2026-08-15',
+      hasBusinessDay: true,
+      grossSalesCents: cents(100_000),
+      suggestedCommissionCents: cents(5_000),
+    });
+    await waitFor(() =>
+      expect(within(dialog).getByLabelText(/Commission amount/)).toHaveValue(
+        '150.00',
+      ),
+    );
+    expect(within(dialog).getByText('₱3,000.00')).toBeInTheDocument();
+  });
+
+  it('validates and saves a duplicate load allowance without blocking submit', async () => {
+    const existingLoadAllowance: StaffCompensationAdjustment = {
+      ...adjustment,
+      kind: CompensationAdjustmentKind.ALLOWANCE,
+      effectiveDate: '2026-08-15',
+      description: '  load ALLOWANCE ',
+    };
+    api.create.mockResolvedValue({
+      ...entry,
+      id: 'entry-load',
+      workDate: '2026-08-15',
+    });
+    renderPage([entry], [existingLoadAllowance]);
+    const { user, dialog } = await openAddForm();
+    await user.selectOptions(
+      within(dialog).getByLabelText(/Staff member/),
+      'staff-1',
+    );
+    const checkbox = within(dialog).getByRole('checkbox', {
+      name: /Include load allowance/,
+    });
+    await user.click(checkbox);
+
+    const amount = within(dialog).getByLabelText('Load allowance amount');
+    expect(amount).toHaveFocus();
+    expect(
+      await within(dialog).findByText(
+        'Mara Santos already has a Load allowance for August 15, 2026. Saving adds a second one.',
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(checkbox);
+    await waitFor(() => expect(checkbox).toHaveFocus());
+    expect(
+      within(dialog).queryByLabelText('Load allowance amount'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(/already has a Load allowance/),
+    ).not.toBeInTheDocument();
+    await user.click(checkbox);
+
+    const revealedAmount = within(dialog).getByLabelText(
+      'Load allowance amount',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Add record' }));
+    expect(within(dialog).getAllByText('Enter an amount.')).toHaveLength(2);
+    await user.type(revealedAmount, '0');
+    await user.click(within(dialog).getByRole('button', { name: 'Add record' }));
+    expect(
+      within(dialog).getAllByText('Amount must be at least ₱0.01.'),
+    ).toHaveLength(2);
+
+    await user.clear(revealedAmount);
+    await user.type(revealedAmount, '2.50');
+    await user.type(within(dialog).getByLabelText(/Salary amount/), '500.00');
+    await waitFor(() =>
+      expect(within(dialog).getByLabelText(/Commission amount/)).toHaveValue(
+        '0.00',
+      ),
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Add record' }));
+
+    await waitFor(() =>
+      expect(api.create).toHaveBeenCalledWith({
+        staffMemberId: 'staff-1',
+        workDate: '2026-08-15',
+        salaryCents: cents(50_000),
+        commissionCents: cents(0),
+        loadAllowance: { amountCents: cents(250) },
+      }),
+    );
+  });
+
+  it('does not render suggestions or load allowance controls in edit mode', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: /Edit Mara Santos/ });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Edit Mara Santos/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Edit daily record' });
+
+    expect(
+      within(dialog).queryByText('Gross sales for this date'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('checkbox', {
+        name: /Include load allowance/,
+      }),
+    ).not.toBeInTheDocument();
+    expect(api.gross).not.toHaveBeenCalled();
+  });
+
   it('blocks required, negative, and non-numeric amounts with per-field messages', async () => {
     renderPage();
     await screen.findByRole('button', { name: /Edit Mara Santos/ });
     const { user, dialog } = await openAddForm();
     await user.selectOptions(within(dialog).getByLabelText(/Staff member/), 'staff-1');
+    await waitFor(() =>
+      expect(within(dialog).getByLabelText(/Commission amount/)).toHaveValue(
+        '0.00',
+      ),
+    );
     await user.click(within(dialog).getByRole('button', { name: 'Add record' }));
 
     expect(within(dialog).getAllByText('Enter a salary amount. Zero is allowed.')).toHaveLength(2);
-    expect(within(dialog).getAllByText('Enter a commission amount. Zero is allowed.')).toHaveLength(2);
 
     await user.type(within(dialog).getByLabelText(/Salary amount/), '-1');
-    await user.type(within(dialog).getByLabelText(/Commission amount/), 'not money');
+    await user.clear(within(dialog).getByLabelText(/Commission amount/));
+    await user.type(
+      within(dialog).getByLabelText(/Commission amount/),
+      'not money',
+    );
     await user.click(within(dialog).getByRole('button', { name: 'Add record' }));
 
     expect(within(dialog).getAllByText('Salary cannot be negative.')).toHaveLength(2);
@@ -418,6 +737,7 @@ describe('CompensationPage', () => {
     const { user, dialog } = await openAddForm();
     await user.selectOptions(within(dialog).getByLabelText(/Staff member/), 'staff-1');
     await user.type(within(dialog).getByLabelText(/Salary amount/), '0.07');
+    await user.clear(within(dialog).getByLabelText(/Commission amount/));
     await user.type(within(dialog).getByLabelText(/Commission amount/), '1.00');
     expect(within(dialog).getByText('₱1.07')).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Add record' }));
@@ -463,6 +783,7 @@ describe('CompensationPage', () => {
     const { user, dialog } = await openAddForm();
     await user.selectOptions(within(dialog).getByLabelText(/Staff member/), 'staff-1');
     await user.type(within(dialog).getByLabelText(/Salary amount/), '1200.00');
+    await user.clear(within(dialog).getByLabelText(/Commission amount/));
     await user.type(within(dialog).getByLabelText(/Commission amount/), '450.00');
     await user.click(within(dialog).getByRole('button', { name: 'Add record' }));
 

@@ -2,7 +2,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StaffMember } from '@coffee-shop/shared';
+import { cents, type StaffMember } from '@coffee-shop/shared';
 import { StaffPage } from './StaffPage';
 
 function response(status: number, body?: unknown): Response {
@@ -154,7 +154,93 @@ describe('staff roster page', () => {
       );
       expect(JSON.parse(String(createCall?.[1]?.body))).toEqual({
         displayName: 'Mara Villanueva',
+        baseSalaryCents: null,
         isActive: true,
+      });
+    });
+  });
+
+  it('keeps a zero base salary distinct from no base salary when editing', async () => {
+    const zeroSalaryMember: StaffMember = {
+      ...mara,
+      baseSalaryCents: cents(0),
+    };
+    fetchMock.mockImplementation(async (_url, init) => {
+      if (init?.method === 'PATCH') {
+        return response(200, { ...zeroSalaryMember, baseSalaryCents: null });
+      }
+      return response(200, [zeroSalaryMember]);
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole('button', { name: 'Edit Mara Villanueva' });
+    await user.click(
+      screen.getByRole('button', { name: 'Edit Mara Villanueva' }),
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Edit staff' });
+    const baseSalary = within(dialog).getByLabelText('Base salary');
+    expect(baseSalary).toHaveValue('0.00');
+
+    await user.clear(baseSalary);
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Save changes' }),
+    );
+
+    await waitFor(() => {
+      const updateCall = fetchMock.mock.calls.find(
+        ([, init]) => init?.method === 'PATCH',
+      );
+      expect(JSON.parse(String(updateCall?.[1]?.body))).toEqual({
+        displayName: 'Mara Villanueva',
+        baseSalaryCents: null,
+        isActive: true,
+      });
+    });
+  });
+
+  it('shows a field error for an invalid base salary and saves valid cents', async () => {
+    fetchMock.mockImplementation(async (_url, init) =>
+      init?.method === 'POST'
+        ? response(201, { ...mara, baseSalaryCents: cents(50_000) })
+        : response(200, []),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText('No staff members yet');
+    await user.click(screen.getAllByRole('button', { name: 'Add staff' })[0]!);
+    const dialog = screen.getByRole('dialog', { name: 'Add staff' });
+    await user.type(within(dialog).getByLabelText(/Name/), 'Mara Villanueva');
+    await user.type(within(dialog).getByLabelText('Base salary'), '500.001');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Add staff' }),
+    );
+
+    expect(
+      within(dialog).getByText(
+        'Base salary cannot have more than 2 decimal places.',
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(dialog).getByLabelText('Base salary')).toHaveFocus(),
+    );
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST'),
+    ).toHaveLength(0);
+
+    const baseSalary = within(dialog).getByLabelText('Base salary');
+    await user.clear(baseSalary);
+    await user.type(baseSalary, '500.00');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Add staff' }),
+    );
+    await waitFor(() => {
+      const createCall = fetchMock.mock.calls.find(
+        ([, init]) => init?.method === 'POST',
+      );
+      expect(JSON.parse(String(createCall?.[1]?.body))).toMatchObject({
+        baseSalaryCents: 50_000,
       });
     });
   });

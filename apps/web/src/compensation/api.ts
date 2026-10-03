@@ -1,6 +1,7 @@
 import type {
   CreateStaffCompensationAdjustmentInput,
   CreateStaffCompensationEntryInput,
+  DailyGrossSalesSuggestion,
   PayslipQuery,
   PayslipSummary,
   StaffCompensationAdjustment,
@@ -100,6 +101,13 @@ export function getPayslip(query: PayslipQuery): Promise<PayslipSummary> {
     to: query.to,
   });
   return request(`/compensation/payslip?${params.toString()}`);
+}
+
+export function getDailyGrossSuggestion(
+  workDate: string,
+): Promise<DailyGrossSalesSuggestion> {
+  const params = new URLSearchParams({ workDate });
+  return request(`/compensation/daily-gross?${params.toString()}`);
 }
 
 export function createCompensationEntry(input: CreateStaffCompensationEntryInput): Promise<StaffCompensationEntry> {
