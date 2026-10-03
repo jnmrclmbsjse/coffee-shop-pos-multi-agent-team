@@ -309,7 +309,7 @@ export class ReportingService {
 
     return {
       summary,
-      salesTrend: days.map((day) => ({
+      salesTrend: [...days].reverse().map((day) => ({
         date: day.date,
         cashSalesCents: day.cashSalesCents,
         onlineSalesCents: day.onlineSalesCents,
@@ -341,8 +341,10 @@ export class ReportingService {
         tipsCents: addMoney(...days.map((day) => day.tipsCents)),
       },
       dailyReconciliation: days.map((day) => ({
+        tradingDayId: day.tradingDayId,
         date: day.date,
         status: day.status,
+        openingFloatCents: day.openingFloatCents,
         cashSalesCents: day.cashSalesCents,
         onlineSalesCents: day.onlineSalesCents,
         grossSalesCents: day.grossSalesCents,
@@ -357,6 +359,10 @@ export class ReportingService {
       })),
       topProducts,
     };
+  }
+
+  async getAllTimeProductSales(): Promise<ProductSales[]> {
+    return this.loadProductSales();
   }
 
   async getExpenseReport(from: string, to: string): Promise<ExpenseReport> {
@@ -546,7 +552,7 @@ export class ReportingService {
       'Actual cash',
       'Variance',
     ].join(',');
-    const rows = report.dailyReconciliation.map((day) =>
+    const rows = [...report.dailyReconciliation].reverse().map((day) =>
       [
         day.date,
         day.status,
@@ -689,7 +695,7 @@ export class ReportingService {
         ORDER BY counted_at DESC, id DESC
         LIMIT 1
       ) AS latest_count ON TRUE
-      ORDER BY day.business_date ASC, day.opened_at ASC, day.id ASC
+      ORDER BY day.business_date DESC, day.opened_at DESC, day.id DESC
     `);
 
     return rows.map((row) => {
@@ -721,8 +727,10 @@ export class ReportingService {
 
       return {
         id: row.id,
+        tradingDayId: row.id,
         date: toIsoDate(row.businessDate),
         status: row.status.toLowerCase() as 'open' | 'closed',
+        openingFloatCents: cents(row.openingFloatCents),
         orderCount: databaseNumber(row.orderCount),
         ...reconciliation,
       };
@@ -730,10 +738,14 @@ export class ReportingService {
   }
 
   private async loadProductSales(
-    from: string,
-    to: string,
+    from?: string,
+    to?: string,
     limit?: number,
   ): Promise<ProductSales[]> {
+    const rangeSql =
+      from === undefined || to === undefined
+        ? Prisma.empty
+        : Prisma.sql`day.business_date BETWEEN ${from}::date AND ${to}::date AND`;
     const limitSql =
       limit === undefined ? Prisma.empty : Prisma.sql`LIMIT ${limit}`;
     const rows = await this.prisma.$queryRaw<ProductAggregateRow[]>(Prisma.sql`
@@ -748,8 +760,7 @@ export class ReportingService {
       INNER JOIN product_variants AS variant
         ON variant.id = line.product_variant_id
       INNER JOIN products AS product ON product.id = variant.product_id
-      WHERE day.business_date BETWEEN ${from}::date AND ${to}::date
-        AND sale.status = 'COMPLETED'
+      WHERE ${rangeSql} sale.status = 'COMPLETED'
       GROUP BY product.id, product.name
       HAVING SUM(line.quantity) <> 0 OR SUM(line.line_total_cents) <> 0
       ORDER BY

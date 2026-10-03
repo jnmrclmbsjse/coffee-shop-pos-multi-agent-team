@@ -35,6 +35,7 @@ describe('ReportingController', () => {
         'dashboard',
         'dailyInventory',
         'report',
+        'allTimeProductSales',
         'expenses',
         'reportCsv',
         'orderHistory',

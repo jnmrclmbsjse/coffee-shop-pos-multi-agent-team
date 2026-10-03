@@ -14,6 +14,7 @@ import type {
   ReportingDashboard,
   OrderHistoryDetail,
   OrderHistoryList,
+  ProductSales,
   SalesRangeReport,
 } from '@coffee-shop/shared';
 import type { Response } from 'express';
@@ -50,6 +51,11 @@ export class ReportingController {
     @Query() query: ReportingRangeQueryDto,
   ): Promise<SalesRangeReport> {
     return this.reportingService.getReport(query.from, query.to);
+  }
+
+  @Get('product-sales/all-time')
+  allTimeProductSales(): Promise<ProductSales[]> {
+    return this.reportingService.getAllTimeProductSales();
   }
 
   @Get('expenses')

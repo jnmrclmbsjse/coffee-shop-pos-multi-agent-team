@@ -390,8 +390,10 @@ describe('ReportingService', () => {
       },
       dailyReconciliation: [
         {
+          tradingDayId: closedDay.id,
           date: '2026-07-20',
           status: 'closed',
+          openingFloatCents: 10_000,
           cashSalesCents: 25_000,
           onlineSalesCents: 12_500,
           grossSalesCents: 37_500,
@@ -466,6 +468,9 @@ describe('ReportingService', () => {
     expect(sql).toContain("FILTER (WHERE kind = 'CASH_OUT')");
     expect(sql).toContain("FILTER (WHERE kind = 'EXPENSE')");
     expect(sql).toContain('WHERE sale.change_settled_at IS NULL');
+    expect(sql).toContain(
+      'ORDER BY day.business_date DESC, day.opened_at DESC, day.id DESC',
+    );
     expect(sql).not.toContain('ABS(');
     expect(sql).not.toContain('FROM cash_expenses');
   });
@@ -491,8 +496,42 @@ describe('ReportingService', () => {
       "WHERE kind = 'PURCHASE' AND sale.status = 'COMPLETED'",
     );
     expect(productsQuery.strings.join('?')).toContain(
-      "AND sale.status = 'COMPLETED'",
+      "sale.status = 'COMPLETED'",
     );
+  });
+
+  it('loads all-time product sales without a business-date range', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw.mockResolvedValueOnce([
+      {
+        productId: '2f631fdb-27e6-4010-b8d2-bfc7687d67e0',
+        productName: 'Latte',
+        quantitySold: 4n,
+        revenueCents: 37_500n,
+      },
+    ]);
+    const service = createReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(service.getAllTimeProductSales()).resolves.toEqual([
+      {
+        productId: '2f631fdb-27e6-4010-b8d2-bfc7687d67e0',
+        productName: 'Latte',
+        quantitySold: 4,
+        revenueCents: 37_500,
+      },
+    ]);
+
+    const query = prisma.$queryRaw.mock.calls[0]?.[0] as {
+      strings: string[];
+    };
+    const sql = query.strings.join('?');
+    expect(sql).not.toContain('day.business_date BETWEEN');
+    expect(sql).toContain("sale.status = 'COMPLETED'");
+    expect(sql).toContain('SUM(line.line_total_cents) DESC');
+    expect(sql).toContain('product.name ASC');
+    expect(sql).toContain('product.id ASC');
   });
 
   it('returns zero totals and empty collections for a range without days', async () => {
@@ -518,13 +557,20 @@ describe('ReportingService', () => {
     });
   });
 
-  it('uses the Manila 14-date window and an open-day summary', async () => {
+  it('uses the Manila 14-date window, returns an oldest-first trend, and includes an open-day summary', async () => {
     jest.useFakeTimers().setSystemTime(
       new Date('2026-07-25T17:00:00.000Z'),
     );
     const prisma = createPrisma();
+    const newerDay = {
+      ...closedDay,
+      id: '91fa2485-a31b-47b9-a21a-1ec19c2d7f40',
+      businessDate: new Date('2026-07-21T00:00:00.000Z'),
+      cashSalesCents: 30_000n,
+      onlineSalesCents: 15_000n,
+    };
     prisma.$queryRaw
-      .mockResolvedValueOnce([closedDay])
+      .mockResolvedValueOnce([newerDay, closedDay])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         {
@@ -554,6 +600,11 @@ describe('ReportingService', () => {
         date: '2026-07-20',
         cashSalesCents: 25_000,
         onlineSalesCents: 12_500,
+      },
+      {
+        date: '2026-07-21',
+        cashSalesCents: 30_000,
+        onlineSalesCents: 15_000,
       },
     ]);
     const firstQuery = prisma.$queryRaw.mock.calls[0]![0] as {
@@ -595,8 +646,10 @@ describe('ReportingService', () => {
       topProducts: [],
       dailyReconciliation: [
         {
+          tradingDayId: closedDay.id,
           date: '2026-07-20',
           status: 'open',
+          openingFloatCents: cents(10_000),
           cashSalesCents: cents(0),
           onlineSalesCents: cents(1),
           grossSalesCents: cents(-50),
@@ -616,6 +669,114 @@ describe('ReportingService', () => {
       'Date,Status,Cash sales,Online sales,Gross,Tips,Cash in,Cash out,Cash expenses,Outstanding change,Expected cash,Actual cash,Variance\r\n' +
         '2026-07-20,open,0.00,0.01,-0.50,1.05,-0.25,2.50,100.00,0.75,-89.44,,\r\n',
     );
+  });
+
+  it('keeps CSV rows oldest-first when the report is newest-first', () => {
+    const service = createReportingService(
+      createPrisma() as unknown as PrismaService,
+    );
+    const baseDay = {
+      status: 'closed' as const,
+      openingFloatCents: cents(0),
+      onlineSalesCents: cents(0),
+      grossSalesCents: cents(0),
+      tipsCents: cents(0),
+      cashInCents: cents(0),
+      cashOutCents: cents(0),
+      cashExpensesCents: cents(0),
+      outstandingChangeCents: cents(0),
+      expectedCashCents: cents(0),
+      actualCashCents: cents(0),
+      varianceCents: cents(0),
+    };
+
+    const csv = service.toCsv({
+      from: '2026-07-20',
+      to: '2026-07-22',
+      totals: {
+        grossSalesCents: cents(0),
+        cashSalesCents: cents(0),
+        onlineSalesCents: cents(0),
+        tipsCents: cents(0),
+      },
+      topProducts: [],
+      dailyReconciliation: [
+        {
+          ...baseDay,
+          tradingDayId: 'newest',
+          date: '2026-07-22',
+          cashSalesCents: cents(300),
+        },
+        {
+          ...baseDay,
+          tradingDayId: 'middle',
+          date: '2026-07-21',
+          cashSalesCents: cents(200),
+        },
+        {
+          ...baseDay,
+          tradingDayId: 'oldest',
+          date: '2026-07-20',
+          cashSalesCents: cents(100),
+        },
+      ],
+    });
+
+    expect(csv.split('\r\n').slice(1, 4).map((row) => row.split(',')[0])).toEqual([
+      '2026-07-20',
+      '2026-07-21',
+      '2026-07-22',
+    ]);
+  });
+
+  it('reverses the trading-day tie-break for same-date CSV rows', () => {
+    const service = createReportingService(
+      createPrisma() as unknown as PrismaService,
+    );
+    const baseDay = {
+      date: '2026-07-22',
+      status: 'closed' as const,
+      openingFloatCents: cents(0),
+      onlineSalesCents: cents(0),
+      grossSalesCents: cents(0),
+      tipsCents: cents(0),
+      cashInCents: cents(0),
+      cashOutCents: cents(0),
+      cashExpensesCents: cents(0),
+      outstandingChangeCents: cents(0),
+      expectedCashCents: cents(0),
+      actualCashCents: cents(0),
+      varianceCents: cents(0),
+    };
+
+    const csv = service.toCsv({
+      from: '2026-07-22',
+      to: '2026-07-22',
+      totals: {
+        grossSalesCents: cents(0),
+        cashSalesCents: cents(0),
+        onlineSalesCents: cents(0),
+        tipsCents: cents(0),
+      },
+      topProducts: [],
+      dailyReconciliation: [
+        {
+          ...baseDay,
+          tradingDayId: 'opened-later',
+          cashSalesCents: cents(200),
+        },
+        {
+          ...baseDay,
+          tradingDayId: 'opened-earlier',
+          cashSalesCents: cents(100),
+        },
+      ],
+    });
+
+    expect(csv.split('\r\n').slice(1, 3).map((row) => row.split(',')[2])).toEqual([
+      '1.00',
+      '2.00',
+    ]);
   });
 });
 
