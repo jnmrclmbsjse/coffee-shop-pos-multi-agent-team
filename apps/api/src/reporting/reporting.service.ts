@@ -309,7 +309,7 @@ export class ReportingService {
 
     return {
       summary,
-      salesTrend: days.map((day) => ({
+      salesTrend: [...days].reverse().map((day) => ({
         date: day.date,
         cashSalesCents: day.cashSalesCents,
         onlineSalesCents: day.onlineSalesCents,

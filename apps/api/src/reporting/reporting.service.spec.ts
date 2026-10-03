@@ -557,13 +557,20 @@ describe('ReportingService', () => {
     });
   });
 
-  it('uses the Manila 14-date window and an open-day summary', async () => {
+  it('uses the Manila 14-date window, returns an oldest-first trend, and includes an open-day summary', async () => {
     jest.useFakeTimers().setSystemTime(
       new Date('2026-07-25T17:00:00.000Z'),
     );
     const prisma = createPrisma();
+    const newerDay = {
+      ...closedDay,
+      id: '91fa2485-a31b-47b9-a21a-1ec19c2d7f40',
+      businessDate: new Date('2026-07-21T00:00:00.000Z'),
+      cashSalesCents: 30_000n,
+      onlineSalesCents: 15_000n,
+    };
     prisma.$queryRaw
-      .mockResolvedValueOnce([closedDay])
+      .mockResolvedValueOnce([newerDay, closedDay])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         {
@@ -593,6 +600,11 @@ describe('ReportingService', () => {
         date: '2026-07-20',
         cashSalesCents: 25_000,
         onlineSalesCents: 12_500,
+      },
+      {
+        date: '2026-07-21',
+        cashSalesCents: 30_000,
+        onlineSalesCents: 15_000,
       },
     ]);
     const firstQuery = prisma.$queryRaw.mock.calls[0]![0] as {
