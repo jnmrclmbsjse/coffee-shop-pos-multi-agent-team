@@ -1,26 +1,47 @@
 #!/usr/bin/env bash
-# uiux-mockup.sh <issue-number> — generate the UI/UX design for a story.
+# uiux-mockup.sh <issue-number> — produce the UI/UX design reference for a story.
 # Spawned by po-prepare (Step 3) once acceptance criteria have passed QA
-# testability. The sub-agent drives Open Design via its MCP server and writes
-# mockups under docs/design/; it self-reports the `design:done` marker.
+# testability. The sub-agent writes under docs/design/mockups/issue-<n>/ and
+# self-reports the `design:done` marker.
+#
+# MODE (first match wins):
+#   DESIGN_MODE=spec|open-design         — explicit override
+#   the story's Design Task is labeled `design:net-new` — a genuinely new screen
+#   otherwise                            — spec mode (default)
+#
+# Spec mode is the default on purpose. This app has settled patterns (the shared
+# shell, styles.css, the existing feature screens). For incremental work — a
+# column, a filter, a dialog, a field — a generated HTML mockup invents a look
+# that then has to be argued back down to the existing components, which is the
+# drift docs/ui-reconciliation.md exists to clean up after. Open Design earns
+# its cost on a net-new screen, where there is no existing pattern to cite. The
+# Tech Lead decides which at breakdown and carries `open-design` as the label.
 #
 # ENGINE: runs under Claude Code or Codex, selected by (first set wins)
 #   DESIGN_ENGINE  → AGENT_ENGINE  → "claude" (default; matches discovery).
 #   e.g.  DESIGN_ENGINE=codex ./scripts/uiux-mockup.sh 108
 #
-# PREREQ: the Open Design desktop app (daemon) must be running — the mockup
-# prompt guards for this and fails clean (rule B) if it's down. Also: whichever
-# engine you pick must have the `open-design` MCP server configured (it lives in
-# Codex's config.toml today; a Claude-engine run needs it in Claude's MCP config).
+# PREREQ for open-design mode ONLY: the Open Design desktop app (daemon) must be
+# running — the prompt guards for this and fails clean (rule B) if it's down.
+# Also: whichever engine you pick must have the `open-design` MCP server
+# configured (it lives in Codex's config.toml today; a Claude-engine run needs it
+# in Claude's MCP config). Spec mode needs neither.
 set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 as_human
 
 ISSUE="${1:?Usage: uiux-mockup.sh <issue-number>}"
 
+MODE="$(resolve_design_mode "$ISSUE")" || exit 1
+export DESIGN_MODE="$MODE"
+echo "design mode: $MODE"
+
 select_agent "${DESIGN_ENGINE:-}"   # sets AGENT_EXEC and runs the engine's auth preflight
 
+# {{DESIGN_MODE}} is substituted after render(), the same way po-intake fills
+# its own placeholders: render() knows nothing about modes.
 PROMPT="$(render uiux-mockup.md "$ISSUE" uiux)"
+PROMPT="${PROMPT//\{\{DESIGN_MODE\}\}/$MODE}"
 
 # Claude Code may automatically delegate a long design run to a background
 # sub-agent. In print mode the parent can then exit 0 after a progress update,

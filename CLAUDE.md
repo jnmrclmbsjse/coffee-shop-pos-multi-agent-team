@@ -99,6 +99,13 @@ Verify the whole mechanism with:
 The one label nothing else applies is `agent:deploy` — QA applies it on pass
 (`prompts/qa-test.md`). Break that and the deploy lane silently starves.
 
+The design step has two modes, resolved by `scripts/uiux-mockup.sh`: **spec**
+(the default — an implementation-ready `DESIGN.md` citing existing components
+and tokens, no Open Design) and **open-design** (a real Open Design mockup).
+The Tech Lead picks once at breakdown; `open-design` is carried by the
+`design:net-new` label on the Design Task, not by the form field, and
+`DESIGN_MODE=spec|open-design` overrides it for a manual run.
+
 Two lanes land their own PR. The **design** lane's merge lives in its wrapper
 (`auto_merge_story_pr uiux` in `scripts/uiux-mockup.sh`), CI-gated, with the
 agent holding no merge path at all — do not put `gh pr merge` back into

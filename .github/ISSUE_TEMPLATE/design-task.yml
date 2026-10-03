@@ -20,6 +20,31 @@ body:
     id: screens
     attributes:
       label: Screens Needed
+  - type: dropdown
+    id: verdict
+    attributes:
+      label: Design Verdict (Tech Lead)
+      description: >-
+        Set by the Tech Lead at breakdown. `spec` cites the components, classes
+        and tokens that already exist. `open-design` drives Open Design for a
+        real visual artifact, and the Tech Lead must ALSO apply the
+        `design:net-new` label — that label, not this field, is what
+        scripts/uiux-mockup.sh reads.
+      options:
+        - "spec — change to a screen that already exists"
+        - "spec + token check — needs a component that does not exist yet"
+        - "open-design — a screen that does not exist yet"
+    validations:
+      required: true
+  - type: textarea
+    id: verdict-reason
+    attributes:
+      label: Why (one line)
+      description: >-
+        The reason for the verdict. "Net-new" is not a reason; "the payslip
+        archive has no existing equivalent in the admin shell" is.
+    validations:
+      required: true
   - type: textarea
     id: tokens
     attributes:
@@ -29,4 +54,4 @@ body:
     id: output-link
     attributes:
       label: Output Link
-      description: Filled by UI/UX once produced — Claude Design link / docs/design/mockups/ path
+      description: Filled by UI/UX once produced — docs/design/mockups/issue-<n>/ path (and the Open Design link in open-design mode)
