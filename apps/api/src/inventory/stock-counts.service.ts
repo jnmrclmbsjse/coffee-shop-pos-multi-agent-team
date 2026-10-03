@@ -208,10 +208,11 @@ export class StockCountsService {
         phase,
         items: [],
         submittedCount: null,
+        lastClosingCount: null,
       };
     }
 
-    const [items, submittedCount] = await Promise.all([
+    const [items, submittedCount, lastClosingCount] = await Promise.all([
       this.prisma.inventoryItem.findMany({
         where: {
           active: true,
@@ -252,6 +253,20 @@ export class StockCountsService {
         orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
         include: submittedCountInclude,
       }),
+      phase === 'open'
+        ? this.prisma.stockCount.findFirst({
+            where: {
+              locationId: openDay.locationId,
+              phase: PrismaStockCountPhase.CLOSE,
+            },
+            orderBy: [
+              { businessDate: 'desc' },
+              { recordedAt: 'desc' },
+              { id: 'desc' },
+            ],
+            include: submittedCountInclude,
+          })
+        : Promise.resolve(null),
     ]);
 
     return {
@@ -262,6 +277,10 @@ export class StockCountsService {
         submittedCount === null
           ? null
           : this.toSubmittedCount(submittedCount),
+      lastClosingCount:
+        lastClosingCount === null
+          ? null
+          : this.toSubmittedCount(lastClosingCount),
     };
   }
 

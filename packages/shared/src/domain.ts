@@ -429,6 +429,10 @@ export interface CountSheet {
   phase: StockCountPhase;
   items: CountSheetItem[];
   submittedCount: SubmittedStockCount | null;
+  // The last submitted closing count, offered to the opening sheet as a
+  // starting point. Null when none exists, and always null on the closing
+  // sheet.
+  lastClosingCount: SubmittedStockCount | null;
 }
 
 export interface SubmitStockCountLineInput {
