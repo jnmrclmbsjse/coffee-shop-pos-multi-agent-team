@@ -4,6 +4,7 @@ import type {
   OrderHistoryDetail,
   OrderHistoryList,
   OrderHistoryListQuery,
+  ProductSales,
   ReportingDashboard,
   SalesRangeReport,
 } from '@coffee-shop/shared';
@@ -38,6 +39,10 @@ export function getDashboard(): Promise<ReportingDashboard> {
 
 export function getReport(from: string, to: string): Promise<SalesRangeReport> {
   return request(`/reporting/report?${rangeQuery(from, to)}`);
+}
+
+export function getAllTimeProductSales(): Promise<ProductSales[]> {
+  return request('/reporting/product-sales/all-time');
 }
 
 export function getExpenseReport(

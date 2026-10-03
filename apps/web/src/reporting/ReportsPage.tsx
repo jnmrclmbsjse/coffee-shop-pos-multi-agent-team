@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import type { SalesRangeReport } from '@coffee-shop/shared';
+import type { ProductSales, SalesRangeReport } from '@coffee-shop/shared';
 import {
   DateRangeLabel,
   ProductSalesTable,
@@ -9,7 +9,7 @@ import {
   ReportingLoading,
   ReportingNotice,
 } from './components';
-import { downloadReportCsv, getReport } from './api';
+import { downloadReportCsv, getAllTimeProductSales, getReport } from './api';
 import { rangeError, reportingDefaultRange } from './format';
 
 export function ReportsPage() {
@@ -20,9 +20,19 @@ export function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [reconciliationPage, setReconciliationPage] = useState(1);
+  const [productSalesScope, setProductSalesScope] = useState<
+    'range' | 'allTime'
+  >('range');
+  const [allTimeProducts, setAllTimeProducts] = useState<ProductSales[] | null>(
+    null,
+  );
+  const [allTimeLoading, setAllTimeLoading] = useState(false);
+  const [allTimeError, setAllTimeError] = useState('');
   const validationMessage = rangeError(from, to);
 
   async function loadReport(nextFrom: string, nextTo: string) {
+    setReconciliationPage(1);
     setLoading(true);
     setPageError('');
     try {
@@ -31,6 +41,31 @@ export function ReportsPage() {
       setPageError('Report data could not be loaded. Try the range again.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadAllTimeProductSales() {
+    setAllTimeLoading(true);
+    setAllTimeError('');
+    try {
+      setAllTimeProducts(await getAllTimeProductSales());
+    } catch {
+      setAllTimeError(
+        'All-time product sales could not be loaded. Uncheck and re-check Show all time to try again.',
+      );
+    } finally {
+      setAllTimeLoading(false);
+    }
+  }
+
+  function changeProductSalesScope(scope: 'range' | 'allTime') {
+    setProductSalesScope(scope);
+    if (
+      scope === 'allTime' &&
+      allTimeProducts === null &&
+      !allTimeLoading
+    ) {
+      void loadAllTimeProductSales();
     }
   }
 
@@ -131,8 +166,26 @@ export function ReportsPage() {
             {loading && <span>Updating…</span>}
           </div>
           <ReportTotals totals={report.totals} />
-          <ReconciliationTable rows={report.dailyReconciliation} />
-          <ProductSalesTable products={report.topProducts} />
+          <ReconciliationTable
+            rows={report.dailyReconciliation}
+            page={reconciliationPage}
+            onPageChange={setReconciliationPage}
+          />
+          <ProductSalesTable
+            products={
+              productSalesScope === 'allTime'
+                ? (allTimeProducts ?? [])
+                : report.topProducts
+            }
+            scope={productSalesScope}
+            allTimeLoading={
+              productSalesScope === 'allTime' && allTimeLoading
+            }
+            allTimeError={
+              productSalesScope === 'allTime' ? allTimeError : ''
+            }
+            onScopeChange={changeProductSalesScope}
+          />
         </div>
       )}
     </main>

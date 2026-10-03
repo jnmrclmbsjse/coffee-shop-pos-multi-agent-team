@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   downloadReportCsv,
+  getAllTimeProductSales,
   getDailyInventoryReport,
   getDashboard,
   getOrderHistory,
@@ -31,6 +32,7 @@ describe('reporting API client', () => {
 
     await getDashboard();
     await getReport('2026-07-13', '2026-07-26');
+    await getAllTimeProductSales();
     await getDailyInventoryReport('2026-07-26');
 
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -45,6 +47,11 @@ describe('reporting API client', () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
+      'http://localhost:3000/reporting/product-sales/all-time',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
       'http://localhost:3000/reporting/daily-inventory?date=2026-07-26',
       expect.objectContaining({ credentials: 'include' }),
     );

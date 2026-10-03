@@ -3892,7 +3892,7 @@ button {
 }
 
 .reconciliation-table {
-  min-width: 1060px;
+  min-width: 1160px;
 }
 
 .packaging-report-table {
@@ -3948,9 +3948,41 @@ button {
 .report-footnote,
 .restock-copy,
 .report-scope-footer,
-.report-read-only-note {
+.report-read-only-note,
+.report-pagination-status,
+.product-sales-scope {
   color: var(--ink-soft);
   font-size: 13px;
+}
+
+.order-pagination.report-pagination {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border);
+}
+
+.report-pagination-status {
+  margin: 0;
+  text-align: center;
+}
+
+.report-pagination-status:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.product-sales-scope {
+  margin: 0;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border);
+}
+
+.product-sales-scope.is-all-time {
+  color: var(--promotion-ink);
+  border-bottom-color: var(--promotion-border);
+  background: var(--promotion-surface);
 }
 
 .report-footnote {
@@ -4103,7 +4135,9 @@ button {
 
   .report-footnote,
   .restock-copy,
-  .report-scope-footer {
+  .report-scope-footer,
+  .report-pagination,
+  .product-sales-scope {
     padding-left: var(--space-4);
     padding-right: var(--space-4);
   }

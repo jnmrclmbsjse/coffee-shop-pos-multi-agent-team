@@ -6,7 +6,7 @@ import type {
   RestockStatusRow,
   SalesReportTotals,
 } from '@coffee-shop/shared';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { CountMethod } from '@coffee-shop/shared';
 import { NavLink } from 'react-router-dom';
 import {
@@ -112,15 +112,36 @@ function Variance({ value }: { value: number | null }) {
 
 export function ReconciliationTable({
   rows,
+  page,
+  onPageChange,
 }: {
   rows: DailyReconciliation[];
+  page: number;
+  onPageChange: (page: number) => void;
 }) {
+  const pageSize = 15;
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const firstIndex = (currentPage - 1) * pageSize;
+  const visibleRows = rows.slice(firstIndex, firstIndex + pageSize);
+  const paginationStatusRef = useRef<HTMLParagraphElement>(null);
+
+  function changePage(nextPage: number) {
+    onPageChange(nextPage);
+    if (nextPage === 1 || nextPage === totalPages) {
+      paginationStatusRef.current?.focus();
+    }
+  }
+
   return (
     <section className="report-panel" aria-labelledby="reconciliation-title">
       <header className="report-panel-head">
         <div>
           <h2 id="reconciliation-title">Daily reconciliation</h2>
-          <p>Trading days are ordered from oldest to newest.</p>
+          <p>
+            Trading days are ordered from newest to oldest. The CSV export
+            keeps its original oldest-to-newest order.
+          </p>
         </div>
       </header>
       {rows.length === 0 ? (
@@ -147,6 +168,7 @@ export function ReconciliationTable({
                   <th scope="col" className="num">Online sales</th>
                   <th scope="col" className="num">Gross</th>
                   <th scope="col" className="num">Tips</th>
+                  <th scope="col" className="num">Cash float</th>
                   <th scope="col" className="num">Cash in</th>
                   <th scope="col" className="num">Cash out</th>
                   <th scope="col" className="num">Cash expenses</th>
@@ -157,14 +179,17 @@ export function ReconciliationTable({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.date}>
+                {visibleRows.map((row) => (
+                  <tr key={row.tradingDayId}>
                     <td className="num">{row.date}</td>
                     <td><StatusBadge status={row.status} /></td>
                     <td className="num">{formatMoney(row.cashSalesCents)}</td>
                     <td className="num">{formatMoney(row.onlineSalesCents)}</td>
                     <td className="num">{formatMoney(row.grossSalesCents)}</td>
                     <td className="num">{formatMoney(row.tipsCents)}</td>
+                    <td className="num">
+                      {formatMoney(row.openingFloatCents)}
+                    </td>
                     <td className="num">{formatMoney(row.cashInCents)}</td>
                     <td className="num">{formatMoney(row.cashOutCents)}</td>
                     <td className="num">
@@ -189,13 +214,112 @@ export function ReconciliationTable({
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <nav
+              className="order-pagination report-pagination"
+              aria-label="Daily reconciliation pages"
+            >
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => changePage(currentPage - 1)}
+              >
+                Previous
+              </button>
+              <p
+                ref={paginationStatusRef}
+                className="report-pagination-status"
+                role="status"
+                tabIndex={-1}
+              >
+                Page {currentPage} of {totalPages} · Trading days{' '}
+                {firstIndex + 1}–{Math.min(firstIndex + pageSize, rows.length)} of{' '}
+                {rows.length}
+              </p>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => changePage(currentPage + 1)}
+              >
+                Next
+              </button>
+            </nav>
+          )}
         </>
       )}
     </section>
   );
 }
 
-export function ProductSalesTable({ products }: { products: ProductSales[] }) {
+type ProductSalesSort = 'quantity' | 'revenue';
+
+function compareText(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+function ProductSalesSortHeader({
+  label,
+  sort,
+  activeSort,
+  onSort,
+}: {
+  label: string;
+  sort: ProductSalesSort;
+  activeSort: ProductSalesSort;
+  onSort: (sort: ProductSalesSort) => void;
+}) {
+  const active = sort === activeSort;
+  return (
+    <th
+      scope="col"
+      className="num"
+      aria-sort={active ? 'descending' : 'none'}
+    >
+      <button
+        className="order-sort order-sort-numeric"
+        type="button"
+        aria-label={`${label}, ${active ? 'sorted descending' : 'not sorted'}`}
+        onClick={() => onSort(sort)}
+      >
+        {label}
+        <span aria-hidden="true">{active ? '↓' : ''}</span>
+      </button>
+    </th>
+  );
+}
+
+export function ProductSalesTable({
+  products,
+  scope,
+  allTimeLoading,
+  allTimeError,
+  onScopeChange,
+}: {
+  products: ProductSales[];
+  scope: 'range' | 'allTime';
+  allTimeLoading: boolean;
+  allTimeError: string;
+  onScopeChange: (scope: 'range' | 'allTime') => void;
+}) {
+  const [sort, setSort] = useState<ProductSalesSort>('revenue');
+  const allTime = scope === 'allTime';
+  const sortedProducts = useMemo(
+    () =>
+      [...products].sort((left, right) => {
+        const valueDifference =
+          sort === 'revenue'
+            ? right.revenueCents - left.revenueCents
+            : right.quantitySold - left.quantitySold;
+        return (
+          valueDifference ||
+          compareText(left.productName, right.productName) ||
+          compareText(left.productId, right.productId)
+        );
+      }),
+    [products, sort],
+  );
+
   return (
     <section className="report-panel" aria-labelledby="product-sales-title">
       <header className="report-panel-head">
@@ -203,9 +327,44 @@ export function ProductSalesTable({ products }: { products: ProductSales[] }) {
           <h2 id="product-sales-title">Product sales</h2>
           <p>Base products, with all variants combined.</p>
         </div>
+        {allTime && (
+          <span className="state-badge promotion">
+            <span aria-hidden="true" />
+            All time
+          </span>
+        )}
       </header>
-      {products.length === 0 ? (
-        <p className="report-empty">No sales in this range.</p>
+      <p
+        className={`product-sales-scope${allTime ? ' is-all-time' : ''}`}
+        role="status"
+      >
+        {allTime
+          ? 'Showing all time — every recorded business day. The totals, Daily reconciliation and the CSV export still cover the selected report range.'
+          : 'Showing the selected report range.'}
+      </p>
+      <div className="restock-scope-toggle">
+        <label htmlFor="product-sales-all-time">
+          <input
+            id="product-sales-all-time"
+            type="checkbox"
+            checked={allTime}
+            onChange={(event) =>
+              onScopeChange(event.target.checked ? 'allTime' : 'range')
+            }
+          />
+          <span>Show all time</span>
+        </label>
+      </div>
+      {allTimeLoading ? (
+        <ReportingLoading label="Loading all-time product sales…" />
+      ) : allTimeError ? (
+        <ReportingNotice>{allTimeError}</ReportingNotice>
+      ) : sortedProducts.length === 0 ? (
+        <p className="report-empty">
+          {allTime
+            ? 'No product sales have been recorded yet.'
+            : 'No sales in this range.'}
+        </p>
       ) : (
         <div className="report-table-region">
           <table
@@ -215,12 +374,22 @@ export function ProductSalesTable({ products }: { products: ProductSales[] }) {
             <thead>
               <tr>
                 <th scope="col">Product</th>
-                <th scope="col" className="num">Qty sold</th>
-                <th scope="col" className="num">Revenue</th>
+                <ProductSalesSortHeader
+                  label="Qty sold"
+                  sort="quantity"
+                  activeSort={sort}
+                  onSort={setSort}
+                />
+                <ProductSalesSortHeader
+                  label="Revenue"
+                  sort="revenue"
+                  activeSort={sort}
+                  onSort={setSort}
+                />
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => (
+              {sortedProducts.map((product) => (
                 <tr key={product.productId}>
                   <td>{product.productName}</td>
                   <td className="num">{formatQuantity(product.quantitySold)}</td>
