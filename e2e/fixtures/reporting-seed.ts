@@ -210,6 +210,58 @@ export function seedReportingCatalog(tag: string): Record<string, SeededVariant>
   return JSON.parse(raw) as Record<string, SeededVariant>;
 }
 
+/**
+ * Create products that intentionally share one visible name. Their returned
+ * order is product-id ascending, so the browser can prove the final stable
+ * tie-break by assigning distinguishable quantities or revenue to each row.
+ */
+export function seedSameNameReportingProducts(
+  tag: string,
+  name: string,
+  count: number,
+): SeededVariant[] {
+  const products = Array.from({ length: count }, () => ({
+    productId: randomUUID(),
+    variantId: randomUUID(),
+  })).sort((left, right) => left.productId.localeCompare(right.productId));
+  const raw = runPrisma(`
+    const fixture = ${JSON.stringify({ tag, name, products })};
+    const category = await prisma.category.create({
+      data: { name: 'QA Same-name ' + fixture.tag, sortWeight: 990001, active: true },
+    });
+    const out = [];
+    let sku = 0;
+    for (const item of fixture.products) {
+      sku += 1;
+      const product = await prisma.product.create({
+        data: {
+          id: item.productId,
+          sku: 'E2E-RPT-TIE-' + fixture.tag + '-' + sku,
+          name: fixture.name,
+          categoryId: category.id,
+        },
+      });
+      const variant = await prisma.productVariant.create({
+        data: {
+          id: item.variantId,
+          productId: product.id,
+          name: 'Regular',
+          priceCents: 10000,
+          sortWeight: 10,
+        },
+      });
+      out.push({
+        productName: product.name,
+        variantId: variant.id,
+        variantName: variant.name,
+      });
+    }
+    process.stdout.write(JSON.stringify(out));
+  `);
+
+  return JSON.parse(raw) as SeededVariant[];
+}
+
 // ---- trading days -----------------------------------------------------------
 
 export interface SeedLine {
@@ -250,6 +302,8 @@ export interface SeedSale {
 export interface SeedTradingDay {
   id?: string;
   businessDate: string;
+  /** ISO timestamp override for deterministic same-date ordering tests. */
+  openedAt?: string;
   status: 'OPEN' | 'CLOSED';
   openingFloatCents: number;
   sales?: SeedSale[];
@@ -293,6 +347,7 @@ export function seedTradingDay(
     tradingDay: {
       id,
       businessDate: day.businessDate,
+      openedAt: day.openedAt ?? null,
       status: day.status,
       openingFloatCents: day.openingFloatCents,
       staffMemberId,
@@ -312,7 +367,9 @@ export function seedTradingDay(
         locationId: null,
         businessDate,
         status: fixture.tradingDay.status,
-        openedAt: new Date(businessDate.getTime() + 1 * 3600000),
+        openedAt: fixture.tradingDay.openedAt
+          ? new Date(fixture.tradingDay.openedAt)
+          : new Date(businessDate.getTime() + 1 * 3600000),
         closedAt: fixture.tradingDay.closed
           ? new Date(businessDate.getTime() + 12 * 3600000)
           : null,
