@@ -75,6 +75,7 @@ describe('UsersService', () => {
           id: string;
           displayName: string;
           isActive: boolean;
+          baseSalaryCents: number | null;
           locationId: string | null;
           createdAt: Date;
           updatedAt: Date;
@@ -85,6 +86,7 @@ describe('UsersService', () => {
         id: staffMemberId,
         displayName: 'Jane Santos',
         isActive: true,
+        baseSalaryCents: 12_500,
         locationId: null,
         createdAt: new Date('2026-08-23T00:00:00Z'),
         updatedAt: new Date('2026-08-23T00:00:00Z'),
@@ -413,6 +415,7 @@ describe('UsersService', () => {
         id: true,
         displayName: true,
         isActive: true,
+        baseSalaryCents: true,
         locationId: true,
         createdAt: true,
         updatedAt: true,
@@ -434,6 +437,7 @@ describe('UsersService', () => {
         id: staffMemberId,
         displayName: 'Jane Santos',
         isActive: true,
+        baseSalaryCents: 12_500,
         locationId: null,
         createdAt: new Date('2026-08-23T00:00:00Z'),
         updatedAt: new Date('2026-08-23T00:00:00Z'),
@@ -476,6 +480,7 @@ describe('UsersService', () => {
       id: staffMemberId,
       displayName: 'Jane Santos',
       isActive: true,
+      baseSalaryCents: null,
       locationId: null,
       createdAt: new Date('2026-08-23T00:00:00Z'),
       updatedAt: new Date('2026-08-23T00:00:00Z'),
@@ -501,6 +506,7 @@ describe('UsersService', () => {
         id: staffMemberId,
         displayName: 'Jane Santos',
         isActive: true,
+        baseSalaryCents: null,
         locationId: null,
         createdAt: new Date('2026-08-23T00:00:00Z'),
         updatedAt: new Date('2026-08-23T00:00:00Z'),

@@ -361,6 +361,22 @@ export class ReportingService {
     };
   }
 
+  async getDailyGrossSales(
+    businessDate: string,
+  ): Promise<{
+    hasBusinessDay: boolean;
+    grossSalesCents: MoneyCents;
+  }> {
+    const days = await this.loadDailyReadModel(businessDate, businessDate);
+
+    return {
+      hasBusinessDay: days.length > 0,
+      grossSalesCents: addMoney(
+        ...days.map((day) => day.grossSalesCents),
+      ),
+    };
+  }
+
   async getAllTimeProductSales(): Promise<ProductSales[]> {
     return this.loadProductSales();
   }

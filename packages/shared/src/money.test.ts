@@ -6,7 +6,10 @@ import {
   calculateLineAmounts,
   calculateOrderTotal,
   cents,
+  COMMISSION_GROSS_BAND_CENTS,
+  COMMISSION_PER_BAND_CENTS,
   multiplyMoney,
+  suggestCommissionCents,
 } from './money.js';
 
 describe('money helpers', () => {
@@ -17,6 +20,25 @@ describe('money helpers', () => {
 
   it('rejects fractional cents', () => {
     expect(() => cents(1.5)).toThrow(TypeError);
+  });
+});
+
+describe('commission suggestion', () => {
+  it('keeps the rate as named integer-cent constants', () => {
+    expect(COMMISSION_GROSS_BAND_CENTS).toBe(100_000);
+    expect(COMMISSION_PER_BAND_CENTS).toBe(5_000);
+  });
+
+  it.each([
+    ['negative gross', -1, 0],
+    ['zero gross', 0, 0],
+    ['one cent below the first band', 99_999, 0],
+    ['the first complete band', 100_000, 5_000],
+    ['₱2,750', 275_000, 10_000],
+    ['₱999.99', 99_999, 0],
+    ['₱3,000', 300_000, 15_000],
+  ])('returns the expected amount for %s', (_case, gross, expected) => {
+    expect(suggestCommissionCents(cents(gross))).toBe(expected);
   });
 });
 

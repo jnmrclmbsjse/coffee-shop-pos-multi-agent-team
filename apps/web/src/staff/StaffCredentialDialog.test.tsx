@@ -15,6 +15,7 @@ const member: StaffMember = {
   id: 'b8931939-b6db-449e-b7d2-93f3521184ef',
   displayName: 'Mara Villanueva',
   isActive: true,
+  baseSalaryCents: null,
   locationId: null,
   hasAccount: true,
   accountUsername: 'mara.login',

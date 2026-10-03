@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import {
   type PayslipSummary,
+  type DailyGrossSalesSuggestion,
   Role,
   type StaffCompensationAdjustment,
   type StaffCompensationEntry,
@@ -26,6 +27,7 @@ import {
   CompensationEntryListQueryDto,
   CreateCompensationAdjustmentDto,
   CreateCompensationEntryDto,
+  DailyGrossSalesQueryDto,
   PayslipQueryDto,
   UpdateCompensationAdjustmentDto,
   UpdateCompensationEntryDto,
@@ -37,6 +39,13 @@ import { CompensationService } from './compensation.service';
 @Roles(Role.ADMIN)
 export class CompensationController {
   constructor(private readonly compensationService: CompensationService) {}
+
+  @Get('daily-gross')
+  dailyGross(
+    @Query() query: DailyGrossSalesQueryDto,
+  ): Promise<DailyGrossSalesSuggestion> {
+    return this.compensationService.getDailyGrossSuggestion(query.workDate);
+  }
 
   @Get('payslip')
   payslip(@Query() query: PayslipQueryDto): Promise<PayslipSummary> {

@@ -10,5 +10,6 @@ import { StaffOrderLedgerController } from './staff-order-ledger.controller';
   imports: [AuthModule, InventoryModule, TradingDayModule],
   controllers: [ReportingController, StaffOrderLedgerController],
   providers: [ReportingService],
+  exports: [ReportingService],
 })
 export class ReportingModule {}

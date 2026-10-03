@@ -52,6 +52,50 @@ describe('ReportingService', () => {
     orderCount: 3n,
   } as const;
 
+  it('sums gross across every trading day row for the requested date', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw.mockResolvedValue([
+      closedDay,
+      {
+        ...closedDay,
+        id: 'second-day',
+        cashSalesCents: 2_500n,
+        onlineSalesCents: 5_000n,
+      },
+    ]);
+    const service = createReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.getDailyGrossSales('2026-07-20'),
+    ).resolves.toEqual({
+      hasBusinessDay: true,
+      grossSalesCents: 45_000,
+    });
+  });
+
+  it('distinguishes a missing business day from a real zero gross', async () => {
+    const prisma = createPrisma();
+    const service = createReportingService(
+      prisma as unknown as PrismaService,
+    );
+    prisma.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        ...closedDay,
+        cashSalesCents: 0n,
+        onlineSalesCents: 0n,
+      },
+    ]);
+
+    await expect(
+      service.getDailyGrossSales('2026-07-19'),
+    ).resolves.toEqual({ hasBusinessDay: false, grossSalesCents: 0 });
+    await expect(
+      service.getDailyGrossSales('2026-07-20'),
+    ).resolves.toEqual({ hasBusinessDay: true, grossSalesCents: 0 });
+  });
+
   it('composes the selected day read model and passes through every restock row', async () => {
     const prisma = createPrisma();
     const day = {

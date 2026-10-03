@@ -2,6 +2,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { cents } from '@coffee-shop/shared';
 import type { AuthService } from '../auth/auth.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { UsersService } from '../users/users.service';
@@ -17,6 +18,7 @@ describe('StaffService', () => {
       id: staffId,
       displayName: 'Alex Rivera',
       isActive: true,
+      baseSalaryCents: null,
       locationId: null,
       createdAt: now,
       updatedAt: now,
@@ -80,6 +82,7 @@ describe('StaffService', () => {
         displayName: 'Alex Rivera',
         user: { pinHash: 'argon-hash' },
         userId: 'must-not-leak',
+        baseSalaryCents: 12_500,
         isActive: true,
       },
       {
@@ -90,7 +93,9 @@ describe('StaffService', () => {
     ]);
     const service = createService(prisma);
 
-    await expect(service.listSelectable()).resolves.toEqual([
+    const result = await service.listSelectable();
+
+    expect(result).toEqual([
       {
         id: staffId,
         displayName: 'Alex Rivera',
@@ -111,6 +116,7 @@ describe('StaffService', () => {
       },
       orderBy: { displayName: 'asc' },
     });
+    expect(result.every((item) => !('baseSalaryCents' in item))).toBe(true);
   });
 
   it('keeps requiring a PIN when the linked account is deactivated', async () => {
@@ -168,9 +174,53 @@ describe('StaffService', () => {
         displayName: 'Alex Rivera',
         isActive: true,
         locationId: null,
+        baseSalaryCents: null,
       },
       include: { user: { select: { username: true } } },
     });
+  });
+
+  it.each([
+    ['unset', null],
+    ['zero', 0],
+    ['positive', 12_500],
+  ])('preserves an %s base salary in the admin response', async (_case, value) => {
+    const prisma = createPrisma();
+    prisma.staffMember.findMany.mockResolvedValue([
+      staffRecord({ baseSalaryCents: value }),
+    ]);
+    const service = createService(prisma);
+
+    await expect(
+      service.list({ sort: 'name', direction: 'asc' }),
+    ).resolves.toEqual([
+      expect.objectContaining({ baseSalaryCents: value }),
+    ]);
+  });
+
+  it('writes zero and null base salaries without collapsing them', async () => {
+    const prisma = createPrisma();
+    prisma.staffMember.findUnique.mockResolvedValue({ id: staffId });
+    prisma.staffMember.update
+      .mockResolvedValueOnce(staffRecord({ baseSalaryCents: 0 }))
+      .mockResolvedValueOnce(staffRecord({ baseSalaryCents: null }));
+    const service = createService(prisma);
+
+    await expect(
+      service.update(staffId, { baseSalaryCents: cents(0) }),
+    ).resolves.toMatchObject({ baseSalaryCents: 0 });
+    await expect(
+      service.update(staffId, { baseSalaryCents: null }),
+    ).resolves.toMatchObject({ baseSalaryCents: null });
+
+    expect(prisma.staffMember.update).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ data: { baseSalaryCents: 0 } }),
+    );
+    expect(prisma.staffMember.update).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ data: { baseSalaryCents: null } }),
+    );
   });
 
   it('rejects a nonexistent location before creating staff', async () => {

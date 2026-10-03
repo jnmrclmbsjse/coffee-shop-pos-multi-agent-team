@@ -1,7 +1,12 @@
 import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { CompensationAdjustmentKind } from '@coffee-shop/shared';
+import {
+  ALLOWANCE_DESCRIPTION_PRESETS,
+  cents,
+  CompensationAdjustmentKind,
+} from '@coffee-shop/shared';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { ReportingService } from '../reporting/reporting.service';
 import { CompensationService } from './compensation.service';
 
 describe('CompensationService', () => {
@@ -61,6 +66,7 @@ describe('CompensationService', () => {
         kind: 'ADVANCE' | 'ALLOWANCE' | 'BONUS';
       }
     >;
+    dailyGross?: { hasBusinessDay: boolean; grossSalesCents: number };
   } = {}) {
     const prisma = {
       staffMember: {
@@ -98,12 +104,28 @@ describe('CompensationService', () => {
         findMany: jest
           .fn()
           .mockResolvedValue(options.adjustmentFindManyResult ?? []),
+        create: jest.fn().mockResolvedValue(adjustmentRecord),
       },
+      $transaction: jest.fn(),
+    };
+    prisma.$transaction.mockImplementation(
+      async (operation: (transaction: typeof prisma) => Promise<unknown>) =>
+        operation(prisma),
+    );
+    const reportingService = {
+      getDailyGrossSales: jest.fn().mockResolvedValue(
+        options.dailyGross ?? {
+          hasBusinessDay: true,
+          grossSalesCents: cents(275_000),
+        },
+      ),
     };
     return {
       prisma,
+      reportingService,
       service: new CompensationService(
         prisma as unknown as PrismaService,
+        reportingService as unknown as ReportingService,
       ),
     };
   }
@@ -149,9 +171,37 @@ describe('CompensationService', () => {
     return {
       adjustmentRecord,
       prisma,
-      service: new CompensationService(prisma as unknown as PrismaService),
+      service: new CompensationService(
+        prisma as unknown as PrismaService,
+        undefined as never,
+      ),
     };
   }
+
+  it.each([
+    [true, 275_000, 10_000],
+    [true, 0, 0],
+    [false, 0, 0],
+  ])(
+    'returns gross and a server-computed suggestion (business day: %s, gross: %i)',
+    async (hasBusinessDay, grossSalesCents, suggestedCommissionCents) => {
+      const { reportingService, service } = setup({
+        dailyGross: { hasBusinessDay, grossSalesCents },
+      });
+
+      await expect(
+        service.getDailyGrossSuggestion('2026-08-15'),
+      ).resolves.toEqual({
+        workDate: '2026-08-15',
+        hasBusinessDay,
+        grossSalesCents,
+        suggestedCommissionCents,
+      });
+      expect(reportingService.getDailyGrossSales).toHaveBeenCalledWith(
+        '2026-08-15',
+      );
+    },
+  );
 
   it('generates a payslip with inclusive bounds and integer totals', async () => {
     const boundaryRecords = [
@@ -596,6 +646,34 @@ describe('CompensationService', () => {
         },
       }),
     );
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.staffCompensationAdjustment.create).not.toHaveBeenCalled();
+  });
+
+  it('creates the entry and load allowance in one transaction', async () => {
+    const { prisma, service } = setup();
+
+    await service.create(
+      {
+        ...createInput,
+        loadAllowance: { amountCents: 250 },
+      } as never,
+      adminUserId,
+    );
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.staffCompensationAdjustment.create).toHaveBeenCalledWith({
+      data: {
+        staffMemberId,
+        kind: CompensationAdjustmentKind.ALLOWANCE,
+        effectiveDate: new Date('2026-08-15T00:00:00.000Z'),
+        amountCents: 250,
+        description: ALLOWANCE_DESCRIPTION_PRESETS[0],
+        locationId,
+        createdByUserId: adminUserId,
+        updatedByUserId: adminUserId,
+      },
+    });
   });
 
   it('refuses an unknown staff member', async () => {

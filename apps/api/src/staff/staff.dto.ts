@@ -7,21 +7,27 @@ import type {
   UpdateStaffMemberInput,
   UpdateStaffCredentialsInput,
 } from '@coffee-shop/shared';
+import type { MoneyCents } from '@coffee-shop/shared';
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsIn,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   Matches,
   IsString,
   IsUUID,
+  Max,
+  Min,
   Validate,
   ValidateIf,
   ValidationArguments,
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+
+const MAX_DATABASE_INTEGER = 2_147_483_647;
 
 const trimString = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -45,6 +51,14 @@ export class CreateStaffMemberDto implements CreateStaffMemberInput {
   @IsOptional()
   @IsUUID()
   locationId?: string | null;
+
+  @IsOptional()
+  @IsInt({ message: 'baseSalaryCents must be an integer number of cents' })
+  @Min(0, { message: 'baseSalaryCents must not be negative' })
+  @Max(MAX_DATABASE_INTEGER, {
+    message: `baseSalaryCents must not exceed ${MAX_DATABASE_INTEGER}`,
+  })
+  baseSalaryCents?: MoneyCents | null;
 }
 
 export class UpdateStaffMemberDto implements UpdateStaffMemberInput {
@@ -57,6 +71,14 @@ export class UpdateStaffMemberDto implements UpdateStaffMemberInput {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsInt({ message: 'baseSalaryCents must be an integer number of cents' })
+  @Min(0, { message: 'baseSalaryCents must not be negative' })
+  @Max(MAX_DATABASE_INTEGER, {
+    message: `baseSalaryCents must not exceed ${MAX_DATABASE_INTEGER}`,
+  })
+  baseSalaryCents?: MoneyCents | null;
 }
 
 export class CreateStaffAccountDto implements CreateStaffAccountInput {

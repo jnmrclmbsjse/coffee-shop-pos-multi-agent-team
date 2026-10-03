@@ -40,6 +40,32 @@ describe('Staff DTO validation', () => {
     expect(await validate(input)).not.toHaveLength(0);
   });
 
+  it.each([null, 0, 12_500])(
+    'accepts a nullable non-negative integer base salary: %j',
+    async (baseSalaryCents) => {
+      const input = plainToInstance(UpdateStaffMemberDto, {
+        baseSalaryCents,
+      });
+
+      expect(await validate(input)).toHaveLength(0);
+      expect(input.baseSalaryCents).toBe(baseSalaryCents);
+    },
+  );
+
+  it.each([-1, 1.5, '100'])('rejects invalid base salary %j', async (value) => {
+    const input = plainToInstance(CreateStaffMemberDto, {
+      displayName: 'Alex Rivera',
+      baseSalaryCents: value,
+    });
+    const errors = await validate(input);
+
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ property: 'baseSalaryCents' }),
+      ]),
+    );
+  });
+
   it('transforms list filters and applies first-load sort defaults', async () => {
     const query = plainToInstance(StaffMemberListQueryDto, {
       search: '  aLeX ',

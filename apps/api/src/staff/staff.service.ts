@@ -9,6 +9,7 @@ import type {
   StaffMember,
   UpdateStaffCredentialsResponse,
 } from '@coffee-shop/shared';
+import { cents } from '@coffee-shop/shared';
 import type { Prisma } from '@prisma/client';
 import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -81,6 +82,7 @@ export class StaffService {
         displayName: input.displayName,
         isActive: input.isActive,
         locationId: input.locationId ?? null,
+        baseSalaryCents: input.baseSalaryCents ?? null,
       },
       include: staffMemberAccountInclude,
     });
@@ -191,6 +193,7 @@ export class StaffService {
     id: string;
     displayName: string;
     isActive: boolean;
+    baseSalaryCents: number | null;
     locationId: string | null;
     createdAt: Date;
     updatedAt: Date;
@@ -199,6 +202,10 @@ export class StaffService {
     const { user, ...rest } = record;
     return {
       ...rest,
+      baseSalaryCents:
+        record.baseSalaryCents === null
+          ? null
+          : cents(record.baseSalaryCents),
       hasAccount: user != null,
       accountUsername: user?.username ?? null,
       createdAt: record.createdAt.toISOString(),

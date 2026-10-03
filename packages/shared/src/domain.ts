@@ -114,6 +114,7 @@ export interface StaffMember {
   id: string;
   displayName: string;
   isActive: boolean;
+  baseSalaryCents: MoneyCents | null;
   locationId: string | null;
   // Login account linkage. A staff member has at most one account (userId is
   // unique), so hasAccount decides create-versus-manage in the admin UI.
@@ -147,6 +148,14 @@ export interface CreateStaffCompensationEntryInput {
   workDate: string;
   salaryCents: MoneyCents;
   commissionCents: MoneyCents;
+  loadAllowance?: { amountCents: MoneyCents };
+}
+
+export interface DailyGrossSalesSuggestion {
+  workDate: string;
+  hasBusinessDay: boolean;
+  grossSalesCents: MoneyCents;
+  suggestedCommissionCents: MoneyCents;
 }
 
 export interface UpdateStaffCompensationEntryInput {
@@ -284,11 +293,13 @@ export interface CreateStaffMemberInput {
   displayName: string;
   isActive?: boolean;
   locationId?: string | null;
+  baseSalaryCents?: MoneyCents | null;
 }
 
 export interface UpdateStaffMemberInput {
   displayName?: string;
   isActive?: boolean;
+  baseSalaryCents?: MoneyCents | null;
 }
 
 export interface CreateStaffAccountInput {
