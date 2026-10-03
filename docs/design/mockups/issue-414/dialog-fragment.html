@@ -1,0 +1,331 @@
+<!doctype html>
+<!--
+  Layout fragment for the Add daily record dialog (story #414), add mode.
+  Reference only — DESIGN.md is the deliverable.
+
+  Everything below either reuses a shipped class from apps/web/src/styles.css or
+  lives in the four additive deltas DESIGN.md proposes (.compensation-gross,
+  .compensation-gross-note, .compensation-suggested,
+  .compensation-field-annotation, .compensation-load-allowance,
+  .compensation-load-allowance-choice, .compensation-duplicate-warning).
+  No literal colour, radius, spacing or size value is introduced: every
+  declaration names a token. Open this file with apps/web/src/styles.css linked
+  and it renders in the shipped design system.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>#414 — add daily record dialog</title>
+    <link rel="stylesheet" href="../../../../apps/web/src/styles.css" />
+    <style>
+      /* ---- Delta 1: emphasis-only modifier on the shipped .compensation-total ---- */
+      .compensation-gross > strong {
+        font-size: 15px;
+      }
+
+      /* ---- Delta 2: the shipped neutral note box, margin zeroed for a grid parent ---- */
+      .compensation-gross-note {
+        margin: 0;
+      }
+
+      /* ---- Delta 3: chip row, mirroring the shipped .staff-count-fill-row ---- */
+      .compensation-field-annotation {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-2);
+        margin: 0;
+      }
+
+      /* ---- Delta 4: load-allowance container, same token roles as .compensation-total ---- */
+      .compensation-load-allowance {
+        display: grid;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-subtle);
+      }
+
+      .compensation-duplicate-warning {
+        margin: 0;
+        padding: var(--space-3) var(--space-4);
+        border: 1px solid var(--warn-border);
+        border-radius: var(--radius-sm);
+        color: var(--warn-ink);
+        background: var(--warn-surface);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      /*
+        In the app these two reuse shipped rules by selector-list extension:
+          .staff-fill-indicator, .compensation-suggested { … }
+          .change-owed-choice,  .compensation-load-allowance-choice { … }  (+5 companions)
+        Re-declared here only so this standalone file renders; the deltas above
+        are the only genuinely new declarations.
+      */
+      .compensation-suggested {
+        min-height: 28px;
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 9px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-sm);
+        color: var(--ink-soft);
+        background: var(--surface-subtle);
+        font-size: 12px;
+        font-weight: 750;
+        white-space: nowrap;
+      }
+
+      .compensation-load-allowance-choice {
+        position: relative;
+        min-height: var(--field-h);
+        display: flex;
+        align-items: center;
+        padding-left: 52px;
+        cursor: pointer;
+      }
+
+      .compensation-load-allowance-choice input {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: var(--touch-min);
+        height: var(--touch-min);
+        margin: 0;
+        opacity: 0;
+        transform: translateY(-50%);
+      }
+
+      .compensation-load-allowance-choice small {
+        display: block;
+      }
+
+      .compensation-load-allowance-choice > span::before {
+        position: absolute;
+        top: 50%;
+        left: 12px;
+        width: 18px;
+        height: 18px;
+        border: 1px solid var(--border-strong);
+        border-radius: 3px;
+        background: var(--surface);
+        content: '';
+        transform: translateY(-50%);
+      }
+
+      .compensation-load-allowance-choice input:checked + span::before {
+        border-color: var(--accent);
+        background: var(--accent);
+        box-shadow: inset 0 0 0 4px var(--surface);
+      }
+
+      .compensation-load-allowance-choice input:focus-visible + span::before {
+        outline: 3px solid var(--focus);
+        outline-offset: 2px;
+      }
+
+      /* Fragment scaffolding only — not part of the design. */
+      body {
+        margin: 0;
+        padding: var(--space-6);
+        background: var(--bg);
+      }
+
+      .fragment-caption {
+        max-width: 560px;
+        margin: 0 auto var(--space-3);
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .fragment-stage {
+        max-width: 560px;
+        margin: 0 auto var(--space-8);
+      }
+    </style>
+  </head>
+  <body>
+    <p class="fragment-caption">
+      Add mode, business day present. Salary prefilled from a base salary of
+      ₱500.00, commission prefilled from a gross of ₱2,750.00, load allowance
+      selected with an existing allowance on the same date.
+    </p>
+    <div class="fragment-stage">
+      <section class="inventory-modal staff-modal compensation-modal">
+        <header class="inventory-modal-head">
+          <div>
+            <h2 id="compensation-dialog-title">Add daily record</h2>
+            <p>Record salary and commission for one work date.</p>
+          </div>
+          <button class="catalog-button small" type="button">Close</button>
+        </header>
+        <form novalidate>
+          <div class="inventory-modal-grid">
+            <div class="catalog-field">
+              <label for="compensation-staffMemberId">Staff member <span aria-hidden="true">*</span></label>
+              <select id="compensation-staffMemberId">
+                <option>Jonas</option>
+              </select>
+              <p class="catalog-field-help">Only active staff members can be selected.</p>
+            </div>
+            <div class="catalog-field">
+              <label for="compensation-workDate">Work date <span aria-hidden="true">*</span></label>
+              <input id="compensation-workDate" type="date" value="2026-10-03" />
+              <p class="catalog-field-help">Today or earlier.</p>
+            </div>
+          </div>
+
+          <!-- NEW block 2 — gross sales -->
+          <div class="compensation-total compensation-gross" role="status" aria-live="polite">
+            <div>
+              <strong>Gross sales for this date</strong>
+              <p>All completed sales for this business date. Commission suggestion: ₱50 for every full ₱1,000.</p>
+            </div>
+            <strong class="num">₱2,750.00</strong>
+          </div>
+
+          <div class="inventory-modal-grid">
+            <div class="catalog-field">
+              <label for="compensation-salary">Salary amount <span aria-hidden="true">*</span></label>
+              <input
+                id="compensation-salary"
+                type="text"
+                inputmode="decimal"
+                value="500.00"
+                aria-describedby="compensation-salary-help compensation-salary-suggested"
+              />
+              <p class="catalog-field-help" id="compensation-salary-help">PHP, up to 2 decimal places. Zero is allowed.</p>
+              <p class="compensation-field-annotation">
+                <span class="compensation-suggested" id="compensation-salary-suggested">From base salary</span>
+              </p>
+            </div>
+            <div class="catalog-field">
+              <label for="compensation-commission">Commission amount <span aria-hidden="true">*</span></label>
+              <input
+                id="compensation-commission"
+                type="text"
+                inputmode="decimal"
+                value="100.00"
+                aria-describedby="compensation-commission-help compensation-commission-suggested"
+              />
+              <p class="catalog-field-help" id="compensation-commission-help">PHP, up to 2 decimal places. Zero is allowed.</p>
+              <p class="compensation-field-annotation">
+                <span class="compensation-suggested" id="compensation-commission-suggested">Suggested from gross sales</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="compensation-total" aria-live="polite">
+            <div>
+              <strong>Daily total</strong>
+              <p>Computed from salary + commission. Not editable.</p>
+            </div>
+            <strong class="num">₱600.00</strong>
+          </div>
+
+          <!-- NEW block 3 — load allowance -->
+          <div class="compensation-load-allowance">
+            <label class="compensation-load-allowance-choice" for="compensation-loadAllowance">
+              <input id="compensation-loadAllowance" type="checkbox" checked />
+              <span>
+                <strong>Include load allowance</strong>
+                <small>Recorded as a separate allowance dated the work date. Not included in the daily total.</small>
+              </span>
+            </label>
+            <div class="catalog-field">
+              <label class="catalog-field-label" for="compensation-loadAllowanceAmount">Load allowance amount</label>
+              <span class="adjustment-amount-input">
+                <span aria-hidden="true">₱</span>
+                <input
+                  id="compensation-loadAllowanceAmount"
+                  type="text"
+                  inputmode="decimal"
+                  value="200.00"
+                  aria-describedby="compensation-loadAllowance-help"
+                />
+              </span>
+              <span class="catalog-field-help" id="compensation-loadAllowance-help">Positive pesos, up to two decimal places. Minimum ₱0.01.</span>
+            </div>
+            <p class="compensation-duplicate-warning" role="status" aria-live="polite">
+              Jonas already has a Load allowance for 3 October 2026. Saving adds a second one.
+            </p>
+          </div>
+
+          <div class="staff-modal-actions">
+            <button class="catalog-button" type="button">Cancel</button>
+            <button class="catalog-button primary" type="submit">Add record</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <p class="fragment-caption">
+      The no-business-day state. Gross is a real ₱0.00 and the note is the only
+      difference from a day that opened and sold nothing — which shows the same
+      figure with no note at all.
+    </p>
+    <div class="fragment-stage">
+      <div class="compensation-total compensation-gross" role="status" aria-live="polite">
+        <div>
+          <strong>Gross sales for this date</strong>
+          <p>All completed sales for this business date. Commission suggestion: ₱50 for every full ₱1,000.</p>
+          <p class="staff-permanence-warning compensation-gross-note">No business day on this date</p>
+        </div>
+        <strong class="num">₱0.00</strong>
+      </div>
+    </div>
+
+    <p class="fragment-caption">
+      The staff add/edit dialog's new field, between Name and Is active.
+    </p>
+    <div class="fragment-stage">
+      <section class="inventory-modal staff-modal">
+        <div class="inventory-modal-head">
+          <div>
+            <h2>Edit staff</h2>
+            <p>Update this roster entry without changing its identity.</p>
+          </div>
+          <button class="catalog-button small" type="button">Close</button>
+        </div>
+        <form novalidate>
+          <div class="catalog-field">
+            <label for="staff-display-name">Name <span aria-hidden="true">*</span></label>
+            <input id="staff-display-name" value="Jonas" />
+            <p class="catalog-field-help">Use the name staff recognize at the register.</p>
+          </div>
+          <div class="catalog-field">
+            <label for="staff-base-salary">Base salary</label>
+            <span class="adjustment-amount-input">
+              <span aria-hidden="true">₱</span>
+              <input
+                id="staff-base-salary"
+                type="text"
+                inputmode="decimal"
+                value="500.00"
+                aria-describedby="staff-base-salary-hint"
+              />
+            </span>
+            <p class="catalog-field-help" id="staff-base-salary-hint">
+              Daily rate in PHP, up to 2 decimal places. Leave blank for no base salary; ₱0.00 is a rate of zero.
+            </p>
+          </div>
+          <div class="catalog-field">
+            <label for="staff-active-state">Is active</label>
+            <select id="staff-active-state">
+              <option>Active</option>
+              <option>Inactive</option>
+            </select>
+          </div>
+          <div class="staff-modal-actions">
+            <button class="catalog-button" type="button">Cancel</button>
+            <button class="catalog-button primary" type="submit">Save changes</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </body>
+</html>
