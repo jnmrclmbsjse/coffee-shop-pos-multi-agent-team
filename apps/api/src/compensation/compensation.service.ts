@@ -8,6 +8,7 @@ import {
   addMoney,
   cents,
   CompensationAdjustmentKind,
+  type PayslipAdjustmentGroup,
   type StaffCompensationAdjustment,
   type PayslipSummary,
   type StaffCompensationEntry,
@@ -109,6 +110,7 @@ export class CompensationService {
     const adjustments = adjustmentRecords.map((record) =>
       this.toAdjustment(record),
     );
+    const adjustmentGroups = this.groupAdjustments(adjustments);
     const allowanceTotalCents = this.sumAdjustments(
       adjustments,
       CompensationAdjustmentKind.ALLOWANCE,
@@ -140,6 +142,7 @@ export class CompensationService {
       to: query.to,
       entries,
       adjustments,
+      adjustmentGroups,
       salaryTotalCents,
       commissionTotalCents,
       grandTotalCents,
@@ -417,6 +420,45 @@ export class CompensationService {
         .filter((adjustment) => adjustment.kind === kind)
         .map((adjustment) => adjustment.amountCents),
     );
+  }
+
+  private groupAdjustments(
+    adjustments: readonly StaffCompensationAdjustment[],
+  ): PayslipAdjustmentGroup[] {
+    const groups: PayslipAdjustmentGroup[] = [];
+    const groupsByKey = new Map<string, PayslipAdjustmentGroup>();
+
+    for (const adjustment of adjustments) {
+      const key = JSON.stringify([
+        adjustment.kind,
+        adjustment.description.trim().toLowerCase(),
+      ]);
+      const existingGroup = groupsByKey.get(key);
+
+      if (existingGroup) {
+        existingGroup.totalCents = addMoney(
+          existingGroup.totalCents,
+          adjustment.amountCents,
+        );
+        existingGroup.effectiveDates.push(adjustment.effectiveDate);
+        existingGroup.adjustmentIds.push(adjustment.id);
+        existingGroup.itemCount += 1;
+        continue;
+      }
+
+      const group: PayslipAdjustmentGroup = {
+        kind: adjustment.kind,
+        description: adjustment.description,
+        totalCents: addMoney(adjustment.amountCents),
+        effectiveDates: [adjustment.effectiveDate],
+        itemCount: 1,
+        adjustmentIds: [adjustment.id],
+      };
+      groupsByKey.set(key, group);
+      groups.push(group);
+    }
+
+    return groups;
   }
 
   private isPrismaError(error: unknown, code: string): boolean {

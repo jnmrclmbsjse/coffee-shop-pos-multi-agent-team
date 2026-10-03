@@ -218,12 +218,22 @@ export interface PayslipQuery {
   to: string;
 }
 
+export interface PayslipAdjustmentGroup {
+  kind: CompensationAdjustmentKind;
+  description: string;
+  totalCents: MoneyCents;
+  effectiveDates: string[];
+  itemCount: number;
+  adjustmentIds: string[];
+}
+
 export interface PayslipSummary {
   staffMember: Pick<StaffMember, 'id' | 'displayName'>;
   from: string;
   to: string;
   entries: PayslipEntry[];
   adjustments: StaffCompensationAdjustment[];
+  adjustmentGroups: PayslipAdjustmentGroup[];
   salaryTotalCents: MoneyCents;
   commissionTotalCents: MoneyCents;
   grandTotalCents: MoneyCents;
