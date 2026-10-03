@@ -2,6 +2,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,6 +13,7 @@ import {
   DayType,
   type CurrentOpenBusinessDay,
   type DayClosing,
+  type PackagingReconciliationRow,
   type TradingDayClosingSummary,
 } from '@coffee-shop/shared';
 import { SignedInAs } from '../auth/session-test-utils';
@@ -67,6 +69,23 @@ function closingSummary(
     expectedCashCents: cents(63100),
     packaging: [],
     hasClosingStockCount: true,
+    ...overrides,
+  };
+}
+
+function packagingRow(
+  overrides: Partial<PackagingReconciliationRow> = {},
+): PackagingReconciliationRow {
+  return {
+    inventoryItemId: 'cup-id',
+    itemName: '16 oz Cup',
+    openingQty: 20,
+    deliveriesQty: 0,
+    wastageQty: 0,
+    soldQty: 5,
+    expectedQty: 15,
+    actualQty: 13,
+    varianceQty: -2,
     ...overrides,
   };
 }
@@ -556,6 +575,7 @@ describe('staff business-day pages', () => {
       screen.getByText('Choose the staff member closing the day.'),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Actual cash counted *')).toHaveFocus();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(
       fetchMock.mock.calls.filter(
         ([url, init]) =>
@@ -563,6 +583,255 @@ describe('staff business-day pages', () => {
           init?.method === 'POST',
       ),
     ).toHaveLength(0);
+  });
+
+  it('lists only a cash discrepancy and gives Go back initial focus', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, closingSummary());
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderClosePage(activeStaff[0]!.id);
+    await user.type(await screen.findByLabelText('Actual cash counted *'), '630.00');
+    await user.click(screen.getByRole('button', { name: 'Close day' }));
+
+    const dialog = screen.getByRole('dialog', {
+      name: 'Close the day with these discrepancies?',
+    });
+    expect(within(dialog).getByText('Cash in drawer')).toBeInTheDocument();
+    expect(within(dialog).getByText('▾ Short ₱1.00')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'These discrepancies will be recorded with the close and visible to administrators in the daily reconciliation and cup / lid reports.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Go back' })).toHaveFocus();
+  });
+
+  it('lists discrepant packaging and omits balanced cash and packaging', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(
+          200,
+          closingSummary({
+            packaging: [
+              packagingRow(),
+              packagingRow({
+                inventoryItemId: 'lid-id',
+                itemName: '16 oz Lid',
+                expectedQty: 12,
+                actualQty: 12,
+                varianceQty: 0,
+              }),
+            ],
+          }),
+        );
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderClosePage(activeStaff[0]!.id);
+    await user.type(await screen.findByLabelText('Actual cash counted *'), '631.00');
+    await user.click(screen.getByRole('button', { name: 'Close day' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('16 oz Cup')).toBeInTheDocument();
+    expect(within(dialog).getByText('15')).toBeInTheDocument();
+    expect(within(dialog).getByText('13')).toBeInTheDocument();
+    expect(within(dialog).getByText('▾ Short 2')).toBeInTheDocument();
+    expect(within(dialog).queryByText('16 oz Lid')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('Cash in drawer')).not.toBeInTheDocument();
+  });
+
+  it('renders an unknown packaging balance with its missing-count detail', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(
+          200,
+          closingSummary({
+            packaging: [
+              packagingRow({
+                expectedQty: null,
+                actualQty: 13,
+                varianceQty: null,
+              }),
+            ],
+          }),
+        );
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderClosePage(activeStaff[0]!.id);
+    await user.type(await screen.findByLabelText('Actual cash counted *'), '631.00');
+    await user.click(screen.getByRole('button', { name: 'Close day' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('— no opening count')).toBeInTheDocument();
+    expect(within(dialog).getByText('— needs opening count')).toBeInTheDocument();
+  });
+
+  it('Go back preserves close fields and does not call the close API', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, closingSummary());
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderClosePage();
+    await user.type(await screen.findByLabelText('Actual cash counted *'), '630.00');
+    await user.type(
+      screen.getByLabelText('Discrepancy reason (optional)'),
+      'Drawer recount needed',
+    );
+    await user.selectOptions(
+      screen.getByLabelText('Closed by *'),
+      activeStaff[1]!.id,
+    );
+    await user.click(screen.getByRole('button', { name: 'Close day' }));
+    await user.click(screen.getByRole('button', { name: 'Go back' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Actual cash counted *')).toHaveValue('630.00');
+    expect(screen.getByLabelText('Discrepancy reason (optional)')).toHaveValue(
+      'Drawer recount needed',
+    );
+    expect(screen.getByLabelText('Closed by *')).toHaveValue(activeStaff[1]!.id);
+    expect(screen.getByRole('button', { name: 'Close day' })).toHaveFocus();
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          new URL(String(url)).pathname === '/trading-day/close' &&
+          init?.method === 'POST',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('dismisses with Escape or the backdrop without closing the day', async () => {
+    fetchMock.mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, closingSummary());
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderClosePage(activeStaff[0]!.id);
+    await user.type(await screen.findByLabelText('Actual cash counted *'), '630.00');
+    const closeButton = screen.getByRole('button', { name: 'Close day' });
+    await user.click(closeButton);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(closeButton);
+    const dialog = screen.getByRole('dialog');
+    fireEvent.mouseDown(dialog.parentElement!);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          new URL(String(url)).pathname === '/trading-day/close' &&
+          init?.method === 'POST',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('confirms one close with a null reason and disables both dialog actions', async () => {
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, closingSummary());
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      if (path === '/trading-day/close' && init?.method === 'POST') {
+        return new Promise<Response>(() => undefined);
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderClosePage(activeStaff[0]!.id);
+    await user.type(await screen.findByLabelText('Actual cash counted *'), '630.00');
+    await user.click(screen.getByRole('button', { name: 'Close day' }));
+    await user.click(screen.getByRole('button', { name: 'Close day anyway' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'Go back' })).toBeDisabled();
+    expect(
+      within(dialog).getByRole('button', { name: 'Closing day…' }),
+    ).toBeDisabled();
+    const closeCalls = fetchMock.mock.calls.filter(
+      ([url, init]) =>
+        new URL(String(url)).pathname === '/trading-day/close' &&
+        init?.method === 'POST',
+    );
+    expect(closeCalls).toHaveLength(1);
+    expect(JSON.parse(String(closeCalls[0]![1]?.body))).toEqual({
+      clientGeneratedId: expect.any(String),
+      actualCashCents: 63000,
+      varianceReason: null,
+      closedByStaffMemberId: activeStaff[0]!.id,
+    });
+  });
+
+  it('reuses the close attempt id after a failed confirmed close', async () => {
+    let closeAttempts = 0;
+    fetchMock.mockImplementation(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/trading-day/current/closing-summary') {
+        return response(200, closingSummary());
+      }
+      if (path === '/inventory/counts/staff') return response(200, activeStaff);
+      if (path === '/trading-day/close' && init?.method === 'POST') {
+        closeAttempts += 1;
+        return closeAttempts === 1
+          ? response(500)
+          : new Promise<Response>(() => undefined);
+      }
+      return response(500);
+    });
+    const user = userEvent.setup();
+
+    renderClosePage(activeStaff[0]!.id);
+    await user.type(await screen.findByLabelText('Actual cash counted *'), '630.00');
+    await user.click(screen.getByRole('button', { name: 'Close day' }));
+    await user.click(screen.getByRole('button', { name: 'Close day anyway' }));
+    expect(
+      await screen.findByText(
+        'The business day request could not be completed. Try again.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Close day' }));
+    await user.click(screen.getByRole('button', { name: 'Close day anyway' }));
+    await waitFor(() => expect(closeAttempts).toBe(2));
+
+    const attemptIds = fetchMock.mock.calls
+      .filter(
+        ([url, init]) =>
+          new URL(String(url)).pathname === '/trading-day/close' &&
+          init?.method === 'POST',
+      )
+      .map(([, init]) => JSON.parse(String(init?.body)).clientGeneratedId);
+    expect(attemptIds[0]).toBe(attemptIds[1]);
   });
 
   it.each([
@@ -595,7 +864,18 @@ describe('staff business-day pages', () => {
     fetchMock.mockImplementation(async (url, init) => {
       const path = new URL(String(url)).pathname;
       if (path === '/trading-day/current/closing-summary') {
-        return response(200, closingSummary());
+        return response(
+          200,
+          closingSummary({
+            packaging: [
+              packagingRow({
+                expectedQty: 15,
+                actualQty: 15,
+                varianceQty: 0,
+              }),
+            ],
+          }),
+        );
       }
       if (path === '/inventory/counts/staff') return response(200, activeStaff);
       if (path === '/trading-day/close' && init?.method === 'POST') {
@@ -615,6 +895,7 @@ describe('staff business-day pages', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Close day' }));
 
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Closing day…' }),
     ).toBeDisabled();

@@ -4,8 +4,11 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type KeyboardEvent,
+  type MouseEvent,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
   cents,
@@ -829,6 +832,174 @@ function discrepancyClass(value: MoneyCents | null): string {
   return 'balanced';
 }
 
+function focusableDialogButtons(container: HTMLElement): HTMLButtonElement[] {
+  return [
+    ...container.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+  ];
+}
+
+function CloseDiscrepancyDialog({
+  cashDiscrepancy,
+  actualCash,
+  packaging,
+  hasClosingStockCount,
+  busy,
+  onDismiss,
+  onConfirm,
+}: {
+  cashDiscrepancy: MoneyCents | null;
+  actualCash: string;
+  packaging: PackagingFigure[];
+  hasClosingStockCount: boolean;
+  busy: boolean;
+  onDismiss: () => void;
+  onConfirm: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const goBackRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    queueMicrotask(() => goBackRef.current?.focus());
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (busy) dialogRef.current?.focus();
+  }, [busy]);
+
+  const dismiss = () => {
+    if (!busy) onDismiss();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      dismiss();
+      return;
+    }
+    if (event.key !== 'Tab' || !dialogRef.current) return;
+    const buttons = focusableDialogButtons(dialogRef.current);
+    if (buttons.length === 0) {
+      event.preventDefault();
+      dialogRef.current.focus();
+      return;
+    }
+    const first = buttons[0]!;
+    const last = buttons.at(-1)!;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  const handleBackdrop = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) dismiss();
+  };
+
+  return createPortal(
+    <div className="logout-dialog-backdrop" onMouseDown={handleBackdrop}>
+      <div
+        ref={dialogRef}
+        className="logout-dialog close-confirm-dialog"
+        role="dialog"
+        tabIndex={-1}
+        aria-modal="true"
+        aria-labelledby="close-confirm-title"
+        aria-describedby="close-confirm-description"
+        onKeyDown={handleKeyDown}
+      >
+        <h2 id="close-confirm-title">Close the day with these discrepancies?</h2>
+        <p id="close-confirm-description">
+          These discrepancies will be recorded with the close and visible to
+          administrators in the daily reconciliation and cup / lid reports.
+        </p>
+        <ul className="close-confirm-list">
+          {cashDiscrepancy !== null && cashDiscrepancy !== 0 && (
+            <li>
+              <p className="close-confirm-entry-name">Cash in drawer</p>
+              <dl className="close-confirm-entry-figures">
+                <div>
+                  <dt>Balance</dt>
+                  <dd className={discrepancyClass(cashDiscrepancy)}>
+                    {discrepancyText(cashDiscrepancy, actualCash)}
+                  </dd>
+                </div>
+              </dl>
+            </li>
+          )}
+          {packaging.map((row) => (
+            <li key={row.inventoryItemId}>
+              <p className="close-confirm-entry-name">{row.itemName}</p>
+              <dl className="close-confirm-entry-figures">
+                <div>
+                  <dt>Expected</dt>
+                  <dd className={row.expectedQty === null ? 'unknown' : undefined}>
+                    {packagingExpected(row)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Actual</dt>
+                  <dd className={row.actualQty === null ? 'unknown' : undefined}>
+                    {packagingActual(row, hasClosingStockCount)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Balance</dt>
+                  <dd
+                    className={
+                      row.varianceQty === null
+                        ? 'unknown'
+                        : row.varianceQty < 0
+                          ? 'variance-short'
+                          : 'variance-over'
+                    }
+                  >
+                    {packagingVariance(row)}
+                  </dd>
+                </div>
+              </dl>
+            </li>
+          ))}
+        </ul>
+        <div className="logout-dialog-actions">
+          <button
+            ref={goBackRef}
+            type="button"
+            disabled={busy}
+            onClick={dismiss}
+          >
+            Go back
+          </button>
+          <button
+            className="is-primary"
+            type="button"
+            disabled={busy}
+            aria-busy={busy}
+            onClick={onConfirm}
+          >
+            {busy ? (
+              <span className="button-loading">
+                <span className="spinner" aria-hidden="true" />
+                Closing day…
+              </span>
+            ) : (
+              'Close day anyway'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export function CloseBusinessDayPage() {
   useDocumentTitle('Close business day');
   const { clearBusinessDay } = useStaffWorkspaceBusinessDay();
@@ -843,6 +1014,7 @@ export function CloseBusinessDayPage() {
   const [fieldErrors, setFieldErrors] = useState<CloseFieldErrors>({});
   const [formMessages, setFormMessages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [didClose, setDidClose] = useState(false);
   const [latestClosing, setLatestClosing] = useState<
     (DayClosing & { businessDate: string }) | null
@@ -851,6 +1023,8 @@ export function CloseBusinessDayPage() {
   const [latestMessages, setLatestMessages] = useState<string[]>([]);
   const [latestVersion, setLatestVersion] = useState(0);
   const clientGeneratedId = useRef<string | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const closeSuccessRef = useRef<HTMLElement>(null);
   const signedInStaffMemberId = useSignedInStaffMemberId();
 
   const actualCashCents = useMemo(
@@ -864,6 +1038,13 @@ export function CloseBusinessDayPage() {
     if (summary?.expectedCashCents === undefined) return null;
     return cents(actualCashCents - summary.expectedCashCents);
   }, [actualCashCents, summary?.expectedCashCents]);
+  const packagingDiscrepancies = useMemo(
+    () =>
+      summary?.packaging.filter(
+        (row) => row.varianceQty === null || row.varianceQty !== 0,
+      ) ?? [],
+    [summary?.packaging],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -928,6 +1109,40 @@ export function CloseBusinessDayPage() {
     clientGeneratedId.current = null;
   }
 
+  function dismissConfirmation() {
+    if (isSubmitting) return;
+    setConfirmOpen(false);
+    queueMicrotask(() => closeButtonRef.current?.focus());
+  }
+
+  async function performClose(validActualCashCents: MoneyCents) {
+    if (isSubmitting) return;
+    const attemptId =
+      clientGeneratedId.current ?? globalThis.crypto.randomUUID();
+    clientGeneratedId.current = attemptId;
+    setIsSubmitting(true);
+    try {
+      await closeBusinessDay({
+        clientGeneratedId: attemptId,
+        actualCashCents: validActualCashCents,
+        varianceReason: varianceReason.trim() || null,
+        closedByStaffMemberId: closedBy,
+      });
+      setDidClose(true);
+      setSummary(EMPTY_CLOSING_SUMMARY);
+      clearBusinessDay();
+      queueMicrotask(() => closeSuccessRef.current?.focus());
+    } catch (error) {
+      setFormMessages(
+        apiMessages(error, 'The business day could not be closed. Try again.'),
+      );
+      queueMicrotask(() => closeButtonRef.current?.focus());
+    } finally {
+      setConfirmOpen(false);
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isSubmitting) return;
@@ -954,27 +1169,13 @@ export function CloseBusinessDayPage() {
     }
     if (actualCashCents === null) return;
 
-    const attemptId =
-      clientGeneratedId.current ?? globalThis.crypto.randomUUID();
-    clientGeneratedId.current = attemptId;
-    setIsSubmitting(true);
-    try {
-      await closeBusinessDay({
-        clientGeneratedId: attemptId,
-        actualCashCents,
-        varianceReason: varianceReason.trim() || null,
-        closedByStaffMemberId: closedBy,
-      });
-      setDidClose(true);
-      setSummary(EMPTY_CLOSING_SUMMARY);
-      clearBusinessDay();
-    } catch (error) {
-      setFormMessages(
-        apiMessages(error, 'The business day could not be closed. Try again.'),
-      );
-    } finally {
-      setIsSubmitting(false);
+    const hasCashDiscrepancy =
+      discrepancyCents !== null && discrepancyCents !== 0;
+    if (hasCashDiscrepancy || packagingDiscrepancies.length > 0) {
+      setConfirmOpen(true);
+      return;
     }
+    await performClose(actualCashCents);
   }
 
   return (
@@ -994,7 +1195,13 @@ export function CloseBusinessDayPage() {
       ) : !summary?.isOpen ? (
         <>
           {didClose && (
-            <strong className="staff-close-success">Business day closed.</strong>
+            <strong
+              ref={closeSuccessRef}
+              className="staff-close-success"
+              tabIndex={-1}
+            >
+              Business day closed.
+            </strong>
           )}
           {latestLoading ? (
             <LoadingState label="Loading the last closed day…" />
@@ -1139,14 +1346,32 @@ export function CloseBusinessDayPage() {
             <FormMessages messages={formMessages} />
             <div className="staff-inventory-actions">
               <button
+                ref={closeButtonRef}
                 className="staff-inventory-button primary"
                 type="submit"
                 disabled={isSubmitting}
+                aria-haspopup="dialog"
+                aria-expanded={confirmOpen}
               >
                 {isSubmitting ? 'Closing day…' : 'Close day'}
               </button>
             </div>
           </form>
+          {confirmOpen && (
+            <CloseDiscrepancyDialog
+              cashDiscrepancy={discrepancyCents}
+              actualCash={actualCash}
+              packaging={packagingDiscrepancies}
+              hasClosingStockCount={summary.hasClosingStockCount}
+              busy={isSubmitting}
+              onDismiss={dismissConfirmation}
+              onConfirm={() => {
+                if (actualCashCents !== null) {
+                  void performClose(actualCashCents);
+                }
+              }}
+            />
+          )}
         </>
       )}
     </main>
