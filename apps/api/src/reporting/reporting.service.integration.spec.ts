@@ -180,8 +180,10 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
 
     expect(report.dailyReconciliation).toEqual([
       {
+        tradingDayId,
         date: '2026-07-22',
         status: 'closed',
+        openingFloatCents: 10_000,
         cashSalesCents: 20_000,
         onlineSalesCents: 7_000,
         grossSalesCents: 27_000,
@@ -221,6 +223,125 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
         0,
       ),
     );
+  });
+});
+
+describeWithDatabase('Daily reconciliation ordering against Postgres', () => {
+  const staffMemberId = randomUUID();
+  const tradingDays = [
+    {
+      id: '10000000-0000-4000-8000-000000000001',
+      businessDate: new Date('2097-01-01T00:00:00.000Z'),
+      openedAt: new Date('2097-01-01T08:00:00.000Z'),
+      openingFloatCents: 100,
+    },
+    {
+      id: '10000000-0000-4000-8000-000000000002',
+      businessDate: new Date('2097-01-02T00:00:00.000Z'),
+      openedAt: new Date('2097-01-02T08:00:00.000Z'),
+      openingFloatCents: 200,
+    },
+    {
+      id: '10000000-0000-4000-8000-000000000003',
+      businessDate: new Date('2097-01-02T00:00:00.000Z'),
+      openedAt: new Date('2097-01-02T09:00:00.000Z'),
+      openingFloatCents: 300,
+    },
+    {
+      id: '10000000-0000-4000-8000-000000000004',
+      businessDate: new Date('2097-01-02T00:00:00.000Z'),
+      openedAt: new Date('2097-01-02T09:00:00.000Z'),
+      openingFloatCents: 400,
+    },
+  ] as const;
+  let prisma: PrismaService;
+  let service: ReportingService;
+
+  beforeAll(async () => {
+    prisma = new PrismaService({
+      datasources: {
+        db: { url: testDatabaseUrl },
+      },
+    });
+    await prisma.$connect();
+    service = createReportingService(prisma);
+
+    await prisma.staffMember.create({
+      data: {
+        id: staffMemberId,
+        displayName: 'Daily reconciliation ordering integration test',
+      },
+    });
+    await prisma.tradingDay.createMany({
+      data: tradingDays.map((day) => ({
+        ...day,
+        status: TradingDayStatus.CLOSED,
+        closedAt: new Date('2097-01-02T12:00:00.000Z'),
+        openedByStaffMemberId: staffMemberId,
+        closedByStaffMemberId: staffMemberId,
+      })),
+    });
+  });
+
+  afterAll(async () => {
+    if (!prisma) return;
+    await prisma.tradingDay.deleteMany({
+      where: { id: { in: tradingDays.map((day) => day.id) } },
+    });
+    await prisma.staffMember.delete({ where: { id: staffMemberId } });
+    await prisma.$disconnect();
+  });
+
+  it('orders the API newest-first with opened-at and id tie-breaks', async () => {
+    const report = await service.getReport('2097-01-01', '2097-01-02');
+
+    expect(
+      report.dailyReconciliation.map((day) => ({
+        tradingDayId: day.tradingDayId,
+        date: day.date,
+        openingFloatCents: day.openingFloatCents,
+      })),
+    ).toEqual([
+      {
+        tradingDayId: tradingDays[3].id,
+        date: '2097-01-02',
+        openingFloatCents: 400,
+      },
+      {
+        tradingDayId: tradingDays[2].id,
+        date: '2097-01-02',
+        openingFloatCents: 300,
+      },
+      {
+        tradingDayId: tradingDays[1].id,
+        date: '2097-01-02',
+        openingFloatCents: 200,
+      },
+      {
+        tradingDayId: tradingDays[0].id,
+        date: '2097-01-01',
+        openingFloatCents: 100,
+      },
+    ]);
+  });
+
+  it('keeps CSV rows in their historical ascending order', async () => {
+    const report = await service.getReport('2097-01-01', '2097-01-02');
+    const rows = service
+      .toCsv(report)
+      .split('\r\n')
+      .slice(1, 5)
+      .map((row) => {
+        const columns = row.split(',');
+        return { date: columns[0], expectedCash: columns[10] };
+      });
+
+    expect(rows).toEqual([
+      { date: '2097-01-01', expectedCash: '1.00' },
+      { date: '2097-01-02', expectedCash: '2.00' },
+      { date: '2097-01-02', expectedCash: '3.00' },
+      { date: '2097-01-02', expectedCash: '4.00' },
+    ]);
   });
 });
 

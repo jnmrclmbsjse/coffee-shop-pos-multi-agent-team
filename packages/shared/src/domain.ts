@@ -775,8 +775,10 @@ export interface SalePayment {
 }
 
 export interface DailyReconciliation {
+  tradingDayId: string;
   date: string;
   status: 'open' | 'closed';
+  openingFloatCents: MoneyCents;
   cashSalesCents: MoneyCents;
   onlineSalesCents: MoneyCents;
   grossSalesCents: MoneyCents;
