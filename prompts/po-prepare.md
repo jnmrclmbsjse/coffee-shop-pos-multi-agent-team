@@ -131,18 +131,24 @@ and escalate, which is a safe outcome.
 
 ## Step 3 — Design (UI/UX sub-agent, against SETTLED criteria, decision B ordering)
 
-Design runs ONCE, here, after testability has converged — so it's generated
+Design runs ONCE, here, after testability has converged — so it's produced
 against QA-blessed acceptance criteria, not a draft.
 
 If `design:done` marker absent:
 - Spawn the design sub-agent by running `scripts/uiux-mockup.sh {{ISSUE}}`. Do
-  NOT hard-code an engine here — that wrapper selects Claude Code or Codex via
-  DESIGN_ENGINE → AGENT_ENGINE → claude (default) and runs the matching auth
-  preflight. That sub-agent:
-    - verifies the Open Design daemon is up first, and if not, fails clean per
-      rule B (the daemon guard lives inside that prompt, not here),
-    - generates the design via Open Design, writes files to docs/design/,
-    - self-reports: writes the design reference + `design:done` marker to the issue.
+  NOT hard-code an engine or a mode here — that wrapper resolves both. Engine:
+  DESIGN_ENGINE → AGENT_ENGINE → claude (default), with the matching auth
+  preflight. Mode: `open-design` when the Tech Lead labeled the Design Task
+  `design:net-new`, otherwise `spec` (the default). The design mode is a
+  lookup, not a decision: do not read the story and form your own opinion
+  about whether a screen is really net-new. That sub-agent:
+    - in spec mode, writes an implementation-ready `DESIGN.md` spec citing the
+      existing components and tokens — no Open Design, no daemon needed;
+    - in open-design mode, verifies the Open Design daemon is up first and, if
+      not, fails clean per rule B (the daemon guard lives inside that prompt,
+      not here), then generates the design via Open Design;
+    - writes files under docs/design/mockups/issue-{{ISSUE}}/ and self-reports
+      the design reference + `design:done` marker to the issue.
 - Wait. Re-read the issue, confirm `design:done` present.
 - If failed/absent: ABORT per rule B — relabel `agent:human`, comment, stop.
 

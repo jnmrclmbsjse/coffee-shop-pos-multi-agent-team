@@ -20,6 +20,7 @@ agent:human|d93f0b|Escalated — no agent should touch this
 type:epic|8250df|Feature/initiative container (never goes on the board)
 type:story|8250df|User story
 type:design-task|8250df|Design task
+design:net-new|c2e0c6|Net-new screen — design agent uses Open Design instead of spec mode
 type:dev-task|8250df|Implementation task
 type:qa-task|8250df|e2e test authoring task
 type:bug|8250df|Defect found by QA

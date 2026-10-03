@@ -78,6 +78,29 @@ see prompts/_conventions.md for markers, self-reporting, and failure posture.
    - Design Task — from the design-task template, labeled `type:design-task`.
      REQUIRED, not optional: web tasks reference it as a blocker, and the design
      sub-agent later attaches its output to it.
+     **You decide the design mode, and you decide it ONCE.** Take the first
+     row that matches:
+
+     | Condition | Verdict |
+     |---|---|
+     | A change to a screen that already exists | `spec` |
+     | The change needs a component that does not exist yet | `spec` + token check |
+     | A screen that does not exist yet | `open-design` |
+
+     Record the verdict and a one-line reason in the Design Task's "Design
+     Verdict" and "Why" fields, and repeat it in the story's Task Breakdown.
+     - `spec` — the design agent writes an implementation-ready spec citing the
+       components, classes and tokens that already exist. No Open Design run.
+     - `spec` + token check — same, and state in the Design Task that the new
+       component must read from the shipped tokens in `apps/web/src/styles.css`.
+     - `open-design` — ALSO apply the label `design:net-new` to the Design Task.
+       That LABEL, not the form field, is what `scripts/uiux-mockup.sh` reads to
+       switch the agent from spec mode to Open Design. A verdict without the
+       label leaves a net-new screen being specified against components that do
+       not exist.
+     "Net-new" is not a reason. "The payslip archive has no existing equivalent
+     in the admin shell" is. The reason exists so the choice can be argued with
+     later. po-prepare does not judge this again.
      Every frontend Dev Task must name its Design Task and state that Dev must
      consult the delivered Design Reference. The design is advisory rather than
      a new acceptance-criteria layer, so the task must also require Dev to list

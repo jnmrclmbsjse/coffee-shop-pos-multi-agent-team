@@ -192,6 +192,35 @@ sys.exit(0 if ok else 1)" <<<"$checks" 2>/dev/null; then
       done
 }
 
+# resolve_design_mode <story-issue> — print `spec` or `open-design` for the
+# design lane (scripts/uiux-mockup.sh). First match wins:
+#   DESIGN_MODE=spec|open-design   explicit override (anything else is refused)
+#   the story's Design Task carries `design:net-new`   -> open-design
+#   otherwise                                          -> spec (the default)
+# The label lives on the Design Task, not the story. Look at the story's native
+# sub-issues first (Tech Lead must attach them), then fall back to any Design
+# Task whose body names the story, so a task whose sub-issue link failed still
+# switches the mode. `#12` must not match `#123`.
+resolve_design_mode() {
+  local issue="$1"
+  case "${DESIGN_MODE:-}" in
+    spec|open-design) echo "$DESIGN_MODE"; return 0 ;;
+    "") ;;
+    *) echo "DESIGN ERROR — DESIGN_MODE='${DESIGN_MODE}' is not valid (expected spec or open-design)" >&2
+       return 1 ;;
+  esac
+  if gh api "repos/{owner}/{repo}/issues/$issue/sub_issues" \
+       -q '.[] | select(.labels | map(.name) | index("design:net-new")) | .number' \
+       2>/dev/null | grep -q . \
+     || gh issue list --state all --label type:design-task --label design:net-new \
+       --limit 50 --json body -q '.[].body' 2>/dev/null \
+       | grep -qE "#${issue}([^0-9]|$)"; then
+    echo open-design
+  else
+    echo spec
+  fi
+}
+
 # charter <role>  → prints _shared.md followed by that role's charter
 #
 # A charter belongs to a ROLE. The engine is swappable; the role is not. Codex
