@@ -214,6 +214,24 @@ function closeDayButton(page: Page): Locator {
   return page.getByRole('button', { name: 'Close day' });
 }
 
+/**
+ * Click Close day and pass the discrepancy confirmation dialog (story #410).
+ *
+ * Every day this suite actually closes carries a discrepancy — an uncounted
+ * reconciled item, a cash variance, or both — so since #410 the confirmation
+ * step always stands between Close day and the close. The dialog's own
+ * behaviour (what it lists, Go back, Escape, validation ordering) is covered
+ * exhaustively by `close-day-discrepancy-confirmation.spec.ts`; here it is only
+ * traversed. It is still asserted to appear rather than skipped if present, so
+ * a gate that quietly stopped gating is caught by this suite too.
+ */
+async function closeDayThroughConfirmation(page: Page): Promise<void> {
+  await closeDayButton(page).click();
+  const confirmation = page.getByRole('dialog');
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button', { name: 'Close day anyway' }).click();
+}
+
 /** The open-day summary's `<dd>` for one labelled fact. */
 function summaryValue(page: Page, term: string): Locator {
   return page
@@ -784,7 +802,7 @@ test('warns that the closing count is missing, links to it, and still allows clo
   await page.locator('#actualCash').fill('1740');
   await page.locator('#closedBy').selectOption({ label: staff.bruno.displayName });
   await expect(advisory).toBeVisible();
-  await closeDayButton(page).click();
+  await closeDayThroughConfirmation(page);
 
   await expect(page.locator('.staff-close-success')).toBeVisible();
   expect(readDayClosings()).toHaveLength(1);
@@ -1010,7 +1028,7 @@ test('closes with a non-zero discrepancy and no reason given', async ({
 
   // The reason is left deliberately empty — it is optional and must stay so.
   await expect(page.locator('#varianceReason')).toHaveValue('');
-  await closeDayButton(page).click();
+  await closeDayThroughConfirmation(page);
 
   await expect(page.locator('.staff-close-success')).toBeVisible();
   const closings = readDayClosings();
@@ -1040,7 +1058,7 @@ test('records the closing result, including a discrepancy reason, and cannot be 
   await page.locator('#actualCash').fill(String(counted / 100));
   await page.locator('#varianceReason').fill(reason);
   await page.locator('#closedBy').selectOption({ label: staff.bruno.displayName });
-  await closeDayButton(page).click();
+  await closeDayThroughConfirmation(page);
 
   // The close is confirmed on screen and the day is gone from the close flow.
   await expect(page.locator('.staff-close-success')).toHaveText(
@@ -1150,9 +1168,21 @@ test('closing the same action twice produces only one closing record', async ({
   await gotoScreen(page, '/pos/close');
   await page.locator('#actualCash').fill(String(counted / 100));
   await page.locator('#closedBy').selectOption({ label: staff.bruno.displayName });
+  // The cash count matches, but the reconciled items are uncounted, so #410's
+  // confirmation still stands in the way. The second submission is therefore
+  // attempted from inside the dialog, which is where the confirm button lives
+  // while the close is in flight.
   await closeDayButton(page).click();
+  const confirmation = page.getByRole('dialog');
+  await expect(confirmation).toBeVisible();
+  const confirm = confirmation.getByRole('button', {
+    name: 'Close day anyway',
+  });
+  await confirm.click();
 
-  const inFlight = page.getByRole('button', { name: 'Closing day…' });
+  // Scoped to the dialog: the form's own submit button relabels to
+  // "Closing day…" at the same moment, so an unscoped name match is ambiguous.
+  const inFlight = confirmation.getByRole('button', { name: 'Closing day…' });
   await expect(inFlight).toBeDisabled();
   await inFlight.click({ force: true });
 
