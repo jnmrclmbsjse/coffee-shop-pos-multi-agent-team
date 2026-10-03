@@ -710,6 +710,43 @@ describe('staff inventory screens', () => {
     expect(within(row).getByText('—')).toBeInTheDocument();
   });
 
+  it('formats business dates and count timestamps in the shop timezone', async () => {
+    const nodeProcess = (
+      globalThis as typeof globalThis & {
+        process: { env: Record<string, string | undefined> };
+      }
+    ).process;
+    const previousTimezone = nodeProcess.env.TZ;
+    nodeProcess.env.TZ = 'America/Los_Angeles';
+    const recordedAt = '2026-07-30T23:30:00.000Z';
+    const restock: RestockStatusResult = {
+      businessDay: openDay,
+      hasCount: true,
+      selectedPhase: 'close',
+      selectedCountId: 'count-id',
+      selectedCountRecordedAt: recordedAt,
+      rows: [],
+    };
+    fetchMock.mockResolvedValue(response(200, restock));
+
+    try {
+      renderPage(<RestockStatusPage />);
+
+      const manilaTimestamp = new Intl.DateTimeFormat('en-PH', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'Asia/Manila',
+      }).format(new Date(recordedAt));
+      expect(
+        await screen.findByText(`Using closing count submitted at ${manilaTimestamp}`),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Restock status for Jul 30, 2026')).toBeInTheDocument();
+    } finally {
+      if (previousTimezone === undefined) delete nodeProcess.env.TZ;
+      else nodeProcess.env.TZ = previousTimezone;
+    }
+  });
+
   function restockResult(
     rows: RestockStatusResult['rows'],
   ): RestockStatusResult {

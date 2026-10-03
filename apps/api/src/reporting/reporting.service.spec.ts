@@ -470,6 +470,31 @@ describe('ReportingService', () => {
     expect(sql).not.toContain('FROM cash_expenses');
   });
 
+  it('excludes parked orders and their lines from sales reporting', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw
+      .mockResolvedValueOnce([closedDay])
+      .mockResolvedValueOnce([]);
+    const service = createReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await service.getReport('2026-07-20', '2026-07-20');
+
+    const dailyQuery = prisma.$queryRaw.mock.calls[0]?.[0] as {
+      strings: string[];
+    };
+    const productsQuery = prisma.$queryRaw.mock.calls[1]?.[0] as {
+      strings: string[];
+    };
+    expect(dailyQuery.strings.join('?')).toContain(
+      "WHERE kind = 'PURCHASE' AND sale.status = 'COMPLETED'",
+    );
+    expect(productsQuery.strings.join('?')).toContain(
+      "AND sale.status = 'COMPLETED'",
+    );
+  });
+
   it('returns zero totals and empty collections for a range without days', async () => {
     const prisma = createPrisma();
     prisma.$queryRaw.mockResolvedValue([]);

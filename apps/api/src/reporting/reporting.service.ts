@@ -613,7 +613,9 @@ export class ReportingService {
         SELECT
           trading_day_id,
           COALESCE(SUM(cash_tip_cents), 0) AS tips_cents,
-          COUNT(*) FILTER (WHERE kind = 'PURCHASE') AS order_count
+          COUNT(*) FILTER (
+            WHERE kind = 'PURCHASE' AND sale.status = 'COMPLETED'
+          ) AS order_count
         FROM sales AS sale
         INNER JOIN selected_days AS selected_day
           ON selected_day.id = sale.trading_day_id
@@ -747,6 +749,7 @@ export class ReportingService {
         ON variant.id = line.product_variant_id
       INNER JOIN products AS product ON product.id = variant.product_id
       WHERE day.business_date BETWEEN ${from}::date AND ${to}::date
+        AND sale.status = 'COMPLETED'
       GROUP BY product.id, product.name
       HAVING SUM(line.quantity) <> 0 OR SUM(line.line_total_cents) <> 0
       ORDER BY

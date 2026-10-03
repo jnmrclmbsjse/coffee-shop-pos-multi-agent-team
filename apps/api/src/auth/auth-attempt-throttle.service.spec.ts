@@ -62,6 +62,44 @@ describe('AuthAttemptThrottleService', () => {
     expect(service.retryAfterSeconds(key)).toBeNull();
   });
 
+  it('proactively evicts failure buckets after the cooldown window', () => {
+    const service = new AuthAttemptThrottleService(
+      config({
+        AUTH_THROTTLE_MAX_FAILURES: '2',
+        AUTH_THROTTLE_COOLDOWN_SECONDS: '30',
+      }),
+    );
+    const expiredKey = service.keyForUnknown('device-1', 'password', 'first');
+
+    service.recordFailure(expiredKey);
+    jest.advanceTimersByTime(30_000);
+    service.recordFailure(
+      service.keyForUnknown('device-2', 'password', 'second'),
+    );
+    service.recordFailure(expiredKey);
+
+    expect(service.retryAfterSeconds(expiredKey)).toBeNull();
+  });
+
+  it('caps retained buckets and evicts the oldest bucket when full', () => {
+    const service = new AuthAttemptThrottleService(
+      config({
+        AUTH_THROTTLE_MAX_FAILURES: '2',
+        AUTH_THROTTLE_MAX_BUCKETS: '2',
+      }),
+    );
+    const firstKey = service.keyForUnknown('device-1', 'password', 'first');
+    const secondKey = service.keyForUnknown('device-1', 'password', 'second');
+    const thirdKey = service.keyForUnknown('device-1', 'password', 'third');
+
+    service.recordFailure(firstKey);
+    service.recordFailure(secondKey);
+    service.recordFailure(thirdKey);
+    service.recordFailure(firstKey);
+
+    expect(service.retryAfterSeconds(firstKey)).toBeNull();
+  });
+
   it('rejects invalid throttle configuration', () => {
     expect(
       () =>
@@ -69,5 +107,12 @@ describe('AuthAttemptThrottleService', () => {
           config({ AUTH_THROTTLE_MAX_FAILURES: '0' }),
         ),
     ).toThrow('AUTH_THROTTLE_MAX_FAILURES must be a positive integer');
+
+    expect(
+      () =>
+        new AuthAttemptThrottleService(
+          config({ AUTH_THROTTLE_MAX_BUCKETS: '0' }),
+        ),
+    ).toThrow('AUTH_THROTTLE_MAX_BUCKETS must be a positive integer');
   });
 });

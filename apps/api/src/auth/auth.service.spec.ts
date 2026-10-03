@@ -158,6 +158,11 @@ describe('AuthService', () => {
     ['an unknown username', null, ' Exact Pass '],
     ['a wrong password', user(Role.ADMIN), 'exact pass'],
     ['a staff account', user(Role.STAFF), ' Exact Pass '],
+    [
+      'a deactivated administrator',
+      user(Role.ADMIN, { isActive: false }),
+      ' Exact Pass ',
+    ],
   ])(
     'returns the generic admin failure for %s',
     async (_case, foundUser, password) => {
@@ -407,6 +412,45 @@ describe('AuthService', () => {
     });
     expect(throttle.recordFailure).not.toHaveBeenCalled();
     expect(signAsync).not.toHaveBeenCalled();
+  });
+
+  it('does not run Argon2 verification for throttled authentication attempts', async () => {
+    const foundUser = user(Role.STAFF);
+    const usersService = {
+      findByUsername: jest.fn().mockResolvedValue(foundUser),
+      findById: jest.fn().mockResolvedValue(foundUser),
+      findByStaffMemberId: jest.fn().mockResolvedValue(foundUser),
+    } as unknown as UsersService;
+    const throttle = throttleMock(12);
+    const service = new AuthService(
+      usersService,
+      jwtService,
+      throttle as unknown as AuthAttemptThrottleService,
+      cashierSelectionService,
+    );
+    const verify = jest.spyOn(
+      service as unknown as {
+        verify(hash: string, secret: string): Promise<boolean>;
+      },
+      'verify',
+    );
+
+    await expect(
+      service.staffPasswordLogin('staff', ' Exact Pass ', 'device-1'),
+    ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
+    await expect(
+      service.staffPinLogin(foundUser.id, '1234', 'device-1'),
+    ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
+    await expect(
+      service.authorizeCashierPin(
+        '9e55c455-879c-4ea8-8365-433e0e2cf4a3',
+        '1234',
+        'device-1',
+      ),
+    ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
+
+    expect(verify).not.toHaveBeenCalled();
+    verify.mockRestore();
   });
 
   it('counts password and PIN failures in one staff-and-device bucket', async () => {
