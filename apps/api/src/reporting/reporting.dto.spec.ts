@@ -115,6 +115,7 @@ describe('OrderHistoryListQueryDto', () => {
     const { dto, errors } = await validateQuery({
       status: 'Void',
       paymentMethod: 'Split',
+      serviceType: 'DINE_IN',
       sort: 'completedAt',
       direction: 'asc',
       page: '2',
@@ -126,10 +127,21 @@ describe('OrderHistoryListQueryDto', () => {
     expect(dto.pageSize).toBe(50);
   });
 
+  it.each(['DINE_IN', 'TAKE_OUT'])(
+    'accepts the %s service type',
+    async (serviceType) => {
+      const { dto, errors } = await validateQuery({ serviceType });
+
+      expect(errors).toEqual([]);
+      expect(dto.serviceType).toBe(serviceType);
+    },
+  );
+
   it('rejects unsupported filters and page boundaries', async () => {
     const { errors } = await validateQuery({
       status: 'VOID',
       paymentMethod: 'Card',
+      serviceType: 'DELIVERY',
       page: '0',
       pageSize: '100',
     });
@@ -138,6 +150,7 @@ describe('OrderHistoryListQueryDto', () => {
       expect.arrayContaining([
         'status',
         'paymentMethod',
+        'serviceType',
         'page',
         'pageSize',
       ]),

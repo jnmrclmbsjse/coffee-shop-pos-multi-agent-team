@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { cents } from '@coffee-shop/shared';
+import { cents, ServiceType } from '@coffee-shop/shared';
 import { OrderStatus, TradingDayStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
@@ -1034,7 +1034,7 @@ describe('order history read model', () => {
     });
   });
 
-  it('pushes combined derived filters and case-insensitive search into SQL', async () => {
+  it('pushes combined filters into both page and count SQL', async () => {
     const prisma = createPrisma();
     prisma.$queryRaw
       .mockResolvedValueOnce([{ count: 0n }])
@@ -1046,18 +1046,23 @@ describe('order history read model', () => {
     await service.getOrderHistory({
       status: 'Void',
       paymentMethod: 'Split',
+      serviceType: ServiceType.DINE_IN,
       search: 'mInA',
     });
 
-    const query = prisma.$queryRaw.mock.calls[1]![0] as {
-      strings: readonly string[];
-      values: readonly unknown[];
-    };
-    const sql = query.strings.join('?');
-    expect(sql).toContain(
-      'WHERE has_correction AND has_cash AND has_online AND customer_name ILIKE ?',
-    );
-    expect(query.values).toContain('%mInA%');
+    for (const call of prisma.$queryRaw.mock.calls) {
+      const query = call[0] as {
+        strings: readonly string[];
+        values: readonly unknown[];
+      };
+      const sql = query.strings.join('?');
+      expect(sql).toContain(
+        'WHERE has_correction AND has_cash AND has_online AND service_type = ?::"ServiceType" AND customer_name ILIKE ?',
+      );
+      expect(query.values).toEqual(
+        expect.arrayContaining(['DINE_IN', '%mInA%']),
+      );
+    }
   });
 
   it('returns correct page-boundary metadata and an empty result', async () => {

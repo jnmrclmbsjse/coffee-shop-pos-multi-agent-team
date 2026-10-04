@@ -919,7 +919,7 @@ function orderHistoryExpandedColumns(): Prisma.Sql {
 function orderHistoryFilters(
   query: Pick<
     OrderHistoryListQuery,
-    'status' | 'paymentMethod' | 'search'
+    'status' | 'paymentMethod' | 'serviceType' | 'search'
   >,
   options: { matchWalkInNull?: boolean } = {},
 ): Prisma.Sql {
@@ -943,6 +943,12 @@ function orderHistoryFilters(
     conditions.push(Prisma.sql`has_cash AND NOT has_online`);
   } else if (query.paymentMethod === 'Online') {
     conditions.push(Prisma.sql`has_online AND NOT has_cash`);
+  }
+
+  if (query.serviceType) {
+    conditions.push(
+      Prisma.sql`service_type = ${query.serviceType}::"ServiceType"`,
+    );
   }
 
   if (query.search) {

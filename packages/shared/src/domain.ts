@@ -898,6 +898,7 @@ export type OrderHistoryListSort =
 export interface OrderHistoryListQuery {
   status?: OrderHistoryStatus;
   paymentMethod?: OrderHistoryPaymentMethod;
+  serviceType?: ServiceType;
   search?: string;
   sort?: OrderHistoryListSort;
   direction?: SortDirection;
