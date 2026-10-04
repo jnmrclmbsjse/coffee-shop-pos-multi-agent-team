@@ -13,6 +13,7 @@ import type {
   OrderHistoryListSort,
   OrderHistoryPaymentMethod,
   OrderHistoryStatus,
+  ServiceType,
   SortDirection,
 } from '@coffee-shop/shared';
 
@@ -49,6 +50,10 @@ export class OrderHistoryListQueryDto {
   @IsOptional()
   @IsIn(['Cash', 'Online', 'Split'])
   paymentMethod?: OrderHistoryPaymentMethod;
+
+  @IsOptional()
+  @IsIn(['DINE_IN', 'TAKE_OUT'])
+  serviceType?: ServiceType;
 
   @IsOptional()
   @Transform(({ value }: { value: unknown }) => {

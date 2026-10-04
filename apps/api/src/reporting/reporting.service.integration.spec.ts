@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { ServiceType as SharedServiceType } from '@coffee-shop/shared';
 import {
   CashMovementKind,
   DayType,
@@ -545,16 +546,19 @@ describeWithDatabase('Order History queries against Postgres', () => {
     });
     await prisma.sale.createMany({
       data: [
-        completedOrder(
-          olderFirstOrderId,
-          olderTradingDayId,
-          1,
-          customerMarker,
-          {
-            staffMemberId,
-            nameSnapshot: 'Order History integration test',
-          },
-        ),
+        {
+          ...completedOrder(
+            olderFirstOrderId,
+            olderTradingDayId,
+            1,
+            customerMarker,
+            {
+              staffMemberId,
+              nameSnapshot: 'Order History integration test',
+            },
+          ),
+          serviceType: ServiceType.DINE_IN,
+        },
         completedOrder(
           olderSecondOrderId,
           olderTradingDayId,
@@ -576,6 +580,7 @@ describeWithDatabase('Order History queries against Postgres', () => {
           ),
           status: OrderStatus.PARKED,
           completedAt: null,
+          serviceType: ServiceType.DINE_IN,
         },
         {
           ...completedOrder(
@@ -585,6 +590,7 @@ describeWithDatabase('Order History queries against Postgres', () => {
             'Voided Customer',
           ),
           cashReceivedCents: 5_000,
+          serviceType: ServiceType.DINE_IN,
         },
         {
           ...completedOrder(
@@ -613,6 +619,7 @@ describeWithDatabase('Order History queries against Postgres', () => {
           cashReceivedCents: 5_000,
           changeOwedCents: 1_000,
           changeSettledAt: new Date('2026-07-20T06:30:00.000Z'),
+          serviceType: ServiceType.DINE_IN,
         },
         {
           ...completedOrder(
@@ -622,6 +629,7 @@ describeWithDatabase('Order History queries against Postgres', () => {
             'Legacy under-received cash',
           ),
           cashReceivedCents: 4_500,
+          serviceType: ServiceType.DINE_IN,
         },
         {
           ...completedOrder(
@@ -631,6 +639,7 @@ describeWithDatabase('Order History queries against Postgres', () => {
             'Legacy cash received without cash payment',
           ),
           cashReceivedCents: 5_500,
+          serviceType: ServiceType.DINE_IN,
         },
       ],
     });
@@ -775,6 +784,96 @@ describeWithDatabase('Order History queries against Postgres', () => {
         completedAt: '2026-07-20T06:00:00.000Z',
         lines: [],
       }),
+    );
+  });
+
+  it('filters each service type and leaves the omitted query unfiltered', async () => {
+    const [all, dineIn, takeOut] = await Promise.all([
+      service.getOrderHistory({ search: customerMarker }),
+      service.getOrderHistory({
+        search: customerMarker,
+        serviceType: SharedServiceType.DINE_IN,
+      }),
+      service.getOrderHistory({
+        search: customerMarker,
+        serviceType: SharedServiceType.TAKE_OUT,
+      }),
+    ]);
+
+    expect(all.items.map(({ serviceType }) => serviceType).sort()).toEqual([
+      'DINE_IN',
+      'TAKE_OUT',
+      'TAKE_OUT',
+    ]);
+    expect(dineIn.items).toEqual([
+      expect.objectContaining({
+        id: olderFirstOrderId,
+        serviceType: 'DINE_IN',
+      }),
+    ]);
+    expect(takeOut.items).toHaveLength(2);
+    expect(takeOut.items.every(({ serviceType }) => serviceType === 'TAKE_OUT'))
+      .toBe(true);
+  });
+
+  it('composes service, payment, and search filters', async () => {
+    await expect(
+      service.getOrderHistory({
+        serviceType: SharedServiceType.DINE_IN,
+        paymentMethod: 'Cash',
+        search: customerMarker,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        totalItems: 1,
+        items: [expect.objectContaining({ id: olderFirstOrderId })],
+      }),
+    );
+  });
+
+  it('calculates paging metadata from the service-filtered count', async () => {
+    const firstPage = await service.getOrderHistory({
+      serviceType: SharedServiceType.DINE_IN,
+      page: 1,
+      pageSize: 5,
+    });
+    const secondPage = await service.getOrderHistory({
+      serviceType: SharedServiceType.DINE_IN,
+      page: 2,
+      pageSize: 5,
+    });
+
+    expect(firstPage).toEqual(
+      expect.objectContaining({
+        page: 1,
+        totalItems: 6,
+        totalPages: 2,
+      }),
+    );
+    expect(firstPage.items).toHaveLength(5);
+    expect(secondPage).toEqual(
+      expect.objectContaining({
+        page: 2,
+        totalItems: 6,
+        totalPages: 2,
+      }),
+    );
+    expect(secondPage.items).toHaveLength(1);
+  });
+
+  it('does not apply an admin service filter to the staff ledger', async () => {
+    await service.getOrderHistory({
+      serviceType: SharedServiceType.TAKE_OUT,
+    });
+
+    const ledger = await service.getStaffOrderLedger(
+      olderTradingDayId,
+      {},
+    );
+
+    expect(ledger.orders).toHaveLength(7);
+    expect(new Set(ledger.orders.map(({ serviceType }) => serviceType))).toEqual(
+      new Set(['DINE_IN', 'TAKE_OUT']),
     );
   });
 
