@@ -414,6 +414,7 @@ describe('ReportingService', () => {
           productId: '2f631fdb-27e6-4010-b8d2-bfc7687d67e0',
           productName: 'Latte',
           quantitySold: 4n,
+          cupsSold: 6n,
           revenueCents: 37_500n,
         },
       ]);
@@ -456,6 +457,7 @@ describe('ReportingService', () => {
           productId: '2f631fdb-27e6-4010-b8d2-bfc7687d67e0',
           productName: 'Latte',
           quantitySold: 4,
+          cupsSold: 6,
           revenueCents: 37_500,
         },
       ],
@@ -542,6 +544,12 @@ describe('ReportingService', () => {
     expect(productsQuery.strings.join('?')).toContain(
       "sale.status = 'COMPLETED'",
     );
+    expect(productsQuery.strings.join('?')).toContain(
+      'variant.cup_inventory_item_id IS NULL',
+    );
+    expect(productsQuery.strings.join('?')).toContain(
+      'line.quantity * line.packaging_servings_snapshot',
+    );
   });
 
   it('loads all-time product sales without a business-date range', async () => {
@@ -551,6 +559,7 @@ describe('ReportingService', () => {
         productId: '2f631fdb-27e6-4010-b8d2-bfc7687d67e0',
         productName: 'Latte',
         quantitySold: 4n,
+        cupsSold: 6n,
         revenueCents: 37_500n,
       },
     ]);
@@ -563,6 +572,7 @@ describe('ReportingService', () => {
         productId: '2f631fdb-27e6-4010-b8d2-bfc7687d67e0',
         productName: 'Latte',
         quantitySold: 4,
+        cupsSold: 6,
         revenueCents: 37_500,
       },
     ]);
@@ -573,6 +583,8 @@ describe('ReportingService', () => {
     const sql = query.strings.join('?');
     expect(sql).not.toContain('day.business_date BETWEEN');
     expect(sql).toContain("sale.status = 'COMPLETED'");
+    expect(sql).toContain('variant.cup_inventory_item_id IS NULL');
+    expect(sql).toContain('line.quantity * line.packaging_servings_snapshot');
     expect(sql).toContain('SUM(line.line_total_cents) DESC');
     expect(sql).toContain('product.name ASC');
     expect(sql).toContain('product.id ASC');

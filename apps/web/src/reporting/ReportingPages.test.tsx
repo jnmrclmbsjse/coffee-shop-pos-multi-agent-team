@@ -41,6 +41,7 @@ const dashboard = {
       productId: 'latte',
       productName: 'Latte',
       quantitySold: 143,
+      cupsSold: 143,
       revenueCents: 5982000,
     },
   ],
@@ -96,6 +97,7 @@ const report: SalesRangeReport = {
       productId: 'latte',
       productName: 'Latte',
       quantitySold: 143,
+      cupsSold: 143,
       revenueCents: cents(5982000),
     },
   ],
@@ -238,12 +240,14 @@ describe('reporting pages', () => {
           productId: 'mocha',
           productName: 'Mocha',
           quantitySold: 2,
+          cupsSold: 6,
           revenueCents: cents(60000),
         },
         {
           productId: 'americano',
           productName: 'Americano',
           quantitySold: 4,
+          cupsSold: 4,
           revenueCents: cents(60000),
         },
       ],
@@ -253,12 +257,14 @@ describe('reporting pages', () => {
         productId: 'latte',
         productName: 'Latte',
         quantitySold: 20,
+        cupsSold: 24,
         revenueCents: 200000,
       },
       {
         productId: 'americano',
         productName: 'Americano',
         quantitySold: 30,
+        cupsSold: 30,
         revenueCents: 150000,
       },
     ];
@@ -274,6 +280,22 @@ describe('reporting pages', () => {
     expect(within(rows[2]!).getByText('Mocha')).toBeInTheDocument();
     expect(
       screen.getByRole('columnheader', { name: /Revenue/ }),
+    ).toHaveAttribute('aria-sort', 'descending');
+    expect(
+      screen.getByRole('columnheader', { name: /Cups/ }),
+    ).toHaveAttribute('aria-sort', 'none');
+
+    const rangeFooter = within(table.querySelector('tfoot') as HTMLElement);
+    expect(rangeFooter.getByText('Total')).toBeInTheDocument();
+    expect(rangeFooter.getByText('6')).toBeInTheDocument();
+    expect(rangeFooter.getByText('10')).toBeInTheDocument();
+    expect(rangeFooter.getByText('₱1,200.00')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cups, not sorted' }));
+    rows = within(table).getAllByRole('row');
+    expect(within(rows[1]!).getByText('Mocha')).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: /Cups/ }),
     ).toHaveAttribute('aria-sort', 'descending');
 
     await user.click(screen.getByRole('button', { name: 'Qty sold, not sorted' }));
@@ -294,6 +316,12 @@ describe('reporting pages', () => {
     );
     expect(within(rows[1]!).getByText('Americano')).toBeInTheDocument();
     expect(within(rows[2]!).getByText('Latte')).toBeInTheDocument();
+    const allTimeFooter = within(
+      screen.getByRole('table', { name: 'Product sales' }).querySelector('tfoot') as HTMLElement,
+    );
+    expect(allTimeFooter.getByText('50')).toBeInTheDocument();
+    expect(allTimeFooter.getByText('54')).toBeInTheDocument();
+    expect(allTimeFooter.getByText('₱3,500.00')).toBeInTheDocument();
 
     await user.click(allTimeToggle);
     await user.click(allTimeToggle);

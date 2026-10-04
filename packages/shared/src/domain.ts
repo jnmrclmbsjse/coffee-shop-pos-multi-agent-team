@@ -817,6 +817,7 @@ export interface ProductSales {
   productId: string;
   productName: string;
   quantitySold: number;
+  cupsSold: number;
   revenueCents: MoneyCents;
 }
 

@@ -69,6 +69,7 @@ interface ProductAggregateRow {
   productId: string;
   productName: string;
   quantitySold: DatabaseInteger;
+  cupsSold: DatabaseInteger;
   revenueCents: DatabaseInteger;
 }
 
@@ -769,6 +770,12 @@ export class ReportingService {
         product.id AS "productId",
         product.name AS "productName",
         SUM(line.quantity) AS "quantitySold",
+        SUM(
+          CASE
+            WHEN variant.cup_inventory_item_id IS NULL THEN 0
+            ELSE line.quantity * line.packaging_servings_snapshot
+          END
+        ) AS "cupsSold",
         SUM(line.line_total_cents) AS "revenueCents"
       FROM sale_lines AS line
       INNER JOIN sales AS sale ON sale.id = line.sale_id
@@ -790,6 +797,7 @@ export class ReportingService {
       productId: row.productId,
       productName: row.productName,
       quantitySold: databaseNumber(row.quantitySold),
+      cupsSold: databaseNumber(row.cupsSold),
       revenueCents: databaseCents(row.revenueCents),
     }));
   }
