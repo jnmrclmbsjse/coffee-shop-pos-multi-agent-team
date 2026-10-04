@@ -217,6 +217,7 @@ describe('administrator authentication routes', () => {
       'Staff',
       'Reports',
       'Compensation',
+      'Journal',
       'Order History',
     ]);
     expect(
@@ -230,8 +231,8 @@ describe('administrator authentication routes', () => {
       'clipboard',
       'users',
       'document',
-      // Compensation has its own glyph: the test's intent is distinct icons,
-      // and it previously reused Reports' document icon.
+      // Journal intentionally follows the task's specified wallet glyph.
+      'wallet',
       'wallet',
       'receipt',
     ]);

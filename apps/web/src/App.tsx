@@ -19,6 +19,7 @@ import { login } from './auth/api';
 import { StaffSignInPage } from './StaffSignIn';
 import { CategoriesPage } from './catalog/CategoriesPage';
 import { CompensationPage } from './compensation/CompensationPage';
+import { JournalPage } from './journal/JournalPage';
 import { ProductEditorPage } from './catalog/ProductEditorPage';
 import { ProductsPage } from './catalog/ProductsPage';
 import { Icon } from './catalog/components';
@@ -71,6 +72,7 @@ const ADMIN_NAV_GROUPS = [
       { to: '/staff', label: 'Staff', icon: 'users' as const },
       { to: '/reports', label: 'Reports', icon: 'document' as const },
       { to: '/compensation', label: 'Compensation', icon: 'wallet' as const },
+      { to: '/journal', label: 'Journal', icon: 'wallet' as const },
       { to: '/order-history', label: 'Order History', icon: 'receipt' as const },
     ],
   },
@@ -113,6 +115,7 @@ function destinationName(path: string): string {
     '/reports/expenses': 'Expenses Report',
     '/reports/daily-inventory': 'Daily Inventory Report',
     '/compensation': 'Compensation',
+    '/journal': 'Journal',
     '/order-history': 'Order History',
   };
 
@@ -540,6 +543,7 @@ export function AppRoutes() {
               element={<DailyInventoryReportPage />}
             />
             <Route path="/compensation" element={<CompensationPage />} />
+            <Route path="/journal" element={<JournalPage />} />
             <Route path="/order-history" element={<OrderHistoryPage />} />
             <Route
               path="/order-history/:id"
