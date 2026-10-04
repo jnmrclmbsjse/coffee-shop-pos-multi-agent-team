@@ -5,6 +5,8 @@ export type MoneyCents = number & { readonly __brand: 'MoneyCents' };
 
 export const COMMISSION_GROSS_BAND_CENTS = cents(100_000);
 export const COMMISSION_PER_BAND_CENTS = cents(5_000);
+export const RENT_ROUNDING_UNIT_CENTS = cents(100_000);
+export const RENT_ROUND_UP_HUNDREDS_DIGIT = 8;
 
 export interface TenderAmount {
   method: 'CASH' | 'ONLINE';
@@ -73,6 +75,31 @@ export function suggestCommissionCents(
     COMMISSION_PER_BAND_CENTS,
     Math.floor(grossSalesCents / COMMISSION_GROSS_BAND_CENTS),
   );
+}
+
+// Round gross by its hundreds digit — 0..7 down to the whole thousand,
+// 8..9 up — then apply the rent rate in basis points.
+export function suggestRentDepositCents(
+  grossSalesCents: MoneyCents,
+  rentPercentBasisPoints: number,
+): MoneyCents {
+  if (grossSalesCents <= 0) return cents(0);
+  const wholeThousands = Math.floor(grossSalesCents / 100_000);
+  const hundredsDigit = Math.floor((grossSalesCents % 100_000) / 10_000);
+  const rounded =
+    (hundredsDigit >= RENT_ROUND_UP_HUNDREDS_DIGIT
+      ? wholeThousands + 1
+      : wholeThousands) * 100_000;
+  return cents((rounded / 10_000) * rentPercentBasisPoints);
+}
+
+export function suggestChairDepositCents(
+  grossSalesCents: MoneyCents,
+  chairAmountCents: MoneyCents,
+  chairThresholdCents: MoneyCents,
+): MoneyCents {
+  if (grossSalesCents < chairThresholdCents) return cents(0);
+  return chairAmountCents;
 }
 
 /**

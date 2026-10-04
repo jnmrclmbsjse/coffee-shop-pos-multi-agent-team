@@ -9,7 +9,11 @@ import {
   COMMISSION_GROSS_BAND_CENTS,
   COMMISSION_PER_BAND_CENTS,
   multiplyMoney,
+  RENT_ROUNDING_UNIT_CENTS,
+  RENT_ROUND_UP_HUNDREDS_DIGIT,
+  suggestChairDepositCents,
   suggestCommissionCents,
+  suggestRentDepositCents,
 } from './money.js';
 
 describe('money helpers', () => {
@@ -39,6 +43,43 @@ describe('commission suggestion', () => {
     ['₱3,000', 300_000, 15_000],
   ])('returns the expected amount for %s', (_case, gross, expected) => {
     expect(suggestCommissionCents(cents(gross))).toBe(expected);
+  });
+});
+
+describe('Journal suggestions', () => {
+  it('keeps the rent rule as named integer constants', () => {
+    expect(RENT_ROUNDING_UNIT_CENTS).toBe(100_000);
+    expect(RENT_ROUND_UP_HUNDREDS_DIGIT).toBe(8);
+  });
+
+  it.each([
+    [760_000, 70_000],
+    [779_999, 70_000],
+    [780_000, 80_000],
+    [700_000, 70_000],
+    [79_900, 0],
+    [80_000, 10_000],
+    [0, 0],
+    [-1, 0],
+    [769_999, 70_000],
+    [770_000, 70_000],
+    [99_999, 10_000],
+  ])('for %i cents gross suggests %i cents rent', (gross, expected) => {
+    expect(suggestRentDepositCents(cents(gross), 1_000)).toBe(expected);
+  });
+
+  it.each([
+    [299_999, 0],
+    [300_000, 10_000],
+    [3_000_000, 10_000],
+  ])('for %i cents gross suggests %i cents chair', (gross, expected) => {
+    expect(
+      suggestChairDepositCents(
+        cents(gross),
+        cents(10_000),
+        cents(300_000),
+      ),
+    ).toBe(expected);
   });
 });
 

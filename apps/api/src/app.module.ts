@@ -7,6 +7,7 @@ import { NoStoreInterceptor } from './auth/no-store.interceptor';
 import { CatalogModule } from './catalog/catalog.module';
 import { CompensationModule } from './compensation/compensation.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { JournalModule } from './journal/journal.module';
 import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ReportingModule } from './reporting/reporting.module';
@@ -25,6 +26,7 @@ import { TradingDayModule } from './trading-day/trading-day.module';
     CatalogModule,
     CompensationModule,
     InventoryModule,
+    JournalModule,
     OrdersModule,
     ReportingModule,
     SalesModule,
