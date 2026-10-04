@@ -66,6 +66,8 @@
 html {
   min-width: 320px;
   background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -85,7 +87,11 @@ select {
   font: inherit;
 }
 
-button {
+a,
+button,
+input,
+select,
+textarea {
   touch-action: manipulation;
 }
 
@@ -973,17 +979,21 @@ button {
 .category-upsize-control .catalog-switch {
   width: 52px;
   height: var(--touch-min);
-  justify-content: flex-start;
-  padding: 11px 3px;
+}
+
+.category-upsize-control .catalog-switch::before {
+  width: 52px;
+  height: var(--touch-min);
 }
 
 .category-upsize-control .catalog-switch span {
   width: 20px;
   height: 20px;
+  transform: translateX(-13px);
 }
 
 .category-upsize-control .catalog-switch[aria-checked='true'] span {
-  transform: translateX(24px);
+  transform: translateX(13px);
 }
 
 .catalog-field label span {
@@ -1269,37 +1279,50 @@ button {
 }
 
 .catalog-switch {
+  position: relative;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.catalog-switch::before {
+  position: absolute;
   width: 42px;
   height: 24px;
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  padding: 2px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   background: var(--border-strong);
-  cursor: pointer;
+  content: '';
   transition:
     border-color 180ms ease-out,
     background-color 180ms ease-out;
 }
 
 .catalog-switch span {
+  position: relative;
+  z-index: 1;
   width: 18px;
   height: 18px;
   border-radius: 50%;
   background: var(--surface);
-  transform: translateX(0);
+  transform: translateX(-8px);
   transition: transform 180ms ease-out;
 }
 
-.catalog-switch[aria-checked='true'] {
+.catalog-switch[aria-checked='true']::before {
   border-color: var(--accent);
   background: var(--accent);
 }
 
 .catalog-switch[aria-checked='true'] span {
-  transform: translateX(16px);
+  transform: translateX(8px);
 }
 
 .catalog-switch:disabled {
@@ -1833,12 +1856,18 @@ button {
 }
 
 .staff-table {
-  min-width: 640px;
+  min-width: 720px;
+  table-layout: fixed;
 }
 
 .staff-table th:first-child,
 .staff-table td:first-child {
-  width: 52%;
+  width: 40%;
+}
+
+.staff-table th:nth-child(2),
+.staff-table td:nth-child(2) {
+  width: 220px;
 }
 
 .staff-status-control {
@@ -1855,9 +1884,11 @@ button {
 }
 
 .staff-account-action {
-  display: grid;
-  justify-items: end;
-  gap: var(--space-1);
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
 }
 
 .staff-account-action > span {
@@ -2338,26 +2369,36 @@ button {
 }
 
 @media (max-width: 760px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .catalog-button.small {
+    min-height: var(--touch-min);
+  }
+
   .catalog-admin-shell {
     display: block;
-    padding-bottom: 80px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
   }
 
   .admin-sidebar {
     position: fixed;
     inset: auto 0 0;
     width: 100%;
-    height: 80px;
+    height: calc(80px + env(safe-area-inset-bottom));
     display: flex;
     flex-direction: row;
     gap: 0;
-    padding: 6px 8px;
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--border);
     border-right: 0;
   }
 
   .admin-sidebar-user {
-    min-width: 160px;
+    min-width: 53px;
     display: flex;
     flex-direction: row;
     flex: 0 0 auto;
@@ -2371,11 +2412,6 @@ button {
   }
 
   .admin-sidebar-user .admin-identity {
-    width: auto;
-    flex: 0 0 auto;
-  }
-
-  .admin-sidebar-user .admin-identity > div {
     display: none;
   }
 
@@ -2395,8 +2431,18 @@ button {
   }
 
   .admin-sidebar-user .sign-out-button {
-    min-width: 110px;
-    padding-inline: var(--space-2);
+    width: var(--touch-min);
+    min-width: var(--touch-min);
+    padding: 0;
+  }
+
+  .admin-sidebar-user .sign-out-button-content {
+    min-width: 0;
+    grid-template-columns: 18px;
+  }
+
+  .admin-sidebar-user .sign-out-button-content > span:last-child {
+    display: none;
   }
 
   .admin-sidebar > .brand {
@@ -2527,13 +2573,21 @@ button {
 
   .staff-table {
     min-width: 0;
+    table-layout: auto;
   }
 
-  .staff-table tbody tr {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .staff-table td:first-child,
+  .staff-table td:nth-child(2) {
+    width: 100%;
   }
 
-  .staff-table td[data-label='Name'] {
+  .catalog-table.staff-table tbody tr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .catalog-table.staff-table td[data-label='Name'],
+  .catalog-table.staff-table td[data-label='Is active'],
+  .catalog-table.staff-table td[data-label='Actions'] {
     grid-column: 1 / -1;
   }
 
@@ -2547,8 +2601,13 @@ button {
     font-weight: 700;
   }
 
-  .staff-table td[data-label='Actions'] {
-    align-self: end;
+  .catalog-table.staff-table td[data-label='Actions'] {
+    width: 100%;
+    align-self: stretch;
+  }
+
+  .staff-status-control {
+    justify-content: space-between;
   }
 
   .staff-modal-actions {
@@ -2560,18 +2619,23 @@ button {
   }
 
   .staff-row-actions {
-    align-items: flex-end;
+    align-items: stretch;
     flex-direction: column;
+  }
+
+  .staff-row-actions > .catalog-button {
+    width: 100%;
   }
 
   .staff-account-action {
     width: 100%;
+    display: grid;
     justify-items: stretch;
   }
 
   .staff-account-action > span {
     max-width: none;
-    text-align: right;
+    text-align: left;
   }
 
   .staff-account-action .catalog-button {
@@ -3172,11 +3236,20 @@ button {
 
 .adjustment-amount-input input {
   border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-.adjustment-amount-input:has(input:focus-visible) {
-  outline: 3px solid var(--focus);
-  outline-offset: 1px;
+.adjustment-amount-input input:hover,
+.adjustment-amount-input input:focus-visible {
+  border: 0;
+  box-shadow: none;
+}
+
+.adjustment-amount-input:focus-within {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--focus) 22%, transparent);
 }
 
 .adjustment-amount-input:has(input[aria-invalid='true']) {

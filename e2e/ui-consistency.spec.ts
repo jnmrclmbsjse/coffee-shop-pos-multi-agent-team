@@ -110,6 +110,7 @@ const ADMIN_ROUTES = [
 const VIEWPORTS = [
   { name: 'landscape tablet 1024x768', width: 1024, height: 768 },
   { name: 'narrow screen 390x844', width: 390, height: 844 },
+  { name: 'compact phone 320x568', width: 320, height: 568 },
 ] as const;
 
 const BUSINESS_DATE = '2026-07-15';
@@ -774,6 +775,73 @@ for (const viewport of VIEWPORTS) {
     });
   });
 }
+
+test.describe('mobile interaction resilience', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test.beforeEach(async ({ page }) => {
+    await signInAsAdmin(page);
+  });
+
+  test('form controls stay at 16px so mobile Safari does not zoom on focus', async ({
+    page,
+  }) => {
+    for (const route of ADMIN_ROUTES) {
+      await gotoAdmin(page, route);
+      const undersized = await page
+        .locator('input:not([type="checkbox"]):not([type="radio"]), select, textarea')
+        .evaluateAll((elements) =>
+          elements
+            .filter((element) => element.getBoundingClientRect().width > 0)
+            .map((element) => ({
+              id: element.id,
+              size: Number.parseFloat(getComputedStyle(element).fontSize),
+            }))
+            .filter(({ size }) => size < 16),
+        );
+      expect(undersized, `undersized form controls on ${route}`).toEqual([]);
+    }
+  });
+
+  test('compact roster and catalog controls retain 44px touch targets', async ({
+    page,
+  }) => {
+    for (const route of ['/inventory', '/staff', '/catalog/products']) {
+      await gotoAdmin(page, route);
+      const controls = page.locator('.catalog-button.small, .catalog-switch');
+      const count = await controls.count();
+
+      for (let index = 0; index < count; index += 1) {
+        const box = await controls.nth(index).boundingBox();
+        expect(box, `${route} control ${index}`).not.toBeNull();
+        expect(box!.height, `${route} control ${index} height`).toBeGreaterThanOrEqual(44);
+        expect(box!.width, `${route} control ${index} width`).toBeGreaterThanOrEqual(44);
+      }
+    }
+  });
+
+  test('prefixed amount fields use one focus ring', async ({ page }) => {
+    await gotoAdmin(page, '/compensation');
+    await page.getByRole('button', { name: 'Adjustments' }).click();
+    await page.getByRole('button', { name: 'Add adjustment' }).first().click();
+
+    const amount = page.locator('#adjustment-amount');
+    await amount.focus();
+    const focusStyle = await amount.evaluate((element) => {
+      const input = getComputedStyle(element);
+      const wrapper = getComputedStyle(element.parentElement!);
+      return {
+        inputBorder: input.borderTopWidth,
+        inputShadow: input.boxShadow,
+        wrapperShadow: wrapper.boxShadow,
+      };
+    });
+
+    expect(focusStyle.inputBorder).toBe('0px');
+    expect(focusStyle.inputShadow).toBe('none');
+    expect(focusStyle.wrapperShadow).not.toBe('none');
+  });
+});
 
 // ---- reduced motion ---------------------------------------------------------
 

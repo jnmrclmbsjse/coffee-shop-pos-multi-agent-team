@@ -39,6 +39,7 @@ function SignOutButton({
       type="button"
       disabled={busy}
       aria-busy={busy}
+      aria-label={busy ? 'Signing out' : 'Sign out'}
       aria-haspopup={opensDialog ? 'dialog' : undefined}
       aria-expanded={opensDialog ? dialogOpen : undefined}
       onClick={onClick}
