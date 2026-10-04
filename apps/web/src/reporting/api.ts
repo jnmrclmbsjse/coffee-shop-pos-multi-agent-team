@@ -67,6 +67,7 @@ export function getOrderHistory(
   if (query.paymentMethod) {
     params.set('paymentMethod', query.paymentMethod);
   }
+  if (query.serviceType) params.set('serviceType', query.serviceType);
   if (query.search?.trim()) params.set('search', query.search.trim());
   if (query.sort) params.set('sort', query.sort);
   if (query.direction) params.set('direction', query.direction);

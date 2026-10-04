@@ -10,13 +10,14 @@ import {
   useLocation,
   useSearchParams,
 } from 'react-router-dom';
-import type {
-  OrderHistoryList,
-  OrderHistoryListItem,
-  OrderHistoryListQuery,
-  OrderHistoryListSort,
-  OrderHistoryStatus,
-  SortDirection,
+import {
+  ServiceType,
+  type OrderHistoryList,
+  type OrderHistoryListItem,
+  type OrderHistoryListQuery,
+  type OrderHistoryListSort,
+  type OrderHistoryStatus,
+  type SortDirection,
 } from '@coffee-shop/shared';
 import { getOrderHistory } from '../reporting/api';
 import { ReportingLoading, ReportingNotice } from '../reporting/components';
@@ -215,7 +216,7 @@ export function OrderHistoryPage() {
   }
 
   function updateFilter(
-    key: 'status' | 'paymentMethod',
+    key: 'status' | 'paymentMethod' | 'serviceType',
     event: ChangeEvent<HTMLSelectElement>,
   ) {
     updateQuery({ [key]: event.target.value || undefined });
@@ -304,6 +305,21 @@ export function OrderHistoryPage() {
             <option value="Cash">Cash</option>
             <option value="Online">Online</option>
             <option value="Split">Split</option>
+          </select>
+        </label>
+        <label>
+          <span>Service</span>
+          <select
+            value={query.serviceType ?? ''}
+            onChange={(event) => updateFilter('serviceType', event)}
+          >
+            <option value="">All</option>
+            <option value={ServiceType.DINE_IN}>
+              {formatServiceType(ServiceType.DINE_IN)}
+            </option>
+            <option value={ServiceType.TAKE_OUT}>
+              {formatServiceType(ServiceType.TAKE_OUT)}
+            </option>
           </select>
         </label>
         <label>
