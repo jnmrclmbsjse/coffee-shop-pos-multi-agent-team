@@ -92,6 +92,7 @@ interface ExpenseReportRow {
 
 interface DailyReadModel extends DailyReconciliation {
   id: string;
+  storedStatus: TradingDayStatus;
   orderCount: number;
 }
 
@@ -376,6 +377,36 @@ export class ReportingService {
         ...days.map((day) => day.grossSalesCents),
       ),
     };
+  }
+
+  async getClosedDailyGross(
+    from: string,
+    to: string,
+  ): Promise<
+    ReadonlyArray<{ businessDate: string; grossSalesCents: MoneyCents }>
+  > {
+    assertValidRange(from, to);
+    const days = await this.loadDailyReadModel(from, to);
+    const grossByBusinessDate = new Map<string, MoneyCents>();
+
+    for (const day of days) {
+      if (day.storedStatus !== TradingDayStatus.CLOSED) continue;
+
+      grossByBusinessDate.set(
+        day.date,
+        addMoney(
+          grossByBusinessDate.get(day.date) ?? cents(0),
+          day.grossSalesCents,
+        ),
+      );
+    }
+
+    return [...grossByBusinessDate].map(
+      ([businessDate, grossSalesCents]) => ({
+        businessDate,
+        grossSalesCents,
+      }),
+    );
   }
 
   async getAllTimeProductSales(): Promise<ProductSales[]> {
@@ -746,6 +777,7 @@ export class ReportingService {
         id: row.id,
         tradingDayId: row.id,
         date: toIsoDate(row.businessDate),
+        storedStatus: row.status,
         status: row.status.toLowerCase() as 'open' | 'closed',
         openingFloatCents: cents(row.openingFloatCents),
         orderCount: databaseNumber(row.orderCount),

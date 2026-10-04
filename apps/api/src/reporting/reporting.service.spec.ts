@@ -96,6 +96,36 @@ describe('ReportingService', () => {
     ).resolves.toEqual({ hasBusinessDay: true, grossSalesCents: 0 });
   });
 
+  it('returns summed gross for closed business dates only', async () => {
+    const prisma = createPrisma();
+    prisma.$queryRaw.mockResolvedValue([
+      closedDay,
+      {
+        ...closedDay,
+        id: 'same-date-closed-day',
+        cashSalesCents: 2_500n,
+        onlineSalesCents: 5_000n,
+      },
+      {
+        ...closedDay,
+        id: 'open-day',
+        businessDate: new Date('2026-07-21T00:00:00.000Z'),
+        status: TradingDayStatus.OPEN,
+        cashSalesCents: 99_999n,
+        onlineSalesCents: 1n,
+      },
+    ]);
+    const service = createReportingService(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      service.getClosedDailyGross('2026-07-20', '2026-07-21'),
+    ).resolves.toEqual([
+      { businessDate: '2026-07-20', grossSalesCents: 45_000 },
+    ]);
+  });
+
   it('composes the selected day read model and passes through every restock row', async () => {
     const prisma = createPrisma();
     const day = {

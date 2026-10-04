@@ -253,6 +253,111 @@ export interface PayslipSummary {
   netPayableCents: MoneyCents;
 }
 
+export enum JournalSuggestionKind {
+  NONE = 'NONE',
+  RENT_PERCENT_OF_ROUNDED_GROSS = 'RENT_PERCENT_OF_ROUNDED_GROSS',
+  CHAIR_FLAT_ABOVE_THRESHOLD = 'CHAIR_FLAT_ABOVE_THRESHOLD',
+}
+
+export interface JournalLedger {
+  id: string;
+  name: string;
+  startDate: string;
+  startingBalanceCents: MoneyCents;
+  suggestionKind: JournalSuggestionKind;
+  isBuiltIn: boolean;
+  locationId: string | null;
+  createdAt: string;
+}
+
+export interface JournalLedgerBalance extends JournalLedger {
+  balanceCents: MoneyCents;
+}
+
+export interface JournalDeposit {
+  id: string;
+  ledgerId: string;
+  businessDate: string;
+  amountCents: MoneyCents;
+  note: string | null;
+  locationId: string | null;
+  recordedByUserId: string;
+  recordedAt: string;
+  updatedByUserId: string;
+  updatedAt: string;
+}
+
+export interface JournalWithdrawal {
+  id: string;
+  ledgerId: string;
+  withdrawnOn: string;
+  amountCents: MoneyCents;
+  note: string | null;
+  locationId: string | null;
+  recordedByUserId: string;
+  recordedAt: string;
+  updatedByUserId: string;
+  updatedAt: string;
+}
+
+export interface JournalSuggestionRate {
+  id: string;
+  ledgerId: string;
+  effectiveFrom: string;
+  rentPercentBasisPoints: number | null;
+  chairAmountCents: MoneyCents | null;
+  chairThresholdCents: MoneyCents | null;
+  locationId: string | null;
+  createdByUserId: string | null;
+  createdAt: string;
+}
+
+export interface JournalMissingDay {
+  businessDate: string;
+  grossSalesCents: MoneyCents;
+  suggestedAmountCents: MoneyCents | null;
+}
+
+export interface CreateJournalLedgerInput {
+  name: string;
+  startDate: string;
+  startingBalanceCents?: MoneyCents;
+}
+
+export interface CreateJournalDepositInput {
+  businessDate: string;
+  amountCents: MoneyCents;
+  note?: string | null;
+}
+
+export interface UpdateJournalDepositInput {
+  businessDate: string;
+  amountCents: MoneyCents;
+  note?: string | null;
+}
+
+export interface BulkCreateJournalDepositsInput {
+  deposits: CreateJournalDepositInput[];
+}
+
+export interface CreateJournalWithdrawalInput {
+  withdrawnOn: string;
+  amountCents: MoneyCents;
+  note?: string | null;
+}
+
+export interface UpdateJournalWithdrawalInput {
+  withdrawnOn: string;
+  amountCents: MoneyCents;
+  note?: string | null;
+}
+
+export interface UpdateJournalSuggestionRateInput {
+  rentPercentBasisPoints?: number;
+  chairAmountCents?: MoneyCents;
+  chairThresholdCents?: MoneyCents;
+}
+
 export interface SelectableStaffMember {
   id: string;
   displayName: string;

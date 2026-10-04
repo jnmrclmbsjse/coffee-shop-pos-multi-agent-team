@@ -93,6 +93,12 @@ enum CompensationAdjustmentKind {
   BONUS
 }
 
+enum JournalSuggestionKind {
+  NONE
+  RENT_PERCENT_OF_ROUNDED_GROSS
+  CHAIR_FLAT_ABOVE_THRESHOLD
+}
+
 model User {
   id                             String                        @id @default(uuid()) @db.Uuid
   username                       String                        @unique
@@ -109,6 +115,11 @@ model User {
   updatedCompensationEntries     StaffCompensationEntry[]      @relation("CompensationEntryUpdatedBy")
   createdCompensationAdjustments StaffCompensationAdjustment[] @relation("CompensationAdjustmentCreatedBy")
   updatedCompensationAdjustments StaffCompensationAdjustment[] @relation("CompensationAdjustmentUpdatedBy")
+  recordedJournalDeposits        JournalDeposit[]              @relation("JournalDepositRecordedBy")
+  updatedJournalDeposits         JournalDeposit[]              @relation("JournalDepositUpdatedBy")
+  recordedJournalWithdrawals     JournalWithdrawal[]           @relation("JournalWithdrawalRecordedBy")
+  updatedJournalWithdrawals      JournalWithdrawal[]           @relation("JournalWithdrawalUpdatedBy")
+  createdJournalSuggestionRates  JournalSuggestionRate[]       @relation("JournalSuggestionRateCreatedBy")
 
   @@map("users")
 }
@@ -125,6 +136,10 @@ model Location {
   cashierSelections       CashierSelection[]
   compensationEntries     StaffCompensationEntry[]
   compensationAdjustments StaffCompensationAdjustment[]
+  journalLedgers          JournalLedger[]
+  journalDeposits         JournalDeposit[]
+  journalWithdrawals      JournalWithdrawal[]
+  journalSuggestionRates  JournalSuggestionRate[]
 
   @@map("locations")
 }
@@ -197,6 +212,85 @@ model StaffCompensationAdjustment {
 
   @@index([staffMemberId, effectiveDate])
   @@map("staff_compensation_adjustments")
+}
+
+model JournalLedger {
+  id                   String                  @id @default(uuid()) @db.Uuid
+  name                 String                  @unique
+  startDate            DateTime                @map("start_date") @db.Date
+  startingBalanceCents Int                     @default(0) @map("starting_balance_cents")
+  suggestionKind       JournalSuggestionKind   @map("suggestion_kind")
+  isBuiltIn            Boolean                 @default(false) @map("is_built_in")
+  locationId           String?                 @map("location_id") @db.Uuid
+  createdAt            DateTime                @default(now()) @map("created_at")
+  location             Location?               @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  deposits             JournalDeposit[]
+  withdrawals          JournalWithdrawal[]
+  suggestionRates      JournalSuggestionRate[]
+
+  @@index([locationId])
+  @@map("journal_ledgers")
+}
+
+model JournalDeposit {
+  id               String        @id @default(uuid()) @db.Uuid
+  ledgerId         String        @map("ledger_id") @db.Uuid
+  businessDate     DateTime      @map("business_date") @db.Date
+  amountCents      Int           @map("amount_cents")
+  note             String?
+  locationId       String?       @map("location_id") @db.Uuid
+  recordedByUserId String        @map("recorded_by_user_id") @db.Uuid
+  recordedAt       DateTime      @default(now()) @map("recorded_at")
+  updatedByUserId  String        @map("updated_by_user_id") @db.Uuid
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  ledger           JournalLedger @relation(fields: [ledgerId], references: [id], onDelete: Restrict)
+  location         Location?     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  recordedByUser   User          @relation("JournalDepositRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  updatedByUser    User          @relation("JournalDepositUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([ledgerId, businessDate])
+  @@index([locationId])
+  @@map("journal_deposits")
+}
+
+model JournalWithdrawal {
+  id               String        @id @default(uuid()) @db.Uuid
+  ledgerId         String        @map("ledger_id") @db.Uuid
+  withdrawnOn      DateTime      @map("withdrawn_on") @db.Date
+  amountCents      Int           @map("amount_cents")
+  note             String?
+  locationId       String?       @map("location_id") @db.Uuid
+  recordedByUserId String        @map("recorded_by_user_id") @db.Uuid
+  recordedAt       DateTime      @default(now()) @map("recorded_at")
+  updatedByUserId  String        @map("updated_by_user_id") @db.Uuid
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  ledger           JournalLedger @relation(fields: [ledgerId], references: [id], onDelete: Restrict)
+  location         Location?     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  recordedByUser   User          @relation("JournalWithdrawalRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  updatedByUser    User          @relation("JournalWithdrawalUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([ledgerId, withdrawnOn])
+  @@index([locationId])
+  @@map("journal_withdrawals")
+}
+
+model JournalSuggestionRate {
+  id                     String        @id @default(uuid()) @db.Uuid
+  ledgerId               String        @map("ledger_id") @db.Uuid
+  effectiveFrom          DateTime      @map("effective_from") @db.Date
+  rentPercentBasisPoints Int?          @map("rent_percent_basis_points")
+  chairAmountCents       Int?          @map("chair_amount_cents")
+  chairThresholdCents    Int?          @map("chair_threshold_cents")
+  locationId             String?       @map("location_id") @db.Uuid
+  createdByUserId        String?       @map("created_by_user_id") @db.Uuid
+  createdAt              DateTime      @default(now()) @map("created_at")
+  ledger                 JournalLedger @relation(fields: [ledgerId], references: [id], onDelete: Restrict)
+  location               Location?     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  createdByUser          User?         @relation("JournalSuggestionRateCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([ledgerId, effectiveFrom])
+  @@index([locationId])
+  @@map("journal_suggestion_rates")
 }
 
 model Product {
@@ -428,8 +522,8 @@ model CashMovement {
   recordedAt              DateTime         @default(now()) @map("recorded_at")
   tradingDay              TradingDay       @relation(fields: [tradingDayId], references: [id], onDelete: Restrict)
   recordedByStaffMember   StaffMember?     @relation("CashMovementRecordedBy", fields: [recordedByStaffMemberId], references: [id], onDelete: Restrict)
-  amendsCashMovement      CashMovement?     @relation("CashMovementAmendment", fields: [amendsCashMovementId], references: [id], onDelete: Restrict)
-  amendedBy               CashMovement?     @relation("CashMovementAmendment")
+  amendsCashMovement      CashMovement?    @relation("CashMovementAmendment", fields: [amendsCashMovementId], references: [id], onDelete: Restrict)
+  amendedBy               CashMovement?    @relation("CashMovementAmendment")
 
   @@index([tradingDayId, recordedAt])
   @@map("cash_movements")
