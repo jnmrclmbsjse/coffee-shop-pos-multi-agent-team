@@ -14,6 +14,31 @@
 CODEX_EXEC="codex --dangerously-bypass-approvals-and-sandbox exec"
 CLAUDE_EXEC="claude --dangerously-skip-permissions -p"
 
+# TEMPORARY ENGINE OVERRIDE — the Codex lanes (po-intake, po-prepare,
+# po-clarify, dev, deploy, bootstrap) call $CODEX_EXEC directly. While the Codex
+# account has no credits, CODEX_LANES_ENGINE=claude routes all of them to Claude
+# Code instead. The role does not change, only the engine (see "The charter
+# rule" in CLAUDE.md), so charters and prompts stay as they are.
+#
+# This file is re-read by every wrapper on every dispatch, so flipping the
+# default below takes effect at the next job with no poller restart. To revert
+# when Codex is back: change the default to `codex` (or export
+# CODEX_LANES_ENGINE=codex) — nothing else needs undoing.
+CODEX_LANES_ENGINE="${CODEX_LANES_ENGINE:-claude}"
+case "$CODEX_LANES_ENGINE" in
+  codex) ;;
+  claude)
+    CODEX_EXEC="$CLAUDE_EXEC"
+    # Same reason as uiux-mockup.sh: in print mode Claude may hand long work to
+    # a background sub-agent and exit 0 before it finishes. These lanes wait on
+    # sub-wrappers (po-prepare) or long builds (dev), so keep it synchronous.
+    export CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1
+    ;;
+  *) echo "_common.sh: CODEX_LANES_ENGINE='$CODEX_LANES_ENGINE' is not valid (expected codex or claude)" >&2
+     exit 2 ;;
+esac
+export CODEX_LANES_ENGINE
+
 # Open Design: the daemon must be running (desktop app open) before any design
 # step. Its MCP server is registered in Codex's config.toml (see plan §6).
 
@@ -69,7 +94,11 @@ require_codex_auth() {
   local out
   if ! out="$($CODEX_EXEC 'Reply with the single word OK and nothing else.' 2>&1)" \
      || ! printf '%s' "$out" | grep -qi 'ok'; then
-    echo "AUTH_EXPIRED: Codex session is dead — run 'codex login' to re-authenticate." >&2
+    if [[ "$CODEX_LANES_ENGINE" == "claude" ]]; then
+      echo "AUTH_EXPIRED: Claude Code session is dead (Codex lanes are routed to Claude) — run 'claude' then /login." >&2
+    else
+      echo "AUTH_EXPIRED: Codex session is dead — run 'codex login' to re-authenticate." >&2
+    fi
     printf '  probe output: %s\n' "${out:0:200}" >&2
     exit 3
   fi

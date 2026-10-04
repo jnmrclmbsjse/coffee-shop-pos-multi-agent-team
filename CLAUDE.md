@@ -96,6 +96,10 @@ Verify the whole mechanism with:
 | `deploy` | `agent:deploy` | `deploy.sh` | Codex | `deploy` |
 | `discovery` | backlog empty + cooldown | `discovery.sh` | either | `discovery` |
 
+> **Temporary (2026-10-05):** Codex has no credits, so `CODEX_LANES_ENGINE`
+> in `scripts/_common.sh` defaults to `claude` and every lane above marked
+> Codex runs on Claude Code. Revert by setting that default back to `codex`.
+
 The one label nothing else applies is `agent:deploy` — QA applies it on pass
 (`prompts/qa-test.md`). Break that and the deploy lane silently starves.
 
