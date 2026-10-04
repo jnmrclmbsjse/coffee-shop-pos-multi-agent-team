@@ -7,7 +7,7 @@ import type {
   SalesReportTotals,
 } from '@coffee-shop/shared';
 import { useMemo, useRef, useState } from 'react';
-import { CountMethod } from '@coffee-shop/shared';
+import { addMoney, CountMethod } from '@coffee-shop/shared';
 import { NavLink } from 'react-router-dom';
 import {
   formatBusinessDate,
@@ -251,7 +251,7 @@ export function ReconciliationTable({
   );
 }
 
-type ProductSalesSort = 'quantity' | 'revenue';
+type ProductSalesSort = 'quantity' | 'cups' | 'revenue';
 
 function compareText(left: string, right: string): number {
   if (left === right) return 0;
@@ -310,7 +310,9 @@ export function ProductSalesTable({
         const valueDifference =
           sort === 'revenue'
             ? right.revenueCents - left.revenueCents
-            : right.quantitySold - left.quantitySold;
+            : sort === 'cups'
+              ? right.cupsSold - left.cupsSold
+              : right.quantitySold - left.quantitySold;
         return (
           valueDifference ||
           compareText(left.productName, right.productName) ||
@@ -318,6 +320,20 @@ export function ProductSalesTable({
         );
       }),
     [products, sort],
+  );
+  const totals = useMemo(
+    () => ({
+      quantitySold: products.reduce(
+        (total, product) => total + product.quantitySold,
+        0,
+      ),
+      cupsSold: products.reduce(
+        (total, product) => total + product.cupsSold,
+        0,
+      ),
+      revenueCents: addMoney(...products.map((product) => product.revenueCents)),
+    }),
+    [products],
   );
 
   return (
@@ -381,6 +397,12 @@ export function ProductSalesTable({
                   onSort={setSort}
                 />
                 <ProductSalesSortHeader
+                  label="Cups"
+                  sort="cups"
+                  activeSort={sort}
+                  onSort={setSort}
+                />
+                <ProductSalesSortHeader
                   label="Revenue"
                   sort="revenue"
                   activeSort={sort}
@@ -393,10 +415,19 @@ export function ProductSalesTable({
                 <tr key={product.productId}>
                   <td>{product.productName}</td>
                   <td className="num">{formatQuantity(product.quantitySold)}</td>
+                  <td className="num">{formatQuantity(product.cupsSold)}</td>
                   <td className="num">{formatMoney(product.revenueCents)}</td>
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Total</th>
+                <td className="num">{formatQuantity(totals.quantitySold)}</td>
+                <td className="num">{formatQuantity(totals.cupsSold)}</td>
+                <td className="num">{formatMoney(totals.revenueCents)}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}

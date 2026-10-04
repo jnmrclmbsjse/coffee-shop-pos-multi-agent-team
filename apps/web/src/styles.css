@@ -3927,6 +3927,21 @@ button {
   text-align: right;
 }
 
+.product-sales-table tfoot th,
+.product-sales-table tfoot td {
+  padding: 13px 14px;
+  border-top: 2px solid var(--border-strong);
+  color: var(--fg);
+  background: var(--surface-subtle);
+  font-weight: 750;
+}
+
+.product-sales-table tfoot th {
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .reconciliation-table {
   min-width: 1160px;
 }
