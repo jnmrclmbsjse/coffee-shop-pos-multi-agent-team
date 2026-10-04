@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administrator Journal | UCM Coffee Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="admin-sidebar" id="admin-sidebar" data-od-id="admin-sidebar" aria-label="Administrator navigation">
+      <a class="admin-brand" href="#" aria-label="UCM Coffee Studio home">
+        <span class="admin-brand-mark" aria-hidden="true">U</span>
+        <span>UCM Coffee Studio</span>
+      </a>
+      <nav class="admin-nav">
+        <section aria-labelledby="workspace-nav-label">
+          <h2 id="workspace-nav-label">Workspace</h2>
+          <a href="#">Dashboard</a>
+          <a href="#">Register</a>
+        </section>
+        <section aria-labelledby="catalog-nav-label">
+          <h2 id="catalog-nav-label">Catalog</h2>
+          <a href="#">Products</a>
+          <a href="#">Inventory</a>
+          <a href="#">Promotions</a>
+        </section>
+        <section aria-labelledby="operations-nav-label">
+          <h2 id="operations-nav-label">Operations</h2>
+          <a href="#">Reports</a>
+          <a href="#">Compensation</a>
+          <a href="#" aria-current="page" data-od-id="journal-nav-item">Journal</a>
+          <a href="#">Staff</a>
+        </section>
+      </nav>
+    </aside>
+
+    <div class="app-main">
+      <header class="admin-topbar" data-od-id="admin-topbar">
+        <button class="admin-menu-button" type="button" aria-expanded="false" aria-controls="admin-sidebar">Menu</button>
+        <div class="admin-breadcrumb">Back office / Journal</div>
+        <div class="admin-account"><span>Administrator</span><button type="button">Sign out</button></div>
+      </header>
+
+      <main class="catalog-page" data-od-id="journal-page">
+        <section class="journal-review-harness" aria-labelledby="harness-title" data-od-id="review-harness">
+          <div>
+            <strong id="harness-title">Mockup state</strong>
+            <span>Review harness, not part of the product</span>
+          </div>
+          <label for="state-select">Choose state</label>
+          <select id="state-select">
+            <option value="populated">Populated ledger</option>
+            <option value="empty">Empty ledger</option>
+            <option value="negative">Negative balance</option>
+            <option value="long">Long ledger name + long note</option>
+            <option value="duplicate">Duplicate-deposit conflict</option>
+            <option value="bulk-populated">Bulk-add populated</option>
+            <option value="bulk-empty">Bulk-add empty</option>
+            <option value="bulk-conflict">Bulk-add conflict</option>
+            <option value="loading">Loading</option>
+            <option value="error">Error</option>
+          </select>
+        </section>
+
+        <header class="catalog-page-head" data-od-id="journal-heading">
+          <div>
+            <h1>Journal</h1>
+            <p>Track set-aside funds across closed business days.</p>
+          </div>
+          <div class="journal-page-actions">
+            <button class="catalog-button secondary" type="button" data-modal="settings-modal">Suggestion settings</button>
+            <button class="catalog-button primary" type="button" data-modal="ledger-modal">Add ledger</button>
+          </div>
+        </header>
+
+        <div id="global-notice" class="catalog-notice danger" role="alert" hidden></div>
+        <div id="journal-loading" class="catalog-panel journal-state-panel" hidden aria-live="polite">
+          <strong>Loading journal</strong><p>Getting ledgers and business-day records.</p>
+        </div>
+        <div id="journal-error" class="catalog-panel journal-state-panel" hidden>
+          <div class="catalog-notice danger" role="alert"><strong>Journal could not be loaded.</strong> Check the connection and try again.</div>
+          <button class="catalog-button secondary" type="button" id="retry-button">Try again</button>
+        </div>
+
+        <div id="journal-content" class="journal-layout">
+          <aside class="catalog-panel journal-ledger-panel" aria-labelledby="ledgers-heading" data-od-id="ledger-overview">
+            <div class="journal-panel-head">
+              <div><h2 id="ledgers-heading">Ledgers</h2><p class="results-meta" id="ledger-count" aria-live="polite">3 ledgers</p></div>
+            </div>
+            <div class="journal-ledger-list" role="list">
+              <button type="button" class="journal-ledger-row is-selected" aria-current="true" data-ledger="rent">
+                <span><strong>Rent</strong><small>10% of daily gross</small></span><span class="num">₱9,842.50</span>
+              </button>
+              <button type="button" class="journal-ledger-row" data-ledger="chair">
+                <span><strong>Chair</strong><small>₱100 above ₱3,000 gross</small></span><span class="num">₱1,400.00</span>
+              </button>
+              <button type="button" class="journal-ledger-row" data-ledger="staff">
+                <span><strong>Staff meals</strong><small>Manual ledger</small></span><span class="num">₱725.00</span>
+              </button>
+            </div>
+            <div class="journal-status-guide" aria-label="October recording status examples">
+              <h3>Recording status</h3>
+              <p><strong>Rent, Oct 1</strong><span>Saved deposit: ₱0.00</span></p>
+              <p><strong>Chair, Oct 2</strong><span>Suggested: ₱0.00, not saved</span></p>
+              <p><strong>Staff meals, Oct 3</strong><span>No suggestion, not recorded</span></p>
+              <p><strong>Oct 10</strong><span>Open business day, not eligible</span></p>
+            </div>
+          </aside>
+
+          <section class="journal-workspace" aria-labelledby="ledger-title" data-od-id="ledger-workspace">
+            <div class="catalog-panel journal-summary">
+              <div class="journal-summary-copy">
+                <p class="journal-kicker">Selected ledger</p>
+                <h2 id="ledger-title">Rent</h2>
+                <p id="ledger-rule">10% of daily gross. Started October 1, 2026.</p>
+              </div>
+              <div class="report-metric" aria-live="polite">
+                <span>Current balance</span>
+                <strong id="balance-value">₱9,842.50</strong>
+                <small id="balance-status" class="variance variance-even">Available</small>
+              </div>
+            </div>
+
+            <div class="compensation-sections" role="tablist" aria-label="Journal sections">
+              <button type="button" role="tab" aria-selected="true" aria-current="page" aria-controls="activity-panel" id="activity-tab">Activity</button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="bulk-panel" id="bulk-tab">Bulk add</button>
+            </div>
+
+            <section id="activity-panel" role="tabpanel" aria-labelledby="activity-tab">
+              <div class="journal-toolbar">
+                <div><h3>Ledger activity</h3><p class="results-meta" id="activity-count" aria-live="polite">6 records and outstanding days</p></div>
+                <div class="journal-page-actions">
+                  <button class="catalog-button secondary" type="button" data-modal="withdrawal-modal">Record withdrawal</button>
+                  <button class="catalog-button primary" type="button" data-modal="deposit-modal">Record deposit</button>
+                </div>
+              </div>
+              <p class="report-scroll-hint" id="activity-scroll-hint">Scroll horizontally to see every column.</p>
+              <div class="report-table-region" tabindex="0" aria-label="Rent activity table. Scroll horizontally for more columns." aria-describedby="activity-scroll-hint">
+                <table class="catalog-table report-table" data-od-id="activity-table">
+                  <thead><tr><th scope="col" aria-sort="descending">Business date</th><th scope="col">Record</th><th scope="col">Deposit</th><th scope="col">Suggestion</th><th scope="col">Note</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
+                  <tbody id="activity-body"></tbody>
+                </table>
+              </div>
+              <div id="activity-empty" class="report-empty" hidden><h3>No activity yet</h3><p>Record a deposit or withdrawal to begin this ledger.</p></div>
+            </section>
+
+            <section id="bulk-panel" role="tabpanel" aria-labelledby="bulk-tab" hidden>
+              <div class="journal-toolbar">
+                <div><h3>Bulk add deposits</h3><p>Select outstanding closed business days. Saving is all or nothing.</p></div>
+                <button class="catalog-button secondary" type="button" id="refresh-bulk">Refresh list</button>
+              </div>
+              <div id="bulk-conflict-notice" class="catalog-notice danger" role="alert" hidden><strong>Nothing was saved.</strong> Another deposit was recorded for October 7, 2026. Refresh the list and review your selections.</div>
+              <form id="bulk-form">
+                <fieldset class="journal-bulk-fieldset">
+                  <legend class="visually-hidden">Outstanding closed business days</legend>
+                  <div class="journal-bulk-header"><label><input type="checkbox" id="bulk-all" checked> Select all</label><span id="bulk-results" class="results-meta" aria-live="polite">4 of 4 selected</span></div>
+                  <div id="bulk-rows" class="journal-bulk-rows"></div>
+                </fieldset>
+                <div id="bulk-empty" class="report-empty" hidden><h3>No deposits to add</h3><p>Every eligible closed business day has a recorded deposit.</p></div>
+                <div class="report-totals" id="bulk-totals"><span>Selected total</span><strong id="bulk-total" class="num">₱824.25</strong></div>
+                <div class="staff-modal-actions"><button class="catalog-button primary" id="bulk-save" type="submit">Save selected deposits</button></div>
+              </form>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="inventory-modal-backdrop" id="ledger-modal" hidden>
+    <section class="inventory-modal" role="dialog" aria-modal="true" aria-labelledby="ledger-modal-title">
+      <div class="inventory-modal-head"><h2 id="ledger-modal-title">Add ledger</h2><button type="button" data-close-modal aria-label="Close add ledger dialog">Close</button></div>
+      <form id="ledger-form" novalidate>
+        <div class="inventory-modal-grid">
+          <div class="catalog-field"><label class="catalog-field-label" for="ledger-name">Ledger name</label><input id="ledger-name" name="ledger-name" required><span class="catalog-field-help">Names must be unique, regardless of letter case.</span><span class="catalog-field-error" id="ledger-name-error" hidden>A ledger named “rent” already exists.</span></div>
+          <div class="catalog-field"><label class="catalog-field-label" for="ledger-start">Start date</label><input id="ledger-start" name="ledger-start" type="date" value="2026-10-01" required></div>
+          <div class="catalog-field"><label class="catalog-field-label" for="starting-balance">Starting balance</label><input id="starting-balance" name="starting-balance" inputmode="decimal" value="0.00"><span class="catalog-field-help">Optional. Enter pesos and centavos.</span></div>
+        </div>
+        <div class="staff-modal-actions"><button class="catalog-button secondary" type="button" data-close-modal>Cancel</button><button class="catalog-button primary" type="submit">Add ledger</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="inventory-modal-backdrop" id="deposit-modal" hidden>
+    <section class="inventory-modal" role="dialog" aria-modal="true" aria-labelledby="deposit-modal-title">
+      <div class="inventory-modal-head"><h2 id="deposit-modal-title">Record deposit</h2><button type="button" data-close-modal aria-label="Close record deposit dialog">Close</button></div>
+      <form id="deposit-form" novalidate>
+        <div class="inventory-modal-grid">
+          <div class="catalog-field"><label class="catalog-field-label" for="deposit-day">Closed business day</label><select id="deposit-day" required><option value="2026-10-06">October 6, 2026</option><option value="2026-10-01">October 1, 2026 (already recorded)</option></select></div>
+          <div class="catalog-field"><span class="catalog-field-label">Amount source</span><div class="journal-radio-group"><label><input type="radio" name="amount-source" value="suggested" checked> Use suggested amount</label><label><input type="radio" name="amount-source" value="manual"> Enter another amount</label></div><label class="catalog-field-label" for="deposit-amount">Amount</label><input id="deposit-amount" inputmode="decimal" value="412.25" required><div class="compensation-field-annotation"><span class="compensation-suggested">Suggested: ₱412.25, not saved</span><button class="table-action" type="button" id="use-suggestion">Use suggestion</button></div><span class="catalog-field-error" id="deposit-error" hidden>Deposit amount cannot be negative.</span></div>
+          <div class="catalog-field journal-field-wide"><label class="catalog-field-label" for="deposit-note">Note</label><textarea id="deposit-note" rows="3"></textarea><span class="catalog-field-help">Optional.</span></div>
+        </div>
+        <div id="deposit-conflict" class="catalog-notice danger" role="alert" hidden><strong>Deposit not saved.</strong> Rent already has a deposit for October 1, 2026. The existing deposit was not changed.</div>
+        <div class="staff-modal-actions"><button class="catalog-button secondary" type="button" data-close-modal>Cancel</button><button class="catalog-button primary" type="submit">Save deposit</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="inventory-modal-backdrop" id="withdrawal-modal" hidden>
+    <section class="inventory-modal" role="dialog" aria-modal="true" aria-labelledby="withdrawal-modal-title">
+      <div class="inventory-modal-head"><h2 id="withdrawal-modal-title">Record withdrawal</h2><button type="button" data-close-modal aria-label="Close record withdrawal dialog">Close</button></div>
+      <form id="withdrawal-form" novalidate>
+        <div class="inventory-modal-grid">
+          <div class="catalog-field"><label class="catalog-field-label" for="withdrawal-date">Date</label><input id="withdrawal-date" type="date" value="2026-10-09" required></div>
+          <div class="catalog-field"><label class="catalog-field-label" for="withdrawal-amount">Amount</label><input id="withdrawal-amount" inputmode="decimal" value="1500.00" required><span class="catalog-field-error" id="withdrawal-error" hidden>Withdrawal amount must be greater than ₱0.00.</span></div>
+          <div class="catalog-field journal-field-wide"><label class="catalog-field-label" for="withdrawal-note">Note</label><textarea id="withdrawal-note" rows="3">Partial October rent payment</textarea><span class="catalog-field-help">Optional.</span></div>
+        </div>
+        <div class="staff-modal-actions"><button class="catalog-button secondary" type="button" data-close-modal>Cancel</button><button class="catalog-button primary" type="submit">Save withdrawal</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="inventory-modal-backdrop" id="settings-modal" hidden>
+    <section class="inventory-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+      <div class="inventory-modal-head"><h2 id="settings-modal-title">Suggestion settings</h2><button type="button" data-close-modal aria-label="Close suggestion settings dialog">Close</button></div>
+      <form id="settings-form">
+        <div class="catalog-notice">Changes apply to business days on or after the calendar date of the change. Settings cannot be backdated.</div>
+        <div class="inventory-modal-grid">
+          <div class="catalog-field"><label class="catalog-field-label" for="rent-percent">Rent percentage</label><input id="rent-percent" inputmode="decimal" value="10"><span class="catalog-field-help">The Rent rounding rule is fixed.</span></div>
+          <div class="catalog-field"><label class="catalog-field-label" for="chair-amount">Chair amount</label><input id="chair-amount" inputmode="decimal" value="100.00"></div>
+          <div class="catalog-field"><label class="catalog-field-label" for="chair-threshold">Chair gross threshold</label><input id="chair-threshold" inputmode="decimal" value="3000.00"></div>
+        </div>
+        <div class="staff-modal-actions"><button class="catalog-button secondary" type="button" data-close-modal>Cancel</button><button class="catalog-button primary" type="submit">Save settings</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="inventory-modal-backdrop" id="delete-modal" hidden>
+    <section class="inventory-modal journal-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+      <div class="inventory-modal-head"><h2 id="delete-title">Delete deposit?</h2><button type="button" data-close-modal aria-label="Close delete confirmation">Close</button></div>
+      <p id="delete-message">Deleting this deposit makes October 1, 2026 un-recorded again.</p>
+      <div class="staff-modal-actions"><button class="catalog-button secondary" type="button" data-close-modal>Cancel</button><button class="catalog-button danger" type="button" data-close-modal>Delete deposit</button></div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
