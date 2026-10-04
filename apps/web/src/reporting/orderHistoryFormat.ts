@@ -36,6 +36,7 @@ const PAYMENT_METHODS: OrderHistoryPaymentMethod[] = [
   'Online',
   'Split',
 ];
+const SERVICE_TYPES = ['DINE_IN', 'TAKE_OUT'] as const;
 const SORTS = [
   'businessDay',
   'orderNumber',
@@ -59,6 +60,7 @@ export function parseOrderHistoryQuery(
 ): OrderHistoryListQuery {
   const status = params.get('status');
   const paymentMethod = params.get('paymentMethod');
+  const serviceType = params.get('serviceType');
   const search = params.get('search')?.trim();
   const sort = params.get('sort');
   const direction = params.get('direction');
@@ -71,6 +73,9 @@ export function parseOrderHistoryQuery(
       : {}),
     ...(PAYMENT_METHODS.includes(paymentMethod as OrderHistoryPaymentMethod)
       ? { paymentMethod: paymentMethod as OrderHistoryPaymentMethod }
+      : {}),
+    ...(SERVICE_TYPES.includes(serviceType as ServiceType)
+      ? { serviceType: serviceType as ServiceType }
       : {}),
     ...(search ? { search } : {}),
     sort: SORTS.includes(sort as (typeof SORTS)[number])

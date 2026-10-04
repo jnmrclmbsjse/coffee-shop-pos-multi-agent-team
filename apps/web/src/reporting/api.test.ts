@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ServiceType } from '@coffee-shop/shared';
 import {
   downloadReportCsv,
   getAllTimeProductSales,
@@ -72,6 +73,7 @@ describe('reporting API client', () => {
     await getOrderHistory({
       status: 'Completed',
       paymentMethod: 'Split',
+      serviceType: ServiceType.TAKE_OUT,
       search: '  Ana  ',
       sort: 'total',
       direction: 'desc',
@@ -82,7 +84,7 @@ describe('reporting API client', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      'http://localhost:3000/reporting/order-history?status=Completed&paymentMethod=Split&search=Ana&sort=total&direction=desc&page=2&pageSize=25',
+      'http://localhost:3000/reporting/order-history?status=Completed&paymentMethod=Split&serviceType=TAKE_OUT&search=Ana&sort=total&direction=desc&page=2&pageSize=25',
       expect.objectContaining({ credentials: 'include' }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(

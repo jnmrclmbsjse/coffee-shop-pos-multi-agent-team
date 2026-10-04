@@ -199,6 +199,7 @@ describe('Order History pages', () => {
 
     await user.selectOptions(screen.getByLabelText('Status'), 'Completed');
     await user.selectOptions(screen.getByLabelText('Payment'), 'Split');
+    await user.selectOptions(screen.getByLabelText('Service'), 'DINE_IN');
     await user.type(screen.getByLabelText('Customer'), 'Ana');
     await user.selectOptions(screen.getByLabelText('Rows per page'), '25');
     await user.click(
@@ -207,7 +208,7 @@ describe('Order History pages', () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenLastCalledWith(
-        'http://localhost:3000/reporting/order-history?status=Completed&paymentMethod=Split&search=Ana&sort=total&direction=asc&page=1&pageSize=25',
+        'http://localhost:3000/reporting/order-history?status=Completed&paymentMethod=Split&serviceType=DINE_IN&search=Ana&sort=total&direction=asc&page=1&pageSize=25',
         expect.objectContaining({ credentials: 'include' }),
       ),
     );
@@ -218,6 +219,38 @@ describe('Order History pages', () => {
         expect.stringContaining('page=2'),
         expect.objectContaining({ credentials: 'include' }),
       ),
+    );
+  });
+
+  it('restores a valid service filter from the URL and falls back to All for an invalid value', async () => {
+    fetchMock.mockImplementation(async () => jsonResponse(orderList));
+    const user = userEvent.setup();
+    const { unmount } = renderList(
+      '/order-history?serviceType=TAKE_OUT&page=2',
+    );
+
+    expect(await screen.findByLabelText('Service')).toHaveValue('TAKE_OUT');
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://localhost:3000/reporting/order-history?serviceType=TAKE_OUT&sort=businessDay&direction=desc&page=2&pageSize=10',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+
+    await user.selectOptions(screen.getByLabelText('Service'), 'DINE_IN');
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'http://localhost:3000/reporting/order-history?serviceType=DINE_IN&sort=businessDay&direction=desc&page=1&pageSize=10',
+        expect.objectContaining({ credentials: 'include' }),
+      ),
+    );
+
+    unmount();
+    fetchMock.mockClear();
+    renderList('/order-history?serviceType=CURBSIDE');
+
+    expect(await screen.findByLabelText('Service')).toHaveValue('');
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://localhost:3000/reporting/order-history?sort=businessDay&direction=desc&page=1&pageSize=10',
+      expect.objectContaining({ credentials: 'include' }),
     );
   });
 

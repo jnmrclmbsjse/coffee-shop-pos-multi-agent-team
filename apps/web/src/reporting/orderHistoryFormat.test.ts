@@ -12,12 +12,13 @@ describe('order history formatting', () => {
     expect(
       parseOrderHistoryQuery(
         new URLSearchParams(
-          'status=Completed&paymentMethod=Split&search=%20Ana%20&sort=total&direction=asc&page=3&pageSize=25',
+          'status=Completed&paymentMethod=Split&serviceType=TAKE_OUT&search=%20Ana%20&sort=total&direction=asc&page=3&pageSize=25',
         ),
       ),
     ).toEqual({
       status: 'Completed',
       paymentMethod: 'Split',
+      serviceType: ServiceType.TAKE_OUT,
       search: 'Ana',
       sort: 'total',
       direction: 'asc',
@@ -28,7 +29,7 @@ describe('order history formatting', () => {
     expect(
       parseOrderHistoryQuery(
         new URLSearchParams(
-          'status=Unknown&sort=bad&direction=sideways&page=0&pageSize=7',
+          'status=Unknown&serviceType=CURBSIDE&sort=bad&direction=sideways&page=0&pageSize=7',
         ),
       ),
     ).toEqual({
@@ -38,6 +39,17 @@ describe('order history formatting', () => {
       pageSize: 10,
     });
   });
+
+  it.each([ServiceType.DINE_IN, ServiceType.TAKE_OUT])(
+    'parses the supported %s service type',
+    (serviceType) => {
+      expect(
+        parseOrderHistoryQuery(
+          new URLSearchParams({ serviceType }),
+        ).serviceType,
+      ).toBe(serviceType);
+    },
+  );
 
   it('uses approved payment, service, and timestamp labels', () => {
     expect(formatOrderHistoryPaymentMethod('Split')).toBe(
