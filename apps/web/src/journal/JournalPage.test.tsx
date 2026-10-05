@@ -3,6 +3,7 @@ import {
   JournalSuggestionKind,
   type JournalDeposit,
   type JournalLedgerBalance,
+  type JournalMissingDay,
 } from '@coffee-shop/shared';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -17,8 +18,12 @@ const api = vi.hoisted(() => ({
   deleteDeposit: vi.fn(),
   deleteWithdrawal: vi.fn(),
   getLedger: vi.fn(),
+  getRate: vi.fn(),
   listLedgers: vi.fn(),
+  listMissingDays: vi.fn(),
+  saveBulk: vi.fn(),
   updateDeposit: vi.fn(),
+  updateRate: vi.fn(),
   updateWithdrawal: vi.fn(),
 }));
 
@@ -31,9 +36,13 @@ vi.mock('./api', async (importOriginal) => {
     createJournalWithdrawal: api.createWithdrawal,
     deleteJournalDeposit: api.deleteDeposit,
     deleteJournalWithdrawal: api.deleteWithdrawal,
+    createJournalDepositsBulk: api.saveBulk,
     getJournalLedger: api.getLedger,
+    getJournalSuggestionRate: api.getRate,
     listJournalLedgers: api.listLedgers,
+    listJournalMissingDays: api.listMissingDays,
     updateJournalDeposit: api.updateDeposit,
+    updateJournalSuggestionRate: api.updateRate,
     updateJournalWithdrawal: api.updateWithdrawal,
   };
 });
@@ -82,9 +91,48 @@ const detail: JournalLedgerDetail = {
   ],
 };
 
-function renderPage() {
-  api.listLedgers.mockResolvedValue([rent]);
-  api.getLedger.mockResolvedValue(detail);
+const manual: JournalLedgerBalance = {
+  id: 'ledger-manual',
+  name: 'Staff meals',
+  startDate: '2026-09-01',
+  startingBalanceCents: cents(0),
+  balanceCents: cents(0),
+  suggestionKind: JournalSuggestionKind.NONE,
+  isBuiltIn: false,
+  locationId: null,
+  createdAt: '2026-09-01T00:00:00.000Z',
+};
+
+/** A real ₱0 suggestion — Chair below its gross threshold. */
+const zeroSuggestionDay: JournalMissingDay = {
+  businessDate: '2026-10-02',
+  grossSalesCents: cents(79_900),
+  suggestedAmountCents: cents(0),
+};
+
+const positiveSuggestionDay: JournalMissingDay = {
+  businessDate: '2026-10-03',
+  grossSalesCents: cents(780_000),
+  suggestedAmountCents: cents(80_000),
+};
+
+/** No suggestion at all — a fully manual ledger. */
+const noSuggestionDay: JournalMissingDay = {
+  businessDate: '2026-10-04',
+  grossSalesCents: cents(500_000),
+  suggestedAmountCents: null,
+};
+
+function renderPage(
+  options: {
+    ledgers?: JournalLedgerBalance[];
+    ledgerDetail?: JournalLedgerDetail;
+    missingDays?: JournalMissingDay[];
+  } = {},
+) {
+  api.listLedgers.mockResolvedValue(options.ledgers ?? [rent]);
+  api.getLedger.mockResolvedValue(options.ledgerDetail ?? detail);
+  api.listMissingDays.mockResolvedValue(options.missingDays ?? []);
   return render(<JournalPage />);
 }
 
@@ -165,6 +213,7 @@ describe('JournalPage', () => {
     api.getLedger
       .mockRejectedValueOnce(new Error('network unavailable'))
       .mockResolvedValueOnce(detail);
+    api.listMissingDays.mockResolvedValue([]);
     render(<JournalPage />);
 
     expect(await screen.findByText('Ledger could not be loaded')).toBeInTheDocument();
@@ -197,5 +246,227 @@ describe('JournalPage', () => {
     expect(await screen.findByText('Deposit was deleted.')).toBeInTheDocument();
     expect(api.listLedgers).toHaveBeenCalledTimes(2);
     expect(api.getLedger).toHaveBeenCalledTimes(2);
+  });
+
+  it('renders a null suggestion differently from a real zero suggestion', async () => {
+    renderPage({
+      ledgers: [manual],
+      ledgerDetail: { ...manual, deposits: [], withdrawals: [] },
+      missingDays: [noSuggestionDay],
+    });
+    await screen.findByRole('heading', { name: 'Staff meals' });
+
+    const manualRow = screen
+      .getByRole('cell', { name: 'October 4, 2026' })
+      .closest('tr')!;
+    expect(
+      within(manualRow).getByText('No suggestion available'),
+    ).toBeInTheDocument();
+    // The silent defect this guards: a `null` suggestion must never read as ₱0.00.
+    expect(within(manualRow).queryByText(/₱0\.00 suggested/)).toBeNull();
+    expect(within(manualRow).getByText('Not recorded')).toBeInTheDocument();
+
+    api.getLedger.mockResolvedValue({ ...rent, deposits: [], withdrawals: [] });
+    api.listLedgers.mockResolvedValue([rent]);
+    api.listMissingDays.mockResolvedValue([zeroSuggestionDay]);
+    render(<JournalPage />);
+
+    const zeroRow = (await screen.findAllByRole('cell', { name: 'October 2, 2026' }))[0]!
+      .closest('tr')!;
+    expect(
+      within(zeroRow).getByText('₱0.00 suggested, not saved'),
+    ).toBeInTheDocument();
+  });
+
+  it('hides the suggestion settings affordance for a fully manual ledger', async () => {
+    renderPage({
+      ledgers: [manual],
+      ledgerDetail: { ...manual, deposits: [], withdrawals: [] },
+    });
+    await screen.findByRole('heading', { name: 'Staff meals' });
+
+    expect(
+      screen.queryByRole('button', { name: 'Suggestion settings' }),
+    ).toBeNull();
+  });
+
+  it('prefills and saves a real ₱0 suggestion from the deposit editor', async () => {
+    renderPage({ missingDays: [zeroSuggestionDay] });
+    await screen.findByRole('heading', { name: 'Rent' });
+    api.createDeposit.mockResolvedValue({ ...zeroDeposit, id: 'deposit-new' });
+
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('button', { name: 'Record deposit for October 2, 2026' }),
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Record deposit' });
+    expect(within(dialog).getByLabelText(/Business day/)).toHaveValue('2026-10-02');
+    expect(within(dialog).getByLabelText('Amount *')).toHaveValue('0.00');
+    expect(
+      within(dialog).getByText('₱0.00 suggested, not saved'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('radio', { name: 'Use suggested amount' }),
+    ).toBeChecked();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Save deposit' }));
+
+    await waitFor(() =>
+      expect(api.createDeposit).toHaveBeenCalledWith('ledger-rent', {
+        businessDate: '2026-10-02',
+        amountCents: cents(0),
+        note: null,
+      }),
+    );
+  });
+
+  it('stops reading as the suggestion once the administrator overwrites it', async () => {
+    renderPage({ missingDays: [positiveSuggestionDay] });
+    await screen.findByRole('heading', { name: 'Rent' });
+
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('button', { name: 'Record deposit for October 3, 2026' }),
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Record deposit' });
+    expect(
+      within(dialog).getByText('₱800.00 suggested, not saved'),
+    ).toBeInTheDocument();
+
+    const amount = within(dialog).getByLabelText('Amount *');
+    await user.clear(amount);
+    await user.type(amount, '750');
+
+    expect(within(dialog).queryByText('₱800.00 suggested, not saved')).toBeNull();
+    expect(
+      within(dialog).getByRole('radio', { name: 'Enter another amount' }),
+    ).toBeChecked();
+
+    // Going back to the suggestion restores it rather than leaving the override.
+    await user.click(
+      within(dialog).getByRole('radio', { name: 'Use suggested amount' }),
+    );
+    expect(within(dialog).getByLabelText('Amount *')).toHaveValue('800.00');
+    expect(
+      within(dialog).getByText('₱800.00 suggested, not saved'),
+    ).toBeInTheDocument();
+  });
+
+  it('refetches missing days after a rate change and offers no effective date', async () => {
+    renderPage({ missingDays: [positiveSuggestionDay] });
+    await screen.findByRole('heading', { name: 'Rent' });
+    api.getRate.mockResolvedValue({
+      id: 'rate-1',
+      ledgerId: rent.id,
+      effectiveFrom: '2026-09-01',
+      rentPercentBasisPoints: 1000,
+      chairAmountCents: null,
+      chairThresholdCents: null,
+      locationId: null,
+      createdByUserId: 'admin-1',
+      createdAt: '2026-09-01T00:00:00.000Z',
+    });
+    api.updateRate.mockResolvedValue({});
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Suggestion settings' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Suggestion settings',
+    });
+    const percent = await within(dialog).findByLabelText(/Rent percentage/);
+    expect(percent).toHaveValue('10');
+    // Backdating is deliberately unavailable (ADR 0018 §4).
+    expect(dialog.querySelector('input[type="date"]')).toBeNull();
+    expect(
+      within(dialog).getByText(/Settings cannot be backdated/),
+    ).toBeInTheDocument();
+    // Chair fields belong to the Chair ledger only.
+    expect(within(dialog).queryByLabelText(/Chair amount/)).toBeNull();
+
+    await user.clear(percent);
+    await user.type(percent, '12.5');
+    await user.click(within(dialog).getByRole('button', { name: 'Save settings' }));
+
+    await waitFor(() =>
+      expect(api.updateRate).toHaveBeenCalledWith('ledger-rent', {
+        rentPercentBasisPoints: 1250,
+      }),
+    );
+    // Earlier days keep their old suggestion, so the list has to come back from
+    // the server rather than being recomputed here.
+    await waitFor(() => expect(api.listMissingDays).toHaveBeenCalledTimes(2));
+  });
+
+  it('sends only the ticked bulk rows, including a ₱0 one', async () => {
+    renderPage({
+      missingDays: [zeroSuggestionDay, positiveSuggestionDay],
+    });
+    await screen.findByRole('heading', { name: 'Rent' });
+    api.saveBulk.mockResolvedValue([]);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Bulk add' }));
+
+    expect(await screen.findByText('2 of 2 selected')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('checkbox', { name: /Include October 3, 2026/ }),
+    );
+    expect(screen.getByText('1 of 2 selected')).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Save selected deposits' }),
+    );
+
+    await waitFor(() =>
+      expect(api.saveBulk).toHaveBeenCalledWith('ledger-rent', {
+        // The unticked day is absent: the server has no concept of a skipped day.
+        deposits: [{ businessDate: '2026-10-02', amountCents: cents(0) }],
+      }),
+    );
+  });
+
+  it('reports that a bulk conflict saved nothing and refetches the list', async () => {
+    renderPage({ missingDays: [positiveSuggestionDay] });
+    await screen.findByRole('heading', { name: 'Rent' });
+    api.saveBulk.mockRejectedValue(
+      new JournalApiError(
+        409,
+        [
+          'A deposit is already recorded for one of the selected business days; no deposits were saved',
+        ],
+        'deposits',
+        'DUPLICATE_JOURNAL_DEPOSIT',
+      ),
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Bulk add' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Save selected deposits' }),
+    );
+
+    expect(await screen.findByText('Nothing was saved')).toBeInTheDocument();
+    expect(
+      screen.getByText(/nothing at all was saved/),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(api.listMissingDays).toHaveBeenCalledTimes(2));
+    // No row-by-row retry: one failed transaction means one failed request.
+    expect(api.saveBulk).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the empty bulk list when every eligible day is recorded', async () => {
+    renderPage({ missingDays: [] });
+    await screen.findByRole('heading', { name: 'Rent' });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Bulk add' }));
+
+    expect(await screen.findByText('No deposits to add')).toBeInTheDocument();
+    expect(
+      screen.getByText('Every eligible closed business day has a recorded deposit.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Save selected deposits' }),
+    ).toBeNull();
   });
 });
