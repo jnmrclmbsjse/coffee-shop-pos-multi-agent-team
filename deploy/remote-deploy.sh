@@ -56,6 +56,18 @@ cleanup() {
 
 trap cleanup EXIT
 
+# Every deploy pulls a new immutable SHA-tagged API image, and nothing else
+# ever removes the old ones, so they accumulate until the 20 GB root volume
+# fills mid-pull ("no space left on device", #467). Remove images no
+# container uses. Images of running containers are kept, so the live stack
+# is untouched; old API images remain in ECR for rollback. Never prune
+# volumes here: the Postgres data lives in a named volume.
+prune_unused_images() {
+  docker container prune --force >/dev/null
+  docker image prune --all --force
+  df -h /var/lib/docker
+}
+
 render_ssm_parameter() {
   local parameter_key="$1"
   local target_file="$2"
@@ -214,6 +226,11 @@ docker login \
 echo "ecr_authentication=passed"
 
 echo
+echo "== Reclaim disk space before pull =="
+
+prune_unused_images
+
+echo
 echo "== Pull deployment images =="
 
 docker compose pull
@@ -234,6 +251,13 @@ docker compose up \
   --remove-orphans \
   --wait \
   --wait-timeout 180
+
+echo
+echo "== Remove superseded images =="
+
+# The previous API image is no longer referenced once the new stack is up.
+# Best-effort: a failed cleanup must not fail an otherwise healthy deploy.
+prune_unused_images || echo "WARNING: post-deploy image prune failed." >&2
 
 echo
 echo "== Publish SPA =="
