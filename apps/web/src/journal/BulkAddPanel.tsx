@@ -6,6 +6,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -237,7 +238,15 @@ export function BulkAddPanel({
     [days],
   );
 
-  const visibleDays = days ?? [];
+  // Missing-day payloads are not an ordering contract. Keep the operator's
+  // most recent catch-up work at the top even if an API or fixture returns an
+  // older-first list.
+  const visibleDays = useMemo(
+    () => [...(days ?? [])].sort((left, right) =>
+      right.businessDate.localeCompare(left.businessDate),
+    ),
+    [days],
+  );
   const selectedDays = visibleDays.filter(
     (day) => rows[day.businessDate]?.selected,
   );
@@ -390,7 +399,7 @@ export function BulkAddPanel({
           <p>Every eligible closed business day has a recorded deposit.</p>
         </div>
       ) : (
-        <form noValidate onSubmit={save}>
+        <form className="journal-bulk-form" noValidate onSubmit={save}>
           <fieldset className="journal-bulk-fieldset" disabled={saving}>
             <legend className="sr-only">
               Closed business days with no recorded deposit

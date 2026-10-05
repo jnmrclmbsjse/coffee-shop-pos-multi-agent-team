@@ -828,7 +828,10 @@ export function JournalPage() {
                   </dl>
                 </header>
 
-                <nav className="compensation-sections" aria-label="Journal sections">
+                <nav
+                  className="compensation-sections workspace-tabs"
+                  aria-label="Journal sections"
+                >
                   <button
                     type="button"
                     aria-current={section === 'activity' ? 'page' : undefined}

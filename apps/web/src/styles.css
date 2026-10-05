@@ -184,7 +184,8 @@
 }
 
 .journal-activity-table {
-  min-width: 780px;
+  min-width: 980px;
+  table-layout: fixed;
 }
 
 .journal-table-region {
@@ -215,9 +216,44 @@
 }
 
 .journal-note {
+  width: 28%;
+  min-width: 18rem;
   max-width: 34ch;
   overflow-wrap: anywhere;
   white-space: normal !important;
+}
+
+/*
+ * Workspace tabs are one compact control, not a second page divider. Journal
+ * is the first adopter; keep this modifier reusable for future in-panel view
+ * switches instead of adding page-specific underline tabs again.
+ */
+.compensation-sections.workspace-tabs {
+  width: fit-content;
+  gap: var(--space-1);
+  margin: var(--space-3) var(--space-5) var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.compensation-sections.workspace-tabs button {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+}
+
+.compensation-sections.workspace-tabs button:hover {
+  color: var(--fg);
+  background: color-mix(in oklch, var(--surface) 72%, transparent);
+}
+
+.compensation-sections.workspace-tabs button[aria-current='page'] {
+  color: var(--fg);
+  background: var(--surface);
+  box-shadow: 0 1px 3px oklch(22% 0.02 240 / 0.14);
 }
 
 .journal-no-note {
@@ -301,11 +337,34 @@
 }
 
 .journal-money-input input {
+  min-width: 0;
   border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-.journal-money-input input:focus-visible {
+/*
+ * Compound-control invariant: the wrapper owns the border and focus ring.
+ * Keep the selector stronger than later generic `.catalog-field input` rules,
+ * otherwise the nested input regains chrome and renders a double border.
+ */
+.catalog-field .journal-money-input input,
+.catalog-field .journal-money-input input:hover,
+.catalog-field .journal-money-input input:focus-visible,
+.journal-bulk-amount .journal-money-input input,
+.journal-bulk-amount .journal-money-input input:hover,
+.journal-bulk-amount .journal-money-input input:focus-visible {
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
   box-shadow: none;
+}
+
+.journal-money-input:has(input[aria-invalid='true']) {
+  border-color: var(--danger);
 }
 
 .journal-confirm-modal {
@@ -386,7 +445,11 @@
 .journal-bulk-panel {
   display: grid;
   gap: var(--space-4);
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.journal-bulk-form {
+  display: grid;
 }
 
 .journal-bulk-fieldset {
@@ -403,7 +466,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   min-height: var(--touch-min);
-  padding: 0 var(--space-3);
+  padding: var(--space-1) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--surface-subtle);
@@ -423,16 +486,17 @@
   overflow-y: auto;
   border: 1px solid var(--border);
   border-top: 0;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  border-radius: 0;
   background: var(--surface);
+  scrollbar-gutter: stable;
 }
 
 .journal-bulk-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.2fr) minmax(150px, 1fr);
-  align-items: start;
-  gap: var(--space-4);
-  padding: var(--space-3);
+  grid-template-columns: minmax(180px, 1fr) minmax(230px, 1.25fr) minmax(220px, 0.9fr);
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
@@ -481,6 +545,15 @@
 .journal-bulk-actions {
   display: flex;
   justify-content: flex-end;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+.journal-bulk-actions > .catalog-button {
+  min-width: 220px;
 }
 
 @media (max-width: 1050px) {
@@ -541,6 +614,7 @@
   }
 
   .journal-bulk-actions > .catalog-button {
+    min-width: 0;
     width: 100%;
   }
 
@@ -1069,7 +1143,11 @@ textarea {
 
 .admin-sidebar nav {
   display: grid;
+  flex: 1 1 auto;
   gap: var(--space-1);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-block: contain;
 }
 
 .admin-nav-group,
@@ -1130,6 +1208,7 @@ textarea {
   flex-direction: column;
   gap: 10px;
   margin-top: auto;
+  flex: 0 0 auto;
   padding: var(--space-3) var(--space-2) 0;
   border-top: 1px solid var(--border);
 }
@@ -2985,6 +3064,7 @@ textarea {
     flex: 1 1 auto;
     gap: 2px;
     overflow-x: auto;
+    overflow-y: hidden;
     overscroll-behavior-inline: contain;
     scrollbar-width: none;
   }
@@ -4001,6 +4081,7 @@ textarea {
 .reporting-content {
   display: grid;
   gap: var(--space-6);
+  min-width: 0;
 }
 
 .reporting-refreshing {
@@ -4464,8 +4545,11 @@ textarea {
 }
 
 .report-table-region {
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
 }
 
 .report-table {
@@ -4728,6 +4812,17 @@ textarea {
 }
 
 @media (max-width: 760px) {
+  .daily-inventory-report-page {
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .daily-inventory-report-page .report-panel,
+  .daily-inventory-report-page .report-table-region {
+    min-width: 0;
+    contain: inline-size;
+  }
+
   .reporting-page {
     padding: var(--space-5) var(--space-4);
   }
