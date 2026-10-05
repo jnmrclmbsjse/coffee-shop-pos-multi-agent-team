@@ -20,7 +20,7 @@ import {
 } from '@coffee-shop/shared';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ReportingService } from '../reporting/reporting.service';
+import { ReportingService, shopDate } from '../reporting/reporting.service';
 import type {
   BulkCreateJournalDepositsDto,
   CreateJournalDepositDto,
@@ -666,8 +666,12 @@ export class JournalService {
     return value.toISOString().slice(0, ISO_DATE_LENGTH);
   }
 
+  // "The current server calendar date" is the shop's date (Asia/Manila), not
+  // the UTC one. Between 00:00 and 08:00 Manila the UTC date is still
+  // yesterday, and using it would write `effectiveFrom` onto an already-closed
+  // business day — backdating a rate change the AC and ADR 0018 §4 forbid.
   private serverToday(): string {
-    return this.toIsoDate(new Date());
+    return shopDate(new Date());
   }
 
   private duplicateLedgerName(name: string): ConflictException {

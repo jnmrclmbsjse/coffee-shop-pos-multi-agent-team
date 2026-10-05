@@ -1323,7 +1323,10 @@ function toIsoTimestamp(value: Date | null): string | null {
   return value?.toISOString() ?? null;
 }
 
-function shopDate(value: Date): string {
+// The shop's own calendar date. Exported because any server-side "today" in
+// this codebase must be the Asia/Manila date, not the UTC one: between 00:00
+// and 08:00 Manila the two disagree by a day.
+export function shopDate(value: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: SHOP_TIME_ZONE,
     year: 'numeric',

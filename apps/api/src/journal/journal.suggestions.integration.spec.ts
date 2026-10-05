@@ -9,7 +9,7 @@ import {
   TradingDayStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ReportingService } from '../reporting/reporting.service';
+import { ReportingService, shopDate } from '../reporting/reporting.service';
 import { JournalService } from './journal.service';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -207,7 +207,7 @@ describeWithDatabase('Journal suggestions and bulk catch-up against Postgres', (
     await expect(
       journal.updateRate(ledgerId, { rentPercentBasisPoints: 2_000 }, userId),
     ).resolves.toMatchObject({
-      effectiveFrom: new Date().toISOString().slice(0, 10),
+      effectiveFrom: shopDate(new Date()),
       rentPercentBasisPoints: 2_000,
     });
     // A second change on the same day upserts that one row, so no earlier
@@ -222,7 +222,7 @@ describeWithDatabase('Journal suggestions and bulk catch-up against Postgres', (
       before,
     );
     await expect(journal.getRate(ledgerId)).resolves.toMatchObject({
-      effectiveFrom: new Date().toISOString().slice(0, 10),
+      effectiveFrom: shopDate(new Date()),
       rentPercentBasisPoints: 2_500,
     });
     await expect(

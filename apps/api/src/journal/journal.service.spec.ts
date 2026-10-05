@@ -666,6 +666,67 @@ describe('JournalService suggestions, rates and bulk catch-up', () => {
     );
   });
 
+  // Manila is UTC+8, so between 00:00 and 08:00 shop time the UTC date is
+  // still yesterday — an already-closed business day. Pinning the clock inside
+  // that window is the only way this bites.
+  describe('inside the 00:00-08:00 Asia/Manila window', () => {
+    const utcYesterday = '2026-10-09';
+
+    beforeEach(() => {
+      jest.setSystemTime(new Date(`${utcYesterday}T17:30:00.000Z`));
+    });
+
+    afterEach(() => {
+      jest.setSystemTime(new Date(`${today}T08:30:00.000Z`));
+    });
+
+    it('dates a rate change by the shop calendar, not by UTC', async () => {
+      const { prisma, service } = setup();
+
+      await expect(
+        service.updateRate(
+          ledgerId,
+          { rentPercentBasisPoints: 1_500 },
+          adminUserId,
+        ),
+      ).resolves.toMatchObject({ effectiveFrom: today });
+
+      const where = prisma.journalSuggestionRate.upsert.mock.calls[0]![0].where;
+      expect(where).toEqual({
+        ledgerId_effectiveFrom: { ledgerId, effectiveFrom: date(today) },
+      });
+      expect(where.ledgerId_effectiveFrom.effectiveFrom).not.toEqual(
+        date(utcYesterday),
+      );
+    });
+
+    it('bounds missing-days and the rate in force by the shop calendar', async () => {
+      const { prisma, reportingService, service } = setup({
+        rates: [rateRow(today, { rentPercentBasisPoints: 1_000 })],
+      });
+
+      await service.getMissingDays(ledgerId);
+      expect(reportingService.getClosedDailyGross).toHaveBeenCalledWith(
+        '2026-10-01',
+        today,
+      );
+
+      // A rate effective today is in force today; under the UTC date it would
+      // read as a future row and `getRate` would return null.
+      await expect(service.getRate(ledgerId)).resolves.toMatchObject({
+        effectiveFrom: today,
+        rentPercentBasisPoints: 1_000,
+      });
+      expect(
+        prisma.journalSuggestionRate.findFirst.mock.calls[0]![0],
+      ).toMatchObject({
+        where: expect.objectContaining({
+          effectiveFrom: { lte: date(today) },
+        }),
+      });
+    });
+  });
+
   it('upserts the same day on a second change so no earlier day moves', async () => {
     const { prisma, service } = setup();
 
