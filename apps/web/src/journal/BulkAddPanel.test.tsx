@@ -70,6 +70,20 @@ describe('BulkAddPanel', () => {
     expect(screen.getByText('1 of 2 selected')).toBeInTheDocument();
   });
 
+  it('shows missing business days newest first regardless of API order', () => {
+    renderPanel([october1, october3, october2]);
+
+    const dates = screen
+      .getAllByRole('checkbox', { name: /Include/ })
+      .map((checkbox) => checkbox.getAttribute('aria-label'));
+
+    expect(dates).toEqual([
+      'Include October 3, 2026',
+      'Include October 2, 2026',
+      'Include October 1, 2026',
+    ]);
+  });
+
   it('keeps typed amounts on the right day when the list is refetched', async () => {
     const { rerender, onRefresh, onSaved } = renderPanel([october1, october2]);
 
@@ -151,8 +165,8 @@ describe('BulkAddPanel', () => {
     await waitFor(() =>
       expect(api.saveBulk).toHaveBeenCalledWith('ledger-rent', {
         deposits: [
-          { businessDate: '2026-10-01', amountCents: cents(70_000) },
           { businessDate: '2026-10-02', amountCents: cents(80_000) },
+          { businessDate: '2026-10-01', amountCents: cents(70_000) },
         ],
       }),
     );
