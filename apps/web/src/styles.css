@@ -184,8 +184,29 @@
 }
 
 .journal-activity-table {
-  min-width: 980px;
+  /* 972px of fixed columns + at least ~190px for the flexible note. */
+  min-width: 1160px;
   table-layout: fixed;
+}
+
+/* `table-layout: fixed` takes widths from the <colgroup>; widths on body
+   cells are ignored, which is how Suggestion once spilled into Note. The note
+   column takes whatever is left. Suggestion fits the longest badge
+   ("₱100.00 suggested, not saved") on one line plus cell padding. */
+.journal-col-date { width: 156px; }
+.journal-col-type { width: 140px; }
+.journal-col-amount { width: 120px; }
+.journal-col-suggestion { width: 236px; }
+.journal-col-status { width: 150px; }
+.journal-col-actions { width: 170px; }
+
+.journal-activity-table td {
+  overflow-wrap: anywhere;
+}
+
+.journal-activity-table .compensation-suggested {
+  max-width: 100%;
+  white-space: normal;
 }
 
 .journal-table-region {
@@ -216,9 +237,6 @@
 }
 
 .journal-note {
-  width: 28%;
-  min-width: 18rem;
-  max-width: 34ch;
   overflow-wrap: anywhere;
   white-space: normal !important;
 }
@@ -4545,6 +4563,11 @@ textarea {
 }
 
 .report-table-region {
+  /* Positioned so absolutely positioned descendants (every `.sr-only` label
+     in a cell) are contained and clipped here. Unpositioned, they resolve
+     against <body>, escape the scroll box at their column's x, and widen the
+     page — mobile browsers then zoom the whole layout out. */
+  position: relative;
   width: 100%;
   min-width: 0;
   max-width: 100%;
