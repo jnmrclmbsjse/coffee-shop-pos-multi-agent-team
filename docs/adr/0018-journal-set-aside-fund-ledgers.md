@@ -503,3 +503,28 @@ append-only to **stock counts and sales**; it follows the existing precedent of
 - **A third suggestion shape appears** → `JournalSuggestionKind` plus three
   nullable rate columns is a sparse table that tolerates two kinds well and four
   badly; a third is the point to decide on a typed rate payload.
+
+---
+
+## Amendment — 2026-10-06: a ledger's start date and starting balance are editable
+
+**Trigger fired:** *"Ledgers need … a corrected start date."* The seeded
+`startDate` (§4) is the earliest trading day, so the shop's entire pre-Journal
+history surfaced as outstanding days that will never be recorded. With no
+update endpoint (§10) there was no way to stop listing them.
+
+- `PATCH /journal/ledgers/:id` takes `{ startDate, startingBalanceCents }`, both
+  required, admin-only under the existing class-level guard. Name, kind and
+  `isBuiltIn` stay immutable — rename/delete/archive remain out of scope.
+- **Moving `startDate` later is the "skip history" mechanism.** The missing-days
+  list is already defined as closed days `>= startDate` (§6), so nothing else
+  changes: no skip rows, no dismissed-day table, no flag. Moving it earlier
+  re-surfaces those days, which is the undo.
+- `startingBalanceCents` is the money set aside before `startDate`, so the
+  balance stays right without back-filling deposits.
+- **Refused (`400 START_DATE_AFTER_RECORDED_DEPOSIT`) when the new start date is
+  after the ledger's earliest deposit.** A deposit before `startDate` would fail
+  §6's own eligibility check on edit, leaving an uneditable row. The
+  administrator picks that date or earlier, or deletes the deposit first.
+- Rates are unaffected: they are keyed by business date, not by `startDate`.
+

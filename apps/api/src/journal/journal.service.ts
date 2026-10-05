@@ -27,6 +27,7 @@ import type {
   CreateJournalLedgerDto,
   CreateJournalWithdrawalDto,
   UpdateJournalDepositDto,
+  UpdateJournalLedgerDto,
   UpdateJournalSuggestionRateDto,
   UpdateJournalWithdrawalDto,
 } from './journal.dto';
@@ -99,6 +100,49 @@ export class JournalService {
     } catch (error) {
       if (this.isPrismaError(error, 'P2002')) {
         throw this.duplicateLedgerName(input.name);
+      }
+      throw error;
+    }
+  }
+
+  async updateLedger(
+    id: string,
+    input: UpdateJournalLedgerDto,
+  ): Promise<JournalLedgerBalance> {
+    await this.requireLedger(id);
+    // A start date past a recorded deposit would leave that deposit outside
+    // the ledger's own range, where it could no longer be edited.
+    const earliestDeposit = await this.prisma.journalDeposit.findFirst({
+      where: { ledgerId: id },
+      orderBy: { businessDate: 'asc' },
+      select: { businessDate: true },
+    });
+    if (earliestDeposit) {
+      const earliest = this.toIsoDate(earliestDeposit.businessDate);
+      if (input.startDate > earliest) {
+        throw new BadRequestException({
+          message: `startDate must be on or before the earliest recorded deposit (${earliest})`,
+          field: 'startDate',
+          reason: 'START_DATE_AFTER_RECORDED_DEPOSIT',
+          businessDate: earliest,
+        });
+      }
+    }
+
+    try {
+      const ledger = await this.prisma.journalLedger.update({
+        where: { id },
+        data: {
+          startDate: this.toDate(input.startDate),
+          startingBalanceCents: input.startingBalanceCents,
+        },
+        include: ledgerActivityInclude,
+      });
+
+      return this.toLedgerBalance(ledger);
+    } catch (error) {
+      if (this.isPrismaError(error, 'P2025')) {
+        throw new NotFoundException('Journal ledger not found');
       }
       throw error;
     }

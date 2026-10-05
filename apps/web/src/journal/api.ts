@@ -9,6 +9,7 @@ import type {
   JournalSuggestionRate,
   JournalWithdrawal,
   UpdateJournalDepositInput,
+  UpdateJournalLedgerInput,
   UpdateJournalSuggestionRateInput,
   UpdateJournalWithdrawalInput,
 } from '@coffee-shop/shared';
@@ -25,6 +26,7 @@ export class JournalApiError extends Error {
     readonly messages: string[],
     readonly field?: string,
     readonly reason?: string,
+    readonly businessDate?: string,
   ) {
     super(messages[0] ?? 'Journal request failed');
   }
@@ -44,11 +46,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     let messages = ['The Journal request could not be completed. Try again.'];
     let field: string | undefined;
     let reason: string | undefined;
+    let businessDate: string | undefined;
     try {
       const body = (await response.json()) as {
         message?: unknown;
         field?: unknown;
         reason?: unknown;
+        businessDate?: unknown;
       };
       if (Array.isArray(body.message)) {
         messages = body.message.filter(
@@ -59,10 +63,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       }
       field = typeof body.field === 'string' ? body.field : undefined;
       reason = typeof body.reason === 'string' ? body.reason : undefined;
+      businessDate =
+        typeof body.businessDate === 'string' ? body.businessDate : undefined;
     } catch {
       // Keep the fallback for non-JSON responses.
     }
-    throw new JournalApiError(response.status, messages, field, reason);
+    throw new JournalApiError(
+      response.status,
+      messages,
+      field,
+      reason,
+      businessDate,
+    );
   }
 
   const text = await response.text();
@@ -79,6 +91,16 @@ export function createJournalLedger(
 ): Promise<JournalLedgerBalance> {
   return request('/journal/ledgers', {
     method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateJournalLedger(
+  id: string,
+  input: UpdateJournalLedgerInput,
+): Promise<JournalLedgerBalance> {
+  return request(`/journal/ledgers/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
     body: JSON.stringify(input),
   });
 }

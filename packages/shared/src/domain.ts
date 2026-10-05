@@ -324,6 +324,16 @@ export interface CreateJournalLedgerInput {
   startingBalanceCents?: MoneyCents;
 }
 
+/**
+ * Moving `startDate` later is how an administrator stops chasing closed days
+ * they will never record: days before it leave the missing-days list. The
+ * starting balance then carries whatever was set aside before that date.
+ */
+export interface UpdateJournalLedgerInput {
+  startDate: string;
+  startingBalanceCents: MoneyCents;
+}
+
 export interface CreateJournalDepositInput {
   businessDate: string;
   amountCents: MoneyCents;

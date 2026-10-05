@@ -72,6 +72,7 @@ describe('JournalService', () => {
     withdrawalUpdateError?: Error;
     withdrawalDeleteError?: Error;
     closedDay?: boolean;
+    earliestDeposit?: { businessDate: Date } | null;
   } = {}) {
     const ledgerResult =
       options.ledgerResult === undefined ? ledger : options.ledgerResult;
@@ -82,6 +83,9 @@ describe('JournalService', () => {
           .fn()
           .mockResolvedValue(options.duplicateLedger ? { id: ledgerId } : null),
         findUnique: jest.fn().mockResolvedValue(ledgerResult),
+        update: jest.fn().mockImplementation(({ data }) =>
+          Promise.resolve({ ...ledger, ...data }),
+        ),
         create: options.ledgerCreateError
           ? jest.fn().mockRejectedValue(options.ledgerCreateError)
           : jest.fn().mockResolvedValue({
@@ -94,6 +98,11 @@ describe('JournalService', () => {
             }),
       },
       journalDeposit: {
+        findFirst: jest.fn().mockResolvedValue(
+          options.earliestDeposit === undefined
+            ? { businessDate: deposit.businessDate }
+            : options.earliestDeposit,
+        ),
         findUnique: jest.fn().mockResolvedValue(
           options.depositResult === undefined
             ? { ...deposit, ledger }
@@ -200,6 +209,72 @@ describe('JournalService', () => {
         reason: 'DUPLICATE_JOURNAL_LEDGER_NAME',
       }),
     });
+  });
+
+  it('moves a ledger start date and starting balance without touching deposits', async () => {
+    const { prisma, service } = setup({ earliestDeposit: null });
+
+    await expect(
+      service.updateLedger(ledgerId, {
+        startDate: '2026-10-06',
+        startingBalanceCents: 0,
+      } as never),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        startDate: '2026-10-06',
+        startingBalanceCents: 0,
+      }),
+    );
+    expect(prisma.journalLedger.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: ledgerId },
+        data: {
+          startDate: new Date('2026-10-06T00:00:00.000Z'),
+          startingBalanceCents: 0,
+        },
+      }),
+    );
+  });
+
+  it('allows a start date on the earliest recorded deposit', async () => {
+    const { prisma, service } = setup();
+
+    await service.updateLedger(ledgerId, {
+      startDate: '2026-10-02',
+      startingBalanceCents: 1_000,
+    } as never);
+
+    expect(prisma.journalLedger.update).toHaveBeenCalled();
+  });
+
+  it('refuses a start date after a recorded deposit', async () => {
+    const { prisma, service } = setup();
+
+    await expect(
+      service.updateLedger(ledgerId, {
+        startDate: '2026-10-03',
+        startingBalanceCents: 1_000,
+      } as never),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: expect.objectContaining({
+        field: 'startDate',
+        reason: 'START_DATE_AFTER_RECORDED_DEPOSIT',
+        businessDate: '2026-10-02',
+      }),
+    });
+    expect(prisma.journalLedger.update).not.toHaveBeenCalled();
+  });
+
+  it('answers 404 when updating a ledger that does not exist', async () => {
+    const { service } = setup({ ledgerResult: null });
+
+    await expect(
+      service.updateLedger(ledgerId, {
+        startDate: '2026-10-06',
+        startingBalanceCents: 0,
+      } as never),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('persists a zero deposit verbatim and inherits the ledger location', async () => {

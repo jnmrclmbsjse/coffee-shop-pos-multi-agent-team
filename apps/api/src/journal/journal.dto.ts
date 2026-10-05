@@ -4,6 +4,7 @@ import type {
   CreateJournalLedgerInput,
   CreateJournalWithdrawalInput,
   UpdateJournalDepositInput,
+  UpdateJournalLedgerInput,
   UpdateJournalSuggestionRateInput,
   UpdateJournalWithdrawalInput,
 } from '@coffee-shop/shared';
@@ -79,6 +80,23 @@ export class CreateJournalLedgerDto implements CreateJournalLedgerInput {
     message: `startingBalanceCents must not exceed ${MAX_DATABASE_INTEGER}`,
   })
   startingBalanceCents?: CreateJournalLedgerInput['startingBalanceCents'];
+}
+
+export class UpdateJournalLedgerDto implements UpdateJournalLedgerInput {
+  @DateField('startDate')
+  startDate!: string;
+
+  @IsDefined({ message: 'startingBalanceCents is required' })
+  @IsInt({
+    message: 'startingBalanceCents must be an integer number of cents',
+  })
+  @Min(MIN_DATABASE_INTEGER, {
+    message: `startingBalanceCents must not be less than ${MIN_DATABASE_INTEGER}`,
+  })
+  @Max(MAX_DATABASE_INTEGER, {
+    message: `startingBalanceCents must not exceed ${MAX_DATABASE_INTEGER}`,
+  })
+  startingBalanceCents!: UpdateJournalLedgerInput['startingBalanceCents'];
 }
 
 export class CreateJournalDepositDto
