@@ -981,6 +981,17 @@ export function JournalPage() {
                           <caption className="sr-only">
                             Deposits and withdrawals, newest date first
                           </caption>
+                          {/* Fixed table layout sizes columns from here, not
+                              from cell content, so every column needs a width. */}
+                          <colgroup>
+                            <col className="journal-col-date" />
+                            <col className="journal-col-type" />
+                            <col className="journal-col-amount" />
+                            <col className="journal-col-suggestion" />
+                            <col className="journal-col-note" />
+                            <col className="journal-col-status" />
+                            <col className="journal-col-actions" />
+                          </colgroup>
                           <thead>
                             <tr>
                               <th scope="col" aria-sort="descending">Date</th>

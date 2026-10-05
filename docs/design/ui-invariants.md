@@ -30,6 +30,19 @@ The page and panel must remain viewport-width. Only the labelled
 that path needs `min-width: 0`; the scroll region needs a definite `width: 100%`
 and inline overflow containment. Never disable browser zoom to hide overflow.
 
+The scroll region must also be `position: relative`. An overflow container only
+clips absolutely positioned descendants whose containing block is inside it, so
+an unpositioned region lets every `.sr-only` label in a far-right cell escape to
+`<body>` at that column's x position. The page then grows wider than the
+viewport and phones zoom out, even though every in-flow box measures as fitting.
+
+## Fixed-layout tables
+
+A `table-layout: fixed` table takes its column widths from the first row or a
+`<colgroup>`, never from body cells. Give every column a width in a
+`<colgroup>`, leave exactly one flexible column, and let pill or badge content
+wrap so it cannot paint into its neighbour.
+
 ## Fixed navigation rails
 
 A fixed-height sidebar keeps identity and sign-out controls in a non-shrinking
