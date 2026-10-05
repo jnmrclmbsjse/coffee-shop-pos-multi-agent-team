@@ -7,12 +7,15 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import {
   type JournalDeposit,
   type JournalLedgerBalance,
+  type JournalMissingDay,
+  type JournalSuggestionRate,
   type JournalWithdrawal,
   Role,
 } from '@coffee-shop/shared';
@@ -21,10 +24,12 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import {
+  BulkCreateJournalDepositsDto,
   CreateJournalDepositDto,
   CreateJournalLedgerDto,
   CreateJournalWithdrawalDto,
   UpdateJournalDepositDto,
+  UpdateJournalSuggestionRateDto,
   UpdateJournalWithdrawalDto,
 } from './journal.dto';
 import {
@@ -55,6 +60,42 @@ export class JournalController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<JournalLedgerDetail> {
     return this.journalService.getLedger(id);
+  }
+
+  @Get('ledgers/:id/rate')
+  getRate(
+    @Param('id', ParseUUIDPipe) ledgerId: string,
+  ): Promise<JournalSuggestionRate | null> {
+    return this.journalService.getRate(ledgerId);
+  }
+
+  @Put('ledgers/:id/rate')
+  updateRate(
+    @Param('id', ParseUUIDPipe) ledgerId: string,
+    @Body() input: UpdateJournalSuggestionRateDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<JournalSuggestionRate> {
+    return this.journalService.updateRate(ledgerId, input, request.user!.id);
+  }
+
+  @Get('ledgers/:id/missing-days')
+  getMissingDays(
+    @Param('id', ParseUUIDPipe) ledgerId: string,
+  ): Promise<JournalMissingDay[]> {
+    return this.journalService.getMissingDays(ledgerId);
+  }
+
+  @Post('ledgers/:id/deposits/bulk')
+  createDepositsBulk(
+    @Param('id', ParseUUIDPipe) ledgerId: string,
+    @Body() input: BulkCreateJournalDepositsDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<JournalDeposit[]> {
+    return this.journalService.createDepositsBulk(
+      ledgerId,
+      input,
+      request.user!.id,
+    );
   }
 
   @Post('ledgers/:id/deposits')

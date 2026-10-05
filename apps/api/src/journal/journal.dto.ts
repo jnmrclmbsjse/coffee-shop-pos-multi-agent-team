@@ -1,12 +1,17 @@
 import type {
+  BulkCreateJournalDepositsInput,
   CreateJournalDepositInput,
   CreateJournalLedgerInput,
   CreateJournalWithdrawalInput,
   UpdateJournalDepositInput,
+  UpdateJournalSuggestionRateInput,
   UpdateJournalWithdrawalInput,
 } from '@coffee-shop/shared';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayNotEmpty,
+  IsArray,
   IsDateString,
   IsDefined,
   IsInt,
@@ -16,11 +21,14 @@ import {
   Matches,
   Max,
   Min,
+  ValidateNested,
 } from 'class-validator';
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DATABASE_INTEGER = 2_147_483_647;
 const MIN_DATABASE_INTEGER = -2_147_483_648;
+const MAX_BASIS_POINTS = 10_000;
+const MAX_BULK_DEPOSITS = 1_000;
 const trimString = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
 
@@ -135,4 +143,48 @@ export class UpdateJournalWithdrawalDto
     message: `amountCents must not exceed ${MAX_DATABASE_INTEGER}`,
   })
   amountCents!: UpdateJournalWithdrawalInput['amountCents'];
+}
+
+export class UpdateJournalSuggestionRateDto
+  implements UpdateJournalSuggestionRateInput
+{
+  @IsOptional()
+  @IsInt({
+    message: 'rentPercentBasisPoints must be an integer number of basis points',
+  })
+  @Min(0, { message: 'rentPercentBasisPoints must not be negative' })
+  @Max(MAX_BASIS_POINTS, {
+    message: `rentPercentBasisPoints must not exceed ${MAX_BASIS_POINTS}`,
+  })
+  rentPercentBasisPoints?: number;
+
+  @IsOptional()
+  @IsInt({ message: 'chairAmountCents must be an integer number of cents' })
+  @Min(0, { message: 'chairAmountCents must not be negative' })
+  @Max(MAX_DATABASE_INTEGER, {
+    message: `chairAmountCents must not exceed ${MAX_DATABASE_INTEGER}`,
+  })
+  chairAmountCents?: UpdateJournalSuggestionRateInput['chairAmountCents'];
+
+  @IsOptional()
+  @IsInt({ message: 'chairThresholdCents must be an integer number of cents' })
+  @Min(0, { message: 'chairThresholdCents must not be negative' })
+  @Max(MAX_DATABASE_INTEGER, {
+    message: `chairThresholdCents must not exceed ${MAX_DATABASE_INTEGER}`,
+  })
+  chairThresholdCents?: UpdateJournalSuggestionRateInput['chairThresholdCents'];
+}
+
+export class BulkCreateJournalDepositsDto
+  implements BulkCreateJournalDepositsInput
+{
+  @IsDefined({ message: 'deposits is required' })
+  @IsArray({ message: 'deposits must be a list of deposits' })
+  @ArrayNotEmpty({ message: 'deposits must not be empty' })
+  @ArrayMaxSize(MAX_BULK_DEPOSITS, {
+    message: `deposits must not exceed ${MAX_BULK_DEPOSITS} days`,
+  })
+  @ValidateNested({ each: true })
+  @Type(() => CreateJournalDepositDto)
+  deposits!: CreateJournalDepositDto[];
 }

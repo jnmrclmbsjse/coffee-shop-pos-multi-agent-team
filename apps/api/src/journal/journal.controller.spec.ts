@@ -25,6 +25,10 @@ describe('JournalController', () => {
     'listLedgers',
     'createLedger',
     'getLedger',
+    'getRate',
+    'updateRate',
+    'getMissingDays',
+    'createDepositsBulk',
     'createDeposit',
     'updateDeposit',
     'removeDeposit',
@@ -55,6 +59,10 @@ describe('JournalController', () => {
       listLedgers: jest.fn().mockResolvedValue([]),
       createLedger: jest.fn().mockResolvedValue({ id: 'ledger-id' }),
       getLedger: jest.fn().mockResolvedValue({ id: 'ledger-id' }),
+      getRate: jest.fn().mockResolvedValue(null),
+      updateRate: jest.fn().mockResolvedValue({ id: 'rate-id' }),
+      getMissingDays: jest.fn().mockResolvedValue([]),
+      createDepositsBulk: jest.fn().mockResolvedValue([]),
       createDeposit: jest.fn().mockResolvedValue({ id: 'deposit-id' }),
       updateDeposit: jest.fn().mockResolvedValue({ id: 'deposit-id' }),
       removeDeposit: jest.fn().mockResolvedValue(undefined),
@@ -78,10 +86,20 @@ describe('JournalController', () => {
     const ledgerInput = { name: 'Equipment', startDate: '2026-10-01' };
     const depositInput = { businessDate: '2026-10-02', amountCents: 0 };
     const withdrawalInput = { withdrawnOn: '2026-10-03', amountCents: 1 };
+    const rateInput = { rentPercentBasisPoints: 1_500 };
+    const bulkInput = { deposits: [depositInput] };
 
     await controller.listLedgers();
     await controller.createLedger(ledgerInput as never);
     await controller.getLedger('ledger-id');
+    await controller.getRate('ledger-id');
+    await controller.updateRate('ledger-id', rateInput as never, request);
+    await controller.getMissingDays('ledger-id');
+    await controller.createDepositsBulk(
+      'ledger-id',
+      bulkInput as never,
+      request,
+    );
     await controller.createDeposit('ledger-id', depositInput as never, request);
     await controller.updateDeposit('deposit-id', depositInput as never, request);
     await controller.removeDeposit('deposit-id');
@@ -100,6 +118,18 @@ describe('JournalController', () => {
     expect(service.listLedgers).toHaveBeenCalledWith();
     expect(service.createLedger).toHaveBeenCalledWith(ledgerInput);
     expect(service.getLedger).toHaveBeenCalledWith('ledger-id');
+    expect(service.getRate).toHaveBeenCalledWith('ledger-id');
+    expect(service.updateRate).toHaveBeenCalledWith(
+      'ledger-id',
+      rateInput,
+      'admin-user-id',
+    );
+    expect(service.getMissingDays).toHaveBeenCalledWith('ledger-id');
+    expect(service.createDepositsBulk).toHaveBeenCalledWith(
+      'ledger-id',
+      bulkInput,
+      'admin-user-id',
+    );
     expect(service.createDeposit).toHaveBeenCalledWith(
       'ledger-id',
       depositInput,
