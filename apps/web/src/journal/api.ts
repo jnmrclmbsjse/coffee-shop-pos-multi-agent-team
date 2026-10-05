@@ -1,11 +1,15 @@
 import type {
+  BulkCreateJournalDepositsInput,
   CreateJournalDepositInput,
   CreateJournalLedgerInput,
   CreateJournalWithdrawalInput,
   JournalDeposit,
   JournalLedgerBalance,
+  JournalMissingDay,
+  JournalSuggestionRate,
   JournalWithdrawal,
   UpdateJournalDepositInput,
+  UpdateJournalSuggestionRateInput,
   UpdateJournalWithdrawalInput,
 } from '@coffee-shop/shared';
 import { sessionFetch } from '../auth/session-fetch';
@@ -106,6 +110,45 @@ export function updateJournalDeposit(
 export function deleteJournalDeposit(id: string): Promise<void> {
   return request(`/journal/deposits/${encodeURIComponent(id)}`, {
     method: 'DELETE',
+  });
+}
+
+export function listJournalMissingDays(
+  ledgerId: string,
+): Promise<JournalMissingDay[]> {
+  return request(
+    `/journal/ledgers/${encodeURIComponent(ledgerId)}/missing-days`,
+  );
+}
+
+export function createJournalDepositsBulk(
+  ledgerId: string,
+  input: BulkCreateJournalDepositsInput,
+): Promise<JournalDeposit[]> {
+  return request(
+    `/journal/ledgers/${encodeURIComponent(ledgerId)}/deposits/bulk`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export async function getJournalSuggestionRate(
+  ledgerId: string,
+): Promise<JournalSuggestionRate | null> {
+  // Nest replies to a `null` rate with an empty body, so the two forms of
+  // "this ledger has no rate row" arrive as `null` and `undefined`.
+  const rate = await request<JournalSuggestionRate | null | undefined>(
+    `/journal/ledgers/${encodeURIComponent(ledgerId)}/rate`,
+  );
+  return rate ?? null;
+}
+
+export function updateJournalSuggestionRate(
+  ledgerId: string,
+  input: UpdateJournalSuggestionRateInput,
+): Promise<JournalSuggestionRate> {
+  return request(`/journal/ledgers/${encodeURIComponent(ledgerId)}/rate`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
   });
 }
 

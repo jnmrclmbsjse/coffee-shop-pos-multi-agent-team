@@ -312,6 +312,177 @@
   width: min(100%, 500px);
 }
 
+.journal-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.journal-status-guide {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface-subtle);
+}
+
+.journal-status-guide h3 {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.journal-status-guide p {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.journal-status-guide span {
+  color: var(--muted);
+}
+
+.journal-entry-kind.outstanding {
+  color: var(--muted);
+  background: var(--surface-subtle);
+}
+
+.journal-not-recorded,
+.journal-no-suggestion {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.journal-no-suggestion {
+  font-style: italic;
+}
+
+.journal-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.journal-radio-group label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  font-size: 0.88rem;
+}
+
+.journal-rate-scope {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.journal-bulk-panel {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.journal-bulk-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.journal-bulk-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--surface-subtle);
+}
+
+.journal-bulk-header label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  font-size: 0.88rem;
+  font-weight: 620;
+}
+
+.journal-bulk-rows {
+  max-height: 460px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: var(--surface);
+}
+
+.journal-bulk-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.2fr) minmax(150px, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.journal-bulk-row:last-child {
+  border-bottom: 0;
+}
+
+.journal-bulk-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  font-size: 0.9rem;
+  font-weight: 620;
+}
+
+.journal-bulk-day {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.journal-bulk-day strong {
+  font-size: 0.82rem;
+  font-weight: 620;
+  color: var(--muted);
+}
+
+.journal-bulk-overridden {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.journal-bulk-amount {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.journal-bulk-amount > label {
+  font-size: 0.8rem;
+  font-weight: 620;
+}
+
+.journal-bulk-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 @media (max-width: 1050px) {
   .journal-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -325,6 +496,14 @@
 @media (max-width: 760px) {
   .journal-ledger-list {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .journal-bulk-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .journal-bulk-amount {
+    grid-column: 1 / -1;
   }
 
   .journal-summary,
@@ -348,7 +527,20 @@
 }
 
 @media (max-width: 540px) {
-  .journal-page .catalog-page-head > .catalog-button {
+  .journal-page .catalog-page-head .journal-page-actions,
+  .journal-page .catalog-page-head .journal-page-actions > .catalog-button {
+    width: 100%;
+  }
+
+  .journal-bulk-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .journal-bulk-amount {
+    grid-column: auto;
+  }
+
+  .journal-bulk-actions > .catalog-button {
     width: 100%;
   }
 

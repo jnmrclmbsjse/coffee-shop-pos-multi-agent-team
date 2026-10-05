@@ -1,16 +1,11 @@
-import type {
-  JournalDeposit,
-  JournalLedgerBalance,
-  JournalWithdrawal,
-} from '@coffee-shop/shared';
 import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from 'react';
+  JournalSuggestionKind,
+  type JournalDeposit,
+  type JournalLedgerBalance,
+  type JournalMissingDay,
+  type JournalWithdrawal,
+} from '@coffee-shop/shared';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Icon, LoadingRows, Notice } from '../catalog/components';
 import { MoneyValue } from '../reporting/MoneyValue';
 import { formatBusinessDate, formatMoney, shopDate } from '../reporting/format';
@@ -23,19 +18,32 @@ import {
   deleteJournalWithdrawal,
   getJournalLedger,
   listJournalLedgers,
+  listJournalMissingDays,
   updateJournalDeposit,
   updateJournalWithdrawal,
   type JournalLedgerDetail,
 } from './api';
+import { BulkAddPanel } from './BulkAddPanel';
+import { SuggestionSettingsDialog } from './SuggestionSettingsDialog';
+import { trapDialogFocus } from './dialog';
 import { amountForInput, currencyToCents } from './domain';
 
 type EntryKind = 'deposit' | 'withdrawal';
+type Section = 'activity' | 'bulk';
+/**
+ * `amountSource` is the one record of whether the amount field still holds the
+ * server's suggestion or the administrator's own figure — the same role
+ * `suggestionSource` / `suggestionDirty` play on CompensationPage, collapsed into
+ * the single radio control the Design Reference asks for.
+ */
+type AmountSource = 'suggested' | 'manual';
 type EntryDraft = {
   kind: EntryKind;
   id?: string;
   date: string;
   amount: string;
   note: string;
+  amountSource: AmountSource;
 };
 type EntryErrors = Partial<Record<'date' | 'amount', string>>;
 type LedgerDraft = {
@@ -56,6 +64,12 @@ type Activity =
       date: string;
       recordedAt: string;
       entry: JournalWithdrawal;
+    }
+  | {
+      kind: 'outstanding';
+      date: string;
+      recordedAt: string;
+      day: JournalMissingDay;
     };
 
 const EMPTY_LEDGER_DRAFT: LedgerDraft = {
@@ -64,34 +78,28 @@ const EMPTY_LEDGER_DRAFT: LedgerDraft = {
   startingBalance: '',
 };
 
-function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
-  if (event.key !== 'Tab') return;
-  const controls = Array.from(
-    event.currentTarget.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href]',
-    ),
-  );
-  const first = controls[0];
-  const last = controls.at(-1);
-  if (!first || !last) return;
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
-}
-
 function apiMessage(error: unknown, fallback: string): string {
   return error instanceof JournalApiError
     ? error.messages.join(' ')
     : fallback;
 }
 
-function activityRows(detail: JournalLedgerDetail | null): Activity[] {
+function activityRows(
+  detail: JournalLedgerDetail | null,
+  missingDays: JournalMissingDay[] | null,
+): Activity[] {
   if (!detail) return [];
   return [
+    // Outstanding closed days come from the server's missing-days list, so a day
+    // the server did not return is simply absent — never a locally derived row.
+    ...(missingDays ?? []).map(
+      (day): Activity => ({
+        kind: 'outstanding',
+        date: day.businessDate,
+        recordedAt: '',
+        day,
+      }),
+    ),
     ...detail.deposits.map(
       (entry): Activity => ({
         kind: 'deposit',
@@ -123,6 +131,12 @@ export function JournalPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [detailRequest, setDetailRequest] = useState(0);
+  const [section, setSection] = useState<Section>('activity');
+  const [missingDays, setMissingDays] = useState<JournalMissingDay[] | null>(null);
+  const [missingDaysLoading, setMissingDaysLoading] = useState(false);
+  const [missingDaysError, setMissingDaysError] = useState('');
+  const [missingDaysRequest, setMissingDaysRequest] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [pageError, setPageError] = useState('');
   const [notice, setNotice] = useState('');
   const [ledgerDraft, setLedgerDraft] = useState<LedgerDraft | null>(null);
@@ -139,7 +153,19 @@ export function JournalPage() {
   const deleteCancelRef = useRef<HTMLButtonElement>(null);
   const workspaceHeadingRef = useRef<HTMLHeadingElement>(null);
 
-  const activity = useMemo(() => activityRows(detail), [detail]);
+  const activity = useMemo(
+    () => activityRows(detail, missingDays),
+    [detail, missingDays],
+  );
+  const selectedLedger = useMemo(
+    () => ledgers.find((ledger) => ledger.id === selectedLedgerId) ?? null,
+    [ledgers, selectedLedgerId],
+  );
+  // ADR 0018 §4: a fully manual ledger has no rate and `PUT` refuses it, so the
+  // settings affordance is not offered for one at all.
+  const canEditRate =
+    selectedLedger !== null &&
+    selectedLedger.suggestionKind !== JournalSuggestionKind.NONE;
 
   async function loadLedgers(preferredId?: string) {
     setLoading(true);
@@ -192,6 +218,34 @@ export function JournalPage() {
   }, [detailRequest, selectedLedgerId]);
 
   useEffect(() => {
+    if (!selectedLedgerId) {
+      setMissingDays(null);
+      return;
+    }
+    let current = true;
+    setMissingDaysLoading(true);
+    setMissingDaysError('');
+    void listJournalMissingDays(selectedLedgerId)
+      .then((days) => {
+        if (current) setMissingDays(days);
+      })
+      .catch(() => {
+        if (current) {
+          setMissingDaysError(
+            'Closed business days could not be loaded. Check the connection and try again.',
+          );
+          setMissingDays(null);
+        }
+      })
+      .finally(() => {
+        if (current) setMissingDaysLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [missingDaysRequest, selectedLedgerId]);
+
+  useEffect(() => {
     if (ledgerDraft || entryDraft) {
       dialogRef.current?.focus();
     }
@@ -237,13 +291,82 @@ export function JournalPage() {
     returnFocus();
   }
 
-  function openNewEntry(kind: EntryKind) {
+  /**
+   * The suggestion for a deposit draft's business day, straight from the server's
+   * missing-days list. A day the server did not return — an open day, a date with
+   * no trading day, or a day that already has a deposit — has no entry here and
+   * gets no suggestion. Nothing is computed in the browser (ADR 0018 §5).
+   */
+  function suggestionFor(businessDate: string): JournalMissingDay | null {
+    return (
+      missingDays?.find((day) => day.businessDate === businessDate) ?? null
+    );
+  }
+
+  function openNewEntry(kind: EntryKind, businessDate?: string) {
     if (!detail) return;
     rememberFocus();
-    setEntryDraft({ kind, date: shopDate(), amount: '', note: '' });
+    // Default a deposit to the most recent outstanding closed day: today is
+    // normally still open and therefore not depositable.
+    const date =
+      kind === 'deposit'
+        ? (businessDate ?? missingDays?.at(-1)?.businessDate ?? shopDate())
+        : shopDate();
+    const suggested =
+      kind === 'deposit' ? suggestionFor(date)?.suggestedAmountCents : undefined;
+    setEntryDraft({
+      kind,
+      date,
+      amount:
+        suggested === undefined || suggested === null
+          ? ''
+          : amountForInput(suggested),
+      note: '',
+      amountSource: 'suggested',
+    });
     setEntryErrors({});
     setModalError('');
     setConflict('');
+  }
+
+  function changeEntryDate(date: string) {
+    if (!entryDraft) return;
+    setEntryErrors((current) => ({ ...current, date: undefined }));
+    setConflict('');
+    if (entryDraft.kind !== 'deposit' || entryDraft.amountSource === 'manual') {
+      setEntryDraft({ ...entryDraft, date });
+      return;
+    }
+    // Still on the suggestion, so follow the new day's suggestion. An absent or
+    // `null` suggestion empties the field rather than writing ₱0.00 into it.
+    const suggested = suggestionFor(date)?.suggestedAmountCents;
+    setEntryDraft({
+      ...entryDraft,
+      date,
+      amount:
+        suggested === undefined || suggested === null
+          ? ''
+          : amountForInput(suggested),
+    });
+  }
+
+  function changeEntryAmount(amount: string) {
+    if (!entryDraft) return;
+    setEntryDraft({ ...entryDraft, amount, amountSource: 'manual' });
+    setEntryErrors((current) => ({ ...current, amount: undefined }));
+  }
+
+  function changeAmountSource(source: AmountSource) {
+    if (!entryDraft) return;
+    const suggested = suggestionFor(entryDraft.date)?.suggestedAmountCents;
+    setEntryDraft({
+      ...entryDraft,
+      amountSource: source,
+      ...(source === 'suggested' && suggested !== undefined && suggested !== null
+        ? { amount: amountForInput(suggested) }
+        : {}),
+    });
+    setEntryErrors((current) => ({ ...current, amount: undefined }));
   }
 
   function openEditDeposit(entry: JournalDeposit) {
@@ -254,6 +377,7 @@ export function JournalPage() {
       date: entry.businessDate,
       amount: amountForInput(entry.amountCents),
       note: entry.note ?? '',
+      amountSource: 'manual',
     });
     setEntryErrors({});
     setModalError('');
@@ -268,6 +392,7 @@ export function JournalPage() {
       date: entry.withdrawnOn,
       amount: amountForInput(entry.amountCents),
       note: entry.note ?? '',
+      amountSource: 'manual',
     });
     setEntryErrors({});
     setModalError('');
@@ -304,6 +429,24 @@ export function JournalPage() {
     ]);
     setLedgers(nextLedgers);
     setDetail(nextDetail);
+    // Recorded-ness has changed, so which days are still missing has too.
+    refreshMissingDays();
+  }
+
+  function refreshMissingDays() {
+    setMissingDaysRequest((request) => request + 1);
+  }
+
+  function openSettings() {
+    rememberFocus();
+    setSettingsOpen(true);
+    setNotice('');
+    setPageError('');
+  }
+
+  function closeSettings() {
+    setSettingsOpen(false);
+    returnFocus();
   }
 
   function validateLedger(): LedgerErrors {
@@ -490,6 +633,24 @@ export function JournalPage() {
     }
   }
 
+  const depositSuggestion =
+    entryDraft && entryDraft.kind === 'deposit'
+      ? suggestionFor(entryDraft.date)
+      : null;
+  // An explicit `!== null` check: a ₱0 suggestion is a real suggestion and is
+  // offered, prefilled and savable like any other (ADR 0018 §6).
+  const hasDepositSuggestion =
+    depositSuggestion !== null &&
+    depositSuggestion.suggestedAmountCents !== null;
+  const depositDayAlreadyRecorded =
+    entryDraft !== null &&
+    entryDraft.kind === 'deposit' &&
+    (detail?.deposits ?? []).some(
+      (deposit) =>
+        deposit.businessDate === entryDraft.date &&
+        deposit.id !== entryDraft.id,
+    );
+
   return (
     <main className="catalog-page journal-page">
       <header className="catalog-page-head">
@@ -497,14 +658,25 @@ export function JournalPage() {
           <h1>Journal</h1>
           <p>Track set-aside funds across closed business days.</p>
         </div>
-        <button
-          className="catalog-button primary"
-          type="button"
-          onClick={openAddLedger}
-        >
-          <Icon name="plus" />
-          Add ledger
-        </button>
+        <div className="journal-page-actions">
+          {canEditRate && (
+            <button
+              className="catalog-button"
+              type="button"
+              onClick={openSettings}
+            >
+              Suggestion settings
+            </button>
+          )}
+          <button
+            className="catalog-button primary"
+            type="button"
+            onClick={openAddLedger}
+          >
+            <Icon name="plus" />
+            Add ledger
+          </button>
+        </div>
       </header>
 
       {notice && (
@@ -576,6 +748,37 @@ export function JournalPage() {
                 </button>
               ))}
             </div>
+            <div className="journal-status-guide">
+              <h3>Recording status</h3>
+              <p>
+                <strong>A saved ₱0.00 deposit</strong>
+                <span>
+                  A real deposit. Its business day is recorded in this ledger and
+                  is no longer outstanding.
+                </span>
+              </p>
+              <p>
+                <strong>A ₱0.00 suggestion</strong>
+                <span>
+                  A real suggestion, offered when the day's gross is below the
+                  threshold. Nothing is recorded until it is saved.
+                </span>
+              </p>
+              <p>
+                <strong>No suggestion at all</strong>
+                <span>
+                  A fully manual ledger suggests nothing. That is not the same as
+                  a suggestion of ₱0.00.
+                </span>
+              </p>
+              <p>
+                <strong>An open business day</strong>
+                <span>
+                  Not eligible for a deposit, carries no suggestion, and is absent
+                  from Bulk add.
+                </span>
+              </p>
+            </div>
           </aside>
 
           <section className="catalog-panel journal-workspace" aria-labelledby="journal-workspace-title">
@@ -625,117 +828,219 @@ export function JournalPage() {
                   </dl>
                 </header>
 
-                <div className="journal-panel-head">
-                  <div>
-                    <h3>Activity</h3>
-                    <p aria-live="polite">
-                      {activity.length} {activity.length === 1 ? 'entry' : 'entries'}
-                    </p>
-                  </div>
-                  <div className="journal-toolbar">
-                    <button
-                      className="catalog-button"
-                      type="button"
-                      onClick={() => openNewEntry('withdrawal')}
-                    >
-                      Record withdrawal
-                    </button>
-                    <button
-                      className="catalog-button primary"
-                      type="button"
-                      onClick={() => openNewEntry('deposit')}
-                    >
-                      Record deposit
-                    </button>
-                  </div>
-                </div>
+                <nav className="compensation-sections" aria-label="Journal sections">
+                  <button
+                    type="button"
+                    aria-current={section === 'activity' ? 'page' : undefined}
+                    onClick={() => setSection('activity')}
+                  >
+                    Activity
+                  </button>
+                  <button
+                    type="button"
+                    aria-current={section === 'bulk' ? 'page' : undefined}
+                    onClick={() => setSection('bulk')}
+                  >
+                    Bulk add
+                  </button>
+                </nav>
 
-                {activity.length === 0 ? (
-                  <div className="catalog-empty journal-empty">
-                    <Icon name="document" />
-                    <h3>No activity yet</h3>
-                    <p>Record a deposit or withdrawal to begin this ledger.</p>
-                  </div>
+                {section === 'bulk' ? (
+                  <BulkAddPanel
+                    ledgerId={detail.id}
+                    ledgerName={detail.name}
+                    startDate={detail.startDate}
+                    days={missingDays}
+                    loading={missingDaysLoading}
+                    loadError={missingDaysError}
+                    onRefresh={refreshMissingDays}
+                    onSaved={(savedCount) => {
+                      setNotice(
+                        `${savedCount} ${savedCount === 1 ? 'deposit was' : 'deposits were'} recorded.`,
+                      );
+                      void refreshSelectedLedger();
+                    }}
+                  />
                 ) : (
                   <>
-                    <p className="report-scroll-hint">Scroll horizontally to view all columns.</p>
-                    <div
-                      className="report-table-region journal-table-region"
-                      tabIndex={0}
-                      role="region"
-                      aria-label={`${detail.name} ledger activity, scroll horizontally to view all columns`}
-                    >
-                      <table className="report-table journal-activity-table">
-                        <caption className="sr-only">
-                          Deposits and withdrawals, newest date first
-                        </caption>
-                        <thead>
-                          <tr>
-                            <th scope="col" aria-sort="descending">Date</th>
-                            <th scope="col">Type</th>
-                            <th className="num" scope="col">Amount</th>
-                            <th scope="col">Note</th>
-                            <th scope="col"><span className="sr-only">Actions</span></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {detailLoading ? (
-                            <LoadingRows columns={5} />
-                          ) : (
-                            activity.map((row) => (
-                              <tr key={`${row.kind}-${row.entry.id}`}>
-                                <td>{formatBusinessDate(row.date)}</td>
-                                <td>
-                                  <span className={`journal-entry-kind ${row.kind}`}>
-                                    {row.kind === 'deposit' ? 'Deposit' : 'Withdrawal'}
-                                  </span>
-                                </td>
-                                <td className="num">
-                                  {row.kind === 'withdrawal' ? '−' : ''}
-                                  <MoneyValue cents={row.entry.amountCents} />
-                                  {row.kind === 'deposit' && row.entry.amountCents === 0 && (
-                                    <small className="journal-zero-label">Saved ₱0.00 deposit</small>
-                                  )}
-                                </td>
-                                <td className="journal-note">
-                                  {row.entry.note ?? <span className="journal-no-note">No note</span>}
-                                </td>
-                                <td className="table-action">
-                                  <div className="journal-row-actions">
-                                    <button
-                                      className="catalog-button small"
-                                      type="button"
-                                      aria-label={`Edit ${row.kind} from ${formatBusinessDate(row.date)}`}
-                                      onClick={() =>
-                                        row.kind === 'deposit'
-                                          ? openEditDeposit(row.entry)
-                                          : openEditWithdrawal(row.entry)
-                                      }
-                                    >
-                                      Edit
-                                    </button>
-                                    <button
-                                      className="catalog-button small danger"
-                                      type="button"
-                                      aria-label={`Delete ${row.kind} from ${formatBusinessDate(row.date)}`}
-                                      onClick={() =>
-                                        openDelete(
-                                          row.kind === 'deposit'
-                                            ? { kind: 'deposit', entry: row.entry }
-                                            : { kind: 'withdrawal', entry: row.entry },
-                                        )
-                                      }
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                  <div className="journal-panel-head">
+                    <div>
+                      <h3>Activity</h3>
+                      <p aria-live="polite">
+                        {activity.length}{' '}
+                        {activity.length === 1
+                          ? 'record or outstanding day'
+                          : 'records and outstanding days'}
+                      </p>
                     </div>
+                    <div className="journal-toolbar">
+                      <button
+                        className="catalog-button"
+                        type="button"
+                        onClick={() => openNewEntry('withdrawal')}
+                      >
+                        Record withdrawal
+                      </button>
+                      <button
+                        className="catalog-button primary"
+                        type="button"
+                        onClick={() => openNewEntry('deposit')}
+                      >
+                        Record deposit
+                      </button>
+                    </div>
+                  </div>
+
+                  {activity.length === 0 ? (
+                    <div className="catalog-empty journal-empty">
+                      <Icon name="document" />
+                      <h3>No activity yet</h3>
+                      <p>Record a deposit or withdrawal to begin this ledger.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="report-scroll-hint">Scroll horizontally to view all columns.</p>
+                      <div
+                        className="report-table-region journal-table-region"
+                        tabIndex={0}
+                        role="region"
+                        aria-label={`${detail.name} ledger activity, scroll horizontally to view all columns`}
+                      >
+                        <table className="report-table journal-activity-table">
+                          <caption className="sr-only">
+                            Deposits and withdrawals, newest date first
+                          </caption>
+                          <thead>
+                            <tr>
+                              <th scope="col" aria-sort="descending">Date</th>
+                              <th scope="col">Type</th>
+                              <th className="num" scope="col">Amount</th>
+                              <th scope="col">Suggestion</th>
+                              <th scope="col">Note</th>
+                              <th scope="col">Status</th>
+                              <th scope="col"><span className="sr-only">Actions</span></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {detailLoading ? (
+                              <LoadingRows columns={7} />
+                            ) : (
+                              activity.map((row) =>
+                                row.kind === 'outstanding' ? (
+                                  <tr key={`outstanding-${row.date}`}>
+                                    <td>{formatBusinessDate(row.date)}</td>
+                                    <td>
+                                      <span className="journal-entry-kind outstanding">
+                                        Outstanding day
+                                      </span>
+                                    </td>
+                                    <td className="num">
+                                      <span className="journal-not-recorded">
+                                        Not recorded
+                                      </span>
+                                    </td>
+                                    <td>
+                                      {row.day.suggestedAmountCents === null ? (
+                                        <span className="journal-no-suggestion">
+                                          No suggestion available
+                                        </span>
+                                      ) : (
+                                        <span className="compensation-suggested">
+                                          {formatMoney(row.day.suggestedAmountCents)}{' '}
+                                          suggested, not saved
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="journal-note">
+                                      <span className="journal-no-note">
+                                        Gross {formatMoney(row.day.grossSalesCents)}
+                                      </span>
+                                    </td>
+                                    <td>Needs review</td>
+                                    <td className="table-action">
+                                      <div className="journal-row-actions">
+                                        <button
+                                          className="catalog-button small"
+                                          type="button"
+                                          aria-label={`Record deposit for ${formatBusinessDate(row.date)}`}
+                                          onClick={() =>
+                                            openNewEntry('deposit', row.date)
+                                          }
+                                        >
+                                          Record deposit
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ) : (
+                                <tr key={`${row.kind}-${row.entry.id}`}>
+                                  <td>{formatBusinessDate(row.date)}</td>
+                                  <td>
+                                    <span className={`journal-entry-kind ${row.kind}`}>
+                                      {row.kind === 'deposit' ? 'Deposit' : 'Withdrawal'}
+                                    </span>
+                                  </td>
+                                  <td className="num">
+                                    {row.kind === 'withdrawal' ? '−' : ''}
+                                    <MoneyValue cents={row.entry.amountCents} />
+                                  </td>
+                                  <td>
+                                    <span className="journal-no-suggestion">
+                                      {row.kind === 'deposit'
+                                        ? 'Saved amount'
+                                        : 'Not applicable'}
+                                    </span>
+                                  </td>
+                                  <td className="journal-note">
+                                    {row.entry.note ?? <span className="journal-no-note">No note</span>}
+                                  </td>
+                                  <td>
+                                    {row.kind === 'withdrawal'
+                                      ? 'Saved withdrawal'
+                                      : 'Recorded in ledger'}
+                                    {row.kind === 'deposit' && row.entry.amountCents === 0 && (
+                                      <small className="journal-zero-label">Saved ₱0.00 deposit</small>
+                                    )}
+                                  </td>
+                                  <td className="table-action">
+                                    <div className="journal-row-actions">
+                                      <button
+                                        className="catalog-button small"
+                                        type="button"
+                                        aria-label={`Edit ${row.kind} from ${formatBusinessDate(row.date)}`}
+                                        onClick={() =>
+                                          row.kind === 'deposit'
+                                            ? openEditDeposit(row.entry)
+                                            : openEditWithdrawal(row.entry)
+                                        }
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        className="catalog-button small danger"
+                                        type="button"
+                                        aria-label={`Delete ${row.kind} from ${formatBusinessDate(row.date)}`}
+                                        onClick={() =>
+                                          openDelete(
+                                            row.kind === 'deposit'
+                                              ? { kind: 'deposit', entry: row.entry }
+                                              : { kind: 'withdrawal', entry: row.entry },
+                                          )
+                                        }
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                                ),
+                              )
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
                   </>
                 )}
               </>
@@ -834,20 +1139,38 @@ export function JournalPage() {
               <div className="inventory-modal-grid">
                 <div className="catalog-field">
                   <label htmlFor="journal-entry-date">{entryDraft.kind === 'deposit' ? 'Business day' : 'Withdrawal date'} <span aria-hidden="true">*</span></label>
-                  <input id="journal-entry-date" type="date" min={entryDraft.kind === 'deposit' ? detail.startDate : undefined} max={entryDraft.kind === 'deposit' ? shopDate() : undefined} value={entryDraft.date} disabled={saving} aria-invalid={Boolean(entryErrors.date)} aria-describedby={entryErrors.date ? 'journal-entry-date-error journal-entry-date-help' : 'journal-entry-date-help'} onChange={(event) => {
-                    setEntryDraft({ ...entryDraft, date: event.target.value });
-                    setEntryErrors((current) => ({ ...current, date: undefined }));
-                    setConflict('');
-                  }} />
-                  <p className="catalog-field-help" id="journal-entry-date-help">{entryDraft.kind === 'deposit' ? 'Only a closed business day on or after the ledger start date can be saved.' : 'Withdrawals are dated independently of business days.'}</p>
+                  <input id="journal-entry-date" type="date" min={entryDraft.kind === 'deposit' ? detail.startDate : undefined} max={entryDraft.kind === 'deposit' ? shopDate() : undefined} value={entryDraft.date} disabled={saving} aria-invalid={Boolean(entryErrors.date)} aria-describedby={entryErrors.date ? 'journal-entry-date-error journal-entry-date-help' : 'journal-entry-date-help'} onChange={(event) => changeEntryDate(event.target.value)} />
+                  <p className="catalog-field-help" id="journal-entry-date-help">{entryDraft.kind === 'deposit' ? (depositDayAlreadyRecorded ? `${detail.name} already has a deposit for this business day (already recorded).` : 'Only a closed business day on or after the ledger start date can be saved.') : 'Withdrawals are dated independently of business days.'}</p>
                   {entryErrors.date && <p className="catalog-field-error" id="journal-entry-date-error">{entryErrors.date}</p>}
                 </div>
                 <div className="catalog-field">
+                  {hasDepositSuggestion && (
+                    <>
+                      <span className="catalog-field-label" id="journal-entry-source-label">Amount source</span>
+                      <div className="journal-radio-group" role="radiogroup" aria-labelledby="journal-entry-source-label">
+                        <label htmlFor="journal-entry-source-suggested">
+                          <input id="journal-entry-source-suggested" type="radio" name="journal-entry-source" value="suggested" checked={entryDraft.amountSource === 'suggested'} disabled={saving} onChange={() => changeAmountSource('suggested')} />
+                          Use suggested amount
+                        </label>
+                        <label htmlFor="journal-entry-source-manual">
+                          <input id="journal-entry-source-manual" type="radio" name="journal-entry-source" value="manual" checked={entryDraft.amountSource === 'manual'} disabled={saving} onChange={() => changeAmountSource('manual')} />
+                          Enter another amount
+                        </label>
+                      </div>
+                    </>
+                  )}
                   <label htmlFor="journal-entry-amount">Amount <span aria-hidden="true">*</span></label>
-                  <div className="journal-money-input"><span aria-hidden="true">₱</span><input id="journal-entry-amount" inputMode="decimal" value={entryDraft.amount} disabled={saving} aria-invalid={Boolean(entryErrors.amount)} aria-describedby={entryErrors.amount ? 'journal-entry-amount-error journal-entry-amount-help' : 'journal-entry-amount-help'} onChange={(event) => {
-                    setEntryDraft({ ...entryDraft, amount: event.target.value });
-                    setEntryErrors((current) => ({ ...current, amount: undefined }));
-                  }} /></div>
+                  <div className="journal-money-input"><span aria-hidden="true">₱</span><input id="journal-entry-amount" inputMode="decimal" value={entryDraft.amount} disabled={saving} aria-invalid={Boolean(entryErrors.amount)} aria-describedby={[hasDepositSuggestion && entryDraft.amountSource === 'suggested' ? 'journal-entry-amount-suggested' : '', 'journal-entry-amount-help', entryErrors.amount ? 'journal-entry-amount-error' : ''].filter(Boolean).join(' ')} onChange={(event) => changeEntryAmount(event.target.value)} /></div>
+                  {hasDepositSuggestion && entryDraft.amountSource === 'suggested' && (
+                    <p className="compensation-field-annotation">
+                      <span className="compensation-suggested" id="journal-entry-amount-suggested">
+                        {formatMoney(depositSuggestion!.suggestedAmountCents!)} suggested, not saved
+                      </span>
+                    </p>
+                  )}
+                  {entryDraft.kind === 'deposit' && depositSuggestion !== null && depositSuggestion.suggestedAmountCents === null && (
+                    <p className="journal-no-suggestion">No suggestion available for this ledger.</p>
+                  )}
                   <p className="catalog-field-help" id="journal-entry-amount-help">{entryDraft.kind === 'deposit' ? '₱0.00 is a saved deposit and marks the day as recorded.' : 'Must be greater than ₱0.00.'}</p>
                   {entryErrors.amount && <p className="catalog-field-error" id="journal-entry-amount-error">{entryErrors.amount}</p>}
                 </div>
@@ -860,6 +1183,23 @@ export function JournalPage() {
             </form>
           </section>
         </div>
+      )}
+
+      {settingsOpen && selectedLedger && canEditRate && (
+        <SuggestionSettingsDialog
+          ledger={selectedLedger}
+          onClose={closeSettings}
+          onSaved={(ledgerName) => {
+            setSettingsOpen(false);
+            setNotice(
+              `${ledgerName} suggestion settings were saved. They apply to business days from today onward; earlier days keep the suggestion in force on the day itself.`,
+            );
+            // Earlier days keep their old suggestions and days from today onward
+            // change, so the list must come back from the server.
+            refreshMissingDays();
+            returnFocus();
+          }}
+        />
       )}
 
       {deleteTarget && (
