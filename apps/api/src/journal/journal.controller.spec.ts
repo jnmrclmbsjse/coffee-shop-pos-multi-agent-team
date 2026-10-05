@@ -25,6 +25,7 @@ describe('JournalController', () => {
     'listLedgers',
     'createLedger',
     'getLedger',
+    'updateLedger',
     'getRate',
     'updateRate',
     'getMissingDays',
@@ -59,6 +60,7 @@ describe('JournalController', () => {
       listLedgers: jest.fn().mockResolvedValue([]),
       createLedger: jest.fn().mockResolvedValue({ id: 'ledger-id' }),
       getLedger: jest.fn().mockResolvedValue({ id: 'ledger-id' }),
+      updateLedger: jest.fn().mockResolvedValue({ id: 'ledger-id' }),
       getRate: jest.fn().mockResolvedValue(null),
       updateRate: jest.fn().mockResolvedValue({ id: 'rate-id' }),
       getMissingDays: jest.fn().mockResolvedValue([]),
@@ -92,6 +94,10 @@ describe('JournalController', () => {
     await controller.listLedgers();
     await controller.createLedger(ledgerInput as never);
     await controller.getLedger('ledger-id');
+    await controller.updateLedger('ledger-id', {
+      startDate: '2026-10-06',
+      startingBalanceCents: 0,
+    } as never);
     await controller.getRate('ledger-id');
     await controller.updateRate('ledger-id', rateInput as never, request);
     await controller.getMissingDays('ledger-id');
@@ -118,6 +124,10 @@ describe('JournalController', () => {
     expect(service.listLedgers).toHaveBeenCalledWith();
     expect(service.createLedger).toHaveBeenCalledWith(ledgerInput);
     expect(service.getLedger).toHaveBeenCalledWith('ledger-id');
+    expect(service.updateLedger).toHaveBeenCalledWith('ledger-id', {
+      startDate: '2026-10-06',
+      startingBalanceCents: 0,
+    });
     expect(service.getRate).toHaveBeenCalledWith('ledger-id');
     expect(service.updateRate).toHaveBeenCalledWith(
       'ledger-id',

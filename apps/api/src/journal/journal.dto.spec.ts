@@ -5,6 +5,7 @@ import {
   CreateJournalLedgerDto,
   CreateJournalWithdrawalDto,
   UpdateJournalDepositDto,
+  UpdateJournalLedgerDto,
   UpdateJournalSuggestionRateDto,
   UpdateJournalWithdrawalDto,
 } from './journal.dto';
@@ -59,6 +60,25 @@ describe('Journal DTOs', () => {
     await expect(transform(metatype, input)).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('requires both start date and starting balance on a ledger update, and nothing else', async () => {
+    await expect(
+      transform(UpdateJournalLedgerDto, {
+        startDate: '2026-10-06',
+        startingBalanceCents: 0,
+      }),
+    ).resolves.toMatchObject({ startDate: '2026-10-06', startingBalanceCents: 0 });
+    await expect(
+      transform(UpdateJournalLedgerDto, { startDate: '2026-10-06' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      transform(UpdateJournalLedgerDto, {
+        startDate: '2026-10-06',
+        startingBalanceCents: 0,
+        name: 'Renamed',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('preserves an explicit zero deposit and accepts a nullable note', async () => {

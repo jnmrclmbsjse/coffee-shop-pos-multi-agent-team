@@ -23,6 +23,7 @@ const api = vi.hoisted(() => ({
   listMissingDays: vi.fn(),
   saveBulk: vi.fn(),
   updateDeposit: vi.fn(),
+  updateLedger: vi.fn(),
   updateRate: vi.fn(),
   updateWithdrawal: vi.fn(),
 }));
@@ -42,6 +43,7 @@ vi.mock('./api', async (importOriginal) => {
     listJournalLedgers: api.listLedgers,
     listJournalMissingDays: api.listMissingDays,
     updateJournalDeposit: api.updateDeposit,
+    updateJournalLedger: api.updateLedger,
     updateJournalSuggestionRate: api.updateRate,
     updateJournalWithdrawal: api.updateWithdrawal,
   };
@@ -206,6 +208,71 @@ describe('JournalPage', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Record deposit' })).toBeInTheDocument();
+  });
+
+  it('moves the start date forward so earlier closed days stop being outstanding', async () => {
+    renderPage({ missingDays: [positiveSuggestionDay] });
+    await screen.findByRole('heading', { name: 'Rent' });
+    api.updateLedger.mockResolvedValue({
+      ...rent,
+      startDate: '2026-10-06',
+      startingBalanceCents: cents(250_000),
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Change start date' }));
+    const dialog = screen.getByRole('dialog', { name: 'Change Rent start date' });
+    expect(within(dialog).queryByLabelText(/Ledger name/)).not.toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Starting balance/)).toHaveValue('100.00');
+    fireEvent.change(within(dialog).getByLabelText(/Start date/), {
+      target: { value: '2026-10-06' },
+    });
+    await user.clear(within(dialog).getByLabelText(/Starting balance/));
+    await user.type(within(dialog).getByLabelText(/Starting balance/), '2500');
+    api.listMissingDays.mockResolvedValue([]);
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(api.updateLedger).toHaveBeenCalledWith('ledger-rent', {
+        startDate: '2026-10-06',
+        startingBalanceCents: cents(250_000),
+      }),
+    );
+    expect(
+      await screen.findByText(
+        'Rent now starts October 6, 2026. Closed days before it are no longer outstanding.',
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(api.listMissingDays).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('keeps the start-date dialog open when a deposit is recorded after the new date', async () => {
+    renderPage();
+    await screen.findByRole('heading', { name: 'Rent' });
+    api.updateLedger.mockRejectedValue(
+      new JournalApiError(
+        400,
+        ['startDate must be on or before the earliest recorded deposit (2026-10-01)'],
+        'startDate',
+        'START_DATE_AFTER_RECORDED_DEPOSIT',
+        '2026-10-01',
+      ),
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Change start date' }));
+    const dialog = screen.getByRole('dialog', { name: 'Change Rent start date' });
+    fireEvent.change(within(dialog).getByLabelText(/Start date/), {
+      target: { value: '2026-10-06' },
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+    expect(
+      await within(dialog).findByText(
+        'A deposit is already recorded for October 1, 2026. Choose that date or earlier, or delete that deposit first.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('retries a selected ledger after its detail request fails', async () => {

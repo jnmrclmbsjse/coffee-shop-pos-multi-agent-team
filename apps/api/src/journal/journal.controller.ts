@@ -29,6 +29,7 @@ import {
   CreateJournalLedgerDto,
   CreateJournalWithdrawalDto,
   UpdateJournalDepositDto,
+  UpdateJournalLedgerDto,
   UpdateJournalSuggestionRateDto,
   UpdateJournalWithdrawalDto,
 } from './journal.dto';
@@ -60,6 +61,14 @@ export class JournalController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<JournalLedgerDetail> {
     return this.journalService.getLedger(id);
+  }
+
+  @Patch('ledgers/:id')
+  updateLedger(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() input: UpdateJournalLedgerDto,
+  ): Promise<JournalLedgerBalance> {
+    return this.journalService.updateLedger(id, input);
   }
 
   @Get('ledgers/:id/rate')

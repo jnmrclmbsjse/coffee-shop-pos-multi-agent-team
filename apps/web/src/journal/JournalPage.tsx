@@ -1,5 +1,7 @@
 import {
+  cents,
   JournalSuggestionKind,
+  type MoneyCents,
   type JournalDeposit,
   type JournalLedgerBalance,
   type JournalMissingDay,
@@ -20,6 +22,7 @@ import {
   listJournalLedgers,
   listJournalMissingDays,
   updateJournalDeposit,
+  updateJournalLedger,
   updateJournalWithdrawal,
   type JournalLedgerDetail,
 } from './api';
@@ -46,7 +49,9 @@ type EntryDraft = {
   amountSource: AmountSource;
 };
 type EntryErrors = Partial<Record<'date' | 'amount', string>>;
+/** `id` set means editing an existing ledger's start date and balance. */
 type LedgerDraft = {
+  id?: string;
   name: string;
   startDate: string;
   startingBalance: string;
@@ -282,6 +287,21 @@ export function JournalPage() {
     setConflict('');
   }
 
+  function openEditLedger() {
+    if (!detail) return;
+    rememberFocus();
+    setLedgerDraft({
+      id: detail.id,
+      name: detail.name,
+      startDate: detail.startDate,
+      startingBalance: amountForInput(detail.startingBalanceCents),
+    });
+    setLedgerErrors({});
+    setModalError('');
+    setConflict('');
+    setNotice('');
+  }
+
   function closeLedgerEditor() {
     if (saving) return;
     setLedgerDraft(null);
@@ -452,7 +472,7 @@ export function JournalPage() {
   function validateLedger(): LedgerErrors {
     if (!ledgerDraft) return {};
     const errors: LedgerErrors = {};
-    if (!ledgerDraft.name.trim()) errors.name = 'Enter a ledger name.';
+    if (!ledgerDraft.id && !ledgerDraft.name.trim()) errors.name = 'Enter a ledger name.';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(ledgerDraft.startDate)) {
       errors.startDate = 'Choose a valid start date.';
     }
@@ -492,6 +512,10 @@ export function JournalPage() {
     setSaving(true);
     setModalError('');
     setConflict('');
+    if (ledgerDraft.id) {
+      await saveLedgerEdit(ledgerDraft.id, balance ?? cents(0));
+      return;
+    }
     try {
       const created = await createJournalLedger({
         name: ledgerDraft.name.trim(),
@@ -509,6 +533,41 @@ export function JournalPage() {
         );
       } else {
         setModalError(apiMessage(error, 'The ledger could not be added. Try again.'));
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveLedgerEdit(id: string, startingBalanceCents: MoneyCents) {
+    if (!ledgerDraft) return;
+    try {
+      const updated = await updateJournalLedger(id, {
+        startDate: ledgerDraft.startDate,
+        startingBalanceCents,
+      });
+      setLedgerDraft(null);
+      setNotice(
+        `${updated.name} now starts ${formatBusinessDate(updated.startDate)}. Closed days before it are no longer outstanding.`,
+      );
+      await refreshSelectedLedger();
+      returnFocus();
+    } catch (error) {
+      if (
+        error instanceof JournalApiError &&
+        error.reason === 'START_DATE_AFTER_RECORDED_DEPOSIT'
+      ) {
+        const earliest = error.businessDate;
+        setLedgerErrors({
+          startDate: earliest
+            ? `A deposit is already recorded for ${formatBusinessDate(earliest)}. Choose that date or earlier, or delete that deposit first.`
+            : 'A deposit is already recorded before this date. Choose an earlier date, or delete that deposit first.',
+        });
+        requestAnimationFrame(() =>
+          document.getElementById('journal-ledger-startDate')?.focus(),
+        );
+      } else {
+        setModalError(apiMessage(error, 'The ledger could not be updated. Try again.'));
       }
     } finally {
       setSaving(false);
@@ -813,7 +872,16 @@ export function JournalPage() {
                     >
                       {detail.name}
                     </h2>
-                    <p>Started {formatBusinessDate(detail.startDate)}</p>
+                    <p>
+                      Started {formatBusinessDate(detail.startDate)}{' '}
+                      <button
+                        className="catalog-button small"
+                        type="button"
+                        onClick={openEditLedger}
+                      >
+                        Change start date
+                      </button>
+                    </p>
                   </div>
                   <dl className="report-metric" aria-live="polite">
                     <dt>Current balance</dt>
@@ -1070,15 +1138,15 @@ export function JournalPage() {
           >
             <header className="inventory-modal-head">
               <div>
-                <h2 id="journal-ledger-dialog-title">Add ledger</h2>
-                <p>Create a manual set-aside fund ledger.</p>
+                <h2 id="journal-ledger-dialog-title">{ledgerDraft.id ? `Change ${ledgerDraft.name} start date` : 'Add ledger'}</h2>
+                <p>{ledgerDraft.id ? 'Closed days before the start date stop showing as outstanding. Recorded deposits and withdrawals are kept.' : 'Create a manual set-aside fund ledger.'}</p>
               </div>
               <button className="catalog-button small" type="button" disabled={saving} onClick={closeLedgerEditor}>Close</button>
             </header>
             <form noValidate onSubmit={saveLedger}>
               {conflict && <Notice tone="danger" title="Ledger not added"><p>{conflict}</p></Notice>}
-              {modalError && <Notice tone="danger" title="Ledger not added"><p>{modalError}</p></Notice>}
-              <div className="catalog-field journal-field-wide">
+              {modalError && <Notice tone="danger" title={ledgerDraft.id ? 'Ledger not updated' : 'Ledger not added'}><p>{modalError}</p></Notice>}
+              {!ledgerDraft.id && <div className="catalog-field journal-field-wide">
                 <label htmlFor="journal-ledger-name">Ledger name <span aria-hidden="true">*</span></label>
                 <input id="journal-ledger-name" value={ledgerDraft.name} disabled={saving} aria-invalid={Boolean(ledgerErrors.name)} aria-describedby={ledgerErrors.name ? 'journal-ledger-name-error journal-ledger-name-help' : 'journal-ledger-name-help'} onChange={(event) => {
                   setLedgerDraft({ ...ledgerDraft, name: event.target.value });
@@ -1087,27 +1155,28 @@ export function JournalPage() {
                 }} />
                 <p className="catalog-field-help" id="journal-ledger-name-help">Names must be unique, regardless of letter case.</p>
                 {ledgerErrors.name && <p className="catalog-field-error" id="journal-ledger-name-error">{ledgerErrors.name}</p>}
-              </div>
+              </div>}
               <div className="inventory-modal-grid">
                 <div className="catalog-field">
                   <label htmlFor="journal-ledger-startDate">Start date <span aria-hidden="true">*</span></label>
-                  <input id="journal-ledger-startDate" type="date" value={ledgerDraft.startDate} disabled={saving} aria-invalid={Boolean(ledgerErrors.startDate)} aria-describedby={ledgerErrors.startDate ? 'journal-ledger-startDate-error' : undefined} onChange={(event) => {
+                  <input id="journal-ledger-startDate" type="date" value={ledgerDraft.startDate} disabled={saving} aria-invalid={Boolean(ledgerErrors.startDate)} aria-describedby={[ledgerErrors.startDate && 'journal-ledger-startDate-error', ledgerDraft.id && 'journal-ledger-startDate-help'].filter(Boolean).join(' ') || undefined} onChange={(event) => {
                     setLedgerDraft({ ...ledgerDraft, startDate: event.target.value });
                     setLedgerErrors((current) => ({ ...current, startDate: undefined }));
                   }} />
+                  {ledgerDraft.id && <p className="catalog-field-help" id="journal-ledger-startDate-help">The first business day you will record for this ledger.</p>}
                   {ledgerErrors.startDate && <p className="catalog-field-error" id="journal-ledger-startDate-error">{ledgerErrors.startDate}</p>}
                 </div>
                 <div className="catalog-field">
-                  <label htmlFor="journal-ledger-startingBalance">Starting balance (optional)</label>
+                  <label htmlFor="journal-ledger-startingBalance">{ledgerDraft.id ? 'Starting balance' : 'Starting balance (optional)'}</label>
                   <div className="journal-money-input"><span aria-hidden="true">₱</span><input id="journal-ledger-startingBalance" inputMode="decimal" value={ledgerDraft.startingBalance} disabled={saving} aria-invalid={Boolean(ledgerErrors.startingBalance)} aria-describedby={ledgerErrors.startingBalance ? 'journal-ledger-startingBalance-error' : 'journal-ledger-startingBalance-help'} onChange={(event) => {
                     setLedgerDraft({ ...ledgerDraft, startingBalance: event.target.value });
                     setLedgerErrors((current) => ({ ...current, startingBalance: undefined }));
                   }} /></div>
-                  <p className="catalog-field-help" id="journal-ledger-startingBalance-help">Leave empty to start at ₱0.00.</p>
+                  <p className="catalog-field-help" id="journal-ledger-startingBalance-help">{ledgerDraft.id ? 'Money already set aside before the start date. Leave empty for ₱0.00.' : 'Leave empty to start at ₱0.00.'}</p>
                   {ledgerErrors.startingBalance && <p className="catalog-field-error" id="journal-ledger-startingBalance-error">{ledgerErrors.startingBalance}</p>}
                 </div>
               </div>
-              <div className="inventory-modal-actions"><span /><button className="catalog-button" type="button" disabled={saving} onClick={closeLedgerEditor}>Cancel</button><button className="catalog-button primary" type="submit" disabled={saving} aria-busy={saving}>{saving ? 'Adding ledger…' : 'Add ledger'}</button></div>
+              <div className="inventory-modal-actions"><span /><button className="catalog-button" type="button" disabled={saving} onClick={closeLedgerEditor}>Cancel</button><button className="catalog-button primary" type="submit" disabled={saving} aria-busy={saving}>{ledgerDraft.id ? (saving ? 'Saving…' : 'Save changes') : (saving ? 'Adding ledger…' : 'Add ledger')}</button></div>
             </form>
           </section>
         </div>
