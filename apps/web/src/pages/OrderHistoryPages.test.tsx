@@ -8,7 +8,7 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   LineDiscountKind,
@@ -82,8 +82,11 @@ const orderList = {
   totalPages: 3,
 };
 
+const completedClientGeneratedId = '6c1d1c4e-0b0e-4c39-9b9f-6f3a1b2c3d4e';
+
 const splitDetail: OrderHistoryDetail = {
   id: completedId,
+  clientGeneratedId: completedClientGeneratedId,
   businessDay: '2026-07-28',
   dayOrderNumber: 3,
   customerName: null,
@@ -331,8 +334,9 @@ describe('Order History pages', () => {
       '/order-history?status=Completed&page=2',
     );
     expect(
-      screen.queryByRole('button', { name: /create|edit|delete|void|reopen/i }),
+      screen.queryByRole('button', { name: /create|edit|delete|reopen/i }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Void order' })).toBeInTheDocument();
     expect(detailFetch).toHaveBeenCalledWith(
       `http://localhost:3000/reporting/order-history/${completedId}`,
       expect.objectContaining({ credentials: 'include' }),
@@ -397,5 +401,168 @@ describe('Order History pages', () => {
       selector: 'dt',
     }).at(-1);
     expect(completedTerm?.parentElement).toHaveTextContent('—');
+  });
+
+  it('voids a completed order with a required reason and shows it as Void', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === `/reporting/order-history/${completedId}`) {
+        return jsonResponse(splitDetail);
+      }
+      if (
+        path === `/orders/${completedClientGeneratedId}/void` &&
+        init?.method === 'POST'
+      ) {
+        bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return jsonResponse({ voidReason: 'Charged twice' }, 201);
+      }
+      return jsonResponse({}, 500);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    renderList(`/order-history/${completedId}`);
+
+    await user.click(await screen.findByRole('button', { name: 'Void order' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Void this order?' });
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Void completed order' }),
+    );
+    expect(
+      within(dialog).getByText('Enter a reason before voiding the order.'),
+    ).toBeInTheDocument();
+    expect(bodies).toHaveLength(0);
+
+    await user.type(within(dialog).getByLabelText('Reason for void'), 'Charged twice');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Void completed order' }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(bodies).toEqual([
+      {
+        clientGeneratedId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        deviceId: expect.any(String),
+        voidReason: 'Charged twice',
+      },
+    ]);
+    expect(screen.getByText('Void', { selector: '.order-status' })).toBeInTheDocument();
+    expect(screen.getByText('Charged twice')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Void order' })).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Order 3 marked void. Enter a new order for any correction.'),
+    ).toBeInTheDocument();
+  });
+
+  it('never reuses one order\'s void ID for the next order shown in the same view', async () => {
+    const secondDetail: OrderHistoryDetail = {
+      ...splitDetail,
+      id: parkedId,
+      clientGeneratedId: '9a1d1c4e-0b0e-4c39-9b9f-6f3a1b2c3d4f',
+      dayOrderNumber: 7,
+    };
+    const voids: { path: string; clientGeneratedId: unknown }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(async (url, init) => {
+        const path = new URL(String(url)).pathname;
+        if (path === `/reporting/order-history/${completedId}`) {
+          return jsonResponse(splitDetail);
+        }
+        if (path === `/reporting/order-history/${parkedId}`) {
+          return jsonResponse(secondDetail);
+        }
+        if (init?.method === 'POST') {
+          const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+          voids.push({ path, clientGeneratedId: body.clientGeneratedId });
+          return jsonResponse({ voidReason: body.voidReason }, 201);
+        }
+        return jsonResponse({}, 500);
+      }),
+    );
+    function GoToSecond() {
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => navigate(`/order-history/${parkedId}`)}>
+          Go to second
+        </button>
+      );
+    }
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={[`/order-history/${completedId}`]}>
+        <GoToSecond />
+        <Routes>
+          <Route path="/order-history/:id" element={<OrderHistoryDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    async function voidShownOrder(reason: string) {
+      await user.click(await screen.findByRole('button', { name: 'Void order' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Void this order?' });
+      await user.type(within(dialog).getByLabelText('Reason for void'), reason);
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Void completed order' }),
+      );
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+    }
+
+    await voidShownOrder('First');
+    await user.click(screen.getByRole('button', { name: 'Go to second' }));
+    await screen.findByRole('heading', { name: 'Order 7' });
+    expect(screen.queryByText(/marked void/)).not.toBeInTheDocument();
+    await voidShownOrder('Second');
+
+    expect(voids.map(({ path }) => path)).toEqual([
+      `/orders/${completedClientGeneratedId}/void`,
+      `/orders/${secondDetail.clientGeneratedId}/void`,
+    ]);
+    expect(voids[1]!.clientGeneratedId).not.toBe(voids[0]!.clientGeneratedId);
+  });
+
+  it('shows the server refusal inside the void dialog', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(async (url, init) =>
+        init?.method === 'POST'
+          ? jsonResponse({ message: 'No business day is open' }, 409)
+          : jsonResponse(splitDetail),
+      ),
+    );
+    const user = userEvent.setup();
+    renderList(`/order-history/${completedId}`);
+
+    await user.click(await screen.findByRole('button', { name: 'Void order' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Void this order?' });
+    await user.type(within(dialog).getByLabelText('Reason for void'), 'Duplicate');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Void completed order' }),
+    );
+
+    expect(await within(dialog).findByText('No business day is open')).toBeInTheDocument();
+    expect(screen.getByText('Completed', { selector: '.order-status' })).toBeInTheDocument();
+  });
+
+  it('offers no void action on parked or already-void orders', async () => {
+    renderDetail(
+      { ...splitDetail, id: parkedId, status: 'Parked', completedAt: null },
+      `/order-history/${parkedId}`,
+    );
+    await screen.findByRole('heading', { name: 'Order 3' });
+    expect(screen.queryByRole('button', { name: 'Void order' })).not.toBeInTheDocument();
+
+    cleanup();
+    vi.unstubAllGlobals();
+    renderDetail(
+      { ...splitDetail, id: voidId, status: 'Void', voidReason: 'Duplicate' },
+      `/order-history/${voidId}`,
+    );
+    await screen.findByRole('heading', { name: 'Order 3' });
+    expect(screen.queryByRole('button', { name: 'Void order' })).not.toBeInTheDocument();
   });
 });

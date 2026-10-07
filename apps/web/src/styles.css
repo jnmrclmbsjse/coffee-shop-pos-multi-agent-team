@@ -5742,6 +5742,23 @@ textarea {
   color: var(--muted);
 }
 
+.order-detail-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.order-void-feedback {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in oklch, var(--accent) 35%, var(--border));
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-weight: 650;
+}
+
 .order-detail-meta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -8793,11 +8810,16 @@ textarea {
 .take-order-page input,
 .take-order-page textarea,
 .take-order-state button,
-.take-order-state a {
+.take-order-state a,
+.order-dialog button,
+.order-dialog textarea {
   min-height: var(--touch-min);
 }
 
-.take-order-page button {
+/* The order dialogs also open from both Order History screens (void), which
+   sit outside .take-order-page, so they carry their own button styling. */
+.take-order-page button,
+.order-dialog button {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--fg);
@@ -8806,16 +8828,19 @@ textarea {
   cursor: pointer;
 }
 
-.take-order-page button:hover:not(:disabled) {
+.take-order-page button:hover:not(:disabled),
+.order-dialog button:hover:not(:disabled) {
   border-color: color-mix(in oklch, var(--accent) 55%, var(--border-strong));
   background: color-mix(in oklch, var(--accent) 5%, var(--surface));
 }
 
-.take-order-page button:active:not(:disabled) {
+.take-order-page button:active:not(:disabled),
+.order-dialog button:active:not(:disabled) {
   background: color-mix(in oklch, var(--accent) 10%, var(--surface));
 }
 
-.take-order-page button:disabled {
+.take-order-page button:disabled,
+.order-dialog button:disabled {
   cursor: not-allowed;
 }
 
@@ -8823,7 +8848,9 @@ textarea {
 .take-order-page input:focus-visible,
 .take-order-page textarea:focus-visible,
 .take-order-state button:focus-visible,
-.take-order-state a:focus-visible {
+.take-order-state a:focus-visible,
+.order-dialog button:focus-visible,
+.order-dialog textarea:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
@@ -9638,6 +9665,20 @@ textarea {
   background: var(--danger);
 }
 
+/* Keep the filled actions filled: the generic dialog button hover/active
+   background would otherwise put white text on a near-white fill. */
+.order-dialog-actions button.is-primary:hover:not(:disabled),
+.order-dialog-actions button.is-primary:active:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 88%, var(--fg));
+}
+
+.order-dialog-actions button.is-danger:hover:not(:disabled),
+.order-dialog-actions button.is-danger:active:not(:disabled) {
+  border-color: var(--danger);
+  background: color-mix(in oklch, var(--danger) 88%, var(--fg));
+}
+
 .charge-sheet {
   width: min(100%, 640px);
 }
@@ -9883,8 +9924,17 @@ textarea {
   font-size: 13px;
 }
 
-.void-order-warning + .order-field {
+.void-order-warning + .order-field,
+.void-order-note + .order-field {
   margin-top: var(--space-4);
+}
+
+/* Scoped to the dialog so .reporting-page p { margin: 0 } cannot flatten it
+   when the dialog opens from the admin Order History detail. */
+.order-dialog .void-order-note {
+  margin: var(--space-3) 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
 }
 
 .take-order-state {
@@ -10589,6 +10639,32 @@ textarea {
 
 .staff-order-void-reason strong {
   color: var(--fg);
+}
+
+.staff-order-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 var(--space-4) var(--space-4);
+}
+
+.staff-order-actions button {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  border: 1px solid color-mix(in oklch, var(--danger) 38%, var(--border));
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  background: var(--surface);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.staff-order-actions button:hover {
+  background: var(--danger-surface);
+}
+
+.staff-order-actions button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .staff-order-empty,

@@ -1059,6 +1059,8 @@ export interface OrderHistoryLine {
 
 export interface OrderHistoryDetail {
   id: string;
+  /** The capture-side key that `POST /orders/:clientGeneratedId/void` takes. */
+  clientGeneratedId: string;
   businessDay: string;
   dayOrderNumber: number;
   customerName: string | null;

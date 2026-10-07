@@ -1172,6 +1172,7 @@ describe('order history read model', () => {
 
     expect(detail).toEqual(
       expect.objectContaining({
+        clientGeneratedId: baseOrder.clientGeneratedId,
         status: 'Completed',
         serviceType: 'DINE_IN',
         paymentMethod: 'Split',

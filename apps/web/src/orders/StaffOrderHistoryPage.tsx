@@ -1,9 +1,12 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import {
   LineDiscountKind,
@@ -23,13 +26,16 @@ import {
 } from '../reporting/orderHistoryFormat';
 import { formatBusinessDate, formatMoney } from '../reporting/format';
 import { MoneyValue } from '../reporting/MoneyValue';
+import { getDeviceId } from '../auth/device';
 import { StaffPageHeading } from '../staff/StaffPageHeading';
 import {
   getStaffOrderLedger,
   listBusinessDays,
   OrderCaptureApiError,
   settleOrderChange,
+  voidOrder,
 } from './api';
+import { VoidOrderDialog } from './OrderSettlementDialogs';
 
 const STATUSES: OrderHistoryStatus[] = ['Completed', 'Parked', 'Void'];
 const PAYMENT_METHODS: OrderHistoryPaymentMethod[] = [
@@ -208,10 +214,12 @@ export function StaffOrderCard({
   order,
   isSettling = false,
   onSettleChange,
+  onVoid,
 }: {
   order: StaffOrderLedgerOrder;
   isSettling?: boolean;
   onSettleChange?: (order: StaffOrderLedgerOrder) => void;
+  onVoid?: (order: StaffOrderLedgerOrder) => void;
 }) {
   const customerName = order.customerName ?? 'Walk-in';
   const showsCompletionFacts = order.status !== 'Parked';
@@ -324,6 +332,14 @@ export function StaffOrderCard({
             <strong>Void reason:</strong> {order.voidReason}
           </p>
         )}
+
+        {order.status === 'Completed' && onVoid && (
+          <div className="staff-order-actions">
+            <button type="button" onClick={() => onVoid(order)}>
+              Void order
+            </button>
+          </div>
+        )}
       </article>
     </li>
   );
@@ -364,6 +380,14 @@ export function StaffOrderHistoryPage() {
   const [settlingOrderId, setSettlingOrderId] = useState<string | null>(null);
   const [settlementMessage, setSettlementMessage] = useState<string | null>(null);
   const [settlementError, setSettlementError] = useState<string | null>(null);
+  const [voidTarget, setVoidTarget] = useState<StaffOrderLedgerOrder | null>(
+    null,
+  );
+  const [isVoiding, setIsVoiding] = useState(false);
+  const [voidError, setVoidError] = useState<string | null>(null);
+  // One correcting ID per original order, kept across retries so a void whose
+  // response was lost replays instead of failing as "already voided".
+  const voidIdsRef = useRef(new Map<string, string>());
   const paramsKey = searchParams.toString();
   const filters = useMemo(
     () => filtersFromParams(searchParams),
@@ -508,6 +532,59 @@ export function StaffOrderHistoryPage() {
     }
   }
 
+  async function confirmVoid(reason: string) {
+    if (voidTarget === null || isVoiding) return;
+    const original = voidTarget;
+    const voidClientGeneratedId =
+      voidIdsRef.current.get(original.id) ?? globalThis.crypto.randomUUID();
+    voidIdsRef.current.set(original.id, voidClientGeneratedId);
+    setIsVoiding(true);
+    setVoidError(null);
+    try {
+      const correction = await voidOrder(original.clientGeneratedId, {
+        clientGeneratedId: voidClientGeneratedId,
+        deviceId: getDeviceId(),
+        voidReason: reason,
+      });
+      setLedger((current) =>
+        current
+          ? {
+              ...current,
+              orders: current.orders.map((candidate) =>
+                candidate.id === original.id
+                  ? {
+                      ...candidate,
+                      status: 'Void',
+                      voidReason: correction.voidReason ?? reason,
+                    }
+                  : candidate,
+              ),
+            }
+          : current,
+      );
+      setVoidTarget(null);
+      setSettlementError(null);
+      setSettlementMessage(
+        `Order #${original.dayOrderNumber} marked void. Enter a new order for any correction.`,
+      );
+    } catch (error) {
+      setVoidError(
+        error instanceof OrderCaptureApiError
+          ? error.message
+          : 'The order could not be voided. Try again.',
+      );
+    } finally {
+      setIsVoiding(false);
+    }
+  }
+
+  const closeVoidDialog = useCallback(() => {
+    setVoidError(null);
+    setVoidTarget(null);
+  }, []);
+
+  const canVoid = Boolean(days?.currentOpenBusinessDayId);
+
   return (
     <main
       id="staff-main"
@@ -612,8 +689,10 @@ export function StaffOrderHistoryPage() {
           <p>
             Corrections are made by voiding the original completed order and
             entering the corrected order again from the order screen. Reviewing
-            or filtering history never changes an order. Confirming a change
-            handover records its time without reducing the original amount owed.
+            or filtering history never changes an order. A completed order can
+            be voided from its card while a business day is open; the void is
+            recorded on that open day. Confirming a change handover records its
+            time without reducing the original amount owed.
           </p>
         </div>
         <span>Append-only follow-up</span>
@@ -643,6 +722,14 @@ export function StaffOrderHistoryPage() {
                   onSettleChange={(selectedOrder) => {
                     void confirmChangeHandover(selectedOrder);
                   }}
+                  onVoid={
+                    canVoid
+                      ? (selectedOrder) => {
+                          setVoidError(null);
+                          setVoidTarget(selectedOrder);
+                        }
+                      : undefined
+                  }
                 />
               ))}
             </ol>
@@ -665,6 +752,22 @@ export function StaffOrderHistoryPage() {
           )}
         </section>
       )}
+
+      {/* Portalled: the screen's entry animation leaves a transform on
+          <main>, which would make it the containing block of the fixed
+          backdrop and centre the dialog on the whole ledger, off-screen. */}
+      {voidTarget &&
+        createPortal(
+          <VoidOrderDialog
+            order={voidTarget}
+            isSaving={isVoiding}
+            serverError={voidError}
+            note="The void is recorded on the business day that is open now."
+            onClose={closeVoidDialog}
+            onConfirm={confirmVoid}
+          />,
+          document.body,
+        )}
     </main>
   );
 }

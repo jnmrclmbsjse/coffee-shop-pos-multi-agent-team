@@ -508,12 +508,15 @@ export function VoidOrderDialog({
   serverError,
   onClose,
   onConfirm,
+  note,
 }: {
-  order: Order;
+  order: Pick<Order, 'dayOrderNumber'>;
   isSaving: boolean;
   serverError: string | null;
   onClose: () => void;
   onConfirm: (reason: string) => Promise<void>;
+  /** Extra context shown under the warning, e.g. which day records the void. */
+  note?: string;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const [reason, setReason] = useState('');
@@ -541,6 +544,7 @@ export function VoidOrderDialog({
           <p className="void-order-warning">
             The original order stays visible as void and will not count as revenue. A corrected purchase must be entered as a new order.
           </p>
+          {note && <p className="void-order-note">{note}</p>}
           <label className="order-field">
             <span>Reason for void</span>
             <textarea
