@@ -281,22 +281,27 @@ test.describe('staff order history ledger (story #142, QA #148)', () => {
 
     await test.step('the ledger and correction guidance expose no mutating affordance', async () => {
       const main = page.getByRole('main');
-      const mutatingName = /create|edit|resume|complete|void|delete|change order/i;
+      const mutatingName = /create|edit|resume|complete|delete|change order/i;
       await expect(main.getByRole('button', { name: mutatingName })).toHaveCount(0);
       await expect(main.getByRole('link', { name: mutatingName })).toHaveCount(0);
 
-      // Story #197 deliberately places one control on this ledger: its
-      // feasibility mapping reads "outstanding-change confirmation on the
-      // existing StaffOrderHistoryPage". Confirming that change owed was handed
-      // over settles a payment obligation; it does not alter the order, so
-      // #142's read-only intent is intact. Pin it by name so the exception
-      // cannot silently widen — every other in-card control stays absent.
-      const changeHandover = /confirm change handed over/i;
+      // Two controls are deliberate exceptions to #142's read-only ledger.
+      // Story #197's feasibility mapping places "outstanding-change
+      // confirmation on the existing StaffOrderHistoryPage": it settles a
+      // payment obligation without altering the order. Void (hotfix) appends a
+      // correcting record and never edits the original, so the append-only
+      // rule still holds. Pin both by name so the exception cannot silently
+      // widen — every other in-card control stays absent.
+      const allowedCardControl = /^(confirm change handed over|void order)$/i;
       await expect(
         page
           .getByRole('article')
           .getByRole('button')
-          .filter({ hasNotText: changeHandover }),
+          .filter({ hasNotText: allowedCardControl }),
+      ).toHaveCount(0);
+      // Void is offered only on Completed cards, never on Parked or Void ones.
+      await expect(
+        orderCard(page, 6, 'Open Voided Guest').getByRole('button', { name: 'Void order' }),
       ).toHaveCount(0);
       await expect(page.getByRole('article').getByRole('link')).toHaveCount(0);
 

@@ -1118,6 +1118,7 @@ function toOrderHistoryDetail(
 
   return {
     id: row.id,
+    clientGeneratedId: row.clientGeneratedId,
     businessDay: toIsoDate(row.businessDay),
     dayOrderNumber: row.dayOrderNumber,
     customerName: row.customerName,

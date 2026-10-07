@@ -584,7 +584,7 @@ describe('staff order history page', () => {
     );
   });
 
-  it('contains correction guidance but no order-mutating control', async () => {
+  it('contains correction guidance and no order-mutating control besides void', async () => {
     fetchMock.mockImplementation(async (url) => {
       const path = new URL(String(url)).pathname;
       if (path === '/trading-day') return response(200, businessDays);
@@ -605,12 +605,169 @@ describe('staff order history page', () => {
     );
     expect(within(guidance).queryByRole('button')).not.toBeInTheDocument();
     expect(within(guidance).queryByRole('link')).not.toBeInTheDocument();
-    expect(screen.getByRole('article').querySelectorAll('button, a')).toHaveLength(0);
+    const controls = screen.getByRole('article').querySelectorAll('button, a');
+    expect(Array.from(controls, (control) => control.textContent)).toEqual([
+      'Void order',
+    ]);
     expect(
       screen.queryByRole('button', {
-        name: /create|edit|resume|complete|void|delete|change order/i,
+        name: /create|edit|resume|complete|delete|change order/i,
       }),
     ).not.toBeInTheDocument();
+  });
+
+  describe('voiding from the ledger', () => {
+    const completed = order({
+      id: '10000000-0000-4000-8000-000000000002',
+      clientGeneratedId: '20000000-0000-4000-8000-000000000002',
+      dayOrderNumber: 9,
+      status: 'Completed',
+      customerName: 'Void Guest',
+    });
+
+    function serveLedger(
+      orders: StaffOrderLedgerOrder[],
+      onVoid?: (body: Record<string, unknown>) => Response,
+      days: BusinessDayList = businessDays,
+    ) {
+      fetchMock.mockImplementation(async (url, init) => {
+        const path = new URL(String(url)).pathname;
+        if (path === '/trading-day') return response(200, days);
+        if (path.startsWith('/reporting/staff-order-ledger/')) {
+          return response(200, ledger(orders));
+        }
+        if (
+          onVoid &&
+          path === `/orders/${completed.clientGeneratedId}/void` &&
+          init?.method === 'POST'
+        ) {
+          return onVoid(JSON.parse(String(init.body)) as Record<string, unknown>);
+        }
+        return response(500);
+      });
+    }
+
+    async function openVoidDialog() {
+      const card = (await screen.findByRole('heading', {
+        name: 'Order #9 · Void Guest',
+      })).closest('article')!;
+      await userEvent.click(within(card).getByRole('button', { name: 'Void order' }));
+      return { card, dialog: await screen.findByRole('dialog', { name: 'Void this order?' }) };
+    }
+
+    it('requires a reason, then records the void and marks the card Void', async () => {
+      const bodies: Record<string, unknown>[] = [];
+      serveLedger([completed], (body) => {
+        bodies.push(body);
+        return response(201, {
+          ...completed,
+          clientGeneratedId: body.clientGeneratedId,
+          voidReason: 'Wrong drink',
+        });
+      });
+
+      renderPage();
+      const { card, dialog } = await openVoidDialog();
+
+      await userEvent.click(
+        within(dialog).getByRole('button', { name: 'Void completed order' }),
+      );
+      expect(
+        within(dialog).getByText('Enter a reason before voiding the order.'),
+      ).toBeInTheDocument();
+      expect(bodies).toHaveLength(0);
+
+      await userEvent.type(
+        within(dialog).getByLabelText('Reason for void'),
+        '  Wrong drink  ',
+      );
+      await userEvent.click(
+        within(dialog).getByRole('button', { name: 'Void completed order' }),
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+      expect(bodies).toEqual([
+        {
+          clientGeneratedId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+          deviceId: expect.any(String),
+          voidReason: 'Wrong drink',
+        },
+      ]);
+      expect(within(card).getByText('Void', { selector: '.staff-order-status' }))
+        .toBeInTheDocument();
+      expect(card).toHaveTextContent('Void reason: Wrong drink');
+      expect(within(card).queryByRole('button', { name: 'Void order' }))
+        .not.toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'Order #9 marked void. Enter a new order for any correction.',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('keeps the dialog open with the server error and reuses the void ID on retry', async () => {
+      const bodies: Record<string, unknown>[] = [];
+      serveLedger([completed], (body) => {
+        bodies.push(body);
+        return bodies.length === 1
+          ? response(409, { message: 'No business day is open' })
+          : response(201, { ...completed, voidReason: 'Duplicate' });
+      });
+
+      renderPage();
+      const { card, dialog } = await openVoidDialog();
+      await userEvent.type(within(dialog).getByLabelText('Reason for void'), 'Duplicate');
+      await userEvent.click(
+        within(dialog).getByRole('button', { name: 'Void completed order' }),
+      );
+
+      expect(await within(dialog).findByText('No business day is open'))
+        .toBeInTheDocument();
+      expect(within(card).getByText('Completed', { selector: '.staff-order-status' }))
+        .toBeInTheDocument();
+
+      await userEvent.click(
+        within(dialog).getByRole('button', { name: 'Void completed order' }),
+      );
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+      expect(bodies).toHaveLength(2);
+      expect(bodies[1]!.clientGeneratedId).toBe(bodies[0]!.clientGeneratedId);
+    });
+
+    it('offers void only on completed orders', async () => {
+      serveLedger([
+        completed,
+        order({ id: 'parked', dayOrderNumber: 10, status: 'Parked', customerName: 'Parked Guest' }),
+        order({
+          id: 'voided',
+          dayOrderNumber: 11,
+          status: 'Void',
+          customerName: 'Voided Guest',
+          voidReason: 'Duplicate',
+        }),
+      ]);
+
+      renderPage();
+      await screen.findByRole('heading', { name: 'Order #9 · Void Guest' });
+
+      expect(screen.getAllByRole('button', { name: 'Void order' })).toHaveLength(1);
+    });
+
+    it('hides void when no business day is open to record it on', async () => {
+      serveLedger([completed], undefined, {
+        ...businessDays,
+        currentOpenBusinessDayId: null,
+      });
+
+      renderPage();
+      await screen.findByRole('heading', { name: 'Order #9 · Void Guest' });
+
+      expect(screen.queryByRole('button', { name: 'Void order' })).not.toBeInTheDocument();
+    });
   });
 
   it('shows a load error separately from empty results and retries', async () => {

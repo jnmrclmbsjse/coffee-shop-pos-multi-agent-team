@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import type {
   LineDiscountKind,
@@ -18,6 +19,9 @@ import {
   formatTimestamp,
 } from '../reporting/orderHistoryFormat';
 import { formatBusinessDate, formatMoney } from '../reporting/format';
+import { getDeviceId } from '../auth/device';
+import { OrderCaptureApiError, voidOrder } from '../orders/api';
+import { VoidOrderDialog } from '../orders/OrderSettlementDialogs';
 
 function StatusBadge({ status }: { status: OrderHistoryStatus }) {
   return (
@@ -53,11 +57,23 @@ export function OrderHistoryDetailPage() {
   const [order, setOrder] = useState<OrderHistoryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [isVoiding, setIsVoiding] = useState(false);
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const [voidMessage, setVoidMessage] = useState('');
+  // Reused across retries so a void whose response was lost replays.
+  const voidClientGeneratedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setPageError('');
+    // The route can reuse this component for another order; a void ID carried
+    // over would replay the previous order's void instead of voiding this one.
+    voidClientGeneratedIdRef.current = null;
+    setVoidDialogOpen(false);
+    setVoidError(null);
+    setVoidMessage('');
     void getOrderHistoryDetail(id)
       .then((result) => {
         if (active) {
@@ -85,6 +101,48 @@ export function OrderHistoryDetailPage() {
   const backTo = `/order-history${location.search}`;
   const isParked = order?.status === 'Parked';
 
+  const closeVoidDialog = useCallback(() => {
+    setVoidError(null);
+    setVoidDialogOpen(false);
+  }, []);
+
+  async function confirmVoid(reason: string) {
+    if (!order || isVoiding) return;
+    const voidClientGeneratedId =
+      voidClientGeneratedIdRef.current ?? globalThis.crypto.randomUUID();
+    voidClientGeneratedIdRef.current = voidClientGeneratedId;
+    setIsVoiding(true);
+    setVoidError(null);
+    try {
+      const correction = await voidOrder(order.clientGeneratedId, {
+        clientGeneratedId: voidClientGeneratedId,
+        deviceId: getDeviceId(),
+        voidReason: reason,
+      });
+      setOrder((current) =>
+        current && current.id === order.id
+          ? {
+              ...current,
+              status: 'Void',
+              voidReason: correction.voidReason ?? reason,
+            }
+          : current,
+      );
+      setVoidDialogOpen(false);
+      setVoidMessage(
+        `Order ${order.dayOrderNumber} marked void. Enter a new order for any correction.`,
+      );
+    } catch (error) {
+      setVoidError(
+        error instanceof OrderCaptureApiError
+          ? error.message
+          : 'The order could not be voided. Try again.',
+      );
+    } finally {
+      setIsVoiding(false);
+    }
+  }
+
   return (
     <main className="reporting-page order-history-page">
       <Link className="order-back-link" to={backTo}>
@@ -104,8 +162,28 @@ export function OrderHistoryDetailPage() {
                 Business day {formatBusinessDate(order.businessDay, 'long')}
               </p>
             </div>
-            <StatusBadge status={order.status} />
+            <div className="order-detail-head-actions">
+              <StatusBadge status={order.status} />
+              {order.status === 'Completed' && (
+                <button
+                  type="button"
+                  className="catalog-button danger"
+                  onClick={() => {
+                    setVoidError(null);
+                    setVoidDialogOpen(true);
+                  }}
+                >
+                  Void order
+                </button>
+              )}
+            </div>
           </header>
+
+          {voidMessage && (
+            <p className="order-void-feedback" role="status">
+              {voidMessage}
+            </p>
+          )}
 
           <dl className="order-detail-meta" aria-label="Order summary">
             <div>
@@ -275,6 +353,21 @@ export function OrderHistoryDetailPage() {
           </div>
         </article>
       )}
+
+      {/* Portalled to body so no transformed ancestor can become the fixed
+          backdrop's containing block and push the dialog off-screen. */}
+      {order && voidDialogOpen &&
+        createPortal(
+          <VoidOrderDialog
+            order={order}
+            isSaving={isVoiding}
+            serverError={voidError}
+            note="The void is recorded on the business day that is open now."
+            onClose={closeVoidDialog}
+            onConfirm={confirmVoid}
+          />,
+          document.body,
+        )}
     </main>
   );
 }
