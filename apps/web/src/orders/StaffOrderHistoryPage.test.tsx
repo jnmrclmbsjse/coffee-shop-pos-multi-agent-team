@@ -768,6 +768,41 @@ describe('staff order history page', () => {
 
       expect(screen.queryByRole('button', { name: 'Void order' })).not.toBeInTheDocument();
     });
+
+    it('offers void only on the open business day, not an earlier one', async () => {
+      serveLedger([completed]);
+
+      renderPage('/pos/orders?day=day-closed');
+      await screen.findByRole('heading', { name: 'Order #9 · Void Guest' });
+      expect(screen.getByRole('combobox', { name: 'Business day' })).toHaveValue(
+        'day-closed',
+      );
+      expect(screen.queryByRole('button', { name: 'Void order' })).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByRole('combobox', { name: 'Business day' }), {
+        target: { value: 'day-open' },
+      });
+      expect(
+        await screen.findByRole('button', { name: 'Void order' }),
+      ).toBeInTheDocument();
+    });
+
+    it('shows the staff day-scope refusal from the API inside the dialog', async () => {
+      const refusal =
+        'Staff can only void orders from the business day that is open now. Ask an administrator to void an order from an earlier day.';
+      serveLedger([completed], () => response(403, { message: refusal }));
+
+      renderPage();
+      const { card, dialog } = await openVoidDialog();
+      await userEvent.type(within(dialog).getByLabelText('Reason for void'), 'Late');
+      await userEvent.click(
+        within(dialog).getByRole('button', { name: 'Void completed order' }),
+      );
+
+      expect(await within(dialog).findByText(refusal)).toBeInTheDocument();
+      expect(within(card).getByText('Completed', { selector: '.staff-order-status' }))
+        .toBeInTheDocument();
+    });
   });
 
   it('shows a load error separately from empty results and retries', async () => {

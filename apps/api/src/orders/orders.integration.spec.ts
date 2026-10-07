@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { Role } from '@coffee-shop/shared';
 import {
   DayType,
   LineDiscountKind,
@@ -21,6 +22,7 @@ import {
   NO_OPEN_DAY_MESSAGE,
   ORDER_FROZEN_MESSAGE,
   OrdersService,
+  STAFF_VOID_OPEN_DAY_ONLY_MESSAGE,
 } from './orders.service';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -38,6 +40,10 @@ describeWithDatabase('Order capture against Postgres', () => {
   const replacementOrderClientGeneratedId = randomUUID();
   const decrementedOrderClientGeneratedId = randomUUID();
   const voidClientGeneratedId = randomUUID();
+  const earlierTradingDayId = randomUUID();
+  const earlierOrderClientGeneratedId = randomUUID();
+  const refusedStaffVoidClientGeneratedId = randomUUID();
+  const adminVoidClientGeneratedId = randomUUID();
   let prisma: PrismaService;
   let service: OrdersService;
 
@@ -116,6 +122,9 @@ describeWithDatabase('Order capture against Postgres', () => {
             replacementOrderClientGeneratedId,
             decrementedOrderClientGeneratedId,
             voidClientGeneratedId,
+            earlierOrderClientGeneratedId,
+            refusedStaffVoidClientGeneratedId,
+            adminVoidClientGeneratedId,
           ],
         },
       },
@@ -128,7 +137,9 @@ describeWithDatabase('Order capture against Postgres', () => {
     await prisma.productVariant.delete({ where: { id: variantId } });
     await prisma.product.delete({ where: { id: productId } });
     await prisma.category.delete({ where: { id: categoryId } });
-    await prisma.tradingDay.deleteMany({ where: { id: tradingDayId } });
+    await prisma.tradingDay.deleteMany({
+      where: { id: { in: [tradingDayId, earlierTradingDayId] } },
+    });
     await prisma.staffMember.delete({ where: { id: openerId } });
     await prisma.location.delete({ where: { id: locationId } });
     await prisma.$disconnect();
@@ -309,8 +320,9 @@ describeWithDatabase('Order capture against Postgres', () => {
       deviceId: createInput.deviceId,
       voidReason: '  Incorrect item  ',
     };
-    const correction = await service.void(clientGeneratedId, input);
-    const replay = await service.void(clientGeneratedId, input);
+    // The order belongs to the open day, so staff may void it.
+    const correction = await service.void(clientGeneratedId, input, Role.STAFF);
+    const replay = await service.void(clientGeneratedId, input, Role.STAFF);
 
     expect(correction).toEqual(
       expect.objectContaining({
@@ -325,10 +337,77 @@ describeWithDatabase('Order capture against Postgres', () => {
       expect.objectContaining({ amountCents: -9_600 }),
     ]);
     await expect(
-      service.void(clientGeneratedId, {
-        ...input,
-        clientGeneratedId: randomUUID(),
-      }),
+      service.void(
+        clientGeneratedId,
+        { ...input, clientGeneratedId: randomUUID() },
+        Role.STAFF,
+      ),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('refuses a staff void of an earlier day\'s order but lets an administrator void it onto the open day', async () => {
+    await prisma.tradingDay.create({
+      data: {
+        id: earlierTradingDayId,
+        locationId,
+        businessDate: new Date('2099-08-01T00:00:00.000Z'),
+        status: TradingDayStatus.CLOSED,
+        dayType: DayType.NORMAL,
+        openedAt: new Date('2099-08-01T00:00:00.000Z'),
+        closedAt: new Date('2099-08-01T12:00:00.000Z'),
+        openingFloatCents: 5_000,
+        openedByStaffMemberId: openerId,
+        closedByStaffMemberId: openerId,
+      },
+    });
+    const earlier = await prisma.sale.create({
+      data: {
+        clientGeneratedId: earlierOrderClientGeneratedId,
+        locationId,
+        tradingDayId: earlierTradingDayId,
+        dayOrderNumber: 1,
+        status: OrderStatus.COMPLETED,
+        serviceType: ServiceType.TAKE_OUT,
+        subtotalCents: 15_000,
+        taxCents: 0,
+        totalCents: 15_000,
+        completedAt: new Date('2099-08-01T03:00:00.000Z'),
+        payments: {
+          create: [{ method: PaymentMethod.CASH, amountCents: 15_000 }],
+        },
+      },
+    });
+    const voidInput = (id: string): VoidOrderDto => ({
+      clientGeneratedId: id,
+      deviceId: createInput.deviceId,
+      voidReason: 'Charged twice',
+    });
+
+    await expect(
+      service.void(
+        earlierOrderClientGeneratedId,
+        voidInput(refusedStaffVoidClientGeneratedId),
+        Role.STAFF,
+      ),
+    ).rejects.toThrow(
+      new ForbiddenException(STAFF_VOID_OPEN_DAY_ONLY_MESSAGE),
+    );
+    await expect(
+      prisma.sale.count({ where: { correctsSaleId: earlier.id } }),
+    ).resolves.toBe(0);
+
+    const correction = await service.void(
+      earlierOrderClientGeneratedId,
+      voidInput(adminVoidClientGeneratedId),
+      Role.ADMIN,
+    );
+    expect(correction).toEqual(
+      expect.objectContaining({
+        correctsSaleId: earlier.id,
+        tradingDayId,
+        totalCents: -15_000,
+        voidReason: 'Charged twice',
+      }),
+    );
   });
 });

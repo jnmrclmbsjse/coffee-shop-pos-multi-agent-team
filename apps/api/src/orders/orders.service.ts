@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Role } from '@coffee-shop/shared';
 import {
   LineDiscountKind,
   LinePreference,
@@ -31,6 +33,8 @@ import {
 
 export const NO_OPEN_DAY_MESSAGE = 'No business day is open';
 export const ORDER_FROZEN_MESSAGE = 'Completed orders cannot be changed';
+export const STAFF_VOID_OPEN_DAY_ONLY_MESSAGE =
+  'Staff can only void orders from the business day that is open now. Ask an administrator to void an order from an earlier day.';
 
 const orderInclude = {
   lines: { orderBy: [{ id: 'asc' as const }] },
@@ -495,9 +499,15 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Staff may void only orders recorded on the business day that is open now;
+   * administrators may void a completed order from any day. Either way the
+   * correcting row lands on the open day (ADR 0004 §2).
+   */
   async void(
     originalClientGeneratedId: string,
     input: VoidOrderDto,
+    actorRole: Role,
   ): Promise<OrderRecord> {
     const replay = await this.findByClientGeneratedId(input.clientGeneratedId);
     if (replay !== null) return replay;
@@ -536,6 +546,9 @@ export class OrdersService {
         select: { id: true },
       });
       if (stillOpen === null) throw new ConflictException(NO_OPEN_DAY_MESSAGE);
+      if (actorRole !== Role.ADMIN && original.tradingDayId !== day.id) {
+        throw new ForbiddenException(STAFF_VOID_OPEN_DAY_ONLY_MESSAGE);
+      }
 
       const [lastOrder, cashier] = await Promise.all([
         transaction.sale.findFirst({
