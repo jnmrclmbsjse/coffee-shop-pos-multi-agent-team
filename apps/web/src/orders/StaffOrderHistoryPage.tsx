@@ -335,7 +335,13 @@ export function StaffOrderCard({
 
         {order.status === 'Completed' && onVoid && (
           <div className="staff-order-actions">
-            <button type="button" onClick={() => onVoid(order)}>
+            {/* The name stays "Void order"; the description ties each button
+                to its card so a screen reader's button list can tell them apart. */}
+            <button
+              type="button"
+              aria-describedby={`staff-order-${order.id}`}
+              onClick={() => onVoid(order)}
+            >
               Void order
             </button>
           </div>

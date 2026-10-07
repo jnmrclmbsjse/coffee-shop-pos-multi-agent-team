@@ -754,7 +754,9 @@ describe('staff order history page', () => {
       renderPage();
       await screen.findByRole('heading', { name: 'Order #9 · Void Guest' });
 
-      expect(screen.getAllByRole('button', { name: 'Void order' })).toHaveLength(1);
+      const voidButtons = screen.getAllByRole('button', { name: 'Void order' });
+      expect(voidButtons).toHaveLength(1);
+      expect(voidButtons[0]).toHaveAccessibleDescription('Order #9 · Void Guest');
     });
 
     it('hides void when no business day is open to record it on', async () => {

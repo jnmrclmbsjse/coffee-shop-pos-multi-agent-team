@@ -35,6 +35,8 @@ export const NO_OPEN_DAY_MESSAGE = 'No business day is open';
 export const ORDER_FROZEN_MESSAGE = 'Completed orders cannot be changed';
 export const STAFF_VOID_OPEN_DAY_ONLY_MESSAGE =
   'Staff can only void orders from the business day that is open now. Ask an administrator to void an order from an earlier day.';
+export const VOID_REQUEST_ID_IN_USE_MESSAGE =
+  'This void request ID is already used by another record';
 
 const orderInclude = {
   lines: { orderBy: [{ id: 'asc' as const }] },
@@ -509,12 +511,17 @@ export class OrdersService {
     input: VoidOrderDto,
     actorRole: Role,
   ): Promise<OrderRecord> {
-    const replay = await this.findByClientGeneratedId(input.clientGeneratedId);
+    const replay = await this.findVoidReplay(
+      input.clientGeneratedId,
+      originalClientGeneratedId,
+      this.prisma,
+    );
     if (replay !== null) return replay;
 
     return this.prisma.$transaction(async (transaction) => {
-      const transactionReplay = await this.findByClientGeneratedId(
+      const transactionReplay = await this.findVoidReplay(
         input.clientGeneratedId,
+        originalClientGeneratedId,
         transaction,
       );
       if (transactionReplay !== null) return transactionReplay;
@@ -523,8 +530,9 @@ export class OrdersService {
         originalClientGeneratedId,
         transaction,
       );
-      const lockedReplay = await this.findByClientGeneratedId(
+      const lockedReplay = await this.findVoidReplay(
         input.clientGeneratedId,
+        originalClientGeneratedId,
         transaction,
       );
       if (lockedReplay !== null) return lockedReplay;
@@ -821,6 +829,33 @@ export class OrdersService {
       Prisma.sql`SELECT "id" FROM "sales" WHERE "id" = ${identity.id}::uuid FOR UPDATE`,
     );
     return this.requireOrder(clientGeneratedId, transaction);
+  }
+
+  /**
+   * A void request ID counts as a replay only when it already names the void
+   * that corrects this original. Any other record holding the ID (the original
+   * itself, another order's void, an unrelated sale) is a collision: answering
+   * it as a replay would tell the client the order is void when it is not.
+   * Checked before the staff day rule, so a replay is honoured after rollover.
+   */
+  private async findVoidReplay(
+    voidClientGeneratedId: string,
+    originalClientGeneratedId: string,
+    client: Prisma.TransactionClient | PrismaService,
+  ): Promise<OrderRecord | null> {
+    const existing = await this.findByClientGeneratedId(
+      voidClientGeneratedId,
+      client,
+    );
+    if (existing === null) return null;
+    if (existing.kind === SaleKind.VOID && existing.correctsSaleId !== null) {
+      const original = await client.sale.findUnique({
+        where: { clientGeneratedId: originalClientGeneratedId },
+        select: { id: true },
+      });
+      if (original?.id === existing.correctsSaleId) return existing;
+    }
+    throw new ConflictException(VOID_REQUEST_ID_IN_USE_MESSAGE);
   }
 
   private findByClientGeneratedId(

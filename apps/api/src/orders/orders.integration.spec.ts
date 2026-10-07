@@ -23,6 +23,7 @@ import {
   ORDER_FROZEN_MESSAGE,
   OrdersService,
   STAFF_VOID_OPEN_DAY_ONLY_MESSAGE,
+  VOID_REQUEST_ID_IN_USE_MESSAGE,
 } from './orders.service';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -44,6 +45,7 @@ describeWithDatabase('Order capture against Postgres', () => {
   const earlierOrderClientGeneratedId = randomUUID();
   const refusedStaffVoidClientGeneratedId = randomUUID();
   const adminVoidClientGeneratedId = randomUUID();
+  const unvoidedOrderClientGeneratedId = randomUUID();
   let prisma: PrismaService;
   let service: OrdersService;
 
@@ -125,6 +127,7 @@ describeWithDatabase('Order capture against Postgres', () => {
             earlierOrderClientGeneratedId,
             refusedStaffVoidClientGeneratedId,
             adminVoidClientGeneratedId,
+            unvoidedOrderClientGeneratedId,
           ],
         },
       },
@@ -409,5 +412,60 @@ describeWithDatabase('Order capture against Postgres', () => {
         voidReason: 'Charged twice',
       }),
     );
+
+    // A replay of the admin's void is honoured even for staff, because the
+    // replay is recognised before the open-day rule is applied.
+    await expect(
+      service.void(
+        earlierOrderClientGeneratedId,
+        voidInput(adminVoidClientGeneratedId),
+        Role.STAFF,
+      ),
+    ).resolves.toEqual(expect.objectContaining({ id: correction.id }));
+  });
+
+  it('refuses a void request ID that already belongs to a record other than this order\'s void', async () => {
+    const unvoided = await prisma.sale.create({
+      data: {
+        clientGeneratedId: unvoidedOrderClientGeneratedId,
+        locationId,
+        tradingDayId: earlierTradingDayId,
+        dayOrderNumber: 2,
+        status: OrderStatus.COMPLETED,
+        serviceType: ServiceType.TAKE_OUT,
+        subtotalCents: 15_000,
+        taxCents: 0,
+        totalCents: 15_000,
+        completedAt: new Date('2099-08-01T04:00:00.000Z'),
+        payments: {
+          create: [{ method: PaymentMethod.CASH, amountCents: 15_000 }],
+        },
+      },
+    });
+    const voidUnvoided = (voidClientGeneratedId: string) =>
+      service.void(
+        unvoidedOrderClientGeneratedId,
+        {
+          clientGeneratedId: voidClientGeneratedId,
+          deviceId: createInput.deviceId,
+          voidReason: 'Wrong order',
+        },
+        Role.ADMIN,
+      );
+    const salesBefore = await prisma.sale.count();
+
+    // (a) the original order's own ID
+    await expect(voidUnvoided(unvoidedOrderClientGeneratedId)).rejects.toThrow(
+      new ConflictException(VOID_REQUEST_ID_IN_USE_MESSAGE),
+    );
+    // (b) the ID of a void that corrects a different order
+    await expect(voidUnvoided(adminVoidClientGeneratedId)).rejects.toThrow(
+      new ConflictException(VOID_REQUEST_ID_IN_USE_MESSAGE),
+    );
+
+    await expect(
+      prisma.sale.count({ where: { correctsSaleId: unvoided.id } }),
+    ).resolves.toBe(0);
+    await expect(prisma.sale.count()).resolves.toBe(salesBefore);
   });
 });
