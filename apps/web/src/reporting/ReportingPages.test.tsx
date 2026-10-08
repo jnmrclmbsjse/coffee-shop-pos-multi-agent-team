@@ -73,6 +73,7 @@ const report: SalesRangeReport = {
       expectedCashCents: cents(1938000),
       actualCashCents: null,
       varianceCents: null,
+      varianceReason: null,
     },
     {
       tradingDayId: 'day-2026-07-24',
@@ -90,6 +91,7 @@ const report: SalesRangeReport = {
       expectedCashCents: cents(2047000),
       actualCashCents: cents(0),
       varianceCents: cents(-2047000),
+      varianceReason: 'Drawer left at the till overnight',
     },
   ],
   topProducts: [
@@ -193,6 +195,25 @@ describe('reporting pages', () => {
     expect(within(rows[2]!).getByText('₱-20,470.00')).toBeInTheDocument();
     expect(
       screen.getByText(/Trading days are ordered from newest to oldest/),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the variance reason staff recorded at close', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(report));
+    renderReportsPage();
+
+    const table = await screen.findByRole('table', {
+      name: /Daily reconciliation/,
+    });
+    expect(
+      within(table).getByRole('columnheader', { name: 'Variance reason' }),
+    ).toBeInTheDocument();
+    const rows = within(table).getAllByRole('row');
+    expect(
+      within(rows[1]!).getByText('No reason recorded'),
+    ).toBeInTheDocument();
+    expect(
+      within(rows[2]!).getByText('Drawer left at the till overnight'),
     ).toBeInTheDocument();
   });
 

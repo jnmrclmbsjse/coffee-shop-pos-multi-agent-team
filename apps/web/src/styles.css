@@ -4637,7 +4637,22 @@ textarea {
 }
 
 .reconciliation-table {
-  min-width: 1160px;
+  /* Wide enough for the Variance reason column; narrower screens scroll the
+     region. */
+  min-width: 1360px;
+}
+
+/* What staff wrote when closing with a cash discrepancy. */
+.reconciliation-table .variance-reason {
+  min-width: 200px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reconciliation-table .variance-reason-empty {
+  color: var(--muted);
 }
 
 .packaging-report-table {

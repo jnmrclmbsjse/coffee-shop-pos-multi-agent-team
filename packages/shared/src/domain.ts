@@ -926,6 +926,9 @@ export interface DailyReconciliation {
   expectedCashCents: MoneyCents;
   actualCashCents: MoneyCents | null;
   varianceCents: MoneyCents | null;
+  // What staff wrote when closing with a cash discrepancy. Null while the day
+  // is open, or when it closed without one.
+  varianceReason: string | null;
 }
 
 export interface ProductSales {
