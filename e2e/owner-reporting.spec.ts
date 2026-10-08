@@ -456,13 +456,15 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
 
     // One row per TRADING DAY (not per calendar date), newest to oldest, with
     // the opening cash float exposed separately from the derived drawer values.
+    // No day here was closed through the close screen, so none carries a
+    // variance reason and the last cell reads its sr-only placeholder.
     expect(rows).toEqual([
-      [DAY_OPEN, 'Open', '₱450.00', '₱400.00', '₱850.00', '₱30.00', '₱1,500.00', '₱0.00', '₱0.00', '₱25.00', '₱0.00', '₱1,955.00', '—', '—'],
-      [DAY_NO_COUNT, 'Closed', '₱130.00', '₱0.00', '₱130.00', '₱0.00', '₱500.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱630.00', '—', '—'],
-      [DAY_TWO_COUNTS, 'Closed', '₱200.00', '₱100.00', '₱300.00', '₱10.00', '₱1,000.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱1,210.00', '₱1,240.00', 'Over₱30.00'],
-      [DAY_ZERO_COUNT, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00'],
-      [DAY_FLOAT_ONLY, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱2,000.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱2,000.00', '₱1,950.00', 'Short₱-50.00'],
-      [DAY_BOUNDARY, 'Closed', '₱500.00', '₱300.00', '₱800.00', '₱20.00', '₱1,000.00', '₱0.00', '₱0.00', '₱50.00', '₱0.00', '₱1,470.00', '₱1,470.00', '₱0.00'],
+      [DAY_OPEN, 'Open', '₱450.00', '₱400.00', '₱850.00', '₱30.00', '₱1,500.00', '₱0.00', '₱0.00', '₱25.00', '₱0.00', '₱1,955.00', '—', '—', '—No reason recorded'],
+      [DAY_NO_COUNT, 'Closed', '₱130.00', '₱0.00', '₱130.00', '₱0.00', '₱500.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱630.00', '—', '—', '—No reason recorded'],
+      [DAY_TWO_COUNTS, 'Closed', '₱200.00', '₱100.00', '₱300.00', '₱10.00', '₱1,000.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱1,210.00', '₱1,240.00', 'Over₱30.00', '—No reason recorded'],
+      [DAY_ZERO_COUNT, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '—No reason recorded'],
+      [DAY_FLOAT_ONLY, 'Closed', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱2,000.00', '₱0.00', '₱0.00', '₱0.00', '₱0.00', '₱2,000.00', '₱1,950.00', 'Short₱-50.00', '—No reason recorded'],
+      [DAY_BOUNDARY, 'Closed', '₱500.00', '₱300.00', '₱800.00', '₱20.00', '₱1,000.00', '₱0.00', '₱0.00', '₱50.00', '₱0.00', '₱1,470.00', '₱1,470.00', '₱0.00', '—No reason recorded'],
     ]);
 
     // Calendar dates without a trading day produce no row.
@@ -598,21 +600,22 @@ test.describe('owner reporting — seeded trading days with an open day', () => 
     const lines = csv.trim().split(/\r?\n/);
 
     expect(lines[0]).toBe(
-      'Date,Status,Cash sales,Online sales,Gross,Tips,Cash in,Cash out,Cash expenses,Outstanding change,Expected cash,Actual cash,Variance',
+      'Date,Status,Cash sales,Online sales,Gross,Tips,Cash in,Cash out,Cash expenses,Outstanding change,Expected cash,Actual cash,Variance,Variance reason',
     );
     expect(lines.slice(1)).toEqual([
-      `${DAY_BOUNDARY},closed,500.00,300.00,800.00,20.00,0.00,0.00,50.00,0.00,1470.00,1470.00,0.00`,
-      `${DAY_FLOAT_ONLY},closed,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,2000.00,1950.00,-50.00`,
-      `${DAY_ZERO_COUNT},closed,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00`,
-      `${DAY_TWO_COUNTS},closed,200.00,100.00,300.00,10.00,0.00,0.00,0.00,0.00,1210.00,1240.00,30.00`,
-      // Missing actual cash and variance are EMPTY fields, never 0.00.
-      `${DAY_NO_COUNT},closed,130.00,0.00,130.00,0.00,0.00,0.00,0.00,0.00,630.00,,`,
-      `${DAY_OPEN},open,450.00,400.00,850.00,30.00,0.00,0.00,25.00,0.00,1955.00,,`,
+      `${DAY_BOUNDARY},closed,500.00,300.00,800.00,20.00,0.00,0.00,50.00,0.00,1470.00,1470.00,0.00,`,
+      `${DAY_FLOAT_ONLY},closed,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,2000.00,1950.00,-50.00,`,
+      `${DAY_ZERO_COUNT},closed,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,`,
+      `${DAY_TWO_COUNTS},closed,200.00,100.00,300.00,10.00,0.00,0.00,0.00,0.00,1210.00,1240.00,30.00,`,
+      // Missing actual cash, variance and reason are EMPTY fields, never 0.00.
+      `${DAY_NO_COUNT},closed,130.00,0.00,130.00,0.00,0.00,0.00,0.00,0.00,630.00,,,`,
+      `${DAY_OPEN},open,450.00,400.00,850.00,30.00,0.00,0.00,25.00,0.00,1955.00,,,`,
     ]);
 
-    // Cash float is deliberately display-only: the legacy 13-column header and
-    // oldest-to-newest row order remain byte-for-byte compatible.
-    expect(lines[0]!.split(',')).toHaveLength(13);
+    // Variance reason was deliberately appended as column 14, so every earlier
+    // column keeps its position. Cash float stays display-only, and rows stay
+    // oldest-to-newest.
+    expect(lines[0]!.split(',')).toHaveLength(14);
     expect(lines[0]).not.toContain('Cash float');
     expect(lines[1]!.split(',')[8]).toBe('50.00');
     await expect(page.getByRole('table', { name: 'Daily reconciliation' })).toContainText(

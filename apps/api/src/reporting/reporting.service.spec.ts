@@ -8,6 +8,7 @@ import {
   deriveOrderHistoryPaymentMethod,
   deriveOrderHistoryStatus,
   formatCsvMoney,
+  formatCsvText,
   ReportingService,
 } from './reporting.service';
 
@@ -50,6 +51,7 @@ describe('ReportingService', () => {
     outstandingChangeCents: 800n,
     latestCountedCents: 32_700,
     orderCount: 3n,
+    varianceReason: 'Short — change error',
   } as const;
 
   it('sums gross across every trading day row for the requested date', async () => {
@@ -111,6 +113,7 @@ describe('ReportingService', () => {
         id: 'open-day',
         businessDate: new Date('2026-07-21T00:00:00.000Z'),
         status: TradingDayStatus.OPEN,
+        varianceReason: null,
         cashSalesCents: 99_999n,
         onlineSalesCents: 1n,
       },
@@ -480,6 +483,7 @@ describe('ReportingService', () => {
           expectedCashCents: 35_500,
           actualCashCents: 32_700,
           varianceCents: -2_800,
+          varianceReason: 'Short — change error',
         },
       ],
       topProducts: [
@@ -503,6 +507,7 @@ describe('ReportingService', () => {
           status: 'OPEN',
           latestCountedCents: 32_700,
           orderCount: 0n,
+          varianceReason: null,
         },
       ])
       .mockResolvedValueOnce([]);
@@ -520,6 +525,7 @@ describe('ReportingService', () => {
         expectedCashCents: 35_500,
         actualCashCents: null,
         varianceCents: null,
+        varianceReason: null,
       }),
     );
   });
@@ -747,15 +753,68 @@ describe('ReportingService', () => {
           expectedCashCents: cents(-8_944),
           actualCashCents: null,
           varianceCents: null,
+          varianceReason: null,
         },
       ],
     });
 
     expect(csv).toBe(
-      'Date,Status,Cash sales,Online sales,Gross,Tips,Cash in,Cash out,Cash expenses,Outstanding change,Expected cash,Actual cash,Variance\r\n' +
-        '2026-07-20,open,0.00,0.01,-0.50,1.05,-0.25,2.50,100.00,0.75,-89.44,,\r\n',
+      'Date,Status,Cash sales,Online sales,Gross,Tips,Cash in,Cash out,Cash expenses,Outstanding change,Expected cash,Actual cash,Variance,Variance reason\r\n' +
+        '2026-07-20,open,0.00,0.01,-0.50,1.05,-0.25,2.50,100.00,0.75,-89.44,,,\r\n',
     );
   });
+
+  it.each([
+    ['plain text', 'Gave wrong change', 'Gave wrong change'],
+    ['a comma', 'Short, refund missed', '"Short, refund missed"'],
+    ['a quote', 'Said "keep it"', '"Said ""keep it"""'],
+    ['a line break', 'Line one\nLine two', '"Line one\nLine two"'],
+    ['a leading formula sign', '=SUM(A1)', `"'=SUM(A1)"`],
+    ['a leading minus', '-50 for ice', `"'-50 for ice"`],
+  ])(
+    'writes a variance reason with %s as one CSV field',
+    (_case, reason, expected) => {
+      const service = createReportingService(
+        createPrisma() as unknown as PrismaService,
+      );
+
+      const csv = service.toCsv({
+        from: '2026-07-20',
+        to: '2026-07-20',
+        totals: {
+          grossSalesCents: cents(0),
+          cashSalesCents: cents(0),
+          onlineSalesCents: cents(0),
+          tipsCents: cents(0),
+        },
+        topProducts: [],
+        dailyReconciliation: [
+          {
+            tradingDayId: closedDay.id,
+            date: '2026-07-20',
+            status: 'closed',
+            openingFloatCents: cents(0),
+            cashSalesCents: cents(0),
+            onlineSalesCents: cents(0),
+            grossSalesCents: cents(0),
+            tipsCents: cents(0),
+            cashInCents: cents(0),
+            cashOutCents: cents(0),
+            cashExpensesCents: cents(0),
+            outstandingChangeCents: cents(0),
+            expectedCashCents: cents(0),
+            actualCashCents: cents(-500),
+            varianceCents: cents(-500),
+            varianceReason: reason,
+          },
+        ],
+      });
+
+      expect(csv.split('\r\n')[1]).toBe(
+        `2026-07-20,closed,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-5.00,-5.00,${expected}`,
+      );
+    },
+  );
 
   it('keeps CSV rows oldest-first when the report is newest-first', () => {
     const service = createReportingService(
@@ -774,6 +833,7 @@ describe('ReportingService', () => {
       expectedCashCents: cents(0),
       actualCashCents: cents(0),
       varianceCents: cents(0),
+      varianceReason: null,
     };
 
     const csv = service.toCsv({
@@ -833,6 +893,7 @@ describe('ReportingService', () => {
       expectedCashCents: cents(0),
       actualCashCents: cents(0),
       varianceCents: cents(0),
+      varianceReason: null,
     };
 
     const csv = service.toCsv({
@@ -1470,6 +1531,20 @@ describe('reporting value rules', () => {
   it('formats cents without floating-point conversion', () => {
     expect(formatCsvMoney(cents(12_345_678))).toBe('123456.78');
     expect(formatCsvMoney(cents(-5))).toBe('-0.05');
+  });
+
+  it.each([
+    [null, ''],
+    ['', ''],
+    ['Gave wrong change', 'Gave wrong change'],
+    ['+1', `"'+1"`],
+    ['@SUM(A1)', `"'@SUM(A1)"`],
+    ['\tx', `"'\tx"`],
+    ['\rx', `"'\rx"`],
+    ['a\r\nb', '"a\r\nb"'],
+    ['=HYPERLINK("x")', `"'=HYPERLINK(""x"")"`],
+  ])('formats free text %j as the CSV field %j', (value, expected) => {
+    expect(formatCsvText(value)).toBe(expected);
   });
 
   it('rejects malformed, impossible, and inverted ranges', () => {

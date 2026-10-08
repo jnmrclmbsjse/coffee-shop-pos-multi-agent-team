@@ -63,6 +63,7 @@ interface DailyAggregateRow {
   outstandingChangeCents: DatabaseInteger;
   latestCountedCents: number | null;
   orderCount: DatabaseInteger;
+  varianceReason: string | null;
 }
 
 interface ProductAggregateRow {
@@ -358,6 +359,7 @@ export class ReportingService {
         expectedCashCents: day.expectedCashCents,
         actualCashCents: day.actualCashCents,
         varianceCents: day.varianceCents,
+        varianceReason: day.varianceReason,
       })),
       topProducts,
     };
@@ -599,6 +601,7 @@ export class ReportingService {
       'Expected cash',
       'Actual cash',
       'Variance',
+      'Variance reason',
     ].join(',');
     const rows = [...report.dailyReconciliation].reverse().map((day) =>
       [
@@ -615,6 +618,7 @@ export class ReportingService {
         formatCsvMoney(day.expectedCashCents),
         formatNullableCsvMoney(day.actualCashCents),
         formatNullableCsvMoney(day.varianceCents),
+        formatCsvText(day.varianceReason),
       ].join(','),
     );
 
@@ -726,7 +730,8 @@ export class ReportingService {
           0
         ) AS "outstandingChangeCents",
         latest_count.counted_cents AS "latestCountedCents",
-        COALESCE(sale.order_count, 0) AS "orderCount"
+        COALESCE(sale.order_count, 0) AS "orderCount",
+        closing.variance_reason AS "varianceReason"
       FROM selected_days AS day
       LEFT JOIN payment_totals AS payment
         ON payment.trading_day_id = day.id
@@ -736,6 +741,8 @@ export class ReportingService {
         ON movement.trading_day_id = day.id
       LEFT JOIN outstanding_change_totals AS outstanding_change
         ON outstanding_change.trading_day_id = day.id
+      LEFT JOIN day_closings AS closing
+        ON closing.trading_day_id = day.id
       LEFT JOIN LATERAL (
         SELECT counted_cents
         FROM cash_counts
@@ -782,6 +789,7 @@ export class ReportingService {
         openingFloatCents: cents(row.openingFloatCents),
         orderCount: databaseNumber(row.orderCount),
         ...reconciliation,
+        varianceReason: row.varianceReason,
       };
     });
   }
@@ -1291,6 +1299,16 @@ export function formatCsvMoney(value: MoneyCents): string {
 
 function formatNullableCsvMoney(value: MoneyCents | null): string {
   return value === null ? '' : formatCsvMoney(value);
+}
+
+// Free text typed by staff. Quoted per RFC 4180, and a leading formula
+// character is defused so a spreadsheet shows the text instead of running it.
+export function formatCsvText(value: string | null): string {
+  if (value === null || value === '') return '';
+  const text = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[",\r\n]/.test(text) || text !== value
+    ? `"${text.replace(/"/g, '""')}"`
+    : text;
 }
 
 function databaseNumber(value: DatabaseInteger): number {

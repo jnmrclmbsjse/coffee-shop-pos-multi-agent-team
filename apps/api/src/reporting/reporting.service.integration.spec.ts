@@ -35,6 +35,10 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
   const settledOnlineSaleId = randomUUID();
   const movementIds = Array.from({ length: 5 }, () => randomUUID());
   const cashCountId = randomUUID();
+  const dayClosingId = randomUUID();
+  // A closed day with no DayClosing row, shaped like days closed before the
+  // close snapshot existed. It must still be reported, with no reason.
+  const unclosedSnapshotDayId = randomUUID();
   let prisma: PrismaService;
   let service: ReportingService;
 
@@ -61,6 +65,18 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
         openedAt: new Date('2026-07-22T00:00:00.000Z'),
         closedAt: new Date('2026-07-22T12:00:00.000Z'),
         openingFloatCents: 10_000,
+        openedByStaffMemberId: staffMemberId,
+        closedByStaffMemberId: staffMemberId,
+      },
+    });
+    await prisma.tradingDay.create({
+      data: {
+        id: unclosedSnapshotDayId,
+        businessDate: new Date('2026-07-23T00:00:00.000Z'),
+        status: TradingDayStatus.CLOSED,
+        openedAt: new Date('2026-07-23T00:00:00.000Z'),
+        closedAt: new Date('2026-07-23T12:00:00.000Z'),
+        openingFloatCents: 5_000,
         openedByStaffMemberId: staffMemberId,
         closedByStaffMemberId: staffMemberId,
       },
@@ -157,6 +173,27 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
         countedByStaffMemberId: staffMemberId,
       },
     });
+    await prisma.dayClosing.create({
+      data: {
+        id: dayClosingId,
+        tradingDayId,
+        cashCountId,
+        openingFloatCents: 10_000,
+        cashSalesCents: 20_000,
+        onlineSalesCents: 7_000,
+        cashTipsCents: 1_000,
+        cashInCents: 4_000,
+        cashOutCents: 2_500,
+        cashExpensesCents: 500,
+        outstandingChangeCents: 300,
+        expectedCashCents: 32_300,
+        actualCashCents: 32_000,
+        varianceCents: -300,
+        varianceReason: 'Gave a customer too much change',
+        closedByStaffMemberId: staffMemberId,
+        closedByNameSnapshot: 'Reporting Test',
+      },
+    });
   });
 
   afterAll(async () => {
@@ -164,6 +201,7 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
     await prisma.salePayment.deleteMany({
       where: { saleId: { in: [cashSaleId, settledOnlineSaleId] } },
     });
+    await prisma.dayClosing.deleteMany({ where: { id: dayClosingId } });
     await prisma.cashCount.deleteMany({ where: { id: cashCountId } });
     await prisma.cashMovement.deleteMany({
       where: { id: { in: movementIds } },
@@ -171,7 +209,9 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
     await prisma.sale.deleteMany({
       where: { id: { in: [cashSaleId, settledOnlineSaleId] } },
     });
-    await prisma.tradingDay.delete({ where: { id: tradingDayId } });
+    await prisma.tradingDay.deleteMany({
+      where: { id: { in: [tradingDayId, unclosedSnapshotDayId] } },
+    });
     await prisma.staffMember.delete({ where: { id: staffMemberId } });
     await prisma.$disconnect();
   });
@@ -196,6 +236,30 @@ describeWithDatabase('Daily reconciliation queries against Postgres', () => {
         expectedCashCents: 32_300,
         actualCashCents: 32_000,
         varianceCents: -300,
+        varianceReason: 'Gave a customer too much change',
+      },
+    ]);
+  });
+
+  it('keeps a closed day that has no closing snapshot, with no variance reason', async () => {
+    const report = await service.getReport('2026-07-22', '2026-07-23');
+    const ourIds: string[] = [tradingDayId, unclosedSnapshotDayId];
+    const ours = report.dailyReconciliation.filter((day) =>
+      ourIds.includes(day.tradingDayId),
+    );
+
+    expect(
+      ours.map(({ tradingDayId: id, date, varianceReason }) => ({
+        id,
+        date,
+        varianceReason,
+      })),
+    ).toEqual([
+      { id: unclosedSnapshotDayId, date: '2026-07-23', varianceReason: null },
+      {
+        id: tradingDayId,
+        date: '2026-07-22',
+        varianceReason: 'Gave a customer too much change',
       },
     ]);
   });

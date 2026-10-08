@@ -740,3 +740,74 @@ test('a failed close leaves the day open with the error and the entered values, 
     { businessDate: businessDate(14), status: 'CLOSED' },
   ]);
 });
+
+// ---------------------------------------------------------------------------
+// The administrator reads the reason back on Reports
+// ---------------------------------------------------------------------------
+
+const ADMIN_USERNAME = process.env.E2E_ADMIN_USERNAME ?? 'admin';
+const ADMIN_PASSWORD =
+  process.env.E2E_ADMIN_PASSWORD ?? 'replace-before-seeding';
+
+test('the reason recorded at close is what the administrator sees on Reports and in the CSV', async ({
+  page,
+  browser,
+}) => {
+  // A comma makes the CSV assertion prove the field is quoted, not just present.
+  const reason = 'Short ₱5, gave a regular the wrong change';
+  const date = businessDate(15);
+  await arrange(page, 15);
+  await fillCloseForm(page, { actualCash: CASH_SHORT, reason });
+  await closeDayButton(page).click();
+  await expect(dialog(page)).toBeVisible();
+  await page.getByRole('button', { name: 'Close day anyway' }).click();
+  await expect(page.locator('.staff-close-success')).toHaveText(
+    'Business day closed.',
+  );
+  expect(readDayClosings().map((closing) => closing.varianceReason)).toEqual([
+    reason,
+  ]);
+
+  // The administrator signs in on a separate session; the staff session above
+  // is never reused for an admin route.
+  const adminContext = await browser.newContext();
+  try {
+    const admin = await adminContext.newPage();
+    await admin.goto('/sign-in');
+    await admin.locator('#username').fill(ADMIN_USERNAME);
+    await admin.locator('#password').fill(ADMIN_PASSWORD);
+    await admin.getByRole('button', { name: 'Sign in' }).click();
+    await expect(admin).toHaveURL(/\/dashboard$/);
+
+    await admin.goto('/reports');
+    await expect(admin.locator('.applied-range')).toBeVisible();
+    const filter = admin.locator('.report-filter');
+    await filter.locator('label', { hasText: 'From' }).locator('input').fill(date);
+    await filter.locator('label', { hasText: 'To' }).locator('input').fill(date);
+    await admin.getByRole('button', { name: 'Apply range' }).click();
+
+    const table = admin.getByRole('table', { name: 'Daily reconciliation' });
+    const row = table.locator('tbody tr', { hasText: date });
+    await expect(row).toHaveCount(1);
+    await expect(row.locator('td').last()).toHaveText(reason);
+    await expect(
+      table.getByRole('columnheader', { name: 'Variance reason' }),
+    ).toBeVisible();
+
+    const [download] = await Promise.all([
+      admin.waitForEvent('download'),
+      admin.getByRole('button', { name: 'Export CSV' }).click(),
+    ]);
+    const chunks: Buffer[] = [];
+    for await (const chunk of await download.createReadStream()) {
+      chunks.push(Buffer.from(chunk));
+    }
+    const lines = Buffer.concat(chunks).toString('utf8').trim().split(/\r?\n/);
+    expect(lines[0]!.endsWith(',Variance,Variance reason')).toBe(true);
+    expect(lines.slice(1)).toEqual([
+      `${date},closed,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1000.00,995.00,-5.00,"${reason}"`,
+    ]);
+  } finally {
+    await adminContext.close();
+  }
+});

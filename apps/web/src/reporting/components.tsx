@@ -140,7 +140,9 @@ export function ReconciliationTable({
           <h2 id="reconciliation-title">Daily reconciliation</h2>
           <p>
             Trading days are ordered from newest to oldest. The CSV export
-            keeps its original oldest-to-newest order.
+            keeps its original oldest-to-newest order. Variance reason is what
+            staff entered when closing the day; the cash figures reflect
+            current records.
           </p>
         </div>
       </header>
@@ -176,6 +178,7 @@ export function ReconciliationTable({
                   <th scope="col" className="num">Expected cash</th>
                   <th scope="col" className="num">Actual cash</th>
                   <th scope="col" className="num">Variance</th>
+                  <th scope="col">Variance reason</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,6 +211,14 @@ export function ReconciliationTable({
                     </td>
                     <td className="num">
                       <Variance value={row.varianceCents} />
+                    </td>
+                    <td className="variance-reason">
+                      {row.varianceReason ?? (
+                        <span className="variance-reason-empty">
+                          <span aria-hidden="true">—</span>
+                          <span className="sr-only">No reason recorded</span>
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
