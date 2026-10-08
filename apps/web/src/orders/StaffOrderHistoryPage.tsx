@@ -335,7 +335,13 @@ export function StaffOrderCard({
 
         {order.status === 'Completed' && onVoid && (
           <div className="staff-order-actions">
-            <button type="button" onClick={() => onVoid(order)}>
+            {/* The name stays "Void order"; the description ties each button
+                to its card so a screen reader's button list can tell them apart. */}
+            <button
+              type="button"
+              aria-describedby={`staff-order-${order.id}`}
+              onClick={() => onVoid(order)}
+            >
               Void order
             </button>
           </div>
@@ -583,7 +589,11 @@ export function StaffOrderHistoryPage() {
     setVoidTarget(null);
   }, []);
 
-  const canVoid = Boolean(days?.currentOpenBusinessDayId);
+  // Staff may void only orders from the business day that is open now; the
+  // API enforces the same rule, so an earlier day's ledger offers no void.
+  const canVoid =
+    Boolean(days?.currentOpenBusinessDayId) &&
+    selectedDayId === days?.currentOpenBusinessDayId;
 
   return (
     <main
@@ -689,10 +699,11 @@ export function StaffOrderHistoryPage() {
           <p>
             Corrections are made by voiding the original completed order and
             entering the corrected order again from the order screen. Reviewing
-            or filtering history never changes an order. A completed order can
-            be voided from its card while a business day is open; the void is
-            recorded on that open day. Confirming a change handover records its
-            time without reducing the original amount owed.
+            or filtering history never changes an order. A completed order from
+            the business day that is open now can be voided from its card; ask
+            an administrator to void an order from an earlier day. Confirming a
+            change handover records its time without reducing the original
+            amount owed.
           </p>
         </div>
         <span>Append-only follow-up</span>
@@ -762,7 +773,7 @@ export function StaffOrderHistoryPage() {
             order={voidTarget}
             isSaving={isVoiding}
             serverError={voidError}
-            note="The void is recorded on the business day that is open now."
+            note="Only orders from the business day that is open now can be voided here."
             onClose={closeVoidDialog}
             onConfirm={confirmVoid}
           />,

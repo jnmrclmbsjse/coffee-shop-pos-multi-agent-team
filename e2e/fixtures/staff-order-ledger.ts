@@ -249,3 +249,104 @@ export function readStaffOrderLedgerSnapshot(): string {
     process.stdout.write(JSON.stringify(sales));
   `);
 }
+
+export interface OrderHistoryVoidOrder {
+  id: string;
+  clientGeneratedId: string;
+  dayOrderNumber: number;
+  customerName: string;
+}
+
+export interface OrderHistoryVoidFixture {
+  openDayId: string;
+  earlierDayId: string;
+  /** A completed order on the business day that is open now. */
+  openOrder: OrderHistoryVoidOrder;
+  /** A completed order on the previous, closed business day. */
+  earlierOrder: OrderHistoryVoidOrder;
+}
+
+/**
+ * One completed, un-voided order on the open day and one on the closed day
+ * before it, for voiding from Order History. Orders are seeded rather than
+ * captured so the void flows are the only writes under test.
+ */
+export function seedOrderHistoryVoidFixture(
+  runTag: string,
+): OrderHistoryVoidFixture {
+  resetLedgerWorld();
+
+  const staffMemberId = ensureStaffMemberId();
+  const latte = seedReportingCatalog(`VOID-${runTag}`).alphaSmall!;
+  const today = shopToday();
+  const openCustomer = `Void Open Guest ${runTag}`;
+  const earlierCustomer = `Void Earlier Guest ${runTag}`;
+
+  const openDay = seedTradingDay(
+    {
+      businessDate: today,
+      status: 'OPEN',
+      openingFloatCents: 20_000,
+      sales: [
+        {
+          customerName: openCustomer,
+          cashCents: 15_000,
+          lines: [line(latte, { unitPriceCents: 15_000 })],
+        },
+      ],
+    },
+    staffMemberId,
+  );
+  const earlierDay = seedTradingDay(
+    {
+      businessDate: isoShift(today, -1),
+      status: 'CLOSED',
+      openingFloatCents: 18_000,
+      sales: [
+        {
+          customerName: earlierCustomer,
+          onlineCents: 12_000,
+          lines: [line(latte, { unitPriceCents: 12_000 })],
+        },
+      ],
+    },
+    staffMemberId,
+  );
+
+  const orders = JSON.parse(
+    runPrisma(`
+      const sales = await prisma.sale.findMany({
+        where: { id: { in: ${JSON.stringify([openDay.saleIds[0], earlierDay.saleIds[0]])} } },
+        select: { id: true, clientGeneratedId: true, dayOrderNumber: true, customerName: true },
+      });
+      process.stdout.write(JSON.stringify(sales));
+    `),
+  ) as OrderHistoryVoidOrder[];
+  const byId = (id: string | undefined) => {
+    const order = orders.find((candidate) => candidate.id === id);
+    if (!order) throw new Error(`Seeded order ${id} not found`);
+    return order;
+  };
+
+  return {
+    openDayId: openDay.id,
+    earlierDayId: earlierDay.id,
+    openOrder: byId(openDay.saleIds[0]),
+    earlierOrder: byId(earlierDay.saleIds[0]),
+  };
+}
+
+/** Every VOID correction recorded against one original order. */
+export function readVoidCorrections(
+  originalSaleId: string,
+): Array<{ tradingDayId: string; voidReason: string | null; totalCents: number }> {
+  return JSON.parse(
+    runPrisma(`
+      const corrections = await prisma.sale.findMany({
+        where: { kind: 'VOID', correctsSaleId: ${JSON.stringify(originalSaleId)} },
+        select: { tradingDayId: true, voidReason: true, totalCents: true },
+      });
+      process.stdout.write(JSON.stringify(corrections));
+    `),
+  ) as Array<{ tradingDayId: string; voidReason: string | null; totalCents: number }>;
+}
