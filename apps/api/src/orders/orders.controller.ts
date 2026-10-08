@@ -7,9 +7,11 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@coffee-shop/shared';
+import type { AuthenticatedRequest } from '../auth/auth.types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -107,8 +109,9 @@ export class OrdersController {
   void(
     @Param('clientGeneratedId', new ParseUUIDPipe()) id: string,
     @Body() input: VoidOrderDto,
+    @Req() request: AuthenticatedRequest,
   ): Promise<OrderRecord> {
-    return this.ordersService.void(id, input);
+    return this.ordersService.void(id, input, request.user!.role);
   }
 
   @Post(':clientGeneratedId/change-settlement')
