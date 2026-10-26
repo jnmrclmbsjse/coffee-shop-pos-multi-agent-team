@@ -7,6 +7,12 @@ import type {
   UpdateStaffCredentialsInput,
   UpdateStaffCredentialsResponse,
   UpdateStaffMemberInput,
+  StaffEmploymentDetails,
+  StaffGovernmentIds,
+  UpdateStaffEmploymentDetailsInput,
+  StaffCustomFieldDefinition,
+  CreateStaffCustomFieldDefinitionInput,
+  UpdateStaffCustomFieldDefinitionInput,
 } from '@coffee-shop/shared';
 import { sessionFetch } from '../auth/session-fetch';
 
@@ -55,8 +61,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new StaffApiError(response.status, messages, field, reason);
   }
 
-  return (await response.json()) as T;
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
+
+export function getStaffEmployment(id: string): Promise<StaffEmploymentDetails> { return request(`/staff/${id}/employment`); }
+export function updateStaffEmployment(id: string, input: UpdateStaffEmploymentDetailsInput): Promise<StaffEmploymentDetails> { return request(`/staff/${id}/employment`, { method: 'PUT', body: JSON.stringify(input) }); }
+export function revealStaffGovernmentIds(id: string): Promise<StaffGovernmentIds> { return request(`/staff/${id}/employment/government-ids`); }
+export function saveStaffCustomFieldValues(id: string, values: Array<{ definitionId: string; value: string }>): Promise<void> { return request(`/staff/${id}/custom-fields`, { method: 'PUT', body: JSON.stringify({ values }) }); }
+export function listStaffCustomFields(includeArchived = false): Promise<StaffCustomFieldDefinition[]> { return request(`/staff/custom-fields?includeArchived=${includeArchived}`); }
+export function createStaffCustomField(input: CreateStaffCustomFieldDefinitionInput): Promise<StaffCustomFieldDefinition> { return request('/staff/custom-fields', { method: 'POST', body: JSON.stringify(input) }); }
+export function updateStaffCustomField(id: string, input: UpdateStaffCustomFieldDefinitionInput): Promise<StaffCustomFieldDefinition> { return request(`/staff/custom-fields/${id}`, { method: 'PATCH', body: JSON.stringify(input) }); }
+export function reorderStaffCustomFields(ids: string[]): Promise<void> { return request('/staff/custom-fields/order', { method: 'PUT', body: JSON.stringify({ ids }) }); }
 
 export function listStaffMembers(
   query: StaffMemberListQuery,

@@ -77,6 +77,18 @@ export function suggestCommissionCents(
   );
 }
 
+/** Suggest a staff member's personal commission for each complete gross band. */
+export function suggestPersonalCommissionCents(
+  grossSalesCents: MoneyCents,
+  ratePerBandCents: MoneyCents | null,
+): MoneyCents {
+  if (ratePerBandCents === null || grossSalesCents <= 0) return cents(0);
+  return multiplyMoney(
+    ratePerBandCents,
+    Math.floor(grossSalesCents / COMMISSION_GROSS_BAND_CENTS),
+  );
+}
+
 // Round gross by its hundreds digit — 0..7 down to the whole thousand,
 // 8..9 up — then apply the rent rate in basis points.
 export function suggestRentDepositCents(

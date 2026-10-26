@@ -1,4 +1,5 @@
 import { cents, type MoneyCents } from '@coffee-shop/shared';
+import { formatMoney } from '../reporting/format';
 
 interface AmountResult {
   cents?: MoneyCents;
@@ -32,4 +33,8 @@ export function adjustmentAmountToCents(value: string): AmountResult {
 
 export function amountForInput(value: MoneyCents): string {
   return `${Math.trunc(value / 100)}.${String(value % 100).padStart(2, '0')}`;
+}
+
+export function formatCommissionRate(value: MoneyCents): string {
+  return formatMoney(value).replace(/\.00$/, '');
 }

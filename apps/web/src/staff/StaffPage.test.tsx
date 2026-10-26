@@ -22,6 +22,8 @@ const mara: StaffMember = {
   accountUsername: null,
   createdAt: '2026-07-25T00:00:00.000Z',
   updatedAt: '2026-07-25T00:00:00.000Z',
+  employmentType: null,
+  nextMilestone: null,
 };
 
 const amina: StaffMember = {

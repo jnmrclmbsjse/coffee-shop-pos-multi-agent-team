@@ -10,11 +10,13 @@ import {
   cents,
   CompensationAdjustmentKind,
   suggestCommissionCents,
+  suggestPersonalCommissionCents,
   type DailyGrossSalesSuggestion,
   type PayslipAdjustmentGroup,
   type StaffCompensationAdjustment,
   type PayslipSummary,
   type StaffCompensationEntry,
+  type StaffCommissionRate,
 } from '@coffee-shop/shared';
 import { Prisma, type StaffMember } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,6 +29,7 @@ import type {
   PayslipQueryDto,
   UpdateCompensationAdjustmentDto,
   UpdateCompensationEntryDto,
+  CreateStaffCommissionRateDto,
 } from './compensation.dto';
 
 const ISO_DATE_LENGTH = 10;
@@ -58,8 +61,18 @@ export class CompensationService {
 
   async getDailyGrossSuggestion(
     workDate: string,
+    staffMemberId?: string,
   ): Promise<DailyGrossSalesSuggestion> {
     const dailyGross = await this.reportingService.getDailyGrossSales(workDate);
+    let personalCommissionRateCents = null;
+    if (staffMemberId) {
+      await this.requireStaffMember(staffMemberId);
+      const rate = await this.prisma.staffCommissionRate.findFirst({
+        where: { staffMemberId, effectiveFrom: { lte: this.toDate(workDate) } },
+        orderBy: { effectiveFrom: 'desc' },
+      });
+      personalCommissionRateCents = rate ? cents(rate.ratePerBandCents) : null;
+    }
 
     return {
       workDate,
@@ -67,7 +80,30 @@ export class CompensationService {
       suggestedCommissionCents: suggestCommissionCents(
         dailyGross.grossSalesCents,
       ),
+      personalCommissionRateCents,
+      suggestedPersonalCommissionCents: suggestPersonalCommissionCents(dailyGross.grossSalesCents, personalCommissionRateCents),
     };
+  }
+
+  async listCommissionRates(staffMemberId: string): Promise<StaffCommissionRate[]> {
+    await this.requireStaffMember(staffMemberId);
+    const rows = await this.prisma.staffCommissionRate.findMany({ where: { staffMemberId }, orderBy: { effectiveFrom: 'asc' } });
+    return rows.map((row) => this.toCommissionRate(row));
+  }
+
+  async upsertCommissionRate(staffMemberId: string, input: CreateStaffCommissionRateDto, userId: string): Promise<StaffCommissionRate> {
+    const staff = await this.requireStaffMember(staffMemberId);
+    const row = await this.prisma.staffCommissionRate.upsert({
+      where: { staffMemberId_effectiveFrom: { staffMemberId, effectiveFrom: this.toDate(input.effectiveFrom) } },
+      create: { staffMemberId, effectiveFrom: this.toDate(input.effectiveFrom), ratePerBandCents: input.ratePerBandCents, locationId: staff.locationId, createdByUserId: userId },
+      update: { ratePerBandCents: input.ratePerBandCents, locationId: staff.locationId, createdByUserId: userId },
+    });
+    return this.toCommissionRate(row);
+  }
+
+  async removeCommissionRate(id: string): Promise<void> {
+    try { await this.prisma.staffCommissionRate.delete({ where: { id } }); }
+    catch (error) { if (this.isPrismaError(error, 'P2025')) throw new NotFoundException('Commission rate not found'); throw error; }
   }
 
   async getPayslip(query: PayslipQueryDto): Promise<PayslipSummary> {
@@ -87,7 +123,7 @@ export class CompensationService {
       throw new NotFoundException('Staff member not found');
     }
 
-    const [entryRecords, adjustmentRecords] = await Promise.all([
+    const [entryRecords, adjustmentRecords, rateRecords] = await Promise.all([
       this.prisma.staffCompensationEntry.findMany({
         where: {
           staffMemberId: query.staffMemberId,
@@ -109,17 +145,26 @@ export class CompensationService {
         include: compensationAdjustmentInclude,
         orderBy: [{ effectiveDate: 'asc' }, { createdAt: 'asc' }],
       }),
+      this.prisma.staffCommissionRate.findMany({
+        where: {
+          staffMemberId: query.staffMemberId,
+          effectiveFrom: { lte: this.toDate(query.to) },
+        },
+        orderBy: { effectiveFrom: 'asc' },
+      }),
     ]);
     const entries = entryRecords.map((record) => {
       const salaryCents = cents(record.salaryCents);
       const commissionCents = cents(record.commissionCents);
+      const personalCommissionCents = cents(record.personalCommissionCents ?? 0);
 
       return {
         id: record.id,
         workDate: record.workDate.toISOString().slice(0, ISO_DATE_LENGTH),
         salaryCents,
         commissionCents,
-        dailyTotalCents: addMoney(salaryCents, commissionCents),
+        personalCommissionCents,
+        dailyTotalCents: addMoney(salaryCents, commissionCents, personalCommissionCents),
       };
     });
     const salaryTotalCents = addMoney(
@@ -128,6 +173,20 @@ export class CompensationService {
     const commissionTotalCents = addMoney(
       ...entries.map((entry) => entry.commissionCents),
     );
+    const personalCommissionTotalCents = addMoney(...entries.map((entry) => entry.personalCommissionCents));
+    const fromDate = this.toDate(query.from);
+    const baselineRateIndex = rateRecords.findLastIndex(
+      (row) => row.effectiveFrom <= fromDate,
+    );
+    const personalCommissionRates = rateRecords
+      .filter(
+        (row, index) =>
+          index === baselineRateIndex || row.effectiveFrom > fromDate,
+      )
+      .map((row) => ({
+        effectiveFrom: row.effectiveFrom.toISOString().slice(0, ISO_DATE_LENGTH),
+        ratePerBandCents: cents(row.ratePerBandCents),
+      }));
     const adjustments = adjustmentRecords.map((record) =>
       this.toAdjustment(record),
     );
@@ -147,6 +206,7 @@ export class CompensationService {
     const grandTotalCents = addMoney(
       salaryTotalCents,
       commissionTotalCents,
+      personalCommissionTotalCents,
     );
     const earningsTotalCents = addMoney(
       grandTotalCents,
@@ -166,6 +226,8 @@ export class CompensationService {
       adjustmentGroups,
       salaryTotalCents,
       commissionTotalCents,
+      personalCommissionTotalCents,
+      personalCommissionRates,
       grandTotalCents,
       allowanceTotalCents,
       bonusTotalCents,
@@ -219,6 +281,7 @@ export class CompensationService {
             workDate: this.toDate(input.workDate),
             salaryCents: input.salaryCents,
             commissionCents: input.commissionCents,
+            personalCommissionCents: input.personalCommissionCents ?? 0,
             locationId: staffMember.locationId,
             createdByUserId: userId,
             updatedByUserId: userId,
@@ -362,6 +425,7 @@ export class CompensationService {
         data: {
           salaryCents: input.salaryCents,
           commissionCents: input.commissionCents,
+          ...(input.personalCommissionCents === undefined ? {} : { personalCommissionCents: input.personalCommissionCents }),
           updatedByUserId: userId,
         },
         include: compensationEntryInclude,
@@ -417,6 +481,7 @@ export class CompensationService {
   private toEntry(record: CompensationEntryRecord): StaffCompensationEntry {
     const salaryCents = cents(record.salaryCents);
     const commissionCents = cents(record.commissionCents);
+    const personalCommissionCents = cents(record.personalCommissionCents ?? 0);
 
     return {
       id: record.id,
@@ -425,11 +490,16 @@ export class CompensationService {
       workDate: record.workDate.toISOString().slice(0, ISO_DATE_LENGTH),
       salaryCents,
       commissionCents,
-      dailyTotalCents: addMoney(salaryCents, commissionCents),
+      personalCommissionCents,
+      dailyTotalCents: addMoney(salaryCents, commissionCents, personalCommissionCents),
       locationId: record.locationId,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
     };
+  }
+
+  private toCommissionRate(record: { id: string; staffMemberId: string; effectiveFrom: Date; ratePerBandCents: number; createdAt: Date }): StaffCommissionRate {
+    return { id: record.id, staffMemberId: record.staffMemberId, effectiveFrom: record.effectiveFrom.toISOString().slice(0, ISO_DATE_LENGTH), ratePerBandCents: cents(record.ratePerBandCents), createdAt: record.createdAt.toISOString() };
   }
 
   private toAdjustment(

@@ -32,6 +32,7 @@ describe('StaffService', () => {
         create: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         update: jest.fn(),
       },
       location: {
@@ -70,7 +71,7 @@ describe('StaffService', () => {
         isActive: false,
       },
       orderBy: [{ displayName: 'desc' }],
-      include: { user: { select: { username: true } } },
+      include: { user: { select: { username: true } }, employmentProfile: { select: { employmentType: true, trainingEndDate: true, probationEndDate: true, thirdMonthReviewDate: true, regularizationDate: true } } },
     });
   });
 
@@ -84,6 +85,8 @@ describe('StaffService', () => {
         userId: 'must-not-leak',
         baseSalaryCents: 12_500,
         isActive: true,
+        employmentProfile: { employmentType: 'REGULAR' },
+        sssNumber: 'must-not-leak',
       },
       {
         id: '1b4f35af-a2c2-491d-88be-373c5efa4df4',
@@ -116,7 +119,14 @@ describe('StaffService', () => {
       },
       orderBy: { displayName: 'asc' },
     });
-    expect(result.every((item) => !('baseSalaryCents' in item))).toBe(true);
+    expect(
+      result.every(
+        (item) =>
+          !('baseSalaryCents' in item) &&
+          !('employmentProfile' in item) &&
+          !('sssNumber' in item),
+      ),
+    ).toBe(true);
   });
 
   it('keeps requiring a PIN when the linked account is deactivated', async () => {
@@ -176,7 +186,7 @@ describe('StaffService', () => {
         locationId: null,
         baseSalaryCents: null,
       },
-      include: { user: { select: { username: true } } },
+      include: { user: { select: { username: true } }, employmentProfile: { select: { employmentType: true, trainingEndDate: true, probationEndDate: true, thirdMonthReviewDate: true, regularizationDate: true } } },
     });
   });
 
@@ -257,7 +267,7 @@ describe('StaffService', () => {
         displayName: 'Alex Santos',
         isActive: false,
       },
-      include: { user: { select: { username: true } } },
+      include: { user: { select: { username: true } }, employmentProfile: { select: { employmentType: true, trainingEndDate: true, probationEndDate: true, thirdMonthReviewDate: true, regularizationDate: true } } },
     });
     expect(result).toMatchObject({
       id: staffId,
@@ -343,6 +353,18 @@ describe('StaffService', () => {
       staffMember: staffRecord({ user: { username: 'alex' } }),
       pinSet: true,
     });
+    prisma.staffMember.findUniqueOrThrow.mockResolvedValue(
+      staffRecord({
+        user: { username: 'alex' },
+        employmentProfile: {
+          employmentType: 'REGULAR',
+          trainingEndDate: null,
+          probationEndDate: null,
+          thirdMonthReviewDate: null,
+          regularizationDate: null,
+        },
+      }),
+    );
     const service = createService(
       prisma,
       { hashStaffPassword, hashStaffPin },
@@ -361,6 +383,9 @@ describe('StaffService', () => {
         accountUsername: 'alex',
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
+        // Re-read with the roster include, so the row keeps its employment summary.
+        employmentType: 'REGULAR',
+        nextMilestone: null,
       },
       passwordChanged: true,
       pinChanged: true,
@@ -383,6 +408,9 @@ describe('StaffService', () => {
       staffMember: staffRecord({ user: { username: 'alex' } }),
       pinSet: false,
     });
+    prisma.staffMember.findUniqueOrThrow.mockResolvedValue(
+      staffRecord({ user: { username: 'alex' } }),
+    );
     const service = createService(
       prisma,
       { hashStaffPassword, hashStaffPin },

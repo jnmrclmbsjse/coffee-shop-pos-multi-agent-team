@@ -1,4 +1,5 @@
 import {
+  cents,
   CompensationAdjustmentKind,
   type PayslipAdjustmentGroup,
   type PayslipSummary,
@@ -21,6 +22,7 @@ import {
 } from '../reporting/format';
 import { CompensationApiError, getPayslip } from './api';
 import { CutoffStepper } from './CutoffStepper';
+import { formatCommissionRate } from './money';
 
 interface PayslipViewProps {
   staff: StaffMember[];
@@ -121,6 +123,35 @@ function advanceGroupMetadata(
   return group.itemCount === 1
     ? dates
     : `${group.itemCount} items · ${dates}`;
+}
+
+function shortRateDate(value: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(`${value}T00:00:00.000Z`));
+}
+
+function dayBefore(value: string): string {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function personalCommissionRateMetadata(summary: PayslipSummary): string {
+  const rates = summary.personalCommissionRates;
+  if (rates.length === 0) return 'No personal rate';
+  if (rates.length === 1) {
+    return `${formatCommissionRate(rates[0]!.ratePerBandCents)} per ₱1,000`;
+  }
+  return rates.map((rate, index) => {
+    const amount = `${formatCommissionRate(rate.ratePerBandCents)} per ₱1,000`;
+    const next = rates[index + 1];
+    if (index === 0 && next) return `${amount} to ${shortRateDate(dayBefore(next.effectiveFrom))}`;
+    if (next) return `${amount} from ${shortRateDate(rate.effectiveFrom)} to ${shortRateDate(dayBefore(next.effectiveFrom))}`;
+    return `${amount} from ${shortRateDate(rate.effectiveFrom)}`;
+  }).join(' · ');
 }
 
 export function PayslipView({
@@ -475,6 +506,7 @@ export function PayslipView({
                         <th scope="col">Work date</th>
                         <th scope="col">Salary</th>
                         <th scope="col">Commission</th>
+                        {summary.entries.some((entry) => (entry.personalCommissionCents ?? 0) !== 0) && <th scope="col">Personal commission</th>}
                         <th scope="col">Daily total</th>
                       </tr>
                     </thead>
@@ -490,6 +522,7 @@ export function PayslipView({
                           <td data-label="Commission">
                             {formatMoney(entry.commissionCents)}
                           </td>
+                          {summary.entries.some((candidate) => (candidate.personalCommissionCents ?? 0) !== 0) && <td data-label="Personal commission">{formatMoney(entry.personalCommissionCents ?? cents(0))}</td>}
                           <td data-label="Daily total">
                             <strong>{formatMoney(entry.dailyTotalCents)}</strong>
                           </td>
@@ -527,6 +560,7 @@ export function PayslipView({
                         <td>{formatMoney(summary.commissionTotalCents)}</td>
                       </tr>
                     )}
+                    {summary.personalCommissionTotalCents !== 0 && <tr><td>Personal commission<span>{personalCommissionRateMetadata(summary)}</span></td><td>{formatMoney(summary.personalCommissionTotalCents)}</td></tr>}
                     {earningsAdjustmentGroups.map((group) => (
                       <tr key={group.adjustmentIds[0]}>
                         <td>
@@ -544,6 +578,7 @@ export function PayslipView({
               <dl className="payslip-category-totals" aria-label="Earnings totals">
                 <div><dt>Salary total</dt><dd>{formatMoney(summary.salaryTotalCents)}</dd></div>
                 <div><dt>Commission total</dt><dd>{formatMoney(summary.commissionTotalCents)}</dd></div>
+                {summary.personalCommissionTotalCents !== 0 && <div><dt>Personal commission total</dt><dd>{formatMoney(summary.personalCommissionTotalCents)}</dd></div>}
                 <div><dt>Allowance total</dt><dd>{formatMoney(summary.allowanceTotalCents)}</dd></div>
                 <div><dt>Bonus total</dt><dd>{formatMoney(summary.bonusTotalCents)}</dd></div>
                 <div className="payslip-total-emphasis"><dt>Earnings total</dt><dd>{formatMoney(summary.earningsTotalCents)}</dd></div>

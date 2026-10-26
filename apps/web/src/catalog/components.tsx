@@ -21,10 +21,12 @@ export function Icon({
     | 'search'
     | 'trash'
     | 'users'
-    | 'wallet';
+    | 'wallet'
+    | 'calendar';
   className?: string;
 }) {
   const paths: Record<typeof name, ReactNode> = {
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></>,
     alert: (
       <>
         <path d="M10.3 3.8 2.2 18a2 2 0 0 0 1.8 3h16a2 2 0 0 0 1.8-3L13.7 3.8a2 2 0 0 0-3.4 0Z" />

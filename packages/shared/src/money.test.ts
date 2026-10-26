@@ -13,10 +13,21 @@ import {
   RENT_ROUND_UP_HUNDREDS_DIGIT,
   suggestChairDepositCents,
   suggestCommissionCents,
+  suggestPersonalCommissionCents,
   suggestRentDepositCents,
 } from './money.js';
 
 describe('money helpers', () => {
+  it.each([
+    [100_000, 2_000, 2_000],
+    [275_000, 2_000, 4_000],
+    [99_999, 2_000, 0],
+    [100_000, null, 0],
+    [100_000, 0, 0],
+    [-100_000, 2_000, 0],
+  ])('suggests personal commission for gross %s and rate %s', (gross, rate, expected) => {
+    expect(suggestPersonalCommissionCents(cents(gross), rate === null ? null : cents(rate))).toBe(cents(expected));
+  });
   it('computes only with integer cents', () => {
     expect(addMoney(cents(150), cents(75))).toBe(225);
     expect(multiplyMoney(cents(125), 2)).toBe(250);

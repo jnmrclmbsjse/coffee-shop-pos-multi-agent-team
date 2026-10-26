@@ -4,10 +4,11 @@ import { UsersModule } from '../users/users.module';
 import { StaffController } from './staff.controller';
 import { StaffService } from './staff.service';
 import { SelectableStaffController } from './selectable-staff.controller';
+import { StaffEmploymentService } from './staff-employment.service';
 
 @Module({
   imports: [AuthModule, UsersModule],
   controllers: [StaffController, SelectableStaffController],
-  providers: [StaffService],
+  providers: [StaffService, StaffEmploymentService],
 })
 export class StaffModule {}

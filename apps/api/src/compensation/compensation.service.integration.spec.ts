@@ -279,6 +279,8 @@ describeWithDatabase('CompensationService against Postgres', () => {
       adjustmentGroups: [],
       salaryTotalCents: 22_000,
       commissionTotalCents: 400,
+      personalCommissionTotalCents: 0,
+      personalCommissionRates: [],
       grandTotalCents: 22_400,
       allowanceTotalCents: 0,
       bonusTotalCents: 0,

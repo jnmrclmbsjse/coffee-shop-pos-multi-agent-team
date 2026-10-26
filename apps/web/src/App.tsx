@@ -47,6 +47,7 @@ import {
 import { CashAndExpensesPage } from './trading-day/CashAndExpensesPage';
 import { StaffOrderHistoryPage } from './orders/StaffOrderHistoryPage';
 import { TakeOrderPage } from './orders/TakeOrderPage';
+import { SchedulePage } from './scheduling/SchedulePage';
 
 const DEFAULT_ADMIN_PATH = '/dashboard';
 const INVALID_CREDENTIALS_MESSAGE = 'Invalid username or password.';
@@ -70,6 +71,7 @@ const ADMIN_NAV_GROUPS = [
     destinations: [
       { to: '/inventory', label: 'Inventory', icon: 'clipboard' as const },
       { to: '/staff', label: 'Staff', icon: 'users' as const },
+      { to: '/schedule', label: 'Schedule', icon: 'calendar' as const },
       { to: '/reports', label: 'Reports', icon: 'document' as const },
       { to: '/compensation', label: 'Compensation', icon: 'wallet' as const },
       { to: '/journal', label: 'Journal', icon: 'wallet' as const },
@@ -111,6 +113,7 @@ function destinationName(path: string): string {
     '/catalog/products': 'Products',
     '/inventory': 'Inventory',
     '/staff': 'Staff',
+    '/schedule': 'Schedule',
     '/reports': 'Reports',
     '/reports/expenses': 'Expenses Report',
     '/reports/daily-inventory': 'Daily Inventory Report',
@@ -520,6 +523,7 @@ export function AppRoutes() {
               element={<InventoryItemEditorPage />}
             />
             <Route path="/staff" element={<StaffPage />} />
+            <Route path="/schedule" element={<SchedulePage />} />
             <Route
               path="/catalog/categories"
               element={<CategoriesPage />}
