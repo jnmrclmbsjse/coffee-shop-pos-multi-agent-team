@@ -215,6 +215,7 @@ describe('administrator authentication routes', () => {
       'Products',
       'Inventory',
       'Staff',
+      'Schedule',
       'Reports',
       'Compensation',
       'Journal',
@@ -230,6 +231,7 @@ describe('administrator authentication routes', () => {
       'box',
       'clipboard',
       'users',
+      'calendar',
       'document',
       // Journal intentionally follows the task's specified wallet glyph.
       'wallet',

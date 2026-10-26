@@ -24,6 +24,9 @@ describe('CompensationController', () => {
   it.each([
     'payslip',
     'dailyGross',
+    'listCommissionRates',
+    'createCommissionRate',
+    'removeCommissionRate',
     'list',
     'create',
     'update',

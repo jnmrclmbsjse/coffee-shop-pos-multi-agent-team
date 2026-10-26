@@ -1,5 +1,7 @@
 import 'reflect-metadata';
+import { ForbiddenException, type ExecutionContext } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { Reflector } from '@nestjs/core';
 import { Role } from '@coffee-shop/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ROLES_KEY } from '../auth/roles.decorator';
@@ -22,6 +24,30 @@ describe('StaffController', () => {
     expect(
       Object.getOwnPropertyNames(StaffController.prototype),
     ).not.toContain('remove');
+  });
+
+  it.each([
+    'listCustomFields',
+    'createCustomField',
+    'reorderCustomFields',
+    'updateCustomField',
+    'getEmployment',
+    'updateEmployment',
+    'revealGovernmentIds',
+    'updateCustomFieldValues',
+  ] as const)('refuses a STAFF user on %s', (handlerName) => {
+    const guard = new RolesGuard(new Reflector());
+    const context = {
+      getHandler: () => StaffController.prototype[handlerName],
+      getClass: () => StaffController,
+      switchToHttp: () => ({
+        getRequest: () => ({
+          user: { id: 'staff-user-id', username: 'staff', role: Role.STAFF },
+        }),
+      }),
+    } as unknown as ExecutionContext;
+
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 
   it('delegates account creation for the route member', async () => {

@@ -1,6 +1,7 @@
 import {
   cents,
   CompensationAdjustmentKind,
+  type DailyGrossSalesSuggestion,
   type PayslipSummary,
   type StaffCompensationAdjustment,
   type StaffCompensationEntry,
@@ -65,6 +66,8 @@ const staff: StaffMember[] = [
     accountUsername: null,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
+    employmentType: null,
+    nextMilestone: null,
   },
   {
     id: 'staff-2',
@@ -76,6 +79,8 @@ const staff: StaffMember[] = [
     accountUsername: null,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
+    employmentType: null,
+    nextMilestone: null,
   },
 ];
 
@@ -86,6 +91,7 @@ const entry: StaffCompensationEntry = {
   workDate: '2026-08-14',
   salaryCents: cents(120_000),
   commissionCents: cents(45_000),
+  personalCommissionCents: cents(0),
   dailyTotalCents: cents(165_000),
   locationId: null,
   createdAt: '2026-08-14T00:00:00.000Z',
@@ -133,6 +139,7 @@ const payslip: PayslipSummary = {
       workDate: '2026-08-14',
       salaryCents: cents(100),
       commissionCents: cents(200),
+      personalCommissionCents: cents(0),
       dailyTotalCents: cents(999),
     },
   ],
@@ -140,6 +147,8 @@ const payslip: PayslipSummary = {
   adjustmentGroups: [],
   salaryTotalCents: cents(501),
   commissionTotalCents: cents(602),
+  personalCommissionTotalCents: cents(0),
+  personalCommissionRates: [],
   grandTotalCents: cents(9_999),
   allowanceTotalCents: cents(0),
   bonusTotalCents: cents(0),
@@ -203,11 +212,13 @@ function renderPage(
   records: StaffCompensationEntry[] = [entry],
   adjustmentRecords: StaffCompensationAdjustment[] | null = [],
   staffRecords: StaffMember[] = staff,
-  grossSuggestion = {
+  grossSuggestion: DailyGrossSalesSuggestion = {
     workDate: '2026-08-15',
     hasBusinessDay: true,
     grossSalesCents: cents(0),
     suggestedCommissionCents: cents(0),
+    personalCommissionRateCents: null,
+    suggestedPersonalCommissionCents: cents(0),
   },
 ) {
   api.list.mockResolvedValue(records);
@@ -400,6 +411,8 @@ describe('CompensationPage', () => {
       hasBusinessDay: false,
       grossSalesCents: cents(0),
       suggestedCommissionCents: cents(0),
+      personalCommissionRateCents: null,
+      suggestedPersonalCommissionCents: cents(0),
     });
     await screen.findByRole('button', { name: /Edit Mara Santos/ });
 
@@ -485,6 +498,8 @@ describe('CompensationPage', () => {
       hasBusinessDay: true,
       grossSalesCents: cents(275_000),
       suggestedCommissionCents: cents(10_000),
+      personalCommissionRateCents: null,
+      suggestedPersonalCommissionCents: cents(0),
     });
     const { user, dialog } = await openAddForm();
     await waitFor(() =>
@@ -672,6 +687,7 @@ describe('CompensationPage', () => {
         workDate: '2026-08-15',
         salaryCents: cents(50_000),
         commissionCents: cents(0),
+        personalCommissionCents: cents(0),
         loadAllowance: { amountCents: cents(250) },
       }),
     );
@@ -729,6 +745,7 @@ describe('CompensationPage', () => {
       workDate: '2026-08-15',
       salaryCents: cents(7),
       commissionCents: cents(100),
+      personalCommissionCents: cents(0),
       dailyTotalCents: cents(107),
     };
     api.create.mockResolvedValue(created);
@@ -748,8 +765,37 @@ describe('CompensationPage', () => {
       workDate: '2026-08-15',
       salaryCents: cents(7),
       commissionCents: cents(100),
+      personalCommissionCents: cents(0),
     });
     expect(await screen.findByText('₱1.07')).toBeInTheDocument();
+  });
+
+  it('prefills personal commission from the staff rate and preserves an override', async () => {
+    api.create.mockResolvedValue({ ...entry, personalCommissionCents: cents(1_234) });
+    renderPage([entry], [], staff, {
+      workDate: '2026-08-15',
+      hasBusinessDay: true,
+      grossSalesCents: cents(275_000),
+      suggestedCommissionCents: cents(10_000),
+      personalCommissionRateCents: cents(2_000),
+      suggestedPersonalCommissionCents: cents(4_000),
+    });
+    const { user, dialog } = await openAddForm();
+    await user.selectOptions(within(dialog).getByLabelText(/Staff member/), 'staff-1');
+    const personal = within(dialog).getByLabelText(/Personal commission/);
+    await waitFor(() => expect(personal).toHaveValue('40.00'));
+    expect(within(dialog).getByText('₱20 per ₱1,000')).toBeInTheDocument();
+    expect(within(dialog).getByText('Suggested from personal rate')).toBeInTheDocument();
+
+    await user.clear(personal);
+    await user.type(personal, '12.34');
+    expect(within(dialog).queryByText('Suggested from personal rate')).not.toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText(/Salary amount/), '100');
+    await user.click(within(dialog).getByRole('button', { name: 'Add record' }));
+
+    await waitFor(() => expect(api.create).toHaveBeenCalledWith(expect.objectContaining({
+      personalCommissionCents: cents(1_234),
+    })));
   });
 
   it('edits amounts once and renders the updated total without a refetch', async () => {
@@ -772,6 +818,7 @@ describe('CompensationPage', () => {
     expect(api.update).toHaveBeenCalledWith('entry-1', {
       salaryCents: cents(125_000),
       commissionCents: cents(45_000),
+      personalCommissionCents: cents(0),
     });
     expect(await screen.findByText('₱1,700.00')).toBeInTheDocument();
   });
@@ -892,6 +939,37 @@ describe('CompensationPage', () => {
     expect(await screen.findByText(
       'Allowance · 2 items · December 28, 2026, January 3, 2027',
     )).toBeInTheDocument();
+  });
+
+  it('shows personal commission lines and the daily column only when non-zero', async () => {
+    api.payslip.mockResolvedValue({
+      ...payslip,
+      entries: [{
+        ...payslip.entries[0]!,
+        personalCommissionCents: cents(4_000),
+        dailyTotalCents: cents(4_300),
+      }],
+      personalCommissionTotalCents: cents(4_000),
+      personalCommissionRates: [
+        { effectiveFrom: '2026-07-01', ratePerBandCents: cents(2_000) },
+        { effectiveFrom: '2026-08-10', ratePerBandCents: cents(2_500) },
+      ],
+      grandTotalCents: cents(5_103),
+      earningsTotalCents: cents(5_103),
+      netPayableCents: cents(5_103),
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Payslips' }));
+    await waitFor(() => expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'));
+    await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+
+    const artifact = await screen.findByRole('article');
+    expect(within(artifact).getByRole('columnheader', { name: 'Personal commission' })).toBeInTheDocument();
+    expect(within(artifact).getByText(
+      '₱20 per ₱1,000 to 9 Aug · ₱25 per ₱1,000 from 10 Aug',
+    )).toBeInTheDocument();
+    expect(within(artifact).getByText('Personal commission total')).toBeInTheDocument();
   });
 
   it('itemizes every daily salary and commission entry with its server total', async () => {

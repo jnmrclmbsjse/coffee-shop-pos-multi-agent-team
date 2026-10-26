@@ -10,6 +10,8 @@ import type {
   StaffCompensationEntryListQuery,
   UpdateStaffCompensationAdjustmentInput,
   UpdateStaffCompensationEntryInput,
+  StaffCommissionRate,
+  CreateStaffCommissionRateInput,
 } from '@coffee-shop/shared';
 import { sessionFetch } from '../auth/session-fetch';
 
@@ -105,10 +107,16 @@ export function getPayslip(query: PayslipQuery): Promise<PayslipSummary> {
 
 export function getDailyGrossSuggestion(
   workDate: string,
+  staffMemberId?: string,
 ): Promise<DailyGrossSalesSuggestion> {
   const params = new URLSearchParams({ workDate });
+  if (staffMemberId) params.set('staffMemberId', staffMemberId);
   return request(`/compensation/daily-gross?${params.toString()}`);
 }
+
+export function listStaffCommissionRates(staffMemberId: string): Promise<StaffCommissionRate[]> { return request(`/compensation/staff/${encodeURIComponent(staffMemberId)}/commission-rates`); }
+export function saveStaffCommissionRate(staffMemberId: string, input: CreateStaffCommissionRateInput): Promise<StaffCommissionRate> { return request(`/compensation/staff/${encodeURIComponent(staffMemberId)}/commission-rates`, { method: 'POST', body: JSON.stringify(input) }); }
+export function deleteStaffCommissionRate(id: string): Promise<void> { return request(`/compensation/commission-rates/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 
 export function createCompensationEntry(input: CreateStaffCompensationEntryInput): Promise<StaffCompensationEntry> {
   return request('/compensation/entries', { method: 'POST', body: JSON.stringify(input) });

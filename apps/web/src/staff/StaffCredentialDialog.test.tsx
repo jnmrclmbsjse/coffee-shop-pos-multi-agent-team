@@ -21,6 +21,8 @@ const member: StaffMember = {
   accountUsername: 'mara.login',
   createdAt: '2026-07-25T00:00:00.000Z',
   updatedAt: '2026-07-25T00:00:00.000Z',
+  employmentType: null,
+  nextMilestone: null,
 };
 
 const PIN_ERROR = 'Enter exactly four digits using 0 to 9 only.';

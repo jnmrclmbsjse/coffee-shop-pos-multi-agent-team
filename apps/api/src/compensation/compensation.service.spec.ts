@@ -23,6 +23,7 @@ describe('CompensationService', () => {
     workDate: new Date('2026-08-15T00:00:00.000Z'),
     salaryCents: 10_000,
     commissionCents: 500,
+    personalCommissionCents: 0,
     locationId,
     createdByUserId: adminUserId,
     updatedByUserId: adminUserId,
@@ -67,6 +68,7 @@ describe('CompensationService', () => {
       }
     >;
     dailyGross?: { hasBusinessDay: boolean; grossSalesCents: number };
+    rates?: Array<{ id: string; staffMemberId: string; effectiveFrom: Date; ratePerBandCents: number; createdAt: Date }>;
   } = {}) {
     const prisma = {
       staffMember: {
@@ -105,6 +107,12 @@ describe('CompensationService', () => {
           .fn()
           .mockResolvedValue(options.adjustmentFindManyResult ?? []),
         create: jest.fn().mockResolvedValue(adjustmentRecord),
+      },
+      staffCommissionRate: {
+        findFirst: jest.fn().mockResolvedValue(options.rates?.at(-1) ?? null),
+        findMany: jest.fn().mockResolvedValue(options.rates ?? []),
+        upsert: jest.fn().mockImplementation(({ create }: { create: object }) => Promise.resolve({ id: 'rate-id', createdAt: now, ...create })),
+        delete: jest.fn().mockResolvedValue({}),
       },
       $transaction: jest.fn(),
     };
@@ -196,12 +204,59 @@ describe('CompensationService', () => {
         hasBusinessDay,
         grossSalesCents,
         suggestedCommissionCents,
+        personalCommissionRateCents: null,
+        suggestedPersonalCommissionCents: 0,
       });
       expect(reportingService.getDailyGrossSales).toHaveBeenCalledWith(
         '2026-08-15',
       );
     },
   );
+
+  it.each([
+    ['2026-08-09', null, 0],
+    ['2026-08-10', 2_000, 4_000],
+    ['2026-08-20', 2_500, 5_000],
+  ])('uses the personal rate in force on %s', async (workDate, expectedRate, expectedSuggestion) => {
+    const rates = expectedRate === null ? [] : [{ id: 'rate-id', staffMemberId, effectiveFrom: new Date(`${workDate}T00:00:00Z`), ratePerBandCents: expectedRate, createdAt: now }];
+    const { service } = setup({ rates, dailyGross: { hasBusinessDay: true, grossSalesCents: 275_000 } });
+    await expect(service.getDailyGrossSuggestion(workDate, staffMemberId)).resolves.toMatchObject({ personalCommissionRateCents: expectedRate, suggestedPersonalCommissionCents: expectedSuggestion });
+  });
+
+  it('upserts a rate on the same staff/date key', async () => {
+    const { prisma, service } = setup();
+    await service.upsertCommissionRate(staffMemberId, { effectiveFrom: '2026-08-15', ratePerBandCents: cents(2_000) }, adminUserId);
+    expect(prisma.staffCommissionRate.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { staffMemberId_effectiveFrom: { staffMemberId, effectiveFrom: new Date('2026-08-15T00:00:00Z') } } }));
+  });
+
+  it('removes only the rate row and never rewrites saved entries', async () => {
+    const { prisma, service } = setup();
+    await service.removeCommissionRate('rate-id');
+    expect(prisma.staffCommissionRate.delete).toHaveBeenCalledWith({ where: { id: 'rate-id' } });
+    expect(prisma.staffCompensationEntry.update).not.toHaveBeenCalled();
+  });
+
+  it('includes personal amounts and every in-force rate segment in a payslip', async () => {
+    const rates = [
+      { id: 'old', staffMemberId, effectiveFrom: new Date('2026-07-01T00:00:00Z'), ratePerBandCents: 2_000, createdAt: now },
+      { id: 'first', staffMemberId, effectiveFrom: new Date('2026-08-01T00:00:00Z'), ratePerBandCents: 2_500, createdAt: now },
+      { id: 'change', staffMemberId, effectiveFrom: new Date('2026-08-10T00:00:00Z'), ratePerBandCents: 3_000, createdAt: now },
+    ];
+    const { service } = setup({
+      rates,
+      findManyResult: [{ ...record, personalCommissionCents: 4_000 }],
+    });
+    const result = await service.getPayslip({ staffMemberId, from: '2026-08-05', to: '2026-08-15' });
+    expect(result).toMatchObject({
+      personalCommissionTotalCents: 4_000,
+      grandTotalCents: 14_500,
+      entries: [{ personalCommissionCents: 4_000, dailyTotalCents: 14_500 }],
+      personalCommissionRates: [
+        { effectiveFrom: '2026-08-01', ratePerBandCents: 2_500 },
+        { effectiveFrom: '2026-08-10', ratePerBandCents: 3_000 },
+      ],
+    });
+  });
 
   it('generates a payslip with inclusive bounds and integer totals', async () => {
     const boundaryRecords = [
@@ -249,6 +304,8 @@ describe('CompensationService', () => {
       adjustmentGroups: [],
       salaryTotalCents: 18_000,
       commissionTotalCents: 750,
+      personalCommissionTotalCents: 0,
+      personalCommissionRates: [],
       grandTotalCents: 18_750,
       allowanceTotalCents: 0,
       bonusTotalCents: 0,
@@ -548,6 +605,8 @@ describe('CompensationService', () => {
       advanceTotalCents: 0,
       earningsTotalCents: 0,
       netPayableCents: 0,
+      personalCommissionTotalCents: 0,
+      personalCommissionRates: [],
     });
   });
 
@@ -640,6 +699,7 @@ describe('CompensationService', () => {
           workDate: new Date('2026-08-15T00:00:00.000Z'),
           salaryCents: 10_000,
           commissionCents: 500,
+          personalCommissionCents: 0,
           locationId,
           createdByUserId: adminUserId,
           updatedByUserId: adminUserId,
@@ -648,6 +708,14 @@ describe('CompensationService', () => {
     );
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(prisma.staffCompensationAdjustment.create).not.toHaveBeenCalled();
+  });
+
+  it('stores an explicitly overridden personal commission on create', async () => {
+    const { prisma, service } = setup();
+    await service.create({ ...createInput, personalCommissionCents: 750 } as never, adminUserId);
+    expect(prisma.staffCompensationEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ personalCommissionCents: 750 }) }),
+    );
   });
 
   it('creates the entry and load allowance in one transaction', async () => {
@@ -739,6 +807,14 @@ describe('CompensationService', () => {
         },
       }),
     );
+  });
+
+  it('leaves personal commission unchanged when omitted and writes it when supplied', async () => {
+    const { prisma, service } = setup();
+    await service.update(entryId, { salaryCents: 20_000, commissionCents: 1_000 } as never, updatedAdminUserId);
+    expect(prisma.staffCompensationEntry.update).toHaveBeenNthCalledWith(1, expect.objectContaining({ data: expect.not.objectContaining({ personalCommissionCents: expect.anything() }) }));
+    await service.update(entryId, { salaryCents: 20_000, commissionCents: 1_000, personalCommissionCents: 600 } as never, updatedAdminUserId);
+    expect(prisma.staffCompensationEntry.update).toHaveBeenNthCalledWith(2, expect.objectContaining({ data: expect.objectContaining({ personalCommissionCents: 600 }) }));
   });
 
   it.each(['update', 'delete'] as const)(

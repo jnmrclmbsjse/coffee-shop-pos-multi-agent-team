@@ -9,7 +9,7 @@ import type {
   StaffMember,
   UpdateStaffCredentialsResponse,
 } from '@coffee-shop/shared';
-import { cents } from '@coffee-shop/shared';
+import { cents, EmploymentType } from '@coffee-shop/shared';
 import type { Prisma } from '@prisma/client';
 import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -25,6 +25,15 @@ import type {
 // Only the username is exposed; password and PIN hashes never leave the API.
 const staffMemberAccountInclude = {
   user: { select: { username: true } },
+  employmentProfile: {
+    select: {
+      employmentType: true,
+      trainingEndDate: true,
+      probationEndDate: true,
+      thirdMonthReviewDate: true,
+      regularizationDate: true,
+    },
+  },
 } satisfies Prisma.StaffMemberInclude;
 
 @Injectable()
@@ -198,8 +207,27 @@ export class StaffService {
     createdAt: Date;
     updatedAt: Date;
     user?: { username: string } | null;
+    employmentProfile?: {
+      employmentType: import('@prisma/client').EmploymentType | null;
+      trainingEndDate: Date | null;
+      probationEndDate: Date | null;
+      thirdMonthReviewDate: Date | null;
+      regularizationDate: Date | null;
+    } | null;
   }): StaffMember {
-    const { user, ...rest } = record;
+    const { user, employmentProfile, ...rest } = record;
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const candidates = [
+      ['TRAINING_END', employmentProfile?.trainingEndDate],
+      ['PROBATION_END', employmentProfile?.probationEndDate],
+      ['THIRD_MONTH_REVIEW', employmentProfile?.thirdMonthReviewDate],
+      ['REGULARIZATION', employmentProfile?.regularizationDate],
+    ] as const;
+    const nextMilestone = candidates
+      .filter((candidate): candidate is readonly [typeof candidate[0], Date] => candidate[1] != null)
+      .map(([kind, date]) => ({ kind, date: date.toISOString().slice(0, 10) }))
+      .filter((milestone) => milestone.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date))[0] ?? null;
     return {
       ...rest,
       baseSalaryCents:
@@ -210,6 +238,8 @@ export class StaffService {
       accountUsername: user?.username ?? null,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
+      employmentType: employmentProfile?.employmentType ? EmploymentType[employmentProfile.employmentType] : null,
+      nextMilestone,
     };
   }
 }

@@ -32,6 +32,9 @@ const trimString = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
 
 export class DailyGrossSalesQueryDto {
+  @IsOptional()
+  @IsUUID('4', { message: 'staffMemberId must be a valid identifier' })
+  staffMemberId?: string;
   @IsNotEmpty({ message: 'workDate is required' })
   @Matches(ISO_DATE_PATTERN, {
     message: 'workDate must be a date in YYYY-MM-DD format',
@@ -135,6 +138,12 @@ export class CreateCompensationEntryDto
   commissionCents!: CreateStaffCompensationEntryInput['commissionCents'];
 
   @IsOptional()
+  @IsInt({ message: 'personalCommissionCents must be an integer number of cents' })
+  @Min(0, { message: 'personalCommissionCents must not be negative' })
+  @Max(MAX_DATABASE_INTEGER)
+  personalCommissionCents?: CreateStaffCompensationEntryInput['personalCommissionCents'];
+
+  @IsOptional()
   @IsObject({ message: 'loadAllowance must be an object' })
   @ValidateNested()
   @Type(() => LoadAllowanceDto)
@@ -161,6 +170,25 @@ export class UpdateCompensationEntryDto
     message: `commissionCents must not exceed ${MAX_DATABASE_INTEGER}`,
   })
   commissionCents!: UpdateStaffCompensationEntryInput['commissionCents'];
+
+  @IsOptional()
+  @IsInt({ message: 'personalCommissionCents must be an integer number of cents' })
+  @Min(0, { message: 'personalCommissionCents must not be negative' })
+  @Max(MAX_DATABASE_INTEGER)
+  personalCommissionCents?: UpdateStaffCompensationEntryInput['personalCommissionCents'];
+}
+
+export class CreateStaffCommissionRateDto {
+  @IsDefined({ message: 'effectiveFrom is required' })
+  @Matches(ISO_DATE_PATTERN)
+  @IsDateString({ strict: true })
+  effectiveFrom!: string;
+
+  @IsDefined({ message: 'ratePerBandCents is required' })
+  @IsInt({ message: 'ratePerBandCents must be an integer number of cents' })
+  @Min(0, { message: 'ratePerBandCents must not be negative' })
+  @Max(MAX_DATABASE_INTEGER)
+  ratePerBandCents!: import('@coffee-shop/shared').MoneyCents;
 }
 
 export class CompensationAdjustmentListQueryDto

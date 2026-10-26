@@ -25,6 +25,9 @@ import {
 } from './api';
 import { StaffAccountDialog } from './StaffAccountDialog';
 import { StaffCredentialDialog } from './StaffCredentialDialog';
+import { EmploymentDetailsDialog } from './EmploymentDetailsDialog';
+import { CustomFieldsDialog } from './CustomFieldsDialog';
+import { formatBusinessDate } from '../reporting/format';
 
 type ActiveFilter = 'all' | 'true' | 'false';
 
@@ -69,6 +72,8 @@ export function StaffPage() {
   const [accountMember, setAccountMember] = useState<StaffMember | null>(null);
   const [credentialMember, setCredentialMember] =
     useState<StaffMember | null>(null);
+  const [employmentMember, setEmploymentMember] = useState<StaffMember | null>(null);
+  const [fieldsOpen, setFieldsOpen] = useState(false);
   const [nameError, setNameError] = useState('');
   const [baseSalaryError, setBaseSalaryError] = useState('');
   const [modalError, setModalError] = useState('');
@@ -331,7 +336,7 @@ export function StaffPage() {
           <h1>Staff</h1>
           <p>Manage names used to identify cashiers at the register.</p>
         </div>
-        <button
+        <div className="staff-row-actions"><button className="catalog-button" type="button" onClick={() => setFieldsOpen(true)}>Employment fields</button><button
           className="catalog-button primary"
           ref={addButtonRef}
           type="button"
@@ -339,7 +344,7 @@ export function StaffPage() {
         >
           <Icon name="plus" />
           Add staff
-        </button>
+        </button></div>
       </div>
 
       {pageError && <Notice tone="danger" title={pageError} />}
@@ -441,6 +446,8 @@ export function StaffPage() {
               <tr>
                 <th scope="col">Name</th>
                 <th scope="col">Is active</th>
+                <th scope="col">Type</th>
+                <th scope="col">Next milestone</th>
                 <th scope="col">
                   <span className="sr-only">Actions</span>
                 </th>
@@ -448,10 +455,10 @@ export function StaffPage() {
             </thead>
             <tbody>
               {loading ? (
-                <LoadingRows columns={3} />
+                <LoadingRows columns={5} />
               ) : rosterIsEmpty || hasNoResults ? (
                 <tr>
-                  <td colSpan={3}>
+                  <td colSpan={5}>
                     <div className="catalog-empty staff-empty">
                       <Icon name={rosterIsEmpty ? 'box' : 'search'} />
                       <h3>
@@ -507,6 +514,8 @@ export function StaffPage() {
                         />
                       </div>
                     </td>
+                    <td data-label="Type">{member.employmentType ? member.employmentType.replace('_', '-').toLocaleLowerCase().replace(/^./, (letter) => letter.toUpperCase()) : '—'}</td>
+                    <td data-label="Next milestone">{member.nextMilestone ? `${member.nextMilestone.kind.replaceAll('_', ' ').toLocaleLowerCase().replace(/^./, (letter) => letter.toUpperCase())} · ${formatBusinessDate(member.nextMilestone.date)}` : '—'}</td>
                     <td data-label="Actions" className="table-action">
                       <div className="staff-row-actions">
                         <button
@@ -517,6 +526,7 @@ export function StaffPage() {
                         >
                           Edit
                         </button>
+                        <button className="catalog-button small" type="button" onClick={() => setEmploymentMember(member)}>Employment</button>
                         {member.hasAccount ? (
                           <div className="staff-account-action">
                             <span>
@@ -726,6 +736,8 @@ export function StaffPage() {
           onUpdated={reconcileCredentialMember}
         />
       )}
+      {employmentMember && <EmploymentDetailsDialog member={employmentMember} onClose={() => setEmploymentMember(null)} onSaved={() => setRefreshKey((key) => key + 1)} />}
+      {fieldsOpen && <CustomFieldsDialog onClose={() => setFieldsOpen(false)} />}
     </main>
   );
 }

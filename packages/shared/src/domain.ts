@@ -122,6 +122,32 @@ export interface StaffMember {
   accountUsername: string | null;
   createdAt: string;
   updatedAt: string;
+  employmentType: EmploymentType | null;
+  nextMilestone: StaffMilestone | null;
+}
+
+export enum EmploymentType {
+  REGULAR = 'REGULAR',
+  PROBATIONARY = 'PROBATIONARY',
+  TRAINEE = 'TRAINEE',
+  PART_TIME = 'PART_TIME',
+}
+
+export enum SeparationReason {
+  RESIGNED = 'RESIGNED',
+  TERMINATED = 'TERMINATED',
+}
+
+export enum StaffCustomFieldType {
+  TEXT = 'TEXT',
+  DATE = 'DATE',
+  NUMBER = 'NUMBER',
+  CHOICE = 'CHOICE',
+}
+
+export interface StaffMilestone {
+  kind: 'TRAINING_END' | 'PROBATION_END' | 'THIRD_MONTH_REVIEW' | 'REGULARIZATION';
+  date: string;
 }
 
 export interface StaffCompensationEntry {
@@ -131,6 +157,7 @@ export interface StaffCompensationEntry {
   workDate: string;
   salaryCents: MoneyCents;
   commissionCents: MoneyCents;
+  personalCommissionCents: MoneyCents;
   dailyTotalCents: MoneyCents;
   locationId: string | null;
   createdAt: string;
@@ -148,6 +175,7 @@ export interface CreateStaffCompensationEntryInput {
   workDate: string;
   salaryCents: MoneyCents;
   commissionCents: MoneyCents;
+  personalCommissionCents?: MoneyCents;
   loadAllowance?: { amountCents: MoneyCents };
 }
 
@@ -156,11 +184,14 @@ export interface DailyGrossSalesSuggestion {
   hasBusinessDay: boolean;
   grossSalesCents: MoneyCents;
   suggestedCommissionCents: MoneyCents;
+  personalCommissionRateCents: MoneyCents | null;
+  suggestedPersonalCommissionCents: MoneyCents;
 }
 
 export interface UpdateStaffCompensationEntryInput {
   salaryCents: MoneyCents;
   commissionCents: MoneyCents;
+  personalCommissionCents?: MoneyCents;
 }
 
 export enum CompensationAdjustmentKind {
@@ -218,6 +249,7 @@ export interface PayslipEntry {
   workDate: string;
   salaryCents: MoneyCents;
   commissionCents: MoneyCents;
+  personalCommissionCents: MoneyCents;
   dailyTotalCents: MoneyCents;
 }
 
@@ -245,12 +277,133 @@ export interface PayslipSummary {
   adjustmentGroups: PayslipAdjustmentGroup[];
   salaryTotalCents: MoneyCents;
   commissionTotalCents: MoneyCents;
+  personalCommissionTotalCents: MoneyCents;
+  personalCommissionRates: Array<{
+    effectiveFrom: string;
+    ratePerBandCents: MoneyCents;
+  }>;
   grandTotalCents: MoneyCents;
   allowanceTotalCents: MoneyCents;
   bonusTotalCents: MoneyCents;
   advanceTotalCents: MoneyCents;
   earningsTotalCents: MoneyCents;
   netPayableCents: MoneyCents;
+}
+
+export interface StaffCommissionRate {
+  id: string;
+  staffMemberId: string;
+  effectiveFrom: string;
+  ratePerBandCents: MoneyCents;
+  createdAt: string;
+}
+
+export interface CreateStaffCommissionRateInput {
+  effectiveFrom: string;
+  ratePerBandCents: MoneyCents;
+}
+
+export interface MaskedGovernmentId { isSet: boolean; last4: string | null }
+
+export interface StaffGovernmentIds {
+  sssNumber: string | null;
+  philhealthNumber: string | null;
+  pagibigNumber: string | null;
+  tinNumber: string | null;
+}
+
+export interface StaffEmploymentTypeChange {
+  id: string;
+  employmentType: EmploymentType;
+  effectiveDate: string;
+  changedBy: { displayName: string; username: string };
+  createdAt: string;
+}
+
+export interface StaffCustomFieldDefinition {
+  id: string;
+  label: string;
+  fieldType: StaffCustomFieldType;
+  choices: string[];
+  sortOrder: number;
+  isArchived: boolean;
+  hasValues: boolean;
+}
+
+export interface StaffCustomFieldValue {
+  definitionId: string;
+  value: string;
+}
+
+export interface StaffEmploymentDetails {
+  staffMemberId: string;
+  startDate: string | null;
+  trainingEndDate: string | null;
+  probationEndDate: string | null;
+  thirdMonthReviewDate: string | null;
+  regularizationDate: string | null;
+  employmentType: EmploymentType | null;
+  endDate: string | null;
+  separationReason: SeparationReason | null;
+  birthDate: string | null;
+  contactNumber: string | null;
+  emergencyContactName: string | null;
+  emergencyContactNumber: string | null;
+  governmentIds: Record<keyof StaffGovernmentIds, MaskedGovernmentId>;
+  typeHistory: StaffEmploymentTypeChange[];
+  customFields: Array<StaffCustomFieldDefinition & { value: string | null }>;
+}
+
+export interface UpdateStaffEmploymentDetailsInput extends Partial<Omit<StaffEmploymentDetails, 'staffMemberId' | 'governmentIds' | 'typeHistory' | 'customFields'>> {
+  employmentTypeEffectiveDate?: string;
+  sssNumber?: string | null;
+  philhealthNumber?: string | null;
+  pagibigNumber?: string | null;
+  tinNumber?: string | null;
+}
+
+export interface CreateStaffCustomFieldDefinitionInput {
+  label: string;
+  fieldType: StaffCustomFieldType;
+  choices?: string[];
+}
+
+export interface UpdateStaffCustomFieldDefinitionInput {
+  label?: string;
+  fieldType?: StaffCustomFieldType;
+  choices?: string[];
+  sortOrder?: number;
+  isArchived?: boolean;
+}
+
+export interface ScheduleShiftView {
+  staffMemberId: string;
+  displayName: string;
+  startMinute: number;
+  endMinute: number;
+}
+
+export interface ScheduleDayView {
+  date: string;
+  eventNote: string | null;
+  shifts: ScheduleShiftView[];
+  dayOff: Array<{ staffMemberId: string; displayName: string }>;
+}
+
+export interface ScheduleWeekView {
+  weekStartDate: string;
+  source: 'SAVED' | 'COPIED' | 'EMPTY';
+  copiedFromWeekStartDate: string | null;
+  editable: boolean;
+  days: ScheduleDayView[];
+}
+
+export interface SaveScheduleWeekInput {
+  days: Array<{
+    date: string;
+    eventNote: string | null;
+    shifts: Array<{ staffMemberId: string; startMinute: number; endMinute: number }>;
+  }>;
 }
 
 export enum JournalSuggestionKind {

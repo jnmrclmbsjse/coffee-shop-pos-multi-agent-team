@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -17,6 +19,7 @@ import {
   Role,
   type StaffCompensationAdjustment,
   type StaffCompensationEntry,
+  type StaffCommissionRate,
 } from '@coffee-shop/shared';
 import type { AuthenticatedRequest } from '../auth/auth.types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -27,6 +30,7 @@ import {
   CompensationEntryListQueryDto,
   CreateCompensationAdjustmentDto,
   CreateCompensationEntryDto,
+  CreateStaffCommissionRateDto,
   DailyGrossSalesQueryDto,
   PayslipQueryDto,
   UpdateCompensationAdjustmentDto,
@@ -44,7 +48,25 @@ export class CompensationController {
   dailyGross(
     @Query() query: DailyGrossSalesQueryDto,
   ): Promise<DailyGrossSalesSuggestion> {
-    return this.compensationService.getDailyGrossSuggestion(query.workDate);
+    return query.staffMemberId
+      ? this.compensationService.getDailyGrossSuggestion(query.workDate, query.staffMemberId)
+      : this.compensationService.getDailyGrossSuggestion(query.workDate);
+  }
+
+  @Get('staff/:staffMemberId/commission-rates')
+  listCommissionRates(@Param('staffMemberId', ParseUUIDPipe) staffMemberId: string): Promise<StaffCommissionRate[]> {
+    return this.compensationService.listCommissionRates(staffMemberId);
+  }
+
+  @Post('staff/:staffMemberId/commission-rates')
+  createCommissionRate(@Param('staffMemberId', ParseUUIDPipe) staffMemberId: string, @Body() input: CreateStaffCommissionRateDto, @Req() request: AuthenticatedRequest): Promise<StaffCommissionRate> {
+    return this.compensationService.upsertCommissionRate(staffMemberId, input, request.user!.id);
+  }
+
+  @Delete('commission-rates/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeCommissionRate(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.compensationService.removeCommissionRate(id);
   }
 
   @Get('payslip')

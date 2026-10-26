@@ -14,6 +14,7 @@ import { ReportingModule } from './reporting/reporting.module';
 import { SalesModule } from './sales/sales.module';
 import { StaffModule } from './staff/staff.module';
 import { TradingDayModule } from './trading-day/trading-day.module';
+import { SchedulingModule } from './scheduling/scheduling.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { TradingDayModule } from './trading-day/trading-day.module';
     SalesModule,
     StaffModule,
     TradingDayModule,
+    SchedulingModule,
   ],
   controllers: [AppController],
   providers: [

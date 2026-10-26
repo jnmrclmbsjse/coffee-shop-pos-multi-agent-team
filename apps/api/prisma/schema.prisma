@@ -93,6 +93,25 @@ enum CompensationAdjustmentKind {
   BONUS
 }
 
+enum EmploymentType {
+  REGULAR
+  PROBATIONARY
+  TRAINEE
+  PART_TIME
+}
+
+enum SeparationReason {
+  RESIGNED
+  TERMINATED
+}
+
+enum StaffCustomFieldType {
+  TEXT
+  DATE
+  NUMBER
+  CHOICE
+}
+
 enum JournalSuggestionKind {
   NONE
   RENT_PERCENT_OF_ROUNDED_GROSS
@@ -120,6 +139,11 @@ model User {
   recordedJournalWithdrawals     JournalWithdrawal[]           @relation("JournalWithdrawalRecordedBy")
   updatedJournalWithdrawals      JournalWithdrawal[]           @relation("JournalWithdrawalUpdatedBy")
   createdJournalSuggestionRates  JournalSuggestionRate[]       @relation("JournalSuggestionRateCreatedBy")
+  createdStaffCommissionRates    StaffCommissionRate[]          @relation("StaffCommissionRateCreatedBy")
+  updatedEmploymentProfiles      StaffEmploymentProfile[]       @relation("StaffEmploymentProfileUpdatedBy")
+  employmentTypeChanges          StaffEmploymentTypeChange[]    @relation("StaffEmploymentTypeChangedBy")
+  updatedStaffCustomFieldValues  StaffCustomFieldValue[]        @relation("StaffCustomFieldValueUpdatedBy")
+  updatedScheduleWeeks           ScheduleWeek[]                  @relation("ScheduleWeekUpdatedBy")
 
   @@map("users")
 }
@@ -140,6 +164,9 @@ model Location {
   journalDeposits         JournalDeposit[]
   journalWithdrawals      JournalWithdrawal[]
   journalSuggestionRates  JournalSuggestionRate[]
+  staffCommissionRates    StaffCommissionRate[]
+  staffEmploymentProfiles StaffEmploymentProfile[]
+  scheduleWeeks           ScheduleWeek[]
 
   @@map("locations")
 }
@@ -167,6 +194,11 @@ model StaffMember {
   cashierSelections       CashierSelection[]
   compensationEntries     StaffCompensationEntry[]
   compensationAdjustments StaffCompensationAdjustment[]
+  commissionRates         StaffCommissionRate[]
+  employmentProfile       StaffEmploymentProfile?
+  employmentTypeChanges   StaffEmploymentTypeChange[]
+  customFieldValues       StaffCustomFieldValue[]
+  scheduleShifts          ScheduleShift[]
 
   @@index([locationId])
   @@map("staff_members")
@@ -178,6 +210,7 @@ model StaffCompensationEntry {
   workDate        DateTime    @map("work_date") @db.Date
   salaryCents     Int         @map("salary_cents")
   commissionCents Int         @map("commission_cents")
+  personalCommissionCents Int @default(0) @map("personal_commission_cents")
   locationId      String?     @map("location_id") @db.Uuid
   createdByUserId String      @map("created_by_user_id") @db.Uuid
   updatedByUserId String      @map("updated_by_user_id") @db.Uuid
@@ -191,6 +224,139 @@ model StaffCompensationEntry {
   @@unique([staffMemberId, workDate])
   @@index([staffMemberId, workDate])
   @@map("staff_compensation_entries")
+}
+
+model StaffCommissionRate {
+  id               String      @id @default(uuid()) @db.Uuid
+  staffMemberId    String      @map("staff_member_id") @db.Uuid
+  effectiveFrom    DateTime    @map("effective_from") @db.Date
+  ratePerBandCents Int         @map("rate_per_band_cents")
+  locationId       String?     @map("location_id") @db.Uuid
+  createdByUserId  String      @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at")
+  staffMember      StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Restrict)
+  location         Location?   @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  createdByUser    User        @relation("StaffCommissionRateCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([staffMemberId, effectiveFrom])
+  @@index([locationId])
+  @@map("staff_commission_rates")
+}
+
+model StaffEmploymentProfile {
+  id                     String            @id @default(uuid()) @db.Uuid
+  staffMemberId          String            @unique @map("staff_member_id") @db.Uuid
+  startDate              DateTime?         @map("start_date") @db.Date
+  trainingEndDate        DateTime?         @map("training_end_date") @db.Date
+  probationEndDate       DateTime?         @map("probation_end_date") @db.Date
+  thirdMonthReviewDate   DateTime?         @map("third_month_review_date") @db.Date
+  regularizationDate     DateTime?         @map("regularization_date") @db.Date
+  employmentType         EmploymentType?   @map("employment_type")
+  endDate                DateTime?         @map("end_date") @db.Date
+  separationReason       SeparationReason? @map("separation_reason")
+  birthDate              DateTime?         @map("birth_date") @db.Date
+  contactNumber          String?           @map("contact_number")
+  emergencyContactName   String?           @map("emergency_contact_name")
+  emergencyContactNumber String?           @map("emergency_contact_number")
+  sssNumber              String?           @map("sss_number")
+  philhealthNumber       String?           @map("philhealth_number")
+  pagibigNumber          String?           @map("pagibig_number")
+  tinNumber              String?           @map("tin_number")
+  locationId             String?           @map("location_id") @db.Uuid
+  updatedByUserId        String            @map("updated_by_user_id") @db.Uuid
+  createdAt              DateTime          @default(now()) @map("created_at")
+  updatedAt              DateTime          @updatedAt @map("updated_at")
+  staffMember            StaffMember       @relation(fields: [staffMemberId], references: [id], onDelete: Restrict)
+  location               Location?         @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  updatedByUser          User              @relation("StaffEmploymentProfileUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([locationId])
+  @@map("staff_employment_profiles")
+}
+
+model StaffEmploymentTypeChange {
+  id                String         @id @default(uuid()) @db.Uuid
+  staffMemberId     String         @map("staff_member_id") @db.Uuid
+  employmentType    EmploymentType @map("employment_type")
+  effectiveDate     DateTime       @map("effective_date") @db.Date
+  changedByUserId   String         @map("changed_by_user_id") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at")
+  staffMember       StaffMember    @relation(fields: [staffMemberId], references: [id], onDelete: Restrict)
+  changedByUser     User           @relation("StaffEmploymentTypeChangedBy", fields: [changedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([staffMemberId, effectiveDate])
+  @@map("staff_employment_type_changes")
+}
+
+model StaffCustomFieldDefinition {
+  id         String               @id @default(uuid()) @db.Uuid
+  label      String
+  fieldType  StaffCustomFieldType @map("field_type")
+  choices    String[]             @default([])
+  sortOrder  Int                  @map("sort_order")
+  isArchived Boolean              @default(false) @map("is_archived")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+  values     StaffCustomFieldValue[]
+
+  @@index([sortOrder])
+  @@map("staff_custom_field_definitions")
+}
+
+model StaffCustomFieldValue {
+  id              String                     @id @default(uuid()) @db.Uuid
+  staffMemberId   String                     @map("staff_member_id") @db.Uuid
+  definitionId    String                     @map("definition_id") @db.Uuid
+  value           String
+  updatedByUserId String                     @map("updated_by_user_id") @db.Uuid
+  updatedAt       DateTime                   @updatedAt @map("updated_at")
+  staffMember     StaffMember                @relation(fields: [staffMemberId], references: [id], onDelete: Restrict)
+  definition      StaffCustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Restrict)
+  updatedByUser   User                       @relation("StaffCustomFieldValueUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([staffMemberId, definitionId])
+  @@map("staff_custom_field_values")
+}
+
+model ScheduleWeek {
+  id             String            @id @default(uuid()) @db.Uuid
+  weekStartDate  DateTime          @map("week_start_date") @db.Date
+  locationId     String?           @map("location_id") @db.Uuid
+  updatedByUserId String           @map("updated_by_user_id") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  location       Location?         @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  updatedByUser  User              @relation("ScheduleWeekUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  shifts         ScheduleShift[]
+  dayNotes       ScheduleDayNote[]
+
+  @@index([locationId])
+  @@map("schedule_weeks")
+}
+
+model ScheduleShift {
+  id            String      @id @default(uuid()) @db.Uuid
+  weekId        String      @map("week_id") @db.Uuid
+  shiftDate     DateTime    @map("shift_date") @db.Date
+  staffMemberId String      @map("staff_member_id") @db.Uuid
+  startMinute   Int         @map("start_minute")
+  endMinute     Int         @map("end_minute")
+  week          ScheduleWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  staffMember   StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Restrict)
+
+  @@unique([weekId, shiftDate, staffMemberId])
+  @@map("schedule_shifts")
+}
+
+model ScheduleDayNote {
+  id        String       @id @default(uuid()) @db.Uuid
+  weekId    String       @map("week_id") @db.Uuid
+  noteDate  DateTime     @map("note_date") @db.Date
+  eventNote String       @map("event_note")
+  week      ScheduleWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+
+  @@unique([weekId, noteDate])
+  @@map("schedule_day_notes")
 }
 
 model StaffCompensationAdjustment {

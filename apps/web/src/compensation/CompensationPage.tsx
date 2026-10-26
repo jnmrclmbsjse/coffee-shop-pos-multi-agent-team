@@ -1,5 +1,6 @@
 import {
   addMoney,
+  cents,
   ALLOWANCE_DESCRIPTION_PRESETS,
   CompensationAdjustmentKind,
   type DailyGrossSalesSuggestion,
@@ -34,6 +35,7 @@ import {
   adjustmentAmountToCents,
   amountForInput,
   currencyToCents,
+  formatCommissionRate,
 } from './money';
 
 export { currencyToCents } from './money';
@@ -45,6 +47,7 @@ interface EntryDraft {
   workDate: string;
   salary: string;
   commission: string;
+  personalCommission: string;
   includeLoadAllowance: boolean;
   loadAllowanceAmount: string;
 }
@@ -54,19 +57,21 @@ type DraftField =
   | 'workDate'
   | 'salary'
   | 'commission'
+  | 'personalCommission'
   | 'loadAllowanceAmount';
 type DraftErrors = Partial<Record<DraftField, string>>;
 type GrossState =
   | { status: 'loading' }
   | { status: 'ready'; suggestion: DailyGrossSalesSuggestion }
   | { status: 'error' };
-type SuggestionFlags = { salary: boolean; commission: boolean };
+type SuggestionFlags = { salary: boolean; commission: boolean; personalCommission: boolean };
 const EMPTY_DRAFT: EntryDraft = {
   staffMemberId: '',
   staffMemberDisplayName: '',
   workDate: '',
   salary: '',
   commission: '',
+  personalCommission: '',
   includeLoadAllowance: false,
   loadAllowanceAmount: '',
 };
@@ -139,10 +144,12 @@ export function CompensationPage() {
   const [suggestionDirty, setSuggestionDirty] = useState<SuggestionFlags>({
     salary: false,
     commission: false,
+    personalCommission: false,
   });
   const [suggestionSource, setSuggestionSource] = useState<SuggestionFlags>({
     salary: false,
     commission: false,
+    personalCommission: false,
   });
   const [duplicateLoadAllowance, setDuplicateLoadAllowance] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -159,6 +166,7 @@ export function CompensationPage() {
   const suggestionDirtyRef = useRef<SuggestionFlags>({
     salary: false,
     commission: false,
+    personalCommission: false,
   });
 
   useEffect(() => {
@@ -199,29 +207,48 @@ export function CompensationPage() {
     let current = true;
     const requestedWorkDate = draft.workDate;
     setGross({ status: 'loading' });
-    setSuggestionSource((source) => ({ ...source, commission: false }));
-    void getDailyGrossSuggestion(requestedWorkDate)
+    setSuggestionSource((source) => ({
+      ...source,
+      commission: false,
+      personalCommission: false,
+    }));
+    const requestedStaffMemberId = draft.staffMemberId;
+    void (requestedStaffMemberId ? getDailyGrossSuggestion(requestedWorkDate, requestedStaffMemberId) : getDailyGrossSuggestion(requestedWorkDate))
       .then((suggestion) => {
         if (!current) return;
         setGross({ status: 'ready', suggestion });
-        if (!suggestionDirtyRef.current.commission) {
-          setDraft((currentDraft) =>
-            currentDraft &&
-            !currentDraft.id &&
-            currentDraft.workDate === requestedWorkDate
-              ? {
-                  ...currentDraft,
-                  commission: amountForInput(
-                    suggestion.suggestedCommissionCents,
-                  ),
-                }
-              : currentDraft,
-          );
-          setSuggestionSource((source) => ({
-            ...source,
-            commission: true,
-          }));
-        }
+        const commissionIsDirty = suggestionDirtyRef.current.commission;
+        const personalCommissionIsDirty =
+          suggestionDirtyRef.current.personalCommission;
+        setDraft((currentDraft) =>
+          currentDraft &&
+          !currentDraft.id &&
+          currentDraft.workDate === requestedWorkDate &&
+          currentDraft.staffMemberId === requestedStaffMemberId
+            ? {
+                ...currentDraft,
+                ...(!commissionIsDirty
+                  ? {
+                      commission: amountForInput(
+                        suggestion.suggestedCommissionCents,
+                      ),
+                    }
+                  : {}),
+                ...(!personalCommissionIsDirty
+                  ? {
+                      personalCommission: amountForInput(
+                        suggestion.suggestedPersonalCommissionCents ?? cents(0),
+                      ),
+                    }
+                  : {}),
+              }
+            : currentDraft,
+        );
+        setSuggestionSource((source) => ({
+          ...source,
+          commission: !commissionIsDirty,
+          personalCommission: !personalCommissionIsDirty,
+        }));
       })
       .catch(() => {
         if (current) setGross({ status: 'error' });
@@ -230,7 +257,7 @@ export function CompensationPage() {
     return () => {
       current = false;
     };
-  }, [draft?.id, draft?.workDate]);
+  }, [draft?.id, draft?.workDate, draft?.staffMemberId]);
 
   useEffect(() => {
     if (
@@ -288,8 +315,9 @@ export function CompensationPage() {
   const activeStaff = useMemo(() => staff.filter((member) => member.isActive), [staff]);
   const salaryResult = currencyToCents(draft?.salary ?? '', 'Salary');
   const commissionResult = currencyToCents(draft?.commission ?? '', 'Commission');
-  const previewTotal = salaryResult.cents !== undefined && commissionResult.cents !== undefined
-    ? addMoney(salaryResult.cents, commissionResult.cents) : null;
+  const personalCommissionResult = currencyToCents(draft?.personalCommission ?? '', 'Personal commission');
+  const previewTotal = salaryResult.cents !== undefined && commissionResult.cents !== undefined && personalCommissionResult.cents !== undefined
+    ? addMoney(salaryResult.cents, commissionResult.cents, personalCommissionResult.cents) : null;
 
   function rememberFocus() {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : addButtonRef.current;
@@ -297,9 +325,9 @@ export function CompensationPage() {
 
   function openAdd() {
     rememberFocus();
-    suggestionDirtyRef.current = { salary: false, commission: false };
-    setSuggestionDirty({ salary: false, commission: false });
-    setSuggestionSource({ salary: false, commission: false });
+    suggestionDirtyRef.current = { salary: false, commission: false, personalCommission: false };
+    setSuggestionDirty({ salary: false, commission: false, personalCommission: false });
+    setSuggestionSource({ salary: false, commission: false, personalCommission: false });
     setDuplicateLoadAllowance(false);
     setDraft({ ...EMPTY_DRAFT, workDate: shopDate() });
     setErrors({}); setModalError(''); setConflict('');
@@ -314,12 +342,13 @@ export function CompensationPage() {
       workDate: entry.workDate,
       salary: amountForInput(entry.salaryCents),
       commission: amountForInput(entry.commissionCents),
+      personalCommission: amountForInput(entry.personalCommissionCents),
       includeLoadAllowance: false,
       loadAllowanceAmount: '',
     });
-    suggestionDirtyRef.current = { salary: false, commission: false };
-    setSuggestionDirty({ salary: false, commission: false });
-    setSuggestionSource({ salary: false, commission: false });
+    suggestionDirtyRef.current = { salary: false, commission: false, personalCommission: false };
+    setSuggestionDirty({ salary: false, commission: false, personalCommission: false });
+    setSuggestionSource({ salary: false, commission: false, personalCommission: false });
     setDuplicateLoadAllowance(false);
     setErrors({}); setModalError(''); setConflict('');
   }
@@ -346,11 +375,12 @@ export function CompensationPage() {
         gross?.status === 'ready'
           ? amountForInput(gross.suggestion.suggestedCommissionCents)
           : draft.commission;
-      suggestionDirtyRef.current = { salary: false, commission: false };
-      setSuggestionDirty({ salary: false, commission: false });
+      suggestionDirtyRef.current = { salary: false, commission: false, personalCommission: false };
+      setSuggestionDirty({ salary: false, commission: false, personalCommission: false });
       setSuggestionSource({
         salary: selected !== undefined && selected.baseSalaryCents !== null,
         commission: gross?.status === 'ready',
+        personalCommission: gross?.status === 'ready',
       });
       setDraft({
         ...draft,
@@ -361,14 +391,15 @@ export function CompensationPage() {
             ? amountForInput(selected.baseSalaryCents)
             : '',
         commission: commissionSuggestion,
+        personalCommission: gross?.status === 'ready' ? amountForInput(gross.suggestion.suggestedPersonalCommissionCents ?? cents(0)) : draft.personalCommission,
       });
     } else if (field === 'workDate') {
-      suggestionDirtyRef.current = { salary: false, commission: false };
-      setSuggestionDirty({ salary: false, commission: false });
-      setSuggestionSource((source) => ({ ...source, commission: false }));
-      setDraft({ ...draft, workDate: value, commission: '' });
+      suggestionDirtyRef.current = { salary: false, commission: false, personalCommission: false };
+      setSuggestionDirty({ salary: false, commission: false, personalCommission: false });
+      setSuggestionSource((source) => ({ ...source, commission: false, personalCommission: false }));
+      setDraft({ ...draft, workDate: value, commission: '', personalCommission: '' });
     } else {
-      if (field === 'salary' || field === 'commission') {
+      if (field === 'salary' || field === 'commission' || field === 'personalCommission') {
         suggestionDirtyRef.current = {
           ...suggestionDirtyRef.current,
           [field]: true,
@@ -416,6 +447,7 @@ export function CompensationPage() {
     else if (!draft.id && draft.workDate > shopDate()) next.workDate = 'Choose today or an earlier date.';
     if (salaryResult.error) next.salary = salaryResult.error;
     if (commissionResult.error) next.commission = commissionResult.error;
+    if (personalCommissionResult.error) next.personalCommission = personalCommissionResult.error;
     if (!draft.id && draft.includeLoadAllowance) {
       const loadAllowanceResult = adjustmentAmountToCents(
         draft.loadAllowanceAmount,
@@ -439,6 +471,7 @@ export function CompensationPage() {
           'workDate',
           'salary',
           'commission',
+          'personalCommission',
           'loadAllowanceAmount',
         ] as const).find((field) => nextErrors[field]);
         if (first) document.getElementById(`compensation-${first}`)?.focus();
@@ -447,7 +480,7 @@ export function CompensationPage() {
     }
     setSaving(true); setModalError(''); setConflict(''); setNotice('');
     try {
-      const amounts = { salaryCents: salaryResult.cents!, commissionCents: commissionResult.cents! };
+      const amounts = { salaryCents: salaryResult.cents!, commissionCents: commissionResult.cents!, personalCommissionCents: personalCommissionResult.cents! };
       const loadAllowanceResult = draft.includeLoadAllowance
         ? adjustmentAmountToCents(draft.loadAllowanceAmount)
         : undefined;
@@ -776,7 +809,7 @@ export function CompensationPage() {
 
               {!draft.id && gross && (
                 <div
-                  className="compensation-total compensation-gross"
+                  className="compensation-gross"
                   role="status"
                   aria-live="polite"
                 >
@@ -928,11 +961,18 @@ export function CompensationPage() {
                     </p>
                   )}
                 </div>
+                <div className="catalog-field">
+                  <label htmlFor="compensation-personalCommission">Personal commission <span aria-hidden="true">*</span></label>
+                  <input id="compensation-personalCommission" type="text" inputMode="decimal" value={draft.personalCommission} disabled={saving} aria-invalid={Boolean(errors.personalCommission)} aria-describedby="compensation-personalCommission-help" onChange={(event) => changeDraft('personalCommission', event.target.value)} />
+                  <p className="catalog-field-help" id="compensation-personalCommission-help">{!draft.id && gross?.status === 'ready' && gross.suggestion.personalCommissionRateCents != null ? `${formatCommissionRate(gross.suggestion.personalCommissionRateCents)} per ₱1,000` : !draft.id ? 'No personal rate' : 'PHP, up to 2 decimal places. Zero is allowed.'}</p>
+                  {!draft.id && suggestionSource.personalCommission && !suggestionDirty.personalCommission && <p className="compensation-field-annotation"><span className="compensation-suggested">Suggested from personal rate</span></p>}
+                  {errors.personalCommission && <p className="catalog-field-error" id="compensation-personalCommission-error">{errors.personalCommission}</p>}
+                </div>
               </div>
               <div className="compensation-total" aria-live="polite">
                 <div>
                   <strong>Daily total</strong>
-                  <p>Computed from salary + commission. Not editable.</p>
+                  <p>Computed from salary + commission + personal commission. Not editable.</p>
                 </div>
                 <strong className="num">
                   {previewTotal === null

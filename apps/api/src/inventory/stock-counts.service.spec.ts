@@ -203,15 +203,19 @@ describe('StockCountsService', () => {
 
   it('returns only active staff alphabetically', async () => {
     const { prisma, service } = createService();
-    prisma.staffMember.findMany.mockResolvedValue([]);
+    prisma.staffMember.findMany.mockResolvedValue([
+      { id: 'staff-id', displayName: 'Alex' },
+    ]);
 
-    await service.listActiveStaff();
+    const result = await service.listActiveStaff();
 
     expect(prisma.staffMember.findMany).toHaveBeenCalledWith({
       where: { isActive: true },
       orderBy: { displayName: 'asc' },
       select: { id: true, displayName: true },
     });
+    expect(result).toEqual([{ id: 'staff-id', displayName: 'Alex' }]);
+    expect(JSON.stringify(result)).not.toMatch(/employment|sss|philhealth|pagibig|tin/i);
   });
 
   it('returns the latest submitted count for the phase', async () => {
