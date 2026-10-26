@@ -145,10 +145,13 @@ export class CompensationService {
         include: compensationAdjustmentInclude,
         orderBy: [{ effectiveDate: 'asc' }, { createdAt: 'asc' }],
       }),
-      this.prisma.staffCommissionRate?.findMany?.({
-        where: { staffMemberId: query.staffMemberId, effectiveFrom: { lte: this.toDate(query.to) } },
+      this.prisma.staffCommissionRate.findMany({
+        where: {
+          staffMemberId: query.staffMemberId,
+          effectiveFrom: { lte: this.toDate(query.to) },
+        },
         orderBy: { effectiveFrom: 'asc' },
-      }) ?? Promise.resolve([]),
+      }),
     ]);
     const entries = entryRecords.map((record) => {
       const salaryCents = cents(record.salaryCents);
@@ -496,7 +499,7 @@ export class CompensationService {
   }
 
   private toCommissionRate(record: { id: string; staffMemberId: string; effectiveFrom: Date; ratePerBandCents: number; createdAt: Date }): StaffCommissionRate {
-    return { id: record.id, staffMemberId: record.staffMemberId, effectiveFrom: record.effectiveFrom.toISOString().slice(0, 10), ratePerBandCents: cents(record.ratePerBandCents), createdAt: record.createdAt.toISOString() };
+    return { id: record.id, staffMemberId: record.staffMemberId, effectiveFrom: record.effectiveFrom.toISOString().slice(0, ISO_DATE_LENGTH), ratePerBandCents: cents(record.ratePerBandCents), createdAt: record.createdAt.toISOString() };
   }
 
   private toAdjustment(

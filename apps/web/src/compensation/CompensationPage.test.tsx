@@ -798,6 +798,92 @@ describe('CompensationPage', () => {
     })));
   });
 
+  it("never shows the previous staff member's personal commission after a staff change", async () => {
+    const first: StaffMember = { ...staff[0]!, id: 'staff-first', displayName: 'Raised Rate' };
+    const second: StaffMember = { ...staff[0]!, id: 'staff-second', displayName: 'No Rate' };
+    const base = {
+      workDate: '2026-08-15',
+      hasBusinessDay: true,
+      grossSalesCents: cents(275_000),
+      suggestedCommissionCents: cents(10_000),
+    };
+    renderPage([entry], [], [first, second], {
+      ...base,
+      personalCommissionRateCents: null,
+      suggestedPersonalCommissionCents: cents(0),
+    });
+    let releaseSecond: () => void = () => {};
+    api.gross.mockImplementation((_workDate: string, staffMemberId?: string) => {
+      if (staffMemberId === first.id) {
+        return Promise.resolve({
+          ...base,
+          personalCommissionRateCents: cents(2_000),
+          suggestedPersonalCommissionCents: cents(4_000),
+        });
+      }
+      if (staffMemberId === second.id) {
+        return new Promise((resolve) => {
+          releaseSecond = () =>
+            resolve({
+              ...base,
+              personalCommissionRateCents: null,
+              suggestedPersonalCommissionCents: cents(0),
+            });
+        });
+      }
+      return Promise.resolve({
+        ...base,
+        personalCommissionRateCents: null,
+        suggestedPersonalCommissionCents: cents(0),
+      });
+    });
+    const { user, dialog } = await openAddForm();
+    const personal = within(dialog).getByLabelText(/Personal commission/);
+    await user.selectOptions(within(dialog).getByLabelText(/Staff member/), first.id);
+    await waitFor(() => expect(personal).toHaveValue('40.00'));
+
+    await user.selectOptions(within(dialog).getByLabelText(/Staff member/), second.id);
+    // While the second rate loads, the first person's ₱40 must not linger.
+    expect(personal).toHaveValue('');
+    expect(within(dialog).getByText('Checking the personal rate…')).toBeInTheDocument();
+
+    releaseSecond();
+    await waitFor(() => expect(personal).toHaveValue('0.00'));
+    expect(within(dialog).getByText('No personal rate')).toBeInTheDocument();
+  });
+
+  it('splits the commission in 2, rounding down to the centavo, and can undo it', async () => {
+    renderPage([entry], [], staff, {
+      workDate: '2026-08-15',
+      hasBusinessDay: true,
+      grossSalesCents: cents(450_000),
+      suggestedCommissionCents: cents(20_000),
+      personalCommissionRateCents: null,
+      suggestedPersonalCommissionCents: cents(0),
+    });
+    const { user, dialog } = await openAddForm();
+    const commission = within(dialog).getByLabelText(/Commission amount/);
+    await waitFor(() => expect(commission).toHaveValue('200.00'));
+
+    await user.click(within(dialog).getByRole('button', { name: 'Split in 2' }));
+    expect(commission).toHaveValue('100.00');
+    expect(within(dialog).getByText('Split from ₱200.00')).toBeInTheDocument();
+    // A split value is the administrator's own; later suggestions keep it.
+    expect(within(dialog).queryByText('Suggested from gross sales')).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Undo' }));
+    expect(commission).toHaveValue('200.00');
+    expect(within(dialog).queryByText(/Split from/)).not.toBeInTheDocument();
+
+    await user.clear(commission);
+    await user.type(commission, '100.01');
+    await user.click(within(dialog).getByRole('button', { name: 'Split in 2' }));
+    expect(commission).toHaveValue('50.00');
+
+    await user.clear(commission);
+    expect(within(dialog).getByRole('button', { name: 'Split in 2' })).toBeDisabled();
+  });
+
   it('edits amounts once and renders the updated total without a refetch', async () => {
     api.update.mockResolvedValue({
       ...entry,

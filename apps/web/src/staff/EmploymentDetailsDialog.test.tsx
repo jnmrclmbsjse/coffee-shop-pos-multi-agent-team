@@ -76,12 +76,20 @@ describe('EmploymentDetailsDialog', () => {
   });
 
   it('keeps government IDs masked until Show explicitly reveals them', async () => {
-    render(<EmploymentDetailsDialog member={member} onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(
+      <EmploymentDetailsDialog
+        member={member}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
     expect(await screen.findByDisplayValue('•••• 7890')).toBeInTheDocument();
     expect(screen.queryByDisplayValue('1234567890')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Show' }));
-    await waitFor(() => expect(screen.getByDisplayValue('1234567890')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('1234567890')).toBeInTheDocument(),
+    );
     expect(api.reveal).toHaveBeenCalledWith(member.id);
   });
 });

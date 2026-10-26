@@ -135,8 +135,15 @@ export class StaffService {
       pinHash,
     });
 
+    // Re-read with the roster include so the response carries the same
+    // employment summary as GET /staff; the users module does not select it.
+    const staffMember = await this.prisma.staffMember.findUniqueOrThrow({
+      where: { id: result.staffMember.id },
+      include: staffMemberAccountInclude,
+    });
+
     return {
-      staffMember: this.toStaffMember(result.staffMember),
+      staffMember: this.toStaffMember(staffMember),
       passwordChanged: input.password !== undefined,
       pinChanged: input.pin !== undefined,
       pinSet: result.pinSet,

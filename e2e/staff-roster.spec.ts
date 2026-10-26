@@ -155,8 +155,9 @@ test.describe('Staff roster management (story #67)', () => {
     await signInAsAdmin(page);
   });
 
-  // AC 1 — list shows exactly Name and Is active.
-  test('the roster lists exactly the Name and Is active columns', async ({ page }) => {
+  // AC 1 — list shows Name and Is active. Story #503 (AC 27) later added Type
+  // and Next milestone; the column set stays exact so a stray column still fails.
+  test('the roster lists exactly the Name, Is active, Type and Next milestone columns', async ({ page }) => {
     const tag = newTag();
     await gotoStaff(page);
     await seedStaff(page, `Ada ${tag}`, true);
@@ -165,19 +166,27 @@ test.describe('Staff roster management (story #67)', () => {
     await scopeTo(page, tag, 2);
 
     const headers = page.locator('.staff-table thead th');
-    await expect(headers).toHaveCount(3);
+    await expect(headers).toHaveCount(5);
     await expect(headers.nth(0)).toHaveText('Name');
     await expect(headers.nth(1)).toHaveText('Is active');
-    // Third header is the row-action column, exposed to screen readers only —
-    // it carries no staff data, so Name + Is active are the only data columns.
-    await expect(headers.nth(2).locator('.sr-only')).toHaveText('Actions');
+    await expect(headers.nth(2)).toHaveText('Type');
+    await expect(headers.nth(3)).toHaveText('Next milestone');
+    // Last header is the row-action column, exposed to screen readers only —
+    // it carries no staff data.
+    await expect(headers.nth(4).locator('.sr-only')).toHaveText('Actions');
 
     const dataLabels = await page
       .locator('.staff-table tbody tr')
       .first()
       .locator('td')
       .evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-label')));
-    expect(dataLabels).toEqual(['Name', 'Is active', 'Actions']);
+    expect(dataLabels).toEqual([
+      'Name',
+      'Is active',
+      'Type',
+      'Next milestone',
+      'Actions',
+    ]);
 
     expect(await statusOf(page, `Ada ${tag}`)).toBe('Active');
     expect(await statusOf(page, `Bram ${tag}`)).toBe('Inactive');

@@ -55,7 +55,7 @@ describe('StaffController', () => {
       username: 'jane',
       displayName: 'Jane Santos',
     });
-    const controller = new StaffController({ createAccount } as never);
+    const controller = new StaffController({ createAccount } as never, {} as never);
     const input = {
       username: 'jane',
       displayName: 'Jane Santos',
@@ -86,7 +86,7 @@ describe('StaffController', () => {
       pinSet: true,
     };
     const updateCredentials = jest.fn().mockResolvedValue(response);
-    const controller = new StaffController({ updateCredentials } as never);
+    const controller = new StaffController({ updateCredentials } as never, {} as never);
     const input = { password: ' Exact Password ' };
 
     await expect(

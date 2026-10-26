@@ -124,6 +124,18 @@ function serverValidationErrors(error: CompensationApiError): DraftErrors {
   return next;
 }
 
+function personalRateHelp(draft: EntryDraft, gross: GrossState | null): string {
+  if (draft.id) return 'PHP, up to 2 decimal places. Zero is allowed.';
+  if (!draft.staffMemberId) {
+    return 'Choose a staff member to see their personal rate.';
+  }
+  if (gross?.status !== 'ready') return 'Checking the personal rate…';
+  const rate = gross.suggestion.personalCommissionRateCents;
+  return rate === null
+    ? 'No personal rate'
+    : `${formatCommissionRate(rate)} per ₱1,000`;
+}
+
 export function CompensationPage() {
   const [initialRange] = useState(compensationDefaultRange);
   const [section, setSection] = useState<'records' | 'adjustments' | 'payslips'>('records');
@@ -152,6 +164,11 @@ export function CompensationPage() {
     personalCommission: false,
   });
   const [duplicateLoadAllowance, setDuplicateLoadAllowance] = useState(false);
+  // The commission before the last "Split in 2", kept so the split can be
+  // undone. Cleared whenever the commission changes any other way.
+  const [commissionBeforeSplit, setCommissionBeforeSplit] = useState<
+    string | null
+  >(null);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<StaffCompensationEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -329,6 +346,7 @@ export function CompensationPage() {
     setSuggestionDirty({ salary: false, commission: false, personalCommission: false });
     setSuggestionSource({ salary: false, commission: false, personalCommission: false });
     setDuplicateLoadAllowance(false);
+    setCommissionBeforeSplit(null);
     setDraft({ ...EMPTY_DRAFT, workDate: shopDate() });
     setErrors({}); setModalError(''); setConflict('');
   }
@@ -367,8 +385,32 @@ export function CompensationPage() {
     requestAnimationFrame(() => previousFocusRef.current?.focus());
   }
 
+  // Staff on duty share the shop commission by hand (story #503 scope notes);
+  // this halves the current amount, rounding down to the centavo.
+  function splitCommission() {
+    if (!draft || commissionResult.cents === undefined) return;
+    const before = draft.commission;
+    changeDraft(
+      'commission',
+      amountForInput(cents(Math.floor(commissionResult.cents / 2))),
+    );
+    setCommissionBeforeSplit(before);
+  }
+
+  function undoCommissionSplit() {
+    if (commissionBeforeSplit === null) return;
+    changeDraft('commission', commissionBeforeSplit);
+  }
+
   function changeDraft(field: DraftField, value: string) {
     if (!draft) return;
+    if (
+      field === 'commission' ||
+      field === 'staffMemberId' ||
+      field === 'workDate'
+    ) {
+      setCommissionBeforeSplit(null);
+    }
     if (field === 'staffMemberId') {
       const selected = staff.find((member) => member.id === value);
       const commissionSuggestion =
@@ -380,7 +422,9 @@ export function CompensationPage() {
       setSuggestionSource({
         salary: selected !== undefined && selected.baseSalaryCents !== null,
         commission: gross?.status === 'ready',
-        personalCommission: gross?.status === 'ready',
+        // The loaded suggestion belongs to the previous staff member's rate;
+        // the effect refetches for the new one and fills this field.
+        personalCommission: false,
       });
       setDraft({
         ...draft,
@@ -391,7 +435,7 @@ export function CompensationPage() {
             ? amountForInput(selected.baseSalaryCents)
             : '',
         commission: commissionSuggestion,
-        personalCommission: gross?.status === 'ready' ? amountForInput(gross.suggestion.suggestedPersonalCommissionCents ?? cents(0)) : draft.personalCommission,
+        personalCommission: '',
       });
     } else if (field === 'workDate') {
       suggestionDirtyRef.current = { salary: false, commission: false, personalCommission: false };
@@ -940,6 +984,37 @@ export function CompensationPage() {
                   >
                     PHP, up to 2 decimal places. Zero is allowed.
                   </p>
+                  {!draft.id && (
+                    <div className="compensation-split">
+                      <button
+                        className="catalog-button small"
+                        type="button"
+                        disabled={
+                          saving ||
+                          commissionResult.cents === undefined ||
+                          commissionResult.cents === 0
+                        }
+                        onClick={splitCommission}
+                      >
+                        Split in 2
+                      </button>
+                      {commissionBeforeSplit !== null && (
+                        <>
+                          <span role="status">
+                            Split from ₱{commissionBeforeSplit}
+                          </span>
+                          <button
+                            className="catalog-button small"
+                            type="button"
+                            disabled={saving}
+                            onClick={undoCommissionSplit}
+                          >
+                            Undo
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                   {!draft.id &&
                     suggestionSource.commission &&
                     !suggestionDirty.commission && (
@@ -963,8 +1038,28 @@ export function CompensationPage() {
                 </div>
                 <div className="catalog-field">
                   <label htmlFor="compensation-personalCommission">Personal commission <span aria-hidden="true">*</span></label>
-                  <input id="compensation-personalCommission" type="text" inputMode="decimal" value={draft.personalCommission} disabled={saving} aria-invalid={Boolean(errors.personalCommission)} aria-describedby="compensation-personalCommission-help" onChange={(event) => changeDraft('personalCommission', event.target.value)} />
-                  <p className="catalog-field-help" id="compensation-personalCommission-help">{!draft.id && gross?.status === 'ready' && gross.suggestion.personalCommissionRateCents != null ? `${formatCommissionRate(gross.suggestion.personalCommissionRateCents)} per ₱1,000` : !draft.id ? 'No personal rate' : 'PHP, up to 2 decimal places. Zero is allowed.'}</p>
+                  <input
+                    id="compensation-personalCommission"
+                    type="text"
+                    inputMode="decimal"
+                    value={draft.personalCommission}
+                    disabled={saving}
+                    aria-invalid={Boolean(errors.personalCommission)}
+                    aria-describedby={
+                      errors.personalCommission
+                        ? 'compensation-personalCommission-help compensation-personalCommission-error'
+                        : 'compensation-personalCommission-help'
+                    }
+                    onChange={(event) =>
+                      changeDraft('personalCommission', event.target.value)
+                    }
+                  />
+                  <p
+                    className="catalog-field-help"
+                    id="compensation-personalCommission-help"
+                  >
+                    {personalRateHelp(draft, gross)}
+                  </p>
                   {!draft.id && suggestionSource.personalCommission && !suggestionDirty.personalCommission && <p className="compensation-field-annotation"><span className="compensation-suggested">Suggested from personal rate</span></p>}
                   {errors.personalCommission && <p className="catalog-field-error" id="compensation-personalCommission-error">{errors.personalCommission}</p>}
                 </div>

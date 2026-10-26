@@ -132,7 +132,11 @@ export function CustomFieldsDialog({ onClose }: { onClose: () => void }) {
         </header>
 
         {error && (
-          <p id="custom-field-error" className="catalog-field-error" role="alert">
+          <p
+            id="custom-field-error"
+            className="catalog-field-error"
+            role="alert"
+          >
             {error}
           </p>
         )}
@@ -161,7 +165,10 @@ export function CustomFieldsDialog({ onClose }: { onClose: () => void }) {
                 >
                   Down
                 </button>
-                <button className="catalog-button small" onClick={() => edit(field)}>
+                <button
+                  className="catalog-button small"
+                  onClick={() => edit(field)}
+                >
                   Edit
                 </button>
                 <button
@@ -175,7 +182,10 @@ export function CustomFieldsDialog({ onClose }: { onClose: () => void }) {
           ))}
         </ul>
 
-        <form onSubmit={submit} aria-describedby={error ? 'custom-field-error' : undefined}>
+        <form
+          onSubmit={submit}
+          aria-describedby={error ? 'custom-field-error' : undefined}
+        >
           <h3>{editingId ? 'Edit field' : 'Add field'}</h3>
           <div className="inventory-modal-grid">
             <label className="catalog-field">
@@ -184,7 +194,10 @@ export function CustomFieldsDialog({ onClose }: { onClose: () => void }) {
                 ref={labelRef}
                 value={draft.label}
                 onChange={(event) =>
-                  setDraft((current) => ({ ...current, label: event.target.value }))
+                  setDraft((current) => ({
+                    ...current,
+                    label: event.target.value,
+                  }))
                 }
                 required
                 maxLength={60}
@@ -208,7 +221,9 @@ export function CustomFieldsDialog({ onClose }: { onClose: () => void }) {
                   </option>
                 ))}
               </select>
-              {editing?.hasValues && <small>Type is locked after values are saved.</small>}
+              {editing?.hasValues && (
+                <small>Type is locked after values are saved.</small>
+              )}
             </label>
             {draft.fieldType === StaffCustomFieldType.CHOICE && (
               <label className="catalog-field">
@@ -228,7 +243,11 @@ export function CustomFieldsDialog({ onClose }: { onClose: () => void }) {
           </div>
           <div className="staff-modal-actions">
             {editingId && (
-              <button className="catalog-button" type="button" onClick={resetForm}>
+              <button
+                className="catalog-button"
+                type="button"
+                onClick={resetForm}
+              >
                 Cancel edit
               </button>
             )}

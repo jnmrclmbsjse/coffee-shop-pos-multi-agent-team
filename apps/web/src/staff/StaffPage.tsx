@@ -28,6 +28,7 @@ import { StaffCredentialDialog } from './StaffCredentialDialog';
 import { EmploymentDetailsDialog } from './EmploymentDetailsDialog';
 import { CustomFieldsDialog } from './CustomFieldsDialog';
 import { formatBusinessDate } from '../reporting/format';
+import { EMPLOYMENT_TYPE_LABELS, MILESTONE_LABELS } from './employmentLabels';
 
 type ActiveFilter = 'all' | 'true' | 'false';
 
@@ -336,7 +337,15 @@ export function StaffPage() {
           <h1>Staff</h1>
           <p>Manage names used to identify cashiers at the register.</p>
         </div>
-        <div className="staff-row-actions"><button className="catalog-button" type="button" onClick={() => setFieldsOpen(true)}>Employment fields</button><button
+        <div className="staff-row-actions">
+          <button
+            className="catalog-button"
+            type="button"
+            onClick={() => setFieldsOpen(true)}
+          >
+            Employment fields
+          </button>
+          <button
           className="catalog-button primary"
           ref={addButtonRef}
           type="button"
@@ -344,7 +353,8 @@ export function StaffPage() {
         >
           <Icon name="plus" />
           Add staff
-        </button></div>
+          </button>
+        </div>
       </div>
 
       {pageError && <Notice tone="danger" title={pageError} />}
@@ -514,8 +524,16 @@ export function StaffPage() {
                         />
                       </div>
                     </td>
-                    <td data-label="Type">{member.employmentType ? member.employmentType.replace('_', '-').toLocaleLowerCase().replace(/^./, (letter) => letter.toUpperCase()) : '—'}</td>
-                    <td data-label="Next milestone">{member.nextMilestone ? `${member.nextMilestone.kind.replaceAll('_', ' ').toLocaleLowerCase().replace(/^./, (letter) => letter.toUpperCase())} · ${formatBusinessDate(member.nextMilestone.date)}` : '—'}</td>
+                    <td data-label="Type">
+                      {member.employmentType
+                        ? EMPLOYMENT_TYPE_LABELS[member.employmentType]
+                        : '—'}
+                    </td>
+                    <td data-label="Next milestone">
+                      {member.nextMilestone
+                        ? `${MILESTONE_LABELS[member.nextMilestone.kind]} · ${formatBusinessDate(member.nextMilestone.date)}`
+                        : '—'}
+                    </td>
                     <td data-label="Actions" className="table-action">
                       <div className="staff-row-actions">
                         <button
@@ -526,7 +544,14 @@ export function StaffPage() {
                         >
                           Edit
                         </button>
-                        <button className="catalog-button small" type="button" onClick={() => setEmploymentMember(member)}>Employment</button>
+                        <button
+                          className="catalog-button small"
+                          type="button"
+                          aria-label={`Employment details for ${member.displayName}`}
+                          onClick={() => setEmploymentMember(member)}
+                        >
+                          Employment
+                        </button>
                         {member.hasAccount ? (
                           <div className="staff-account-action">
                             <span>
@@ -736,8 +761,16 @@ export function StaffPage() {
           onUpdated={reconcileCredentialMember}
         />
       )}
-      {employmentMember && <EmploymentDetailsDialog member={employmentMember} onClose={() => setEmploymentMember(null)} onSaved={() => setRefreshKey((key) => key + 1)} />}
-      {fieldsOpen && <CustomFieldsDialog onClose={() => setFieldsOpen(false)} />}
+      {employmentMember && (
+        <EmploymentDetailsDialog
+          member={employmentMember}
+          onClose={() => setEmploymentMember(null)}
+          onSaved={() => setRefreshKey((key) => key + 1)}
+        />
+      )}
+      {fieldsOpen && (
+        <CustomFieldsDialog onClose={() => setFieldsOpen(false)} />
+      )}
     </main>
   );
 }

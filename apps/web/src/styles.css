@@ -7796,6 +7796,16 @@ textarea {
 }
 
 .staff-count-fill-row,
+.compensation-split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
 .compensation-field-annotation {
   display: flex;
   flex-wrap: wrap;

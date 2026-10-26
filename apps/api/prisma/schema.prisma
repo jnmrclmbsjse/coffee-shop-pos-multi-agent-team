@@ -330,6 +330,10 @@ model ScheduleWeek {
   shifts         ScheduleShift[]
   dayNotes       ScheduleDayNote[]
 
+  // The migration creates this index with NULLS NOT DISTINCT, so two
+  // null-location rows for one week are refused (ADR 0020 §7). Declared here so
+  // `prisma migrate dev` keeps it; Prisma cannot express the NULLS clause.
+  @@unique([locationId, weekStartDate], map: "schedule_weeks_location_id_week_start_date_key")
   @@index([locationId])
   @@map("schedule_weeks")
 }

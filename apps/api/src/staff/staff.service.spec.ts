@@ -32,6 +32,7 @@ describe('StaffService', () => {
         create: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         update: jest.fn(),
       },
       location: {
@@ -352,6 +353,18 @@ describe('StaffService', () => {
       staffMember: staffRecord({ user: { username: 'alex' } }),
       pinSet: true,
     });
+    prisma.staffMember.findUniqueOrThrow.mockResolvedValue(
+      staffRecord({
+        user: { username: 'alex' },
+        employmentProfile: {
+          employmentType: 'REGULAR',
+          trainingEndDate: null,
+          probationEndDate: null,
+          thirdMonthReviewDate: null,
+          regularizationDate: null,
+        },
+      }),
+    );
     const service = createService(
       prisma,
       { hashStaffPassword, hashStaffPin },
@@ -370,7 +383,8 @@ describe('StaffService', () => {
         accountUsername: 'alex',
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
-        employmentType: null,
+        // Re-read with the roster include, so the row keeps its employment summary.
+        employmentType: 'REGULAR',
         nextMilestone: null,
       },
       passwordChanged: true,
@@ -394,6 +408,9 @@ describe('StaffService', () => {
       staffMember: staffRecord({ user: { username: 'alex' } }),
       pinSet: false,
     });
+    prisma.staffMember.findUniqueOrThrow.mockResolvedValue(
+      staffRecord({ user: { username: 'alex' } }),
+    );
     const service = createService(
       prisma,
       { hashStaffPassword, hashStaffPin },
