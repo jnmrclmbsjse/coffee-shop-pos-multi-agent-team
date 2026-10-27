@@ -88,6 +88,39 @@ function measureImageSize(
   });
 }
 
+// Phones and tablets drop a download started by script once the tap that
+// asked for it is a few seconds old, and building the PNG takes longer than
+// that there. So on a touch screen the PNG is prepared first and saved by a
+// second, fresh tap on a real link.
+function needsSaveTap(): boolean {
+  return window.matchMedia?.('(pointer: coarse)').matches ?? false;
+}
+
+function dataUrlToFile(dataUrl: string, filename: string): File {
+  const [head = '', data = ''] = dataUrl.split(',');
+  const type = /^data:([^;,]+)/.exec(head)?.[1] ?? 'image/png';
+  const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+  return new File([bytes], filename, { type });
+}
+
+// The share sheet is how an iPhone saves an image to Photos or sends it in
+// Messenger. Null when this browser cannot share files.
+function shareableFile(dataUrl: string, filename: string): File | null {
+  if (!navigator.canShare || !navigator.share) return null;
+  try {
+    const file = dataUrlToFile(dataUrl, filename);
+    return navigator.canShare({ files: [file] }) ? file : null;
+  } catch {
+    return null;
+  }
+}
+
+interface PreparedPayslipImage {
+  dataUrl: string;
+  filename: string;
+  file: File | null;
+}
+
 function generatedTimestamp(value: string): string {
   return `Generated ${formatSubmissionTime(value)}`;
 }
@@ -179,6 +212,8 @@ export function PayslipView({
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const [downloadNotice, setDownloadNotice] = useState('');
+  const [prepared, setPrepared] = useState<PreparedPayslipImage | null>(null);
+  const [shareError, setShareError] = useState('');
   const captureRef = useRef<HTMLElement>(null);
   const clientRangeError = visibleRangeError(from, to);
   const dateError = serverRangeError || clientRangeError;
@@ -212,6 +247,7 @@ export function PayslipView({
     setRequestError('');
     setDownloadError('');
     setDownloadNotice('');
+    setPrepared(null);
     if (nextStaffError || clientRangeError || loading) return;
 
     setLoading(true);
@@ -249,6 +285,7 @@ export function PayslipView({
     setRequestError('');
     setDownloadError('');
     setDownloadNotice('');
+    setPrepared(null);
   }
 
   async function downloadPayslip() {
@@ -261,6 +298,8 @@ export function PayslipView({
     setDownloading(true);
     setDownloadError('');
     setDownloadNotice('');
+    setPrepared(null);
+    setShareError('');
     try {
       const node = captureRef.current;
       await document.fonts?.ready;
@@ -327,6 +366,15 @@ export function PayslipView({
         return;
       }
 
+      if (needsSaveTap()) {
+        setPrepared({
+          dataUrl,
+          filename,
+          file: shareableFile(dataUrl, filename),
+        });
+        return;
+      }
+
       const link = document.createElement('a');
       link.download = filename;
       link.href = dataUrl;
@@ -338,6 +386,23 @@ export function PayslipView({
       );
     } finally {
       setDownloading(false);
+    }
+  }
+
+  async function sharePrepared() {
+    if (!prepared?.file) return;
+    setShareError('');
+    try {
+      await navigator.share({
+        files: [prepared.file],
+        title: prepared.filename,
+      });
+    } catch (error) {
+      // Closing the share sheet is not a failure.
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      setShareError(
+        'The share sheet could not open. Use Save PNG, or press and hold the image and choose Save image.',
+      );
     }
   }
 
@@ -366,6 +431,7 @@ export function PayslipView({
                 setRequestError('');
                 setDownloadError('');
                 setDownloadNotice('');
+                setPrepared(null);
               }}
             >
               <option value="">Choose staff member</option>
@@ -638,6 +704,39 @@ export function PayslipView({
             </p>
           </article>
 
+          {prepared && (
+            <div className="catalog-notice success payslip-download-status payslip-save" role="status">
+              <strong>The payslip image is ready.</strong>
+              <p>
+                Tap Save PNG to save it. If nothing happens, press and hold
+                the image below and choose Save image.
+              </p>
+              <div className="payslip-save-actions">
+                <a
+                  className="report-button report-button-primary"
+                  href={prepared.dataUrl}
+                  download={prepared.filename}
+                >
+                  Save PNG
+                </a>
+                {prepared.file && (
+                  <button
+                    className="report-button"
+                    type="button"
+                    onClick={sharePrepared}
+                  >
+                    Share
+                  </button>
+                )}
+              </div>
+              {shareError && <p className="payslip-save-error">{shareError}</p>}
+              <img
+                className="payslip-save-preview"
+                src={prepared.dataUrl}
+                alt={`Payslip image: ${prepared.filename}`}
+              />
+            </div>
+          )}
           {downloadNotice && (
             <div className="catalog-notice success payslip-download-status" role="status">
               <strong>{downloadNotice}</strong>

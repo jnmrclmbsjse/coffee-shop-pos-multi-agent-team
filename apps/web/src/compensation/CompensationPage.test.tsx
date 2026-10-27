@@ -1370,6 +1370,93 @@ describe('CompensationPage', () => {
     expect(await screen.findByText('Downloaded: payslip-mara-santos-2026-08-01-2026-08-31.png')).toBeInTheDocument();
   });
 
+  describe('on a touch screen', () => {
+    const share = vi.fn();
+
+    beforeEach(() => {
+      share.mockReset().mockResolvedValue(undefined);
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: query === '(pointer: coarse)',
+      }));
+      Object.defineProperty(navigator, 'canShare', {
+        configurable: true,
+        value: (data: { files?: File[] }) => Boolean(data.files?.length),
+      });
+      Object.defineProperty(navigator, 'share', {
+        configurable: true,
+        value: share,
+      });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      delete (navigator as { canShare?: unknown }).canShare;
+      delete (navigator as { share?: unknown }).share;
+    });
+
+    async function preparePayslipImage() {
+      api.payslip.mockResolvedValue(adjustedPayslip);
+      renderPage();
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: 'Payslips' }));
+      await waitFor(() => expect(screen.getByLabelText(/Staff member/)).toHaveValue('staff-1'));
+      await user.click(screen.getByRole('button', { name: 'Generate payslip' }));
+      await user.click(await screen.findByRole('button', { name: 'Download PNG' }));
+      // jsdom never decodes the data: URL, so the size check runs to its timeout.
+      await screen.findByText('The payslip image is ready.', {}, { timeout: 4000 });
+      return user;
+    }
+
+    it('prepares the PNG and saves it on a second tap instead of a script click', async () => {
+      // A phone drops a download started long after the tap, so none is started.
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      await preparePayslipImage();
+
+      expect(click).not.toHaveBeenCalled();
+      expect(screen.queryByText(/^Downloaded:/)).not.toBeInTheDocument();
+      const save = screen.getByRole('link', { name: 'Save PNG' });
+      expect(save).toHaveAttribute('href', 'data:image/png;base64,payslip');
+      expect(save).toHaveAttribute(
+        'download',
+        'payslip-mara-santos-2026-08-01-2026-08-31.png',
+      );
+      expect(
+        screen.getByRole('img', {
+          name: 'Payslip image: payslip-mara-santos-2026-08-01-2026-08-31.png',
+        }),
+      ).toHaveAttribute('src', 'data:image/png;base64,payslip');
+    });
+
+    it('shares the PNG as a file so it can be saved to Photos', async () => {
+      const user = await preparePayslipImage();
+      await user.click(screen.getByRole('button', { name: 'Share' }));
+
+      expect(share).toHaveBeenCalledTimes(1);
+      const data = share.mock.calls[0]![0] as { files: File[]; title: string };
+      expect(data.title).toBe('payslip-mara-santos-2026-08-01-2026-08-31.png');
+      expect(data.files).toHaveLength(1);
+      expect(data.files[0]!.name).toBe('payslip-mara-santos-2026-08-01-2026-08-31.png');
+      expect(data.files[0]!.type).toBe('image/png');
+    });
+
+    it('treats a closed share sheet as no error', async () => {
+      share.mockRejectedValue(new DOMException('Share canceled', 'AbortError'));
+      const user = await preparePayslipImage();
+      await user.click(screen.getByRole('button', { name: 'Share' }));
+
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+      expect(screen.queryByText(/share sheet could not open/)).not.toBeInTheDocument();
+    });
+
+    it('hides Share where the browser cannot share files', async () => {
+      delete (navigator as { canShare?: unknown }).canShare;
+      await preparePayslipImage();
+
+      expect(screen.getByRole('link', { name: 'Save PNG' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
+    });
+  });
+
   it('surfaces rasterization failure and offers a retry without removing the payslip', async () => {
     image.toPng.mockRejectedValue(new Error('canvas failed'));
     api.payslip.mockResolvedValue(adjustedPayslip);
