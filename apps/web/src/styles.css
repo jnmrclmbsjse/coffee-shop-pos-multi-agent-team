@@ -11983,8 +11983,7 @@ select:not([multiple])::-ms-expand {
 }
 
 .schedule-toolbar,
-.schedule-tabs,
-.schedule-shift {
+.schedule-tabs {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -12009,7 +12008,8 @@ select:not([multiple])::-ms-expand {
 
 .schedule-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(15rem, 1fr));
+  /* 17rem keeps both 12-hour time fields ("07:00 AM") readable side by side. */
+  grid-template-columns: repeat(7, minmax(17rem, 1fr));
   gap: var(--space-4);
   overflow-x: auto;
   padding-bottom: var(--space-4);
@@ -12029,13 +12029,28 @@ select:not([multiple])::-ms-expand {
   margin: var(--space-3) 0;
 }
 
+/* Staff on line 1, start and end side by side on line 2, then a full-width
+   Remove, so every shift in every day card has the same shape. */
 .schedule-shift {
-  align-items: stretch;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
 }
 
-.schedule-shift select {
-  flex: 1 1 100%;
+.schedule-shift select,
+.schedule-shift input {
+  width: 100%;
+  min-width: 0;
+}
+
+.schedule-shift select,
+.schedule-shift > .catalog-button,
+.schedule-shift > p {
+  grid-column: 1 / -1;
+}
+
+.schedule-shift > p {
+  margin: 0;
 }
 
 .schedule-unsaved {
