@@ -2467,18 +2467,55 @@ textarea {
 }
 
 .staff-table {
-  min-width: 720px;
+  /* Below this width the wrap scrolls sideways instead of squeezing the
+     action buttons into each other (the scroll hint explains it). */
+  min-width: 900px;
   table-layout: fixed;
-}
-
-.staff-table th:first-child,
-.staff-table td:first-child {
-  width: 40%;
 }
 
 .staff-table th:nth-child(2),
 .staff-table td:nth-child(2) {
-  width: 220px;
+  width: 170px;
+}
+
+.staff-table th:nth-child(3),
+.staff-table td:nth-child(3) {
+  width: 120px;
+}
+
+.staff-table th:nth-child(4),
+.staff-table td:nth-child(4) {
+  width: 170px;
+}
+
+.staff-table th:nth-child(5),
+.staff-table td:nth-child(5) {
+  width: 310px;
+}
+
+.staff-table td[data-label='Name'] strong {
+  overflow-wrap: anywhere;
+}
+
+.staff-account-name {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staff-milestone {
+  display: grid;
+  gap: 2px;
+}
+
+.staff-milestone-date {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .staff-status-control {
@@ -2489,26 +2526,15 @@ textarea {
 
 .staff-row-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
 }
 
-.staff-account-action {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
-}
-
-.staff-account-action > span {
-  max-width: 220px;
-  overflow: hidden;
-  color: var(--ink-soft);
-  font-size: 12px;
-  font-weight: 650;
-  text-overflow: ellipsis;
+/* A label never breaks inside a button; the whole button moves to the next
+   line instead. */
+.staff-row-actions > .catalog-button {
   white-space: nowrap;
 }
 
@@ -2518,6 +2544,85 @@ textarea {
   font-size: 12px;
   line-height: 1.35;
   text-align: left;
+}
+
+/* Staff cards below 1240px: five columns plus three actions do not fit
+   beside the sidebar. The phone rules below refine these cards. */
+@media (max-width: 1239px) {
+  .staff-table {
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  .catalog-table.staff-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .catalog-table.staff-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-3) var(--space-4);
+    padding: var(--space-4);
+    border-top: 1px solid var(--border);
+  }
+
+  .catalog-table.staff-table tbody tr:first-child {
+    border-top: 0;
+  }
+
+  .catalog-table.staff-table td {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .catalog-table.staff-table td[data-label='Name'] {
+    grid-column: 1 / 2;
+    grid-row: span 2;
+  }
+
+  .catalog-table.staff-table td[data-label='Is active'] {
+    grid-column: 2 / 4;
+  }
+
+  .catalog-table.staff-table td[data-label='Type'] {
+    grid-column: 2 / 3;
+  }
+
+  .catalog-table.staff-table td[data-label='Next milestone'] {
+    grid-column: 3 / 4;
+  }
+
+  .catalog-table.staff-table td[data-label='Actions'] {
+    grid-column: 1 / -1;
+  }
+
+  .catalog-table.staff-table td:not([data-label='Actions'])::before {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .staff-row-actions {
+    justify-content: flex-start;
+  }
+
+  /* Search takes its own row so the three selects are never clipped. */
+  .staff-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .staff-filters > :first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 .staff-empty {
@@ -3207,19 +3312,9 @@ textarea {
     table-layout: auto;
   }
 
-  .staff-table td:first-child,
-  .staff-table td:nth-child(2) {
-    width: 100%;
-  }
-
-  .catalog-table.staff-table tbody tr {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .catalog-table.staff-table td[data-label='Name'],
-  .catalog-table.staff-table td[data-label='Is active'],
-  .catalog-table.staff-table td[data-label='Actions'] {
-    grid-column: 1 / -1;
+  .staff-table th:nth-child(n),
+  .staff-table td:nth-child(n) {
+    width: auto;
   }
 
   .staff-table td[data-label='Name']::before,
@@ -3232,9 +3327,34 @@ textarea {
     font-weight: 700;
   }
 
+  /* Name, status and actions span the card; Type and Next milestone sit
+     side by side so the card stays short. */
+  .catalog-table.staff-table tbody tr {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .catalog-table.staff-table td[data-label='Name'],
+  .catalog-table.staff-table td[data-label='Is active'],
+  .catalog-table.staff-table td[data-label='Actions'] {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .catalog-table.staff-table td[data-label='Type'] {
+    grid-column: 1 / 2;
+  }
+
+  .catalog-table.staff-table td[data-label='Next milestone'] {
+    grid-column: 2 / 3;
+  }
+
   .catalog-table.staff-table td[data-label='Actions'] {
     width: 100%;
     align-self: stretch;
+  }
+
+  .catalog-table.staff-table td[data-label='Actions']::before {
+    display: none;
   }
 
   .staff-status-control {
@@ -3258,19 +3378,8 @@ textarea {
     width: 100%;
   }
 
-  .staff-account-action {
-    width: 100%;
-    display: grid;
-    justify-items: stretch;
-  }
-
-  .staff-account-action > span {
+  .staff-account-unavailable {
     max-width: none;
-    text-align: left;
-  }
-
-  .staff-account-action .catalog-button {
-    width: 100%;
   }
 
   .staff-account-input-row {

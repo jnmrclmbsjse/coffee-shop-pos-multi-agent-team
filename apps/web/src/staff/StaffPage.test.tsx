@@ -389,7 +389,11 @@ describe('staff roster page', () => {
       }),
     ).not.toBeInTheDocument();
 
-    expect(screen.getByText('mara.login')).toBeInTheDocument();
+    // The username sits under the name, so the Actions cell holds buttons only
+    // and never squeezes them into each other.
+    const nameCell = screen.getByText('mara.login').closest('td');
+    expect(nameCell).toHaveAttribute('data-label', 'Name');
+    expect(replace.closest('td')).toHaveAttribute('data-label', 'Actions');
     await user.click(replace);
 
     const dialog = screen.getByRole('dialog', {

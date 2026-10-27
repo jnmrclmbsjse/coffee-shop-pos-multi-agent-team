@@ -337,7 +337,7 @@ export function StaffPage() {
           <h1>Staff</h1>
           <p>Manage names used to identify cashiers at the register.</p>
         </div>
-        <div className="staff-row-actions">
+        <div className="catalog-head-actions">
           <button
             className="catalog-button"
             type="button"
@@ -506,6 +506,11 @@ export function StaffPage() {
                   <tr key={member.id}>
                     <td data-label="Name">
                       <strong>{member.displayName}</strong>
+                      {member.hasAccount && (
+                        <span className="staff-account-name">
+                          Account: <strong>{member.accountUsername}</strong>
+                        </span>
+                      )}
                     </td>
                     <td data-label="Is active">
                       <div className="staff-status-control">
@@ -530,9 +535,16 @@ export function StaffPage() {
                         : '—'}
                     </td>
                     <td data-label="Next milestone">
-                      {member.nextMilestone
-                        ? `${MILESTONE_LABELS[member.nextMilestone.kind]} · ${formatBusinessDate(member.nextMilestone.date)}`
-                        : '—'}
+                      {member.nextMilestone ? (
+                        <span className="staff-milestone">
+                          <span>{MILESTONE_LABELS[member.nextMilestone.kind]}</span>
+                          <span className="staff-milestone-date">
+                            {formatBusinessDate(member.nextMilestone.date)}
+                          </span>
+                        </span>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td data-label="Actions" className="table-action">
                       <div className="staff-row-actions">
@@ -553,19 +565,14 @@ export function StaffPage() {
                           Employment
                         </button>
                         {member.hasAccount ? (
-                          <div className="staff-account-action">
-                            <span>
-                              Account: <strong>{member.accountUsername}</strong>
-                            </span>
-                            <button
-                              className="catalog-button small"
-                              type="button"
-                              aria-label={`Replace password or PIN for ${member.displayName}`}
-                              onClick={() => openCredentialDialog(member)}
-                            >
-                              Replace password or PIN
-                            </button>
-                          </div>
+                          <button
+                            className="catalog-button small"
+                            type="button"
+                            aria-label={`Replace password or PIN for ${member.displayName}`}
+                            onClick={() => openCredentialDialog(member)}
+                          >
+                            Replace password or PIN
+                          </button>
                         ) : member.isActive ? (
                           <button
                             className="catalog-button small"
