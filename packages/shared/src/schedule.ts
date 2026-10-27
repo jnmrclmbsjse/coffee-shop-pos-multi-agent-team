@@ -1,4 +1,4 @@
-import type { ScheduleDayView } from './domain.js';
+import type { ScheduleDayView, ScheduleWeekView } from './domain.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -65,4 +65,27 @@ export function formatScheduleDayMessage(day: ScheduleDayView): string {
     }`,
   );
   return lines.join('\n');
+}
+
+/** The whole week as one message: a heading line, then each day's message
+ * (the same text as that day's own Copy message), separated by blank lines. */
+export function formatScheduleWeekMessage(
+  week: Pick<ScheduleWeekView, 'weekStartDate' | 'days'>,
+): string {
+  const start = new Date(`${week.weekStartDate}T00:00:00.000Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 6);
+  const format = (date: Date, withYear: boolean) =>
+    new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      ...(withYear ? { year: 'numeric' } : {}),
+      timeZone: 'UTC',
+    }).format(date);
+  const crossesYear = start.getUTCFullYear() !== end.getUTCFullYear();
+  const heading = `🗓️ Weekly schedule: ${format(start, crossesYear)} – ${format(end, true)}`;
+  const days = [...week.days]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(formatScheduleDayMessage);
+  return [heading, ...days].join('\n\n');
 }

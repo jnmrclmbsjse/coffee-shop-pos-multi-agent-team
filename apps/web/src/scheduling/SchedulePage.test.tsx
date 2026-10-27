@@ -84,4 +84,43 @@ describe('SchedulePage', () => {
     );
     expect(await screen.findByText('Copied')).toBeInTheDocument();
   });
+
+  it('copies the whole week as one message, including a read-only past week', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    api.get.mockResolvedValue({
+      ...week,
+      editable: false,
+      days: [
+        ...week.days,
+        {
+          date: '2026-10-26',
+          eventNote: null,
+          shifts: [],
+          dayOff: [
+            { staffMemberId: staff[0]!.id, displayName: 'Anna' },
+            { staffMemberId: staff[1]!.id, displayName: 'Ben' },
+          ],
+        },
+      ],
+    });
+    render(<SchedulePage />);
+    const copyWeek = await screen.findByRole('button', { name: 'Copy week' });
+    expect(
+      screen.queryByRole('button', { name: 'Save week' }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(copyWeek);
+
+    expect(writeText).toHaveBeenCalledWith(
+      '🗓️ Weekly schedule: 25 Oct – 31 Oct 2026\n\n' +
+        '📅 Sunday, 25 Oct 2026\n🎉 Event: Birthday booking\nOn duty:\n• Anna: 7:00 AM – 3:00 PM\nDay off: Ben\n\n' +
+        '📅 Monday, 26 Oct 2026\nOn duty: none\nDay off: Anna, Ben',
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Copied' }),
+    ).toBeInTheDocument();
+  });
 });
