@@ -2524,22 +2524,26 @@ textarea {
   gap: var(--space-3);
 }
 
+/* One block per row, the same width on every row: Edit and Employment
+   split the first line, and the account button (or its note) fills the
+   second line, so every button edge lines up down the table. */
 .staff-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
-/* A label never breaks inside a button; the whole button moves to the next
-   line instead. */
+.staff-row-actions > :nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+
+/* A label never breaks inside a button. */
 .staff-row-actions > .catalog-button {
+  width: 100%;
   white-space: nowrap;
 }
 
 .staff-account-unavailable {
-  max-width: 190px;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
@@ -2611,8 +2615,14 @@ textarea {
     font-weight: 700;
   }
 
+  /* Cards: one row of three equal buttons. */
   .staff-row-actions {
-    justify-content: flex-start;
+    max-width: 600px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .staff-row-actions > :nth-child(n + 3) {
+    grid-column: auto;
   }
 
   /* Search takes its own row so the three selects are never clipped. */
@@ -2621,6 +2631,18 @@ textarea {
   }
 
   .staff-filters > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Narrow cards: three equal buttons no longer fit "Replace password or PIN",
+   so use the desktop pattern of two buttons over one full-width button. */
+@media (max-width: 900px) {
+  .staff-row-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .staff-row-actions > :nth-child(n + 3) {
     grid-column: 1 / -1;
   }
 }
@@ -3370,16 +3392,8 @@ textarea {
   }
 
   .staff-row-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .staff-row-actions > .catalog-button {
-    width: 100%;
-  }
-
-  .staff-account-unavailable {
     max-width: none;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .staff-account-input-row {
