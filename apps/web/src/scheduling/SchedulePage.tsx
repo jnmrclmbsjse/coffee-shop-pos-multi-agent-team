@@ -1,5 +1,6 @@
 import {
   formatScheduleDayMessage,
+  formatScheduleWeekMessage,
   formatShiftTime,
   weekStartFor,
   type ScheduleDayView,
@@ -11,6 +12,8 @@ import { Icon, Notice } from '../catalog/components';
 import { shopDate } from '../reporting/format';
 import { listStaffMembers } from '../staff/api';
 import { getScheduleWeek, saveScheduleWeek } from './api';
+
+const WEEK_COPY_KEY = 'week';
 
 function addDays(value: string, amount: number) {
   const date = new Date(`${value}T00:00:00Z`);
@@ -244,19 +247,26 @@ export function SchedulePage() {
       setSaving(false);
     }
   }
-  async function copy(day: ScheduleDayView) {
-    const text = formatScheduleDayMessage(day);
+  // `key` is a day's date, or WEEK_COPY_KEY for the whole week.
+  async function copyText(text: string, key: string) {
     try {
       if (!navigator.clipboard?.writeText) throw new Error();
       await navigator.clipboard.writeText(text);
-      setCopiedDate(day.date);
+      setCopiedDate(key);
       window.setTimeout(
-        () => setCopiedDate((current) => (current === day.date ? '' : current)),
+        () => setCopiedDate((current) => (current === key ? '' : current)),
         2000,
       );
     } catch {
       setFallback(text);
     }
+  }
+  function copy(day: ScheduleDayView) {
+    return copyText(formatScheduleDayMessage(day), day.date);
+  }
+  function copyWeek() {
+    if (!week) return;
+    return copyText(formatScheduleWeekMessage(week), WEEK_COPY_KEY);
   }
   return (
     <main className="catalog-page schedule-page">
@@ -265,16 +275,29 @@ export function SchedulePage() {
           <h1>Schedule</h1>
           <p>Plan one shift per person, Sunday to Saturday.</p>
         </div>
-        {week?.editable && (
+        <div className="catalog-head-actions">
           <button
-            className="catalog-button primary"
+            className="catalog-button"
             type="button"
-            onClick={save}
-            disabled={saving}
+            onClick={() => void copyWeek()}
+            disabled={loading || !week}
           >
-            {saving ? 'Saving…' : 'Save week'}
+            {copiedDate === WEEK_COPY_KEY ? 'Copied' : 'Copy week'}
           </button>
-        )}
+          {week?.editable && (
+            <button
+              className="catalog-button primary"
+              type="button"
+              onClick={save}
+              disabled={saving}
+            >
+              {saving ? 'Saving…' : 'Save week'}
+            </button>
+          )}
+        </div>
+        <span className="sr-only" aria-live="polite">
+          {copiedDate === WEEK_COPY_KEY ? 'Week schedule copied' : ''}
+        </span>
       </header>
       <div className="schedule-toolbar">
         <button
